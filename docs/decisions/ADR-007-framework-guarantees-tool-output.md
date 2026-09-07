@@ -7,9 +7,10 @@ Status: Accepted
 A Tool declares an output model, and the Agent channel publishes a schema derived from that
 model, so the value a channel receives must match what was published.
 
-Pydantic treats an existing model instance as already valid. Instances "are assumed to be
-valid", `model_construct()` "does not do any validation, meaning it can create models which
-are invalid", and assignment is unvalidated by default
+Pydantic treats an existing model instance as already valid. With `revalidate_instances`
+defaulting to `'never'` instances "are assumed to be valid", `model_construct()` "does not do
+any validation, meaning it can create models which are invalid", and `validate_assignment`
+defaults to `False`, so a field changed after construction is not validated
 ([Pydantic - Models](https://pydantic.dev/docs/validation/latest/concepts/models/),
 [Pydantic - Configuration](https://pydantic.dev/docs/validation/latest/api/pydantic/config/)).
 

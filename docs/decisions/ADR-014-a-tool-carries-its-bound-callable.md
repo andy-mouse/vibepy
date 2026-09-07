@@ -13,7 +13,8 @@ concrete Tool is assignable to a common erased form
 ([Typing spec - Generics](https://typing.python.org/en/latest/spec/generics.html)).
 
 This is ADR-008's problem in a new position, and the registry is not where it can be solved.
-A registry belongs to AppRuntime, so a declaration cannot hold one.
+A registry belongs to AppRuntime, so a declaration cannot hold one. ADR-011 also left the
+registry holding each declaration in a second dictionary beside the bound callables.
 
 ## Decision
 
@@ -24,7 +25,11 @@ static type per App and a sequence of them is expressible.
 A generic constructor is chosen over a factory function beside a frozen dataclass. The
 factory is more obvious to a reader but adds a second name for one concept, and a generic
 constructor leaves every declaration site unchanged. It is standard syntax rather than
-metaprogramming ([PEP 695](https://peps.python.org/pep-0695/)).
+metaprogramming ([PEP 695](https://peps.python.org/pep-0695/)), and the dependency type is
+inferred from the handler alone.
+
+ToolRegistry keeps one dictionary of Tools, and `definitions()` enumerates each Tool's
+declaration in registration order, unchanged.
 
 ## Consequences
 
@@ -36,3 +41,4 @@ metaprogramming ([PEP 695](https://peps.python.org/pep-0695/)).
 - every declaration site is unchanged
 - a Tool no longer exposes its handler, so code that reached through a Tool to call a handler
   calls the function instead
+- registering a name twice still replaces the earlier Tool, declaration included

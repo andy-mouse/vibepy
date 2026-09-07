@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-The official MCP Python SDK offers two surfaces: a high-level MCPServer where a decorator
+The official MCP Python SDK offers two surfaces: a high-level MCPServer where `@mcp.tool()`
 turns a Python function into an MCP Tool, and a low-level Server whose request handlers
 return protocol result objects
 ([MCP Python SDK - Low-level server](https://py.sdk.modelcontextprotocol.io/v2/advanced/low-level-server)).
@@ -24,9 +24,9 @@ is what a projection requires.
 
 ## Consequences
 
-- discovery enumerates the declarations the registry holds, so an MCP schema is always the
-  declaration's own
-- the adapter builds protocol results and maps framework errors by hand, a cost accepted in
-  exchange for the projection direction
+- discovery enumerates the declarations the registry holds and projects each through
+  `to_mcp_tool`, so an MCP schema is always the declaration's own `model_json_schema()`
+- the adapter constructs `CallToolResult` and maps framework errors onto MCP by hand, a cost
+  accepted in exchange for the projection direction
 - the SDK's handler signatures rather than its decorators are the integration surface, so an
   SDK change is confined to the adapter

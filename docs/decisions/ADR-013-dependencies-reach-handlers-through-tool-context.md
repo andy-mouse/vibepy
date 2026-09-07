@@ -27,14 +27,14 @@ nothing to read.
 
 ## Consequences
 
-- the dependency type threads through ToolContext, ToolHandler, Tool, ToolRegistry,
+- `DepsT` threads through ToolContext, ToolHandler, Tool, ToolRegistry,
   ToolRuntime, AppDefinition and AppRuntime
-- ADR-008's variance problem does not recur. It arises because each Tool has its own input
-  type, whereas the dependency type is one type per App, so a registry parameterized by it
-  holds uniformly typed values with neither Any nor cast
+- ADR-008's variance problem does not recur. It arises because each Tool has its own
+  `InputT`, whereas `DepsT` is one type per App, so a `ToolRegistry[DepsT]` holds uniformly
+  typed values with neither Any nor cast
 - the Page model is untouched. A Page reaches Tools by name through ToolInvoker, so no Page
-  type carries the dependency type, and PageRuntime depends on the shape of Tool invocation
-  rather than on the runtime
+  type carries `DepsT`, and PageRuntime depends on the shape of Tool invocation rather than on
+  `ToolRuntime[DepsT]`, for the reason ToolInvoker itself exists
 - a handler still receives no access to AppRuntime. It receives one value of a type the app
   itself declared
 - closures remain legal. An app may still bind state into a handler; the framework simply no
