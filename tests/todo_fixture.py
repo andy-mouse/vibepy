@@ -4,6 +4,9 @@ It stays a fixture rather than a package: an importable sample app presumes the
 App Package layer, which is M9.
 """
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from nicegui import ui
 from pydantic import BaseModel
 
@@ -47,6 +50,12 @@ class TodoStore:
         return list(self._todos)
 
 
+@asynccontextmanager
+async def todo_lifespan() -> AsyncGenerator[TodoStore]:
+    """The Todo App's resource, acquired at startup and dropped at shutdown."""
+    yield TodoStore()
+
+
 async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> Todo:
     return ctx.dependencies.create(payload.title)
 
@@ -83,7 +92,7 @@ def build_todo_app() -> AppRuntime[TodoStore]:
             app_id=APP_ID,
             name="Todo",
             version="0.0.0",
-            create_dependencies=TodoStore,
+            lifespan=todo_lifespan,
             tools=[
                 Tool(
                     definition=ToolDefinition(

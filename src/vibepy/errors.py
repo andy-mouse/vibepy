@@ -1,5 +1,7 @@
 """Framework exceptions. Exception types are the contract, message strings are not."""
 
+from vibepy.lifecycle import AppRuntimeState
+
 
 class VibepyError(Exception):
     """Base class for every exception raised by the framework."""
@@ -56,3 +58,22 @@ class PageRouteConflictError(VibepyError):
         self.route = route
         self.page_name = page_name
         self.conflicting_page_name = conflicting_page_name
+
+
+class AppRuntimeTransitionError(VibepyError):
+    """A lifecycle transition the runtime's current state forbids."""
+
+    def __init__(self, app_id: str, state: AppRuntimeState, transition: str) -> None:
+        super().__init__(f"App {app_id!r} cannot {transition} while {state.value}")
+        self.app_id = app_id
+        self.state = state
+        self.transition = transition
+
+
+class AppRuntimeNotRunningError(VibepyError):
+    """A runtime that exists only while RUNNING was reached outside that window."""
+
+    def __init__(self, app_id: str, state: AppRuntimeState) -> None:
+        super().__init__(f"App {app_id!r} is {state.value}, not running")
+        self.app_id = app_id
+        self.state = state

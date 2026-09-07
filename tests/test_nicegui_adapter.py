@@ -13,6 +13,7 @@ from nicegui import app, ui
 from nicegui.testing import User
 from starlette.routing import Route
 
+from tests.lifecycle import no_dependencies, started
 from tests.todo_fixture import build_todo_app
 from vibepy.adapters.nicegui import register_pages
 from vibepy.app import AppDefinition, AppRuntime
@@ -29,7 +30,7 @@ def build_web_app(pages: list[Page]) -> AppRuntime[None]:
             app_id=APP_ID,
             name="Test",
             version="0.0.0",
-            create_dependencies=lambda: None,
+            lifespan=no_dependencies,
             tools=[],
             pages=pages,
         )
@@ -44,7 +45,7 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
     async def handler(ctx: PageContext) -> None:
         ui.label("Todos")
 
-    register_pages(
+    async with started(
         build_web_app(
             [
                 Page(
@@ -53,11 +54,12 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
                 )
             ]
         )
-    )
+    ) as app_under_test:
+        register_pages(app_under_test)
 
-    assert "/todos" in registered_paths()
-    await user.open("/todos")
-    await user.should_see("Todos")
+        assert "/todos" in registered_paths()
+        await user.open("/todos")
+        await user.should_see("Todos")
 
 
 async def test_the_handler_receives_a_page_context(user: User) -> None:
@@ -67,7 +69,7 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
         seen.append(ctx)
         ui.label("Todos")
 
-    register_pages(
+    async with started(
         build_web_app(
             [
                 Page(
@@ -76,8 +78,9 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
                 )
             ]
         )
-    )
-    await user.open("/todos")
+    ) as app_under_test:
+        register_pages(app_under_test)
+        await user.open("/todos")
 
     assert len(seen) == 1
     assert callable(seen[0].tools.invoke)
@@ -95,36 +98,42 @@ def page(name: str, route: str) -> Page:
 
 
 async def test_a_route_that_is_not_a_path_is_rejected(user: User) -> None:
-    with pytest.raises(PageRouteInvalidError) as error:
-        register_pages(build_web_app([page("todos", "todos")]))
+    async with started(build_web_app([page("todos", "todos")])) as app_under_test:
+        with pytest.raises(PageRouteInvalidError) as error:
+            register_pages(app_under_test)
 
     assert error.value.page_name == "todos"
     assert error.value.route == "todos"
 
 
 async def test_two_pages_may_not_claim_one_route(user: User) -> None:
-    with pytest.raises(PageRouteConflictError) as error:
-        register_pages(build_web_app([page("todos", "/todos"), page("archive", "/todos")]))
+    pages = [page("todos", "/todos"), page("archive", "/todos")]
+
+    async with started(build_web_app(pages)) as app_under_test:
+        with pytest.raises(PageRouteConflictError) as error:
+            register_pages(app_under_test)
 
     assert error.value.route == "/todos"
     assert {error.value.page_name, error.value.conflicting_page_name} == {"todos", "archive"}
 
 
 async def test_a_rejected_registry_registers_nothing(user: User) -> None:
-    with pytest.raises(PageRouteInvalidError):
-        register_pages(build_web_app([page("todos", "/todos"), page("archive", "archive")]))
+    pages = [page("todos", "/todos"), page("archive", "archive")]
+
+    async with started(build_web_app(pages)) as app_under_test:
+        with pytest.raises(PageRouteInvalidError):
+            register_pages(app_under_test)
 
     assert "/todos" not in registered_paths()
 
 
 async def test_page_interaction_invokes_a_tool(user: User) -> None:
-    app_under_test = build_todo_app()
-
-    register_pages(app_under_test)
-    await user.open("/todos")
-    user.find("title").type("write the spec")
-    user.find("Add").click()
-    await user.should_see("todo: write the spec")
+    async with started(build_todo_app()) as app_under_test:
+        register_pages(app_under_test)
+        await user.open("/todos")
+        user.find("title").type("write the spec")
+        user.find("Add").click()
+        await user.should_see("todo: write the spec")
 
 
 def _imported_module_names(source: str) -> list[str]:

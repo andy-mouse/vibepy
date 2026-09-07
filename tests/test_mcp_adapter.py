@@ -1,5 +1,7 @@
 import ast
 import json
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,7 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, TextContent
 from pydantic import BaseModel
 
+from tests.lifecycle import no_dependencies, started
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy.app import AppDefinition, AppRuntime
 from vibepy.tool import Tool, ToolContext, ToolDefinition
@@ -99,26 +102,28 @@ class TodoFixture:
         ]
 
 
-def build_server(tools: list[Tool[None]]) -> Server[None]:
-    """One App with no application-scoped resource: these fixtures hold their own."""
-    return build_mcp_server(
+@asynccontextmanager
+async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[None]]:
+    """One started App with no application-scoped resource: these fixtures hold their own."""
+    async with started(
         AppRuntime(
             AppDefinition(
                 app_id=APP_ID,
                 name="Test",
                 version="0.0.0",
-                create_dependencies=lambda: None,
+                lifespan=no_dependencies,
                 tools=tools,
                 pages=[],
             )
         )
-    )
+    ) as app:
+        yield build_mcp_server(app)
 
 
 async def test_framework_tools_appear_in_mcp_discovery() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         listed = await client.list_tools()
 
     assert [tool.name for tool in listed.tools] == ["create_todo", "list_todos"]
@@ -128,7 +133,7 @@ async def test_framework_tools_appear_in_mcp_discovery() -> None:
 async def test_discovered_schemas_are_the_projected_schemas() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         listed = await client.list_tools()
 
     assert listed.tools[0].input_schema == CreateTodoInput.model_json_schema()
@@ -139,7 +144,7 @@ async def test_discovered_schemas_are_the_projected_schemas() -> None:
 async def test_a_call_reaches_the_tool_and_changes_app_state() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         await client.call_tool("create_todo", {"title": "milk"})
 
     assert [todo.title for todo in fixture.todos] == ["milk"]
@@ -148,7 +153,7 @@ async def test_a_call_reaches_the_tool_and_changes_app_state() -> None:
 async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         await client.call_tool("create_todo", {"title": "milk"})
         await client.call_tool("create_todo", {"title": "eggs"})
 
@@ -162,7 +167,7 @@ async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
 async def test_a_result_is_the_validated_output_model() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         result = await client.call_tool("create_todo", {"title": "milk"})
 
     expected = Todo(id=1, title="milk", done=False).model_dump(by_alias=True, mode="json")
@@ -176,7 +181,7 @@ async def test_a_result_is_the_validated_output_model() -> None:
 async def test_a_nested_result_survives_the_round_trip() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         await client.call_tool("create_todo", {"title": "milk"})
         result = await client.call_tool("list_todos", {})
 
@@ -222,7 +227,7 @@ class BrokenFixture:
 async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         with pytest.raises(MCPError) as raised:
             await client.call_tool("no_such_tool", {})
 
@@ -233,7 +238,7 @@ async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
 async def test_invalid_input_is_reported_inside_the_result() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.tools())) as client:
+    async with server_for(fixture.tools()) as server, Client(server) as client:
         result = await client.call_tool("create_todo", {})
 
     assert result.is_error is True
@@ -241,14 +246,14 @@ async def test_invalid_input_is_reported_inside_the_result() -> None:
 
 
 async def test_a_raising_handler_is_reported_inside_the_result() -> None:
-    async with Client(build_server(BrokenFixture().tools())) as client:
+    async with server_for(BrokenFixture().tools()) as server, Client(server) as client:
         result = await client.call_tool("explode", {})
 
     assert result.is_error is True
 
 
 async def test_invalid_output_is_reported_inside_the_result() -> None:
-    async with Client(build_server(BrokenFixture().tools())) as client:
+    async with server_for(BrokenFixture().tools()) as server, Client(server) as client:
         result = await client.call_tool("lie", {})
 
     assert result.is_error is True
