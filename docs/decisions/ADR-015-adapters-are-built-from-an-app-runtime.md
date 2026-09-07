@@ -25,7 +25,5 @@ because it is the App's stable identifier.
 - the adapters read `tool_registry`, `tool_runtime`, `page_registry`, `page_runtime` and
   `definition` from the AppRuntime; nothing else is exposed, and the application-scoped
   resource is not
-- ADR-010 and ADR-012 are unaffected. Building an MCP server is still not running one, and
-  registering routes is still not starting a Web server
 - an App reaches a channel by being passed to that channel's adapter, so an App with no Agent
   channel simply never has a server built for it

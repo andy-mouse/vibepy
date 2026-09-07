@@ -30,5 +30,4 @@ NiceGUI reports no collision of its own.
 - the runtime lifecycle adds a call to `ui.run()` at startup, not a rewrite of this adapter
 - two Pages declaring one route fail loudly at registration rather than one disappearing
   silently
-- registration is process-global, so one process serves one App's Pages. Isolating several
-  installed Apps is a later question and this decision does not prejudge it
+- registration is process-global, so one process serves one App's Pages
