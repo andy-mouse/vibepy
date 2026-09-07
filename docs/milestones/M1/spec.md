@@ -97,8 +97,8 @@ an app's output models: `docs/decisions/ADR-007-framework-guarantees-tool-output
 Maps a name to a `BoundTool`. Storage only; it does not implement invocation semantics.
 
 - `register(tool)` accepts a `Tool` over any input/output models and binds it.
-- Registering a name twice raises `ToolAlreadyRegisteredError`. Silent replacement is not
-  offered; a duplicate name is a composition error, not a runtime condition.
+- Registering a name twice replaces the earlier binding. Declaration consistency is M16's
+  scope in `docs/roadmap.md`, and M1 does not build ahead of it.
 - Resolution is consumed by `ToolRuntime` only.
 
 Binding is what lets heterogeneous Tools share one map, and it happens where the model
@@ -127,7 +127,11 @@ are not.
 - `ToolNotFoundError` - the name is not registered
 - `ToolInputValidationError` - raw input does not satisfy the input model
 - `ToolOutputValidationError` - the handler result does not satisfy the output model
-- `ToolAlreadyRegisteredError` - a name is registered twice
+
+Each carries a `tool_name` attribute, which is what the Python tutorial describes as an
+exception's usual purpose - attributes that let a handler extract information about the
+error ([Errors and Exceptions](https://docs.python.org/3/tutorial/errors.html)). Names
+follow [PEP 8](https://peps.python.org/pep-0008/): CapWords with an `Error` suffix.
 
 Exceptions raised by a handler propagate unchanged. `ToolRuntime` does not wrap them.
 Normalizing domain exceptions at the channel boundary is M7's decision, and wrapping them
@@ -170,7 +174,6 @@ Tests verify public contracts:
 - malformed raw input raises `ToolInputValidationError`
 - a handler returning a value that violates its output model raises `ToolOutputValidationError`
 - a domain exception raised by a handler reaches the caller unchanged
-- registering the same name twice raises `ToolAlreadyRegisteredError`
 - the handler receives a `ToolContext` carrying the runtime's `app_id`
 - two invocations receive different `invocation_id` values
 
@@ -179,5 +182,6 @@ Done when `make lint typecheck test` passes.
 ## Out of scope
 
 Query/command classification, side-effect and idempotency metadata, permissions, exposure
-policy, MCP schema generation, Tool name format policy, domain exception normalization,
-timeouts, cancellation, middleware, `AppRuntime` and app-scoped dependencies.
+policy, MCP schema generation, Tool name format policy, duplicate declaration diagnostics,
+domain exception normalization, timeouts, cancellation, middleware, `AppRuntime` and
+app-scoped dependencies.

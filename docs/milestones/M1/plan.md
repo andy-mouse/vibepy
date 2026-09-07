@@ -50,7 +50,7 @@
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: `VibepyError`, `ToolAlreadyRegisteredError(tool_name: str)`, `ToolInputValidationError(tool_name: str)`, `ToolNotFoundError(tool_name: str)`, `ToolOutputValidationError(tool_name: str)`, each exposing a `tool_name: str` attribute; `ToolContext(app_id: str, invocation_id: str)`; `ToolDefinition[InputT, OutputT](name: str, description: str, input_model: type[InputT], output_model: type[OutputT])`; `ToolHandler[InputT, OutputT]` protocol callable as `handler(ctx, payload)` with positional-only parameters; `Tool[InputT, OutputT](definition, handler)`. All four framework error types are created here so later tasks import them rather than editing this file.
+- Produces: `VibepyError`, `ToolInputValidationError(tool_name: str)`, `ToolNotFoundError(tool_name: str)`, `ToolOutputValidationError(tool_name: str)`, each exposing a `tool_name: str` attribute; `ToolContext(app_id: str, invocation_id: str)`; `ToolDefinition[InputT, OutputT](name: str, description: str, input_model: type[InputT], output_model: type[OutputT])`; `ToolHandler[InputT, OutputT]` protocol callable as `handler(ctx, payload)` with positional-only parameters; `Tool[InputT, OutputT](definition, handler)`. All three framework error types are created here so later tasks import them rather than editing this file.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -214,14 +214,6 @@ class ToolNotFoundError(VibepyError):
         self.tool_name = tool_name
 
 
-class ToolAlreadyRegisteredError(VibepyError):
-    """A Tool name was registered twice."""
-
-    def __init__(self, tool_name: str) -> None:
-        super().__init__(f"A Tool is already registered under the name {tool_name!r}")
-        self.tool_name = tool_name
-
-
 class ToolInputValidationError(VibepyError):
     """Raw input did not satisfy the Tool's input model."""
 
@@ -330,12 +322,12 @@ git commit -m "Add the Tool model declarations"
 - Test: `tests/test_tool_core.py` (append)
 
 **Interfaces:**
-- Consumes: `Tool`, `ToolContext` from `vibepy.tool.model`; `ToolAlreadyRegisteredError`, `ToolInputValidationError`, `ToolNotFoundError`, `ToolOutputValidationError` from `vibepy.errors`.
+- Consumes: `Tool`, `ToolContext` from `vibepy.tool.model`; `ToolInputValidationError`, `ToolNotFoundError`, `ToolOutputValidationError` from `vibepy.errors`.
 - Produces: `type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]` and `bind(tool: Tool[InputT, OutputT]) -> BoundTool` in `vibepy.tool.runtime`; `ToolRegistry()` with `register(tool: Tool[InputT, OutputT]) -> None` and `resolve(name: str) -> BoundTool`. `BoundTool` and `bind` are framework-internal and are not re-exported from `vibepy`; Task 3 calls `await resolve(name)(ctx, raw_input)`.
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_tool_core.py`, and add `ToolRegistry` to the existing `from vibepy.tool import ...` line plus a new `from vibepy.errors import ToolAlreadyRegisteredError, ToolNotFoundError` import:
+Append to `tests/test_tool_core.py`, and add `ToolRegistry` to the existing `from vibepy.tool import ...` line plus a new `from vibepy.errors import ToolNotFoundError` import:
 
 ```python
 def build_registry(store: TodoStore) -> ToolRegistry:
@@ -344,17 +336,6 @@ def build_registry(store: TodoStore) -> ToolRegistry:
     registry.register(list_todos_tool(store))
     registry.register(complete_todo_tool(store))
     return registry
-
-
-def test_registering_a_name_twice_raises() -> None:
-    store = TodoStore()
-    registry = ToolRegistry()
-    registry.register(create_todo_tool(store))
-
-    with pytest.raises(ToolAlreadyRegisteredError) as raised:
-        registry.register(create_todo_tool(store))
-
-    assert raised.value.tool_name == "create_todo"
 
 
 def test_resolving_an_unregistered_name_raises() -> None:
@@ -437,7 +418,7 @@ Create `src/vibepy/tool/registry.py`:
 
 from pydantic import BaseModel
 
-from vibepy.errors import ToolAlreadyRegisteredError, ToolNotFoundError
+from vibepy.errors import ToolNotFoundError
 from vibepy.tool.model import Tool
 from vibepy.tool.runtime import BoundTool, bind
 
@@ -451,10 +432,7 @@ class ToolRegistry:
     def register[InputT: BaseModel, OutputT: BaseModel](
         self, tool: Tool[InputT, OutputT]
     ) -> None:
-        name = tool.definition.name
-        if name in self._bound:
-            raise ToolAlreadyRegisteredError(name)
-        self._bound[name] = bind(tool)
+        self._bound[tool.definition.name] = bind(tool)
 
     def resolve(self, name: str) -> BoundTool:
         bound = self._bound.get(name)
@@ -483,7 +461,7 @@ __all__ = [
 - [ ] **Step 5: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_tool_core.py -v`
-Expected: PASS, 5 tests.
+Expected: PASS, 4 tests.
 
 - [ ] **Step 6: Run the full gate**
 
@@ -512,7 +490,7 @@ git commit -m "Bind typed Tools into uniform callables and register them"
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `tests/test_tool_core.py`. Add `ToolRuntime` to the `from vibepy.tool import ...` line and extend the errors import to `from vibepy.errors import ToolAlreadyRegisteredError, ToolInputValidationError, ToolNotFoundError, ToolOutputValidationError`.
+Append to `tests/test_tool_core.py`. Add `ToolRuntime` to the `from vibepy.tool import ...` line and extend the errors import to `from vibepy.errors import ToolInputValidationError, ToolNotFoundError, ToolOutputValidationError`.
 
 ```python
 class ProbeOutput(BaseModel):
@@ -697,7 +675,7 @@ __all__ = [
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest tests/test_tool_core.py -v`
-Expected: PASS, 13 tests.
+Expected: PASS, 12 tests.
 
 - [ ] **Step 5: Run the full gate**
 
@@ -721,7 +699,7 @@ git commit -m "Add the Tool runtime class"
 
 **Interfaces:**
 - Consumes: everything produced by Tasks 1 to 3.
-- Produces: the ten public names importable directly from `vibepy`.
+- Produces: the nine public names importable directly from `vibepy`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -734,7 +712,6 @@ import vibepy
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy.__all__ == [
         "Tool",
-        "ToolAlreadyRegisteredError",
         "ToolContext",
         "ToolDefinition",
         "ToolHandler",
@@ -765,7 +742,6 @@ Replace the whole of `src/vibepy/__init__.py`:
 """Agent-native application framework."""
 
 from vibepy.errors import (
-    ToolAlreadyRegisteredError,
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
@@ -775,7 +751,6 @@ from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegi
 
 __all__ = [
     "Tool",
-    "ToolAlreadyRegisteredError",
     "ToolContext",
     "ToolDefinition",
     "ToolHandler",
@@ -791,7 +766,7 @@ __all__ = [
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `uv run pytest -v`
-Expected: PASS, 15 tests.
+Expected: PASS, 14 tests.
 
 - [ ] **Step 5: Run the full gate**
 
