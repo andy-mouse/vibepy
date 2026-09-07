@@ -56,18 +56,11 @@ Every change must pass `make lint typecheck test` before it is considered done.
 
 ## Milestone workflow
 
-One milestone in `docs/roadmap.md` is one cycle. A milestone does not start before the previous one is merged.
+One milestone in `docs/roadmap.md` is one Superpowers cycle. The skills own the process.
 
-1. Design - brainstorming skill. The agreed design goes to `docs/milestones/<Mn>/spec.md`.
-2. Plan - writing-plans skill. The implementation plan goes to `docs/milestones/<Mn>/plan.md`. The session ends here.
-3. Implement - a new session reads `plan.md` and follows the test-driven-development skill. The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
-4. Verify - verification-before-completion skill. `make lint typecheck test` must pass.
-5. Review - requesting-code-review skill.
-6. Integrate - finishing-a-development-branch skill.
-
-- Work happens on a branch named `mN-<slug>`. `main` stays green.
-- Architectural decisions are recorded as `docs/decisions/ADR-NNN-<slug>.md`, not only inside a spec.
-- Design depth scales with the milestone. Milestones specified down to class names in the roadmap need a short design step; adapter milestones need real boundary design.
+- A milestone does not start before the previous one is merged.
+- Spec and plan go to `docs/milestones/<Mn>/`, overriding the skills' default location.
+- The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
 - Implement only the current milestone. Do not build ahead.
 
 ## Documentation
@@ -91,12 +84,6 @@ What triggers an update:
 - A change to milestone scope updates `docs/roadmap.md`.
 - Everything else belongs in the commit message, not in a document.
 
-ADRs follow the Nygard format with a `Status:` line of `Proposed`, `Accepted`, `Superseded by ADR-NNN`, or `Deprecated`.
+ADRs follow the Nygard format with a `Status:` line. A `Proposed` ADR may be edited; the substance of an `Accepted` one is never rewritten, only superseded by a new ADR.
 
-- A `Proposed` ADR may still be edited.
-- The substance of an `Accepted` ADR is not rewritten. Typo and clarity fixes are allowed.
-- A reversed decision gets a new ADR, and the old one's `Status` becomes `Superseded by ADR-NNN`.
-
-Milestone specs and plans state intent at one point in time. They are not a source of current truth.
-
-- On integration, whatever is still true is promoted into `docs/architecture/` or an ADR, and the milestone folder is removed. Git keeps the history.
+Milestone specs and plans are not a source of current truth. On integration, whatever is still true is promoted into `docs/architecture/` or an ADR, and the milestone folder is removed.
