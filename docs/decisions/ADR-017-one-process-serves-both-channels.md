@@ -6,15 +6,14 @@ Status: Proposed
 
 `docs/architecture/app-model.md` requires that both adapters of one running App receive the
 same AppRuntime, and `docs/architecture/lifecycle.md`'s startup step 4 has AppRuntime start
-the channel adapters. ADR-010 then moved stdio transport ownership out of the framework,
-correctly, but left unanswered whether the two channels of an installed App share one
-operating-system process. Read literally its answer is no: the agent platform spawns a
-process that builds its own AppRuntime.
+the channel adapters. Under ADR-010 the agent platform owns the stdio server process, so it
+spawns a process that builds its own AppRuntime. Whether the two channels of an installed
+App share one operating-system process is undecided, and read literally that answer is no.
 
 Two processes cost little on business state, since an App's dependencies sit over an external
-store either way. They cost control. M10 requires the Hub to start, stop and query installed
-Apps, and a process the agent platform spawned is not the one the Hub started, so status
-lies and `stop` does not reach it. In-memory state splits with it: caches, idempotency keys,
+store either way. They cost control. The Hub is the control plane for installed Apps, and
+a process the agent platform spawned is not the one the Hub started, so its status lies and
+its `stop` does not reach it. In-memory state splits with it: caches, idempotency keys,
 single-writer stores such as SQLite, and schedulers that then run every job twice.
 
 One process is also the precondition for the handoff `docs/architecture.md`'s product intent
@@ -58,7 +57,7 @@ speaks HTTP MCP may address the endpoint directly instead.
   connection budget, audit stream and set of invocation ids serves each App
 - ADR-003, ADR-010 and ADR-015 are unaffected: building an MCP server is still not running
   one, and both adapters are still built from one AppRuntime. Only transport ownership moves
-- M17 is unaffected. Its isolation is between Apps, and one process per App is that
+- isolation between installed Apps is unaffected, and one process per App is a form of it
 - the Hub must be running for the Agent channel to exist, so an agent can no longer obtain
   an App on demand by spawning it
 - HTTP has a wider surface than a spawned stdio process: the specification requires `Origin`
@@ -67,6 +66,6 @@ speaks HTTP MCP may address the endpoint directly instead.
   most agent platforms take rather than an exception
 - the cross-channel mechanisms are enabled, not implemented, and whether a client opens a
   plain-HTTP localhost URL is that client's policy
-- three questions stay open for the milestone that accepts this: how the endpoint is
-  authenticated, whether the Hub or the App owns and publishes the port, and whether the
-  stdio proxy ships with the framework or with each package
+- three questions stay open for whatever accepts this: how the endpoint is authenticated,
+  whether the Hub or the App owns and publishes the port, and whether the stdio proxy ships
+  with the framework or with each package
