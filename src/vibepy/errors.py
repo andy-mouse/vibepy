@@ -27,3 +27,11 @@ class ToolOutputValidationError(VibepyError):
     def __init__(self, tool_name: str) -> None:
         super().__init__(f"Output of Tool {tool_name!r} failed validation")
         self.tool_name = tool_name
+
+
+class PageNotFoundError(VibepyError):
+    """No Page is registered under the requested name."""
+
+    def __init__(self, page_name: str) -> None:
+        super().__init__(f"No Page is registered under the name {page_name!r}")
+        self.page_name = page_name
