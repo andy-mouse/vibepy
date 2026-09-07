@@ -52,8 +52,8 @@ generic `__init__` leaves every declaration site unchanged. It is
 - `AppDefinition` holds `Sequence[Tool[DepsT]]`, a readable declaration rather than an
   assembly procedure
 - the free function `bind` disappears; the erasure has exactly one cause and one place
-- `Tool` moves from `tool/model.py` to `tool/runtime.py`, because it now carries invocation
-  behaviour and `tool/model.py` declares that its types do not
+- `Tool` moves out of the declarations module into the runtime one, because it carries
+  invocation behaviour and the declarations module states that its types do not
 - `Tool(definition=..., handler=...)` is unchanged at every call site
 - a Tool no longer exposes its handler. Code that reached through a Tool to call a handler
   directly calls the function instead

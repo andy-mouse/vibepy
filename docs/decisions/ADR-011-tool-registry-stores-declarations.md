@@ -11,10 +11,9 @@ because the Python typing specification treats a type parameter in a callable pa
 position as contravariant and offers no way to recover the parameters of differently
 parameterized generics from a collection.
 
-Its consequence was stated more broadly than the argument supports: "ToolRegistry stores
-callables, not typed Tools". The registry therefore discarded each `ToolDefinition` at
-registration, and channel discovery — which enumerates what Tools exist rather than looking
-one up — had nothing to enumerate.
+That argument reaches the handler and no further, but the registry stores the bound callable
+alone and discards each `ToolDefinition`. Channel discovery enumerates what Tools exist
+rather than looking one up, so it has nothing to enumerate.
 
 A `ToolDefinition` holds no callable. Its fields are read positions only, so under
 [PEP 695](https://peps.python.org/pep-0695/) inferred variance a frozen `ToolDefinition` is

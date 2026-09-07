@@ -31,8 +31,5 @@ type.
 
 - neither `Any` nor `cast` appears in the framework
 - ToolRegistry stores callables, not typed Tools, and implements no invocation semantics
-- the registry imports the binding function from the runtime module, and the runtime module
-  imports ToolRegistry under `typing.TYPE_CHECKING` with a quoted annotation, which
-  [PEP 484](https://peps.python.org/pep-0484/) defines for exactly this case
 - cross-cutting concerns added later still attach at ToolRuntime, where the invocation
   steps live

@@ -40,8 +40,7 @@ even though it is the object AppRuntime supplies.
 
 - one operation, one name, across the Page model, the Tool runtime and the documents
 - two types are removed and none is added
-- the Page package imports nothing from the Tool package, which is stronger than before
-  this decision: `page/runtime.py` previously imported `ToolRuntime`
+- the Page package imports nothing from the Tool package
 - a Page calls `await ctx.tools.invoke(name, raw_input)`. Existing Page code that called
   `ctx.tools.call` must be updated; the framework is pre-release and no deprecation path is
   offered
