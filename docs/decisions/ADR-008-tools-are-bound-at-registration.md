@@ -1,6 +1,6 @@
 # ADR-008: Tools are bound into uniform callables at registration
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 

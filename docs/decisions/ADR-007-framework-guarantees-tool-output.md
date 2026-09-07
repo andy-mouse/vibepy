@@ -1,6 +1,6 @@
 # ADR-007: The framework guarantees a Tool's output contract
 
-Status: Proposed
+Status: Accepted
 
 ## Context
 
