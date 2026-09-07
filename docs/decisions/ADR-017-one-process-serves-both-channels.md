@@ -68,11 +68,6 @@ what it installed.
 - application-scoped state means what the invariants say, rather than reducing to connection
   pooling over an external store
 - the handoff becomes available to an App without a broker
-- ADR-003, ADR-010 and ADR-015 are unaffected. Building an MCP server is still not running
-  one, the framework still constructs no transport, and both adapters are still built from
-  one AppRuntime. What changes is who owns the transport
-- isolating installed Apps from one another is unaffected, because one process per App is
-  that isolation
 - the Hub must be running for the Agent channel to exist, so an agent can no longer obtain an
   App on demand by spawning one, which is a heavier model for a single-user desktop install
 - HTTP requires origin validation and recommends loopback binding and authentication, none of
