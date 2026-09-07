@@ -1,0 +1,252 @@
+"""The execution-semantics contract from docs/architecture/runtime.md.
+
+Two invocations of one App overlap, each with its own ToolContext, over one
+application-scoped resource. This test is constitutional: it stays for the life
+of the project.
+
+The proof is a barrier rather than a duration. An ``asyncio.Barrier(2)`` opens
+only once two waiters are inside it, and it is reached through
+``ctx.dependencies``, so it opens only if the two invocations overlap and also
+received the same resource. The handler logs on both sides of the barrier, so
+overlap is asserted as an order of events rather than as the absence of a
+failure. A passing run asserts nothing about elapsed time; ``asyncio.timeout``
+exists only to turn the deadlock of a serialized runtime into a failure.
+
+``create_dependencies`` is the real factory, and the log is read back through a
+Tool rather than by holding the resource, so the test observes app-scoped state
+only through the App's public surface. ``tests/test_app_runtime.py`` observes
+``id(ctx.dependencies)`` the same way.
+"""
+
+import asyncio
+from collections.abc import Callable
+
+from mcp.client import Client
+from nicegui import ui
+from nicegui.testing import User
+from pydantic import BaseModel
+
+from vibepy.adapters.mcp import build_mcp_server
+from vibepy.adapters.nicegui import register_pages
+from vibepy.app import AppDefinition, AppRuntime
+from vibepy.page import Page, PageContext, PageDefinition
+from vibepy.tool import Tool, ToolContext, ToolDefinition
+
+PARTIES = 2
+DEADLOCK_TIMEOUT_SECONDS = 5
+ARRIVALS_THEN_DEPARTURES = ["arrived", "arrived", "departed", "departed"]
+
+
+class EmptyInput(BaseModel):
+    pass
+
+
+class Meeting(BaseModel):
+    """What one invocation reports about itself once the barrier opens."""
+
+    invocation_id: str
+    dependency_id: int
+
+
+class LogSnapshot(BaseModel):
+    entries: list[str]
+
+
+class Rendezvous:
+    """The app's application-scoped resource: one barrier and one arrival log."""
+
+    def __init__(self) -> None:
+        self.barrier = asyncio.Barrier(PARTIES)
+        self.log: list[str] = []
+
+
+async def meet(ctx: ToolContext[Rendezvous], _payload: EmptyInput) -> Meeting:
+    """Return only once a second invocation is inside the same barrier."""
+    ctx.dependencies.log.append("arrived")
+    await ctx.dependencies.barrier.wait()
+    ctx.dependencies.log.append("departed")
+    return Meeting(invocation_id=ctx.invocation_id, dependency_id=id(ctx.dependencies))
+
+
+async def read_log(ctx: ToolContext[Rendezvous], _payload: EmptyInput) -> LogSnapshot:
+    return LogSnapshot(entries=list(ctx.dependencies.log))
+
+
+MEET = Tool(
+    definition=ToolDefinition(
+        name="meet",
+        description="Wait for a concurrent invocation, then report this one's identity",
+        input_model=EmptyInput,
+        output_model=Meeting,
+    ),
+    handler=meet,
+)
+
+READ_LOG = Tool(
+    definition=ToolDefinition(
+        name="read_log",
+        description="Report the arrival and departure log",
+        input_model=EmptyInput,
+        output_model=LogSnapshot,
+    ),
+    handler=read_log,
+)
+
+
+async def meeting_page(ctx: PageContext) -> None:
+    """The render path: a Page reaches the Tool through ToolInvoker."""
+    await ctx.tools.invoke("meet", {})
+
+
+async def meeting_button_page(ctx: PageContext) -> None:
+    """The interaction path: a click invokes the Tool, then the label reflects it.
+
+    The label is what ``should_see`` waits on. NiceGUI dispatches an async event
+    handler as a background task, so the click returns before the invocation
+    finishes, and the UI is the documented place to observe that it did.
+    """
+    status = ui.label("waiting")
+
+    async def meet_now() -> None:
+        await ctx.tools.invoke("meet", {})
+        status.set_text("met")
+
+    ui.button("Meet", on_click=meet_now)
+
+
+def build_app() -> AppRuntime[Rendezvous]:
+    return AppRuntime(
+        AppDefinition(
+            app_id="rendezvous-app",
+            name="Rendezvous",
+            version="0.0.0",
+            create_dependencies=Rendezvous,
+            tools=[MEET, READ_LOG],
+            pages=[
+                Page(
+                    definition=PageDefinition(name="meeting", route="/meeting", title="Meeting"),
+                    handler=meeting_page,
+                ),
+                Page(
+                    definition=PageDefinition(
+                        name="meeting_button", route="/meeting-button", title="Meeting"
+                    ),
+                    handler=meeting_button_page,
+                ),
+            ],
+        )
+    )
+
+
+async def logged(app: AppRuntime[Rendezvous]) -> list[str]:
+    snapshot = await app.tool_runtime.invoke("read_log", {})
+    assert isinstance(snapshot, LogSnapshot)
+    return snapshot.entries
+
+
+async def overlap() -> tuple[AppRuntime[Rendezvous], Meeting, Meeting]:
+    """Invoke one App's Tool twice concurrently and return the App and both reports."""
+    app = build_app()
+
+    async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+        first, second = await asyncio.gather(
+            app.tool_runtime.invoke("meet", {}),
+            app.tool_runtime.invoke("meet", {}),
+        )
+
+    assert isinstance(first, Meeting)
+    assert isinstance(second, Meeting)
+    return app, first, second
+
+
+async def test_two_invocations_are_in_flight_at_once() -> None:
+    app, _first, _second = await overlap()
+
+    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+
+
+async def test_concurrent_invocations_receive_independent_contexts() -> None:
+    _app, first, second = await overlap()
+
+    assert first.invocation_id != second.invocation_id
+
+
+async def test_concurrent_invocations_share_app_scoped_dependencies() -> None:
+    _app, first, second = await overlap()
+
+    assert first.dependency_id == second.dependency_id
+
+
+async def test_two_page_renders_are_in_flight_at_once() -> None:
+    """PageRuntime's docstring claims it does not serialize renders; this holds it to that."""
+    app = build_app()
+
+    async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+        await asyncio.gather(
+            app.page_runtime.render("meeting"),
+            app.page_runtime.render("meeting"),
+        )
+
+    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+
+
+async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
+    """The Agent channel's request concurrency is the SDK's, and this pins it.
+
+    The protocol permits concurrent in-flight requests without requiring a
+    server to process them concurrently, and the SDK documents no concurrency
+    guarantee for request handling - only the serialized exception, its
+    ``inline_methods``, which the runner sets to ``{"initialize"}``. The SDK
+    does spawn everything else, so two ``tools/call`` requests overlap, but
+    that is implementation behaviour rather than a promise, and
+    ``pyproject.toml`` pins only ``mcp>=2.1``. If it ever changed, this
+    framework's concurrency guarantee would deliver nothing to an agent, and
+    this test is what would say so.
+
+    Passing a Server straight to Client is the SDK's documented in-memory
+    transport, which it names as the testing path.
+    """
+    app = build_app()
+
+    async with Client(build_mcp_server(app)) as agent:
+        async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+            first, second = await asyncio.gather(
+                agent.call_tool("meet", {}),
+                agent.call_tool("meet", {}),
+            )
+        listed = await agent.call_tool("read_log", {})
+
+    assert not first.is_error
+    assert not second.is_error
+    assert LogSnapshot.model_validate(listed.structured_content).entries == ARRIVALS_THEN_DEPARTURES
+
+
+async def test_two_web_channel_interactions_are_in_flight_at_once(
+    create_user: Callable[[], User],
+) -> None:
+    """The Web channel's request concurrency is NiceGUI's, and this pins it.
+
+    ``pyproject.toml`` pins only ``nicegui>=3.16``. NiceGUI dispatches an async
+    event handler as a background task, so a click does not hold the
+    interaction and two of them overlap. The shape here is NiceGUI's documented
+    one for simultaneous users: ``create_user()``, ``open``, ``find`` with an
+    interaction, then ``should_see``.
+
+    ``should_see`` is also the wait. It retries until the label changes and
+    fails if it never does, so nothing in the fixture waits on the invocation.
+    """
+    app = build_app()
+    register_pages(app)
+
+    first = create_user()
+    second = create_user()
+    await first.open("/meeting-button")
+    await second.open("/meeting-button")
+
+    first.find("Meet").click()
+    second.find("Meet").click()
+
+    await first.should_see("met")
+    await second.should_see("met")
+
+    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
