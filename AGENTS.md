@@ -32,25 +32,17 @@ Read `docs/architecture.md` before modifying framework code.
 
 ## Commands
 
-- `make install` - sync dependencies and install pre-commit hooks
-- `make lint` / `make format` - ruff
-- `make typecheck` - pyright strict
-- `make test` - pytest
-
-Every change must pass `make lint typecheck test` before it is considered done.
+`make install | lint | format | typecheck | test`. A change is done when `make lint typecheck test` passes.
 
 ## Python conventions
 
-- uv manages dependencies and the environment. `uv.lock` is committed.
-- `pyproject.toml` is the single source of project configuration. No `setup.py`, no `requirements.txt`.
-- The package lives under `src/`.
-- ruff lints and formats. pyright runs in strict mode. Both are pre-commit hooks and merge gates.
+- `pyproject.toml` is the only project config. No `setup.py`, no `requirements.txt`.
 - `Any` and `cast` are not acceptable in the public API. Use `Protocol`, `TypedDict`, dataclass, or `TypeVar`.
 - Exhaustive branches over typed unions end with `else: assert_never(value)`.
 - Optional and configuration parameters are keyword-only.
 - Blocking calls inside async code are wrapped in `asyncio.to_thread`.
 - Framework exceptions derive from a single base class. Exception types are the contract, not message strings.
-- Tests use pytest and verify public contracts. Prefer integration tests over unit tests where both apply.
+- Tests verify public contracts, not internals.
 - Standard `logging` only, `getLogger(__name__)` per module. No `print`.
 - The public API is a product. Keep it backward compatible; deprecate before removing.
 
@@ -61,29 +53,21 @@ One milestone in `docs/roadmap.md` is one Superpowers cycle. The skills own the 
 - A milestone does not start before the previous one is merged.
 - Spec and plan go to `docs/milestones/<Mn>/`, overriding the skills' default location.
 - The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
-- Implement only the current milestone. Do not build ahead.
+- Implement only the current milestone, exactly as specified. Do not build ahead.
+- `docs/roadmap.md` is never edited. If a milestone cannot be implemented as specified, stop and ask.
 
 ## Documentation
 
 One role per document. The same fact is not stated in two places.
 
-| Surface | Sole role |
-| --- | --- |
-| `AGENTS.md` | non-negotiable repository rules |
-| `docs/architecture.md`, `docs/architecture/` | current truth |
-| `docs/decisions/` | why |
-| `docs/roadmap.md` | scope and order of milestones |
-| `docs/milestones/` | what is next |
-| git history | history |
+| Surface | Sole role | Updated when |
+| --- | --- | --- |
+| `AGENTS.md` | non-negotiable repository rules | an invariant changes |
+| `docs/architecture.md`, `docs/architecture/` | current truth | a public contract changes |
+| `docs/decisions/` | why | a decision is taken between real alternatives |
+| `docs/roadmap.md` | scope and order of milestones | never; the owner decides |
+| `docs/milestones/` | what is next | per the milestone workflow |
+| git history | history | everything else |
 
-What triggers an update:
-
-- A change to a public contract updates `docs/architecture/`.
-- A new or changed invariant updates `AGENTS.md`.
-- A decision taken between real alternatives adds an ADR.
-- A change to milestone scope updates `docs/roadmap.md`.
-- Everything else belongs in the commit message, not in a document.
-
-ADRs follow the Nygard format with a `Status:` line. A `Proposed` ADR may be edited; the substance of an `Accepted` one is never rewritten, only superseded by a new ADR.
-
-Milestone specs and plans are not a source of current truth. On integration, whatever is still true is promoted into `docs/architecture/` or an ADR, and the milestone folder is removed.
+- ADRs use the Nygard format. Edit a `Proposed` ADR; supersede an `Accepted` one, never rewrite it.
+- On integration, promote what is still true out of the milestone folder, then delete the folder.
