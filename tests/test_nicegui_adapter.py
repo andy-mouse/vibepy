@@ -9,6 +9,7 @@ from nicegui import app, ui
 from nicegui.testing import user_simulation  # pyright: ignore[reportUnknownVariableType]
 from starlette.routing import Route
 
+from tests.todo_fixture import build_todo_app
 from vibepy.adapters.nicegui import register_pages
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page import Page, PageContext, PageDefinition, PageRegistry, PageRuntime
@@ -119,6 +120,20 @@ async def test_a_rejected_registry_registers_nothing() -> None:
             register_pages(registry=registry, runtime=build_runtime(registry))
 
         assert "/todos" not in registered_paths()
+
+
+async def test_page_interaction_invokes_a_tool() -> None:
+    app_under_test = build_todo_app()
+
+    async with user_simulation() as user:
+        register_pages(
+            registry=app_under_test.page_registry,
+            runtime=app_under_test.page_runtime,
+        )
+        await user.open("/todos")
+        user.find("title").type("write the spec")
+        user.find("Add").click()
+        await user.should_see("todo: write the spec")
 
 
 def _imported_module_names(source: str) -> list[str]:
