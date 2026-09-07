@@ -12,20 +12,22 @@ overlap is asserted as an order of events rather than as the absence of a
 failure. A passing run asserts nothing about elapsed time; ``asyncio.timeout``
 exists only to turn the deadlock of a serialized runtime into a failure.
 
-``create_dependencies`` is the real factory, and the log is read back through a
-Tool rather than by holding the resource, so the test observes app-scoped state
-only through the App's public surface. ``tests/test_app_runtime.py`` observes
+``lifespan`` is the App's real resource declaration, and the log is read back
+through a Tool rather than by holding the resource, so the test observes
+app-scoped state only through the App's public surface. ``tests/test_app_runtime.py`` observes
 ``id(ctx.dependencies)`` the same way.
 """
 
 import asyncio
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
+from contextlib import asynccontextmanager
 
 from mcp.client import Client
 from nicegui import ui
 from nicegui.testing import User
 from pydantic import BaseModel
 
+from tests.lifecycle import started
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
 from vibepy.app import AppDefinition, AppRuntime
@@ -58,6 +60,11 @@ class Rendezvous:
     def __init__(self) -> None:
         self.barrier = asyncio.Barrier(PARTIES)
         self.log: list[str] = []
+
+
+@asynccontextmanager
+async def rendezvous_lifespan() -> AsyncGenerator[Rendezvous]:
+    yield Rendezvous()
 
 
 async def meet(ctx: ToolContext[Rendezvous], _payload: EmptyInput) -> Meeting:
@@ -120,7 +127,7 @@ def build_app() -> AppRuntime[Rendezvous]:
             app_id="rendezvous-app",
             name="Rendezvous",
             version="0.0.0",
-            create_dependencies=Rendezvous,
+            lifespan=rendezvous_lifespan,
             tools=[MEET, READ_LOG],
             pages=[
                 Page(
@@ -145,8 +152,9 @@ async def logged(app: AppRuntime[Rendezvous]) -> list[str]:
 
 
 async def overlap() -> tuple[AppRuntime[Rendezvous], Meeting, Meeting]:
-    """Invoke one App's Tool twice concurrently and return the App and both reports."""
+    """Invoke one started App's Tool twice concurrently and return it with both reports."""
     app = build_app()
+    await app.start()
 
     async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
         first, second = await asyncio.gather(
@@ -163,31 +171,33 @@ async def test_two_invocations_are_in_flight_at_once() -> None:
     app, _first, _second = await overlap()
 
     assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+    await app.stop()
 
 
 async def test_concurrent_invocations_receive_independent_contexts() -> None:
-    _app, first, second = await overlap()
+    app, first, second = await overlap()
 
     assert first.invocation_id != second.invocation_id
+    await app.stop()
 
 
 async def test_concurrent_invocations_share_app_scoped_dependencies() -> None:
-    _app, first, second = await overlap()
+    app, first, second = await overlap()
 
     assert first.dependency_id == second.dependency_id
+    await app.stop()
 
 
 async def test_two_page_renders_are_in_flight_at_once() -> None:
     """PageRuntime's docstring claims it does not serialize renders; this holds it to that."""
-    app = build_app()
+    async with started(build_app()) as app:
+        async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+            await asyncio.gather(
+                app.page_runtime.render("meeting"),
+                app.page_runtime.render("meeting"),
+            )
 
-    async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
-        await asyncio.gather(
-            app.page_runtime.render("meeting"),
-            app.page_runtime.render("meeting"),
-        )
-
-    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+        assert await logged(app) == ARRIVALS_THEN_DEPARTURES
 
 
 async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
@@ -206,9 +216,7 @@ async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     Passing a Server straight to Client is the SDK's documented in-memory
     transport, which it names as the testing path.
     """
-    app = build_app()
-
-    async with Client(build_mcp_server(app)) as agent:
+    async with started(build_app()) as app, Client(build_mcp_server(app)) as agent:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
             first, second = await asyncio.gather(
                 agent.call_tool("meet", {}),
@@ -235,18 +243,18 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
     ``should_see`` is also the wait. It retries until the label changes and
     fails if it never does, so nothing in the fixture waits on the invocation.
     """
-    app = build_app()
-    register_pages(app)
+    async with started(build_app()) as app:
+        register_pages(app)
 
-    first = create_user()
-    second = create_user()
-    await first.open("/meeting-button")
-    await second.open("/meeting-button")
+        first = create_user()
+        second = create_user()
+        await first.open("/meeting-button")
+        await second.open("/meeting-button")
 
-    first.find("Meet").click()
-    second.find("Meet").click()
+        first.find("Meet").click()
+        second.find("Meet").click()
 
-    await first.should_see("met")
-    await second.should_see("met")
+        await first.should_see("met")
+        await second.should_see("met")
 
-    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+        assert await logged(app) == ARRIVALS_THEN_DEPARTURES

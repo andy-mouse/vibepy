@@ -14,6 +14,7 @@ from mcp.server import Server
 from mcp.types import TextContent
 from nicegui.testing import User
 
+from tests.lifecycle import started
 from tests.todo_fixture import TodoList, TodoStore, build_todo_app
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
@@ -34,21 +35,20 @@ def titles(result: object) -> list[str]:
 
 
 async def test_both_channels_share_one_backend_state(user: User) -> None:
-    app_under_test = build_todo_app()
+    async with started(build_todo_app()) as app_under_test:
+        register_pages(app_under_test)
 
-    register_pages(app_under_test)
+        async with Client(build_server(app_under_test)) as agent:
+            await agent.call_tool("create_todo", {"title": "from the agent"})
 
-    async with Client(build_server(app_under_test)) as agent:
-        await agent.call_tool("create_todo", {"title": "from the agent"})
+            await user.open("/todos")
+            await user.should_see("todo: from the agent")
 
-        await user.open("/todos")
-        await user.should_see("todo: from the agent")
+            user.find("title").type("from the human")
+            user.find("Add").click()
+            await user.should_see("todo: from the human")
 
-        user.find("title").type("from the human")
-        user.find("Add").click()
-        await user.should_see("todo: from the human")
-
-        listed = await agent.call_tool("list_todos", {})
+            listed = await agent.call_tool("list_todos", {})
 
     assert titles(listed.structured_content) == ["from the agent", "from the human"]
     block = listed.content[0]

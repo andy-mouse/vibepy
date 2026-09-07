@@ -1,8 +1,12 @@
 """The App layer's contract: one definition, independently isolated runtimes."""
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 import pytest
 from pydantic import BaseModel
 
+from tests.lifecycle import started
 from vibepy.app import AppDefinition, AppRuntime
 from vibepy.errors import ToolNotFoundError
 from vibepy.page import Page, PageContext, PageDefinition
@@ -18,6 +22,11 @@ class Counter:
     def increment(self) -> int:
         self.value += 1
         return self.value
+
+
+@asynccontextmanager
+async def counter_lifespan() -> AsyncGenerator[Counter]:
+    yield Counter()
 
 
 class EmptyInput(BaseModel):
@@ -85,7 +94,7 @@ def build_definition() -> AppDefinition[Counter]:
         app_id="counter-app",
         name="Counter",
         version="0.1.0",
-        create_dependencies=Counter,
+        lifespan=counter_lifespan,
         tools=[INCREMENT, READ, IDENTIFY],
         pages=[
             Page(
@@ -97,29 +106,27 @@ def build_definition() -> AppDefinition[Counter]:
 
 
 async def test_calls_through_one_runtime_share_app_scoped_state() -> None:
-    app = AppRuntime(build_definition())
+    async with started(AppRuntime(build_definition())) as app:
+        await app.tool_runtime.invoke("increment", {})
+        await app.tool_runtime.invoke("increment", {})
 
-    await app.tool_runtime.invoke("increment", {})
-    await app.tool_runtime.invoke("increment", {})
-
-    assert await app.tool_runtime.invoke("read", {}) == Count(value=2)
+        assert await app.tool_runtime.invoke("read", {}) == Count(value=2)
 
 
 async def test_a_second_runtime_is_isolated_by_default() -> None:
     definition = build_definition()
-    first = AppRuntime(definition)
-    second = AppRuntime(definition)
 
-    await first.tool_runtime.invoke("increment", {})
+    async with started(AppRuntime(definition)) as first:
+        await first.tool_runtime.invoke("increment", {})
 
-    assert await second.tool_runtime.invoke("read", {}) == Count(value=0)
+        async with started(AppRuntime(definition)) as second:
+            assert await second.tool_runtime.invoke("read", {}) == Count(value=0)
 
 
 async def test_every_invocation_receives_the_same_dependency_instance() -> None:
-    app = AppRuntime(build_definition())
-
-    first = await app.tool_runtime.invoke("identify", {})
-    second = await app.tool_runtime.invoke("identify", {})
+    async with started(AppRuntime(build_definition())) as app:
+        first = await app.tool_runtime.invoke("identify", {})
+        second = await app.tool_runtime.invoke("identify", {})
 
     assert isinstance(first, Identity)
     assert isinstance(second, Identity)
@@ -128,11 +135,10 @@ async def test_every_invocation_receives_the_same_dependency_instance() -> None:
 
 
 async def test_a_declared_page_reaches_a_tool_through_the_runtime() -> None:
-    app = AppRuntime(build_definition())
+    async with started(AppRuntime(build_definition())) as app:
+        await app.page_runtime.render("counter")
 
-    await app.page_runtime.render("counter")
-
-    assert await app.tool_runtime.invoke("read", {}) == Count(value=1)
+        assert await app.tool_runtime.invoke("read", {}) == Count(value=1)
 
 
 def test_declared_tools_are_enumerable_for_channel_discovery() -> None:
@@ -160,9 +166,8 @@ def test_the_definition_stays_reachable_from_the_runtime() -> None:
 
 
 async def test_an_unknown_tool_name_still_raises_through_the_app_runtime() -> None:
-    app = AppRuntime(build_definition())
-
-    with pytest.raises(ToolNotFoundError) as raised:
-        await app.tool_runtime.invoke("nope", {})
+    async with started(AppRuntime(build_definition())) as app:
+        with pytest.raises(ToolNotFoundError) as raised:
+            await app.tool_runtime.invoke("nope", {})
 
     assert raised.value.tool_name == "nope"

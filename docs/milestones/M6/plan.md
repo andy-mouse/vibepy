@@ -62,7 +62,7 @@ the list the lifespan wrote into.
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import pytest
@@ -108,7 +108,7 @@ def journal_app(entries: list[str]) -> AppRuntime[Journal]:
     """An App whose lifespan writes into a list the caller keeps."""
 
     @asynccontextmanager
-    async def lifespan() -> AsyncIterator[Journal]:
+    async def lifespan() -> AsyncGenerator[Journal]:
         entries.append("acquired")
         yield Journal(entries)
         entries.append("released")
@@ -194,7 +194,7 @@ async def test_the_pre_yield_body_runs_while_starting() -> None:
     release = asyncio.Event()
 
     @asynccontextmanager
-    async def lifespan() -> AsyncIterator[None]:
+    async def lifespan() -> AsyncGenerator[None]:
         entered.set()
         await release.wait()
         yield None
@@ -225,7 +225,7 @@ async def test_the_post_yield_body_runs_while_stopping() -> None:
     release = asyncio.Event()
 
     @asynccontextmanager
-    async def lifespan() -> AsyncIterator[None]:
+    async def lifespan() -> AsyncGenerator[None]:
         yield None
         entered.set()
         await release.wait()
@@ -636,14 +636,14 @@ The framework offers no ``async with`` over an AppRuntime, so tests that need a
 started App pair start with stop themselves. This is that pairing, written once.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from vibepy.app import AppRuntime
 
 
 @asynccontextmanager
-async def started[DepsT](app: AppRuntime[DepsT]) -> AsyncIterator[AppRuntime[DepsT]]:
+async def started[DepsT](app: AppRuntime[DepsT]) -> AsyncGenerator[AppRuntime[DepsT]]:
     """Start an App for the duration of the block and stop it afterwards."""
     await app.start()
     try:
@@ -653,7 +653,7 @@ async def started[DepsT](app: AppRuntime[DepsT]) -> AsyncIterator[AppRuntime[Dep
 
 
 @asynccontextmanager
-async def no_dependencies() -> AsyncIterator[None]:
+async def no_dependencies() -> AsyncGenerator[None]:
     """The lifespan of an App with no application-scoped resource."""
     yield None
 ```
@@ -663,15 +663,17 @@ async def no_dependencies() -> AsyncIterator[None]:
 In `tests/todo_fixture.py`, add the imports:
 
 ```python
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 ```
+
+Use `AsyncGenerator` rather than `AsyncIterator` for every `@asynccontextmanager` return annotation: pyright reports the `AsyncIterator` form as deprecated.
 
 Add the lifespan next to `TodoStore`:
 
 ```python
 @asynccontextmanager
-async def todo_lifespan() -> AsyncIterator[TodoStore]:
+async def todo_lifespan() -> AsyncGenerator[TodoStore]:
     """The Todo App's resource, acquired at startup and dropped at shutdown."""
     yield TodoStore()
 ```
@@ -687,7 +689,7 @@ In `tests/test_app_runtime.py`:
 Add the imports:
 
 ```python
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from tests.lifecycle import started
@@ -697,7 +699,7 @@ Add the lifespan below `Counter`:
 
 ```python
 @asynccontextmanager
-async def counter_lifespan() -> AsyncIterator[Counter]:
+async def counter_lifespan() -> AsyncGenerator[Counter]:
     yield Counter()
 ```
 
@@ -759,7 +761,7 @@ In `tests/test_execution_semantics.py`:
 Add the imports:
 
 ```python
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
 from tests.lifecycle import started
@@ -769,7 +771,7 @@ Add the lifespan below `Rendezvous` and change the definition:
 
 ```python
 @asynccontextmanager
-async def rendezvous_lifespan() -> AsyncIterator[Rendezvous]:
+async def rendezvous_lifespan() -> AsyncGenerator[Rendezvous]:
     yield Rendezvous()
 ```
 
@@ -1008,7 +1010,7 @@ This is the change ADR-018 records as a consequence: route validation now runs b
 In `tests/test_mcp_adapter.py`, add:
 
 ```python
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from tests.lifecycle import no_dependencies, started
@@ -1018,7 +1020,7 @@ Replace `build_server` with a context manager that owns the App's running window
 
 ```python
 @asynccontextmanager
-async def server_for(tools: list[Tool[None]]) -> AsyncIterator[Server[None]]:
+async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[None]]:
     """One started App with no application-scoped resource: these fixtures hold their own."""
     async with started(
         AppRuntime(
@@ -1097,7 +1099,7 @@ EOF
 Append to `tests/test_app_lifecycle.py`, after widening the file's imports to:
 
 ```python
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
 from types import TracebackType
 ```
@@ -1162,7 +1164,7 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
     events: list[str] = []
 
     @asynccontextmanager
-    async def first() -> AsyncIterator[None]:
+    async def first() -> AsyncGenerator[None]:
         events.append("first acquired")
         try:
             yield None
@@ -1170,7 +1172,7 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             events.append("first released")
 
     @asynccontextmanager
-    async def lifespan() -> AsyncIterator[None]:
+    async def lifespan() -> AsyncGenerator[None]:
         async with AsyncExitStack() as stack:
             await stack.enter_async_context(first())
             await stack.enter_async_context(FailingAcquire())
@@ -1187,7 +1189,7 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
 
 async def test_a_failed_release_still_reaches_stopped() -> None:
     @asynccontextmanager
-    async def lifespan() -> AsyncIterator[None]:
+    async def lifespan() -> AsyncGenerator[None]:
         yield None
         raise RuntimeError("the resource could not be released")
 
