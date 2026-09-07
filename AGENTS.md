@@ -7,6 +7,9 @@ This repository implements an agent-native application framework where one App e
 
 Read `docs/architecture.md` before modifying framework code.
 
+- Statements about external libraries, tools, or standards cite official documentation. Training data is not a source.
+- Silence in this repository's documents is an open decision, not permission. Stop and ask.
+
 ## Core invariants
 
 - App is the unit of application definition and runtime composition.
