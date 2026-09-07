@@ -131,15 +131,19 @@ A new `tests/test_execution_semantics.py` owns the execution-semantics contract,
 `tests/test_dual_channel.py` which owns the dual-channel contract. Like that file it stays
 for the life of the project.
 
-One fixture App: a dependency holding the barrier, an arrival log and a completion Event;
-one Tool whose handler logs, awaits the barrier, logs again and reports `ctx.invocation_id`
-and `id(ctx.dependencies)`; and one Page carrying both a render path and a button whose
-handler invokes that Tool. Both arrivals must appear in the log before either departure,
-which is what makes overlap an assertion rather than an absence of failure.
+The fixture App declares:
 
-The completion Event exists for the Web-channel test alone. A NiceGUI event handler is
-dispatched as a background task, so a click returns before its Tool invocation finishes and
-the test needs something to await other than the click.
+- `Rendezvous`, the application-scoped resource: one `asyncio.Barrier(2)` and one log
+- `meet`, a Tool that logs, awaits the barrier, logs again, and reports `ctx.invocation_id`
+  and `id(ctx.dependencies)`
+- `read_log`, a Tool that reports the log
+- a Page whose render invokes `meet`, and a Page with a button whose click handler invokes
+  `meet` and then updates a label
+
+`create_dependencies` is the real `Rendezvous` factory. Every test observes app-scoped state
+through `read_log` rather than by holding the resource, which is the pattern
+`tests/test_app_runtime.py` already uses for `id(ctx.dependencies)`. No test reaches into a
+runtime, and no seam is added to `src/` for the test's benefit.
 
 | Test | Layer | Fails when |
 | --- | --- | --- |
@@ -150,22 +154,51 @@ the test needs something to await other than the click.
 | two Agent-channel calls are in flight at once | MCP adapter over the SDK | the SDK stops spawning `tools/call`, or the adapter serializes |
 | two Web-channel interactions are in flight at once | NiceGUI adapter over NiceGUI | NiceGUI stops dispatching handlers as background tasks, or the adapter serializes |
 
-Every test but the two identity ones asserts the same arrival log. The App is built through
-`AppRuntime`, not by constructing runtimes directly, because "app-scoped" is a claim about
-the layer that owns the resource.
+Every test but the two identity ones asserts the same log, `["arrived", "arrived",
+"departed", "departed"]`.
+
+### Only official patterns for the external libraries
+
+Each channel test drives its library the way that library documents, with no test-only
+scaffolding standing in for a mechanism the library already provides.
+
+Agent channel. `Client` accepts a `Server` instance directly for an in-process connection,
+which the SDK documents as its in-memory transport and names as the testing
+path.[^mcp-inproc] The test passes `build_mcp_server(app)` to `Client`, as
+`tests/test_dual_channel.py` already does.
+
+Web channel. NiceGUI documents the `create_user` factory fixture for simultaneous users,
+stating that "the `User` instances are independent from each other and can interact with the
+UI in parallel", and its example is `create_user()`, `await user.open(...)`,
+`user.find(...)` with an interaction, then `await user.should_see(...)`.[^nicegui-user] The
+test follows that shape exactly.
+
+`should_see` is also the reason the Web test needs nothing of its own to wait on. A NiceGUI
+event handler is dispatched as a background task, so the click returns before the Tool
+invocation finishes; `should_see` retries until the label changes and raises an
+`AssertionError` if it never does. An ad-hoc completion Event in the fixture would be a
+test-only gate around a mechanism NiceGUI already documents, so there is none.
+
+`asyncio.timeout` still wraps the three non-Web overlaps. That is not a gate around a
+library: without it a serialized runtime hangs the suite instead of failing, and
+`should_see` already provides the equivalent bound on the Web side.
 
 ### Why the two channel tests exist
 
 Neither is a test of an external library. Each drives the composition a real caller
-reaches — our adapter on top of that library — and pins a behaviour that makes the
-framework's concurrency guarantee mean anything at that channel. Both floors in
+reaches — our adapter on top of that library — and pins the behaviour that makes the
+framework's concurrency guarantee mean anything on that channel. Both floors in
 `pyproject.toml` are open (`mcp>=2.1`, `nicegui>=3.16`), so an upgrade can remove either
-behaviour with nothing failing. Both are also nearly free: the in-process
-`Client(build_mcp_server(app))` pair already exists in `tests/test_dual_channel.py`, and the
-`create_user` fixture is already loaded by `tests/conftest.py`.
+behaviour with nothing failing.
 
 The PageRuntime test exists for a different reason: `src/vibepy/page/runtime.py` already
 claims it "does not serialize renders", and that claim has been untested since M2.
+
+[^mcp-inproc]: MCP Python SDK, client transports and `mcp.client.client`,
+    <https://py.sdk.modelcontextprotocol.io/v2/client/transports>,
+    <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/client/client>
+[^nicegui-user]: NiceGUI, User fixture reference,
+    <https://nicegui.io/documentation/user>
 
 ## Documentation
 
