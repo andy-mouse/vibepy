@@ -6,8 +6,9 @@ the list the lifespan wrote into.
 """
 
 import asyncio
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from collections.abc import AsyncGenerator, Callable
+from contextlib import AbstractAsyncContextManager, AsyncExitStack, asynccontextmanager
+from types import TracebackType
 
 import pytest
 from pydantic import BaseModel
@@ -285,3 +286,100 @@ async def test_one_running_window_has_one_tool_runtime() -> None:
     assert app.tool_runtime is app.tool_runtime
 
     await app.stop()
+
+
+class FailingAcquire(AbstractAsyncContextManager[None]):
+    """A context manager whose acquisition raises.
+
+    Written by hand rather than with ``@asynccontextmanager`` so that the release
+    can assert it is never reached: the language reference places the acquisition
+    outside the ``try`` of the ``async with`` expansion, so a failed ``__aenter__``
+    never reaches ``__aexit__``. It subclasses the ABC rather than relying on a
+    structural match, so the declaration type-checks regardless of how the stubs
+    define it.
+    """
+
+    async def __aenter__(self) -> None:
+        raise RuntimeError("the resource could not be acquired")
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        raise AssertionError("release must not run when acquisition failed")
+
+
+def app_with(lifespan: Callable[[], AbstractAsyncContextManager[None]]) -> AppRuntime[None]:
+    return AppRuntime(
+        AppDefinition(
+            app_id="failing-app",
+            name="Failing",
+            version="0.0.0",
+            lifespan=lifespan,
+            tools=[],
+            pages=[],
+        )
+    )
+
+
+async def test_a_failed_acquisition_leaves_the_runtime_stopped() -> None:
+    app = app_with(FailingAcquire)
+
+    with pytest.raises(RuntimeError):
+        await app.start()
+
+    assert app.state is AppRuntimeState.STOPPED
+
+
+async def test_a_failed_start_leaves_no_usable_runtime() -> None:
+    app = app_with(FailingAcquire)
+
+    with pytest.raises(RuntimeError):
+        await app.start()
+
+    with pytest.raises(AppRuntimeNotRunningError):
+        _ = app.tool_runtime
+
+
+async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
+    events: list[str] = []
+
+    @asynccontextmanager
+    async def first() -> AsyncGenerator[None]:
+        events.append("first acquired")
+        try:
+            yield None
+        finally:
+            events.append("first released")
+
+    @asynccontextmanager
+    async def lifespan() -> AsyncGenerator[None]:
+        async with AsyncExitStack() as stack:
+            await stack.enter_async_context(first())
+            await stack.enter_async_context(FailingAcquire())
+            yield None
+
+    app = app_with(lifespan)
+
+    with pytest.raises(RuntimeError):
+        await app.start()
+
+    assert events == ["first acquired", "first released"]
+    assert app.state is AppRuntimeState.STOPPED
+
+
+async def test_a_failed_release_still_reaches_stopped() -> None:
+    @asynccontextmanager
+    async def lifespan() -> AsyncGenerator[None]:
+        yield None
+        raise RuntimeError("the resource could not be released")
+
+    app = app_with(lifespan)
+    await app.start()
+
+    with pytest.raises(RuntimeError):
+        await app.stop()
+
+    assert app.state is AppRuntimeState.STOPPED

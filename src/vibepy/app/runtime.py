@@ -69,7 +69,12 @@ class AppRuntime[DepsT]:
             raise AppRuntimeTransitionError(self._definition.app_id, self._state, "start")
         self._state = AppRuntimeState.STARTING
 
-        dependencies = await self._stack.enter_async_context(self._definition.lifespan())
+        try:
+            dependencies = await self._stack.enter_async_context(self._definition.lifespan())
+        except BaseException:
+            await self._stack.aclose()
+            self._state = AppRuntimeState.STOPPED
+            raise
 
         tool_runtime = ToolRuntime(
             app_id=self._definition.app_id,
@@ -86,11 +91,12 @@ class AppRuntime[DepsT]:
             raise AppRuntimeTransitionError(self._definition.app_id, self._state, "stop")
         self._state = AppRuntimeState.STOPPING
 
-        await self._stack.aclose()
-
-        self._tool_runtime = None
-        self._page_runtime = None
-        self._state = AppRuntimeState.STOPPED
+        try:
+            await self._stack.aclose()
+        finally:
+            self._tool_runtime = None
+            self._page_runtime = None
+            self._state = AppRuntimeState.STOPPED
 
     @property
     def definition(self) -> AppDefinition[DepsT]:
