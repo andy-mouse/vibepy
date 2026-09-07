@@ -1,0 +1,589 @@
+<div id="vibepy-hub-mockup">
+  <style>
+    #vibepy-hub-mockup {
+      color-scheme: light dark;
+      width: 100%;
+      min-height: 760px;
+      padding: 22px;
+      box-sizing: border-box;
+      background: transparent;
+      font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+      color: light-dark(#172a31, #e8f2f3);
+    }
+
+    #vibepy-hub-mockup * { box-sizing: border-box; }
+
+    #vibepy-hub-mockup .hub-shell {
+      max-width: 1180px;
+      min-height: 716px;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid light-dark(#c8d6d9, #34484e);
+      border-radius: 18px;
+      background: light-dark(#f3f7f7, #111d21);
+      box-shadow: 0 24px 70px light-dark(rgba(28, 57, 64, .16), rgba(0, 0, 0, .42));
+    }
+
+    #vibepy-hub-mockup .hub-topbar {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      border-bottom: 1px solid light-dark(#d6e0e2, #2b3d42);
+      background: light-dark(#fbfdfd, #162429);
+    }
+
+    #vibepy-hub-mockup .hub-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 18px;
+      font-weight: 500;
+      letter-spacing: -.02em;
+    }
+
+    #vibepy-hub-mockup .hub-brand-mark {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border-radius: 9px;
+      background: light-dark(#153d47, #c6ece8);
+      color: light-dark(#efffff, #102429);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      letter-spacing: -.1em;
+    }
+
+    #vibepy-hub-mockup .hub-local {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-left: 6px;
+      padding-left: 12px;
+      border-left: 1px solid light-dark(#d3dfe1, #384b50);
+      color: light-dark(#5f7379, #9eb1b5);
+      font-size: 12px;
+      font-weight: 400;
+    }
+
+    #vibepy-hub-mockup .hub-local-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: light-dark(#19867c, #63d1c6);
+      box-shadow: 0 0 0 3px light-dark(#daf0ed, #1d4a48);
+    }
+
+    #vibepy-hub-mockup button,
+    #vibepy-hub-mockup input {
+      font: inherit;
+    }
+
+    #vibepy-hub-mockup button {
+      min-height: 38px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      padding: 0 14px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+
+    #vibepy-hub-mockup button:hover { transform: translateY(-1px); }
+    #vibepy-hub-mockup button:active { transform: translateY(0); }
+    #vibepy-hub-mockup button:focus-visible,
+    #vibepy-hub-mockup input:focus-visible {
+      outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
+      outline-offset: 2px;
+    }
+
+    #vibepy-hub-mockup .hub-primary {
+      background: light-dark(#163f49, #c6ece8);
+      color: light-dark(#f6ffff, #102429);
+    }
+
+    #vibepy-hub-mockup .hub-secondary {
+      border-color: light-dark(#c5d2d5, #45585d);
+      background: light-dark(#ffffff, #1b2a2f);
+      color: light-dark(#20363d, #d9e6e8);
+    }
+
+    #vibepy-hub-mockup .hub-danger {
+      border-color: light-dark(#e3c2bf, #754744);
+      background: transparent;
+      color: light-dark(#a83f3d, #ff9d96);
+    }
+
+    #vibepy-hub-mockup .hub-main {
+      padding: 42px 44px 50px;
+    }
+
+    #vibepy-hub-mockup .hub-heading-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+      margin-bottom: 30px;
+    }
+
+    #vibepy-hub-mockup .hub-eyebrow {
+      margin: 0 0 7px;
+      color: light-dark(#15756f, #65cfc6);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    #vibepy-hub-mockup h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 44px);
+      font-weight: 500;
+      line-height: 1.05;
+      letter-spacing: -.045em;
+    }
+
+    #vibepy-hub-mockup .hub-subtitle {
+      max-width: 520px;
+      margin: 9px 0 0;
+      color: light-dark(#657a80, #a6b7ba);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    #vibepy-hub-mockup .hub-summary {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      min-width: 270px;
+      border-left: 1px solid light-dark(#cbd8da, #35484d);
+    }
+
+    #vibepy-hub-mockup .hub-summary-item { padding-left: 20px; }
+    #vibepy-hub-mockup .hub-summary-value {
+      display: block;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 21px;
+      line-height: 1;
+    }
+    #vibepy-hub-mockup .hub-summary-label {
+      display: block;
+      margin-top: 7px;
+      color: light-dark(#71858a, #91a4a8);
+      font-size: 11px;
+    }
+
+    #vibepy-hub-mockup .hub-board {
+      overflow: hidden;
+      border: 1px solid light-dark(#cbd8da, #34474c);
+      border-radius: 14px;
+      background: light-dark(#ffffff, #17262b);
+    }
+
+    #vibepy-hub-mockup .hub-board-head,
+    #vibepy-hub-mockup .hub-app-row {
+      display: grid;
+      grid-template-columns: minmax(210px, 1.05fr) minmax(330px, 1.45fr) minmax(205px, .85fr);
+      align-items: center;
+      gap: 26px;
+      padding: 0 24px;
+    }
+
+    #vibepy-hub-mockup .hub-board-head {
+      min-height: 48px;
+      border-bottom: 1px solid light-dark(#dce5e7, #2e4146);
+      background: light-dark(#edf3f4, #132126);
+      color: light-dark(#6b7f84, #92a6aa);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 10px;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    #vibepy-hub-mockup .hub-app-row {
+      min-height: 122px;
+      border-bottom: 1px solid light-dark(#e0e8e9, #2c3f44);
+    }
+    #vibepy-hub-mockup .hub-app-row:last-child { border-bottom: 0; }
+
+    #vibepy-hub-mockup .hub-app-name {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 500;
+      letter-spacing: -.02em;
+    }
+
+    #vibepy-hub-mockup .hub-app-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: light-dark(#71858a, #93a7ab);
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+    }
+
+    #vibepy-hub-mockup .hub-app-meta span + span::before {
+      content: "·";
+      margin-right: 8px;
+      color: light-dark(#acbabc, #5e7378);
+    }
+
+    #vibepy-hub-mockup .hub-rail {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      align-items: start;
+      position: relative;
+    }
+
+    #vibepy-hub-mockup .hub-rail::before {
+      content: "";
+      position: absolute;
+      top: 9px;
+      left: 16.666%;
+      right: 16.666%;
+      height: 2px;
+      background: light-dark(#d7e1e3, #3a4d52);
+    }
+
+    #vibepy-hub-mockup .hub-stage {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      color: light-dark(#839397, #7f9398);
+      font-size: 11px;
+    }
+
+    #vibepy-hub-mockup .hub-stage-node {
+      width: 19px;
+      height: 19px;
+      margin: 0 auto 9px;
+      display: grid;
+      place-items: center;
+      border: 2px solid light-dark(#c5d2d4, #4b6065);
+      border-radius: 50%;
+      background: light-dark(#ffffff, #17262b);
+      color: transparent;
+      font-size: 10px;
+    }
+
+    #vibepy-hub-mockup .hub-stage.is-done { color: light-dark(#315e60, #a7ceca); }
+    #vibepy-hub-mockup .hub-stage.is-done .hub-stage-node {
+      border-color: light-dark(#188279, #61c9c0);
+      background: light-dark(#188279, #61c9c0);
+      color: light-dark(#ffffff, #10282b);
+    }
+
+    #vibepy-hub-mockup .hub-stage.is-running { color: light-dark(#126c65, #78ded5); }
+    #vibepy-hub-mockup .hub-stage.is-running .hub-stage-node {
+      border-color: light-dark(#188279, #61c9c0);
+      box-shadow: 0 0 0 5px light-dark(#d9efec, #204743);
+    }
+
+    #vibepy-hub-mockup .hub-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    #vibepy-hub-mockup .hub-state-note {
+      width: 100%;
+      margin: 0 0 2px;
+      text-align: right;
+      color: light-dark(#63787d, #99adb1);
+      font-size: 11px;
+    }
+
+    #vibepy-hub-mockup .hub-state-note.is-live {
+      color: light-dark(#12746c, #6bd1c8);
+    }
+
+    #vibepy-hub-mockup .hub-dialog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(4, 17, 21, .58);
+      backdrop-filter: blur(5px);
+    }
+    #vibepy-hub-mockup .hub-dialog-backdrop.is-open { display: grid; }
+
+    #vibepy-hub-mockup .hub-dialog {
+      width: min(520px, 100%);
+      border: 1px solid light-dark(#c3d1d4, #496066);
+      border-radius: 15px;
+      padding: 28px;
+      background: light-dark(#ffffff, #17272c);
+      box-shadow: 0 30px 80px rgba(0, 0, 0, .28);
+    }
+
+    #vibepy-hub-mockup .hub-dialog h2 {
+      margin: 0;
+      font-size: 23px;
+      font-weight: 500;
+      letter-spacing: -.03em;
+    }
+
+    #vibepy-hub-mockup .hub-dialog p {
+      margin: 8px 0 22px;
+      color: light-dark(#667b80, #a2b4b8);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #vibepy-hub-mockup .hub-field-label {
+      display: block;
+      margin-bottom: 8px;
+      color: light-dark(#465c62, #bed0d3);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    #vibepy-hub-mockup .hub-path-input {
+      width: 100%;
+      height: 44px;
+      border: 1px solid light-dark(#bfcdd0, #496066);
+      border-radius: 9px;
+      padding: 0 12px;
+      background: light-dark(#f7fafa, #101c20);
+      color: inherit;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+
+    #vibepy-hub-mockup .hub-dialog-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 9px;
+      margin-top: 24px;
+    }
+
+    #vibepy-hub-mockup .hub-toast {
+      position: fixed;
+      right: 24px;
+      bottom: 24px;
+      z-index: 30;
+      max-width: 360px;
+      padding: 12px 15px;
+      border: 1px solid light-dark(#bfd5d3, #3d6662);
+      border-radius: 10px;
+      background: light-dark(#eefaf8, #183633);
+      color: light-dark(#245b57, #c2e9e5);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, .18);
+      font-size: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    #vibepy-hub-mockup .hub-toast.is-visible { opacity: 1; transform: translateY(0); }
+
+    #vibepy-hub-mockup.is-compact .hub-app-row { min-height: 94px; }
+    #vibepy-hub-mockup.is-compact .hub-main { padding-top: 34px; }
+
+    @media (max-width: 820px) {
+      #vibepy-hub-mockup { padding: 10px; }
+      #vibepy-hub-mockup .hub-shell { border-radius: 12px; }
+      #vibepy-hub-mockup .hub-topbar { padding: 0 18px; }
+      #vibepy-hub-mockup .hub-main { padding: 30px 20px 36px; }
+      #vibepy-hub-mockup .hub-heading-row { align-items: flex-start; flex-direction: column; }
+      #vibepy-hub-mockup .hub-summary { width: 100%; border-left: 0; }
+      #vibepy-hub-mockup .hub-summary-item { padding: 0; }
+      #vibepy-hub-mockup .hub-board-head { display: none; }
+      #vibepy-hub-mockup .hub-app-row {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 24px 20px;
+      }
+      #vibepy-hub-mockup .hub-actions { justify-content: flex-start; }
+      #vibepy-hub-mockup .hub-state-note { text-align: left; }
+      #vibepy-hub-mockup .hub-rail { max-width: 430px; }
+    }
+
+    @media (max-width: 480px) {
+      #vibepy-hub-mockup { padding: 0; }
+      #vibepy-hub-mockup .hub-shell { min-height: 100vh; border: 0; border-radius: 0; }
+      #vibepy-hub-mockup .hub-local { display: none; }
+      #vibepy-hub-mockup .hub-topbar .hub-primary { padding: 0 11px; }
+      #vibepy-hub-mockup .hub-main { padding-inline: 16px; }
+      #vibepy-hub-mockup .hub-summary-value { font-size: 18px; }
+      #vibepy-hub-mockup .hub-dialog { padding: 22px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #vibepy-hub-mockup *,
+      #vibepy-hub-mockup *::before,
+      #vibepy-hub-mockup *::after { transition: none !important; }
+    }
+  </style>
+
+  <section class="hub-shell" aria-label="VibePy Hub interface mockup">
+    <header class="hub-topbar">
+      <div class="hub-brand">
+        <span class="hub-brand-mark" aria-hidden="true">V›</span>
+        <span>VibePy Hub</span>
+        <span class="hub-local"><span class="hub-local-dot"></span>Local</span>
+      </div>
+      <button class="hub-primary" type="button" data-add-package>+ Add package</button>
+    </header>
+
+    <main class="hub-main">
+      <div class="hub-heading-row">
+        <div>
+          <p class="hub-eyebrow">App control board</p>
+          <h1>Your apps</h1>
+          <p class="hub-subtitle">Register, install, and run each app from one clear lifecycle view.</p>
+        </div>
+        <div class="hub-summary" aria-label="App summary" data-summary></div>
+      </div>
+
+      <section class="hub-board" aria-label="Managed apps">
+        <div class="hub-board-head" aria-hidden="true">
+          <span>App</span><span>Lifecycle</span><span style="text-align:right">Action</span>
+        </div>
+        <div data-app-list></div>
+      </section>
+    </main>
+  </section>
+
+  <div class="hub-dialog-backdrop" data-dialog-backdrop>
+    <section class="hub-dialog" role="dialog" aria-modal="true" aria-labelledby="hub-dialog-title">
+      <h2 id="hub-dialog-title">Add a package</h2>
+      <p>Choose a local app folder. The Hub checks the package before adding it to this list.</p>
+      <label class="hub-field-label" for="hub-package-path">App folder</label>
+      <input class="hub-path-input" id="hub-package-path" value="/Users/andy/apps/inventory" spellcheck="false" />
+      <div class="hub-dialog-actions">
+        <button class="hub-secondary" type="button" data-close-dialog>Cancel</button>
+        <button class="hub-primary" type="button" data-register-package>Add package</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="hub-toast" role="status" aria-live="polite" data-toast></div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('vibepy-hub-mockup');
+      if (!root) return;
+
+      const apps = [
+        { id: 'customer-desk', name: 'Customer Desk', version: '1.4.0', path: '~/apps/customer-desk', state: 'running' },
+        { id: 'expense-review', name: 'Expense Review', version: '0.9.2', path: '~/apps/expense-review', state: 'installed' },
+        { id: 'todo', name: 'Todo', version: '2.1.1', path: '~/apps/todo', state: 'package' }
+      ];
+
+      const list = root.querySelector('[data-app-list]');
+      const summary = root.querySelector('[data-summary]');
+      const backdrop = root.querySelector('[data-dialog-backdrop]');
+      const pathInput = root.querySelector('#hub-package-path');
+      const toast = root.querySelector('[data-toast]');
+      let toastTimer;
+
+      const labels = { package: 'Ready to install', installed: 'Installed · stopped', running: 'Running locally' };
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add('is-visible');
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toast.classList.remove('is-visible'), 2200);
+      }
+
+      function button(label, action, style = 'hub-secondary') {
+        return `<button class="${style}" type="button" data-action="${action}">${label}</button>`;
+      }
+
+      function renderRail(state) {
+        const stages = ['package', 'installed', 'running'];
+        const stageLabels = ['Package', 'Installed', 'Running'];
+        const currentIndex = stages.indexOf(state);
+        return `<div class="hub-rail" aria-label="${stageLabels[currentIndex]} stage">${stages.map((stage, index) => {
+          const done = index <= currentIndex;
+          const live = stage === 'running' && state === 'running';
+          return `<div class="hub-stage ${done ? 'is-done' : ''} ${live ? 'is-running' : ''}">
+            <span class="hub-stage-node" aria-hidden="true">✓</span><span>${stageLabels[index]}</span>
+          </div>`;
+        }).join('')}</div>`;
+      }
+
+      function renderActions(app) {
+        if (app.state === 'package') return button('Install', 'install', 'hub-primary');
+        if (app.state === 'installed') return `${button('Remove', 'remove', 'hub-danger')}${button('Start', 'start', 'hub-primary')}`;
+        return button('Stop', 'stop', 'hub-secondary');
+      }
+
+      function render() {
+        const installed = apps.filter(app => app.state !== 'package').length;
+        const running = apps.filter(app => app.state === 'running').length;
+        summary.innerHTML = [
+          [apps.length, 'Packages'],
+          [installed, 'Installed'],
+          [running, 'Running']
+        ].map(([value, label]) => `<div class="hub-summary-item"><span class="hub-summary-value">${value}</span><span class="hub-summary-label">${label}</span></div>`).join('');
+
+        list.innerHTML = apps.map(app => `<article class="hub-app-row" data-app-id="${app.id}">
+          <div>
+            <h2 class="hub-app-name">${app.name}</h2>
+            <div class="hub-app-meta"><span>v${app.version}</span><span>${app.path}</span></div>
+          </div>
+          ${renderRail(app.state)}
+          <div class="hub-actions">
+            <p class="hub-state-note ${app.state === 'running' ? 'is-live' : ''}">${labels[app.state]}</p>
+            ${renderActions(app)}
+          </div>
+        </article>`).join('');
+      }
+
+      function closeDialog() {
+        backdrop.classList.remove('is-open');
+        root.querySelector('[data-add-package]').focus();
+      }
+
+      root.querySelector('[data-add-package]').addEventListener('click', () => {
+        backdrop.classList.add('is-open');
+        setTimeout(() => pathInput.focus(), 0);
+      });
+      root.querySelector('[data-close-dialog]').addEventListener('click', closeDialog);
+      backdrop.addEventListener('click', event => { if (event.target === backdrop) closeDialog(); });
+      root.addEventListener('keydown', event => { if (event.key === 'Escape' && backdrop.classList.contains('is-open')) closeDialog(); });
+
+      root.querySelector('[data-register-package]').addEventListener('click', () => {
+        const path = pathInput.value.trim();
+        if (!path) { showToast('Choose an app folder first.'); return; }
+        if (!apps.some(app => app.id === 'inventory')) {
+          apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', path: path.replace('/Users/andy', '~'), state: 'package' });
+        }
+        closeDialog();
+        render();
+        showToast('Inventory package added.');
+      });
+
+      list.addEventListener('click', event => {
+        const actionButton = event.target.closest('[data-action]');
+        if (!actionButton) return;
+        const row = actionButton.closest('[data-app-id]');
+        const app = apps.find(item => item.id === row.dataset.appId);
+        const action = actionButton.dataset.action;
+        if (action === 'install') { app.state = 'installed'; showToast(`${app.name} installed.`); }
+        if (action === 'start') { app.state = 'running'; showToast(`${app.name} is running.`); }
+        if (action === 'stop') { app.state = 'installed'; showToast(`${app.name} stopped safely.`); }
+        if (action === 'remove' && confirm(`Remove ${app.name} from installed apps?`)) {
+          app.state = 'package'; showToast(`${app.name} removed.`);
+        }
+        render();
+      });
+
+      if (globalThis.Tweak) {
+        const tweak = new Tweak({ title: 'Hub preview' });
+        tweak.addSelect('density', { label: 'Density', options: ['Comfortable', 'Compact'], defaultValue: 'Comfortable' });
+        tweak.onChange(({ density }) => root.classList.toggle('is-compact', density === 'Compact'));
+      }
+
+      render();
+    })();
+  </script>
+</div>
