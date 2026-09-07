@@ -1,7 +1,5 @@
 # Implementation Roadmap
 
-Codex may read the entire roadmap for context, but must implement only the milestone in `docs/work/current-task.md`.
-
 ## M0 - Architecture baseline
 
 Establish repository structure, core architecture documents, ADRs, test harness, and minimal importable Python package skeleton.

@@ -95,5 +95,4 @@ The app owns:
 - `docs/architecture/lifecycle.md`
 - `docs/architecture/adapters.md`
 - `docs/architecture/authoring.md`
-- `docs/plans/roadmap.md`
-- `docs/work/current-task.md`
+- `docs/roadmap.md`

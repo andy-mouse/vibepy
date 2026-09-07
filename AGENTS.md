@@ -5,7 +5,7 @@ This repository implements an agent-native application framework where one App e
 - Web channel: Pages rendered with NiceGUI for humans
 - Agent channel: Tools exposed through MCP for AI agents
 
-Read `ARCHITECTURE.md` before modifying framework code.
+Read `docs/architecture.md` before modifying framework code.
 
 ## Core invariants
 
