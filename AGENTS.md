@@ -53,3 +53,19 @@ Every change must pass `make lint typecheck test` before it is considered done.
 - Tests use pytest and verify public contracts. Prefer integration tests over unit tests where both apply.
 - Standard `logging` only, `getLogger(__name__)` per module. No `print`.
 - The public API is a product. Keep it backward compatible; deprecate before removing.
+
+## Milestone workflow
+
+One milestone in `docs/roadmap.md` is one cycle. A milestone does not start before the previous one is merged.
+
+1. Design - brainstorming skill. The agreed design goes to `docs/milestones/<Mn>/spec.md`.
+2. Plan - writing-plans skill. The implementation plan goes to `docs/milestones/<Mn>/plan.md`. The session ends here.
+3. Implement - a new session reads `plan.md` and follows the test-driven-development skill. The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
+4. Verify - verification-before-completion skill. `make lint typecheck test` must pass.
+5. Review - requesting-code-review skill.
+6. Integrate - finishing-a-development-branch skill.
+
+- Work happens on a branch named `mN-<slug>`. `main` stays green.
+- Architectural decisions are recorded as `docs/decisions/ADR-NNN-<slug>.md`, not only inside a spec.
+- Design depth scales with the milestone. Milestones specified down to class names in the roadmap need a short design step; adapter milestones need real boundary design.
+- Implement only the current milestone. Do not build ahead.
