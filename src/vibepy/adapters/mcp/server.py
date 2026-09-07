@@ -18,13 +18,12 @@ from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
 
 from vibepy.adapters.mcp.projection import to_mcp_tool
+from vibepy.app.runtime import AppRuntime
 from vibepy.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
 )
-from vibepy.tool.registry import ToolRegistry
-from vibepy.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +46,16 @@ def _failure(message: str) -> types.CallToolResult:
     )
 
 
-def build_mcp_server[DepsT](
-    *, name: str, version: str, registry: ToolRegistry[DepsT], runtime: ToolRuntime[DepsT]
-) -> Server[None]:
+def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
     """Build the MCP projection of one App's Tools.
 
-    The registry answers what Tools exist, which is enumeration; ToolRuntime
-    runs them, which is the framework's only invocation path.
+    Constructed from the AppRuntime rather than from a registry and a runtime, so
+    the Agent channel provably addresses the same running App as the Web channel.
+    The registry answers what Tools exist, which is enumeration; ToolRuntime runs
+    them, which is the framework's only invocation path.
     """
+    registry = app.tool_registry
+    runtime = app.tool_runtime
 
     async def list_tools(
         ctx: ServerRequestContext[None], params: types.PaginatedRequestParams | None
@@ -86,8 +87,8 @@ def build_mcp_server[DepsT](
         )
 
     return Server(
-        name,
-        version=version,
+        app.definition.app_id,
+        version=app.definition.version,
         lifespan=_no_lifespan,
         on_list_tools=list_tools,
         on_call_tool=call_tool,

@@ -12,18 +12,18 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import ui
 
+from vibepy.app.runtime import AppRuntime
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
-from vibepy.page.registry import PageRegistry
 from vibepy.page.runtime import PageRuntime
 
 
-def register_pages(*, registry: PageRegistry, runtime: PageRuntime) -> None:
-    """Project every declared Page onto a NiceGUI route.
+def register_pages[DepsT](app: AppRuntime[DepsT]) -> None:
+    """Project every declared Page of one App onto a NiceGUI route.
 
     Every declaration is validated before any route is registered, so a
-    rejected registry leaves no half-registered application behind.
+    rejected App leaves no half-registered application behind.
     """
-    definitions = registry.definitions()
+    definitions = app.page_registry.definitions()
     claimed: dict[str, str] = {}
     for definition in definitions:
         if not definition.route.startswith("/"):
@@ -34,7 +34,9 @@ def register_pages(*, registry: PageRegistry, runtime: PageRuntime) -> None:
         claimed[definition.route] = definition.name
 
     for definition in definitions:
-        ui.page(definition.route, title=definition.title)(_builder(runtime, definition.name))
+        ui.page(definition.route, title=definition.title)(
+            _builder(app.page_runtime, definition.name)
+        )
 
 
 def _builder(runtime: PageRuntime, name: str) -> Callable[[], Awaitable[None]]:

@@ -14,18 +14,14 @@ from mcp.server import Server
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.todo_fixture import TodoApp, TodoList, build_todo_app
+from tests.todo_fixture import TodoList, TodoStore, build_todo_app
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
+from vibepy.app import AppRuntime
 
 
-def build_server(app_under_test: TodoApp) -> Server[None]:
-    return build_mcp_server(
-        name="todo-app",
-        version="0.0.0",
-        registry=app_under_test.tool_registry,
-        runtime=app_under_test.tool_runtime,
-    )
+def build_server(app_under_test: AppRuntime[TodoStore]) -> Server[None]:
+    return build_mcp_server(app_under_test)
 
 
 def titles(result: object) -> list[str]:
@@ -40,10 +36,7 @@ def titles(result: object) -> list[str]:
 async def test_both_channels_share_one_backend_state(user: User) -> None:
     app_under_test = build_todo_app()
 
-    register_pages(
-        registry=app_under_test.page_registry,
-        runtime=app_under_test.page_runtime,
-    )
+    register_pages(app_under_test)
 
     async with Client(build_server(app_under_test)) as agent:
         await agent.call_tool("create_todo", {"title": "from the agent"})
