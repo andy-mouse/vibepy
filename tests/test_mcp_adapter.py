@@ -1,8 +1,10 @@
 import json
 
+import pytest
 from mcp.client import Client
 from mcp.server import Server
-from mcp.types import TextContent
+from mcp.shared.exceptions import MCPError
+from mcp.types import INVALID_PARAMS, TextContent
 from pydantic import BaseModel
 
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
@@ -169,3 +171,78 @@ async def test_a_nested_result_survives_the_round_trip() -> None:
         result = await client.call_tool("list_todos", {})
 
     assert result.structured_content == {"todos": [{"id": 1, "title": "milk", "done": False}]}
+
+
+class Boom(Exception):
+    """A domain exception owned by the fixture, not by the framework."""
+
+
+class BrokenFixture:
+    """Tools that fail: one raises, one returns output its own model rejects."""
+
+    async def explode(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+        raise Boom("the handler failed")
+
+    async def lie(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+        return Todo.model_construct(id="not-an-integer", title="broken", done=False)
+
+    def registry(self) -> ToolRegistry:
+        registry = ToolRegistry()
+        registry.register(
+            Tool(
+                definition=ToolDefinition(
+                    name="explode",
+                    description="Always raises",
+                    input_model=EmptyInput,
+                    output_model=Todo,
+                ),
+                handler=self.explode,
+            )
+        )
+        registry.register(
+            Tool(
+                definition=ToolDefinition(
+                    name="lie",
+                    description="Returns invalid output",
+                    input_model=EmptyInput,
+                    output_model=Todo,
+                ),
+                handler=self.lie,
+            )
+        )
+        return registry
+
+
+async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
+    fixture = TodoFixture()
+
+    async with Client(build_server(fixture.registry())) as client:
+        with pytest.raises(MCPError) as raised:
+            await client.call_tool("no_such_tool", {})
+
+    assert raised.value.code == INVALID_PARAMS
+    assert "no_such_tool" in raised.value.message
+
+
+async def test_invalid_input_is_reported_inside_the_result() -> None:
+    fixture = TodoFixture()
+
+    async with Client(build_server(fixture.registry())) as client:
+        result = await client.call_tool("create_todo", {})
+
+    assert result.is_error is True
+    assert result.structured_content is None
+
+
+async def test_a_raising_handler_is_reported_inside_the_result() -> None:
+    async with Client(build_server(BrokenFixture().registry())) as client:
+        result = await client.call_tool("explode", {})
+
+    assert result.is_error is True
+
+
+async def test_invalid_output_is_reported_inside_the_result() -> None:
+    async with Client(build_server(BrokenFixture().registry())) as client:
+        result = await client.call_tool("lie", {})
+
+    assert result.is_error is True

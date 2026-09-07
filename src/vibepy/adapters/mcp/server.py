@@ -17,8 +17,14 @@ from contextlib import asynccontextmanager
 
 from mcp import types
 from mcp.server import Server, ServerRequestContext
+from mcp.shared.exceptions import MCPError
 
 from vibepy.adapters.mcp.projection import to_mcp_tool
+from vibepy.errors import (
+    ToolInputValidationError,
+    ToolNotFoundError,
+    ToolOutputValidationError,
+)
 from vibepy.tool.registry import ToolRegistry
 from vibepy.tool.runtime import ToolRuntime
 
@@ -34,6 +40,13 @@ async def _no_lifespan(server: Server[None]) -> AsyncGenerator[None]:
     ``Any`` into this module's public return type.
     """
     yield None
+
+
+def _failure(message: str) -> types.CallToolResult:
+    """A failure the agent can read and act on, rather than a protocol error."""
+    return types.CallToolResult(
+        content=[types.TextContent(type="text", text=message)], is_error=True
+    )
 
 
 def build_mcp_server(
@@ -55,7 +68,19 @@ def build_mcp_server(
     async def call_tool(
         ctx: ServerRequestContext[None], params: types.CallToolRequestParams
     ) -> types.CallToolResult:
-        result = await runtime.invoke(params.name, params.arguments or {})
+        try:
+            result = await runtime.invoke(params.name, params.arguments or {})
+        except ToolNotFoundError as error:
+            raise MCPError(types.INVALID_PARAMS, str(error)) from error
+        except ToolInputValidationError as error:
+            return _failure(str(error))
+        except ToolOutputValidationError as error:
+            logger.error("Tool %r returned output its own model rejected", params.name)
+            return _failure(str(error))
+        # Broad on purpose: an app defect must not surface as a protocol error.
+        except Exception:
+            logger.exception("Tool %r raised", params.name)
+            return _failure(f"Tool {params.name!r} failed")
         data = result.model_dump(by_alias=True, mode="json")
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=json.dumps(data))],
