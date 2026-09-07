@@ -5,10 +5,10 @@
 Implement the six core Tool abstractions named in `docs/roadmap.md`: `ToolDefinition`,
 `Tool`, `ToolHandler`, `ToolContext`, `ToolRegistry`, `ToolRuntime`.
 
-No abstraction beyond those six is introduced. Registration needs one step that turns a
-typed Tool into something a name-keyed map can hold uniformly; that step is a generic
-function returning a closure, named by a type alias. It adds no class and no new concept,
-and the `ToolInvoker` name and its position in front of `ToolRuntime` stay reserved for M2.
+No class beyond those six is introduced. Registration binds each typed Tool into a closure
+of one uniform callable type, named by a type alias, per
+`docs/decisions/ADR-008-tools-are-bound-at-registration.md`. The `ToolInvoker` name and its
+position in front of `ToolRuntime` stay reserved for M2.
 
 Acceptance: raw input -> validation -> async handler -> validated output, with
 deterministic unknown/input/output errors.
@@ -72,11 +72,8 @@ Channels never construct a `ToolContext`.
 
 ### Binding
 
-A name-keyed map can only hold values of one static type, while every handler has its own
-input type. A handler's input type cannot be widened: `Tool[BaseModel, BaseModel]` would
-mean a Tool accepting any model, which a concrete handler does not. So registration needs
-one step that turns a typed Tool into a uniform value, and that step can only run where the
-model types are still concrete - inside a generic function.
+`ToolRuntime` owns the invocation steps, which `docs/architecture/tool-model.md` lists as
+its minimal responsibilities. The binding function therefore lives with `ToolRuntime`:
 
 ```python
 type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]
@@ -84,35 +81,16 @@ type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseMod
 def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> BoundTool
 ```
 
-`bind` closes over the typed Tool and returns a plain callable from raw input to a validated
-output model. A closure rather than a wrapper class: a class method would have to prove
-again that the value it received is the handler's input type, which is exactly what cannot
-be expressed. This is the shape FastAPI and Starlette use for the same problem - a per-route
-factory closure behind a uniform stored callable.
+`bind` closes over the typed Tool and returns a plain callable from raw input to a
+validated output model. Input validation, the handler call and output validation happen
+inside that closure. Why a closure rather than a wrapper class, and why validation cannot
+be split from the handler call:
+`docs/decisions/ADR-008-tools-are-bound-at-registration.md`.
 
-The closure performs input validation, the handler call and output validation together. They
-are inseparable here: input validation is precisely what proves that a raw mapping has the
-handler's input type. Splitting them would hand `ToolRuntime` a value typed only as
-`BaseModel` with no way to show it is the handler's input type, requiring a `cast` or an
-unreachable type guard. Neither is acceptable.
+Why the handler result is revalidated rather than accepted as-is, and what that requires of
+an app's output models: `docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
 
-Binding belongs to the execution layer, not to storage: `ToolRegistry` stores what `bind`
-produces and `ToolRuntime` calls it.
-
-Output validation revalidates the handler result through the output model rather than
-accepting the instance as-is. Pydantic does not revalidate an instance of the same model,
-and `model_construct`, post-construction assignment and dynamically populated models all
-produce instances that never passed validation. Accepting the instance would therefore make
-output validation decorative and the acceptance criterion untestable. Since the framework
-publishes a schema derived from `output_model` to the Agent channel from M3 onward, the
-guarantee that the value matches that schema is the framework's to keep.
-
-Two costs are accepted and stated rather than hidden:
-
-- one dump/validate round trip per invocation
-- output models must round-trip through `model_dump(by_alias=True)` back into
-  `model_validate`. A model whose aliases or computed fields break that round trip fails
-  deterministically with `ToolOutputValidationError`, visible in the app's own tests.
+`BoundTool` and `bind` are framework-internal. They are not re-exported from `vibepy`.
 
 ### ToolRegistry
 
@@ -125,6 +103,10 @@ Maps a name to a `BoundTool`. Storage only; it does not implement invocation sem
 
 Binding is what lets heterogeneous Tools share one map, and it happens where the model
 types are still concrete, so neither `Any` nor `cast` appears anywhere in the framework.
+
+`registry.py` imports `bind` and `BoundTool` from `runtime.py`. `runtime.py` imports
+`ToolRegistry` under `typing.TYPE_CHECKING` with a quoted annotation, so no import executes
+in both directions at runtime.
 
 ### ToolRuntime
 
@@ -158,14 +140,14 @@ src/vibepy/
   errors.py
   tool/
     model.py     ToolDefinition, ToolHandler, Tool, ToolContext
-    binding.py   BoundTool, bind
     registry.py  ToolRegistry
-    runtime.py   ToolRuntime
+    runtime.py   BoundTool, bind, ToolRuntime
 ```
 
-`binding.py` is a separate module because the alternatives do not work: putting `bind` in
-`registry.py` makes the storage module implement invocation semantics, and putting it in
-`runtime.py` forces the registry to import the runtime, which is a cycle.
+`bind` sits in `runtime.py` because `docs/architecture/tool-model.md` assigns input
+validation, the handler call and output validation to `ToolRuntime`. A separate binding
+module and a private function inside `registry.py` are both implementable, and both put
+those steps somewhere that document does not.
 
 A package rather than a single module, because two repository invariants are import
 boundaries - MCP types must not reach the core Tool model, NiceGUI types must not reach the
