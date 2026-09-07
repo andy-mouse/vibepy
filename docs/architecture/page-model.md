@@ -35,17 +35,15 @@ Pages consume Tools through a narrow framework interface.
 Page -> PageContext -> ToolInvoker -> ToolRuntime -> Tool
 ```
 
-Prefer a narrow interface such as:
+A Page invokes a Tool by name and never sees ToolRuntime:
 
 ```python
-await ctx.tools.call("create_customer", input)
+await ctx.tools.call("create_customer", raw_input)
 ```
-
-over exposing ToolRuntime internals directly.
 
 ## Core objects
 
-The initial model may distinguish:
+The model distinguishes:
 
 ```text
 PageDefinition + PageHandler -> Page
@@ -59,9 +57,51 @@ Minimal initial metadata:
 - route
 - title
 
+`name` is the identifier the framework addresses a Page by, and it is stable across a
+route change. `route` and `title` are consumed by the Web channel adapter, so their format
+is validated where routes are registered, not in the core Page model.
+
 ### PageHandler
 
 Human interaction/render implementation.
+
+Conceptual contract:
+
+```python
+async def handler(ctx: PageContext) -> None:
+    ...
+```
+
+The parameter is positional-only in the `PageHandler` Protocol, so an app author may name
+it freely.
+
+A handler returns nothing. A Page builds its interface by side effect, as a NiceGUI page
+builder does, and a render result would be a value no channel reads. Returning a Web
+response instead is a Web channel concern and belongs to the NiceGUI adapter.
+
+### Page
+
+A PageDefinition paired with the handler that implements it.
+
+Page is not generic. A PageHandler declares no input or output model, so every Page already
+shares one static type and needs no binding step before storage. ADR-008 applies to Tools
+only.
+
+### ToolInvoker
+
+The narrow interface a Page invokes Tools through.
+
+```python
+def call(name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
+```
+
+The signature is `ToolRuntime.invoke`'s, so validation stays wholly inside ToolRuntime and
+no second validation path exists. ToolInvoker is a Protocol: the core Page model depends on
+the shape of Tool invocation, not on the Tool runtime.
+
+Tool errors are not translated. `ToolNotFoundError`, `ToolInputValidationError` and
+`ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
+raised by a PageHandler.
 
 ### PageContext
 
@@ -71,7 +111,33 @@ Provides Page-scoped capabilities such as:
 - session state
 - future principal/identity information
 
+Of these, a PageContext currently carries only its ToolInvoker. Session state is owned by
+the Web channel, which is where a session exists.
+
 It should not expose unrestricted AppRuntime internals.
+
+PageRuntime creates a PageContext. A Page never constructs one, and neither does a channel.
+
+### PageRegistry
+
+Maps a Page name to the Page registered under it. Storage only; it implements no invocation
+semantics, and resolution is consumed by PageRuntime.
+
+Registering a name twice replaces the earlier registration.
+
+The registry also enumerates its declarations, because a Web channel adapter projects every
+PageDefinition into a route. Route uniqueness is therefore validated where routes are
+registered.
+
+Resolving a name that was never registered raises `PageNotFoundError`.
+
+### PageRuntime
+
+Constructed from a PageRegistry and a ToolRuntime.
+
+`PageRuntime.render(name)` resolves the Page, creates its PageContext with a ToolInvoker
+backed by that ToolRuntime, and awaits the handler. It holds no per-Page state and does not
+serialize renders.
 
 ## Relationship to Tools
 
