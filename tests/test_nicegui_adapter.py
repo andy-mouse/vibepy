@@ -80,7 +80,7 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
     await user.open("/todos")
 
     assert len(seen) == 1
-    assert callable(seen[0].tools.call)
+    assert callable(seen[0].tools.invoke)
 
 
 async def noop_handler(ctx: PageContext) -> None:

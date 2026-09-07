@@ -20,7 +20,7 @@ class RecordingInvoker:
     def __init__(self) -> None:
         self.calls: list[tuple[str, Mapping[str, object]]] = []
 
-    def call(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
+    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
         self.calls.append((name, raw_input))
         raise AssertionError("this fixture records calls and never returns a result")
 
@@ -159,7 +159,7 @@ def build_page_runtime(registry: PageRegistry, store: TodoStore) -> PageRuntime:
     tool_registry.register(create_todo_tool(store))
     return PageRuntime(
         registry=registry,
-        tool_runtime=ToolRuntime(app_id="todo", registry=tool_registry, dependencies=None),
+        tools=ToolRuntime(app_id="todo", registry=tool_registry, dependencies=None),
     )
 
 
@@ -172,7 +172,7 @@ async def test_a_page_reaches_a_tool_through_the_tool_invoker() -> None:
     registry = PageRegistry()
 
     async def handler(ctx: PageContext) -> None:
-        await ctx.tools.call("create_todo", {"title": "buy milk"})
+        await ctx.tools.invoke("create_todo", {"title": "buy milk"})
 
     registry.register(Page(definition=todos_definition(), handler=handler))
 
@@ -187,7 +187,7 @@ async def test_a_page_receives_the_validated_output_model() -> None:
     received: list[BaseModel] = []
 
     async def handler(ctx: PageContext) -> None:
-        received.append(await ctx.tools.call("create_todo", {"title": "buy milk"}))
+        received.append(await ctx.tools.invoke("create_todo", {"title": "buy milk"}))
 
     registry.register(Page(definition=todos_definition(), handler=handler))
 
@@ -209,7 +209,7 @@ async def test_calling_an_unknown_tool_name_reaches_the_caller_unchanged() -> No
     registry = PageRegistry()
 
     async def handler(ctx: PageContext) -> None:
-        await ctx.tools.call("delete_todo", {})
+        await ctx.tools.invoke("delete_todo", {})
 
     registry.register(Page(definition=todos_definition(), handler=handler))
     runtime = build_page_runtime(registry, TodoStore())
@@ -224,7 +224,7 @@ async def test_malformed_tool_input_reaches_the_caller_unchanged() -> None:
     registry = PageRegistry()
 
     async def handler(ctx: PageContext) -> None:
-        await ctx.tools.call("create_todo", {})
+        await ctx.tools.invoke("create_todo", {})
 
     registry.register(Page(definition=todos_definition(), handler=handler))
     runtime = build_page_runtime(registry, TodoStore())

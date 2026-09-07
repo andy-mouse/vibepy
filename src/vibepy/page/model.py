@@ -12,10 +12,14 @@ class ToolInvoker(Protocol):
 
     The signature is ``ToolRuntime.invoke``'s: a raw mapping in, a validated output
     model out. Validation stays inside ToolRuntime, so no second validation path
-    exists, and a Page never sees the runtime itself.
+    exists, and a Page sees nothing of the runtime beyond this one operation.
+
+    Name included. ToolRuntime satisfies this Protocol structurally, so nothing
+    stands between a Page and the canonical invocation path, and the Page package
+    still imports no Tool runtime.
     """
 
-    def call(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
+    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
 
 
 @dataclass(frozen=True)

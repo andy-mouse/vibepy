@@ -57,7 +57,7 @@ async def list_todos(ctx: ToolContext[TodoStore], _payload: EmptyInput) -> TodoL
 
 async def todos_page(ctx: PageContext) -> None:
     """The human workflow. It reaches the domain only through Tools."""
-    listing = await ctx.tools.call("list_todos", {})
+    listing = await ctx.tools.invoke("list_todos", {})
 
     @ui.refreshable
     def rendered(todos: TodoList) -> None:
@@ -67,8 +67,8 @@ async def todos_page(ctx: PageContext) -> None:
     title = ui.input("title")
 
     async def add() -> None:
-        await ctx.tools.call("create_todo", {"title": title.value})
-        refreshed = await ctx.tools.call("list_todos", {})
+        await ctx.tools.invoke("create_todo", {"title": title.value})
+        refreshed = await ctx.tools.invoke("list_todos", {})
         assert isinstance(refreshed, TodoList)
         rendered.refresh(refreshed)
 

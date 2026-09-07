@@ -46,7 +46,7 @@ class AppRuntime[DepsT]:
         for page in definition.pages:
             page_registry.register(page)
         self._page_registry = page_registry
-        self._page_runtime = PageRuntime(registry=page_registry, tool_runtime=self._tool_runtime)
+        self._page_runtime = PageRuntime(registry=page_registry, tools=self._tool_runtime)
 
     @property
     def definition(self) -> AppDefinition[DepsT]:
