@@ -19,11 +19,15 @@ only through the App's public surface. ``tests/test_app_runtime.py`` observes
 """
 
 import asyncio
+from collections.abc import Callable
 
 from mcp.client import Client
+from nicegui import ui
+from nicegui.testing import User
 from pydantic import BaseModel
 
 from vibepy.adapters.mcp import build_mcp_server
+from vibepy.adapters.nicegui import register_pages
 from vibepy.app import AppDefinition, AppRuntime
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
@@ -94,6 +98,22 @@ async def meeting_page(ctx: PageContext) -> None:
     await ctx.tools.invoke("meet", {})
 
 
+async def meeting_button_page(ctx: PageContext) -> None:
+    """The interaction path: a click invokes the Tool, then the label reflects it.
+
+    The label is what ``should_see`` waits on. NiceGUI dispatches an async event
+    handler as a background task, so the click returns before the invocation
+    finishes, and the UI is the documented place to observe that it did.
+    """
+    status = ui.label("waiting")
+
+    async def meet_now() -> None:
+        await ctx.tools.invoke("meet", {})
+        status.set_text("met")
+
+    ui.button("Meet", on_click=meet_now)
+
+
 def build_app() -> AppRuntime[Rendezvous]:
     return AppRuntime(
         AppDefinition(
@@ -106,6 +126,12 @@ def build_app() -> AppRuntime[Rendezvous]:
                 Page(
                     definition=PageDefinition(name="meeting", route="/meeting", title="Meeting"),
                     handler=meeting_page,
+                ),
+                Page(
+                    definition=PageDefinition(
+                        name="meeting_button", route="/meeting-button", title="Meeting"
+                    ),
+                    handler=meeting_button_page,
                 ),
             ],
         )
@@ -193,3 +219,34 @@ async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     assert not first.is_error
     assert not second.is_error
     assert LogSnapshot.model_validate(listed.structured_content).entries == ARRIVALS_THEN_DEPARTURES
+
+
+async def test_two_web_channel_interactions_are_in_flight_at_once(
+    create_user: Callable[[], User],
+) -> None:
+    """The Web channel's request concurrency is NiceGUI's, and this pins it.
+
+    ``pyproject.toml`` pins only ``nicegui>=3.16``. NiceGUI dispatches an async
+    event handler as a background task, so a click does not hold the
+    interaction and two of them overlap. The shape here is NiceGUI's documented
+    one for simultaneous users: ``create_user()``, ``open``, ``find`` with an
+    interaction, then ``should_see``.
+
+    ``should_see`` is also the wait. It retries until the label changes and
+    fails if it never does, so nothing in the fixture waits on the invocation.
+    """
+    app = build_app()
+    register_pages(app)
+
+    first = create_user()
+    second = create_user()
+    await first.open("/meeting-button")
+    await second.open("/meeting-button")
+
+    first.find("Meet").click()
+    second.find("Meet").click()
+
+    await first.should_see("met")
+    await second.should_see("met")
+
+    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
