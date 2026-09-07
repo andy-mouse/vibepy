@@ -41,6 +41,22 @@ Responsibilities:
 3. execute PageHandlers in the NiceGUI lifecycle
 4. connect Page interaction to ToolRuntime through ToolInvoker
 
+`register_pages()` projects every PageDefinition in a PageRegistry onto a NiceGUI route
+whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a route
+change never reaches PageRuntime, and the adapter constructs no PageContext: PageRuntime
+owns that.
+
+Route format and route uniqueness are validated here, which is where
+`docs/architecture/page-model.md` places them. Every declaration is checked before any
+route is registered, so a rejected registry leaves no half-registered app behind.
+
+Errors are not translated. A Tool error or a handler exception propagates into NiceGUI,
+which renders it. The MCP adapter wraps failures in a result because the MCP protocol
+demands an answer to every call; the Web channel makes no such demand.
+
+The adapter registers routes and starts no server. See
+`docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
+
 The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
 
 NiceGUI-specific types must not leak into the core Page model unless required at the app UI implementation boundary.
