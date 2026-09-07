@@ -1,4 +1,21 @@
-def test_package_is_importable() -> None:
-    import vibepy
+import vibepy
 
-    assert vibepy.__all__ == []
+
+def test_public_api_is_exported_from_the_package_root() -> None:
+    assert vibepy.__all__ == [
+        "Tool",
+        "ToolContext",
+        "ToolDefinition",
+        "ToolHandler",
+        "ToolInputValidationError",
+        "ToolNotFoundError",
+        "ToolOutputValidationError",
+        "ToolRegistry",
+        "ToolRuntime",
+        "VibepyError",
+    ]
+
+
+def test_every_exported_name_is_reachable() -> None:
+    for name in vibepy.__all__:
+        assert hasattr(vibepy, name)
