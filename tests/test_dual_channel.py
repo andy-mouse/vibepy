@@ -12,10 +12,7 @@ import json
 from mcp.client import Client
 from mcp.server import Server
 from mcp.types import TextContent
-
-# NiceGUI types ``user_simulation``'s unused ``root`` parameter as a bare Callable, so
-# pyright cannot fully resolve the name. The context manager it returns is typed.
-from nicegui.testing import user_simulation  # pyright: ignore[reportUnknownVariableType]
+from nicegui.testing import User
 
 from tests.todo_fixture import TodoApp, TodoList, build_todo_app
 from vibepy.adapters.mcp import build_mcp_server
@@ -40,26 +37,25 @@ def titles(result: object) -> list[str]:
     return [todo.title for todo in TodoList.model_validate(result).todos]
 
 
-async def test_both_channels_share_one_backend_state() -> None:
+async def test_both_channels_share_one_backend_state(user: User) -> None:
     app_under_test = build_todo_app()
 
-    async with user_simulation() as user:
-        register_pages(
-            registry=app_under_test.page_registry,
-            runtime=app_under_test.page_runtime,
-        )
+    register_pages(
+        registry=app_under_test.page_registry,
+        runtime=app_under_test.page_runtime,
+    )
 
-        async with Client(build_server(app_under_test)) as agent:
-            await agent.call_tool("create_todo", {"title": "from the agent"})
+    async with Client(build_server(app_under_test)) as agent:
+        await agent.call_tool("create_todo", {"title": "from the agent"})
 
-            await user.open("/todos")
-            await user.should_see("todo: from the agent")
+        await user.open("/todos")
+        await user.should_see("todo: from the agent")
 
-            user.find("title").type("from the human")
-            user.find("Add").click()
-            await user.should_see("todo: from the human")
+        user.find("title").type("from the human")
+        user.find("Add").click()
+        await user.should_see("todo: from the human")
 
-            listed = await agent.call_tool("list_todos", {})
+        listed = await agent.call_tool("list_todos", {})
 
     assert titles(listed.structured_content) == ["from the agent", "from the human"]
     block = listed.content[0]
