@@ -5,6 +5,7 @@ description = "Agent-native application framework exposing Tools through Web and
 requires-python = ">=3.12"
 dependencies = [
     "mcp>=2.1",
+    "nicegui>=3.16",
     "pydantic>=2.9",
 ]
 
@@ -17,6 +18,7 @@ packages = ["src/vibepy"]
 
 [dependency-groups]
 dev = [
+    "nicegui[testing]>=3.16",
     "ruff>=0.14",
     "pyright>=1.1.400",
     "pytest>=8.3",
