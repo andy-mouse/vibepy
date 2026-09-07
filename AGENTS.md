@@ -5,10 +5,11 @@ This repository implements an agent-native application framework where one App e
 - Web channel: Pages rendered with NiceGUI for humans
 - Agent channel: Tools exposed through MCP for AI agents
 
-Read `docs/architecture.md` before modifying framework code.
+## Sources
 
-- Statements about external libraries, tools, or standards cite official documentation. Training data is not a source.
-- Silence in this repository's documents is an open decision, not permission. Stop and ask.
+- Answers come from this repository's documents first. Search `docs/` before introducing a concept, and say what you searched.
+- External behaviour comes from official documentation, cited. Training data is not a source.
+- Where no source answers, that is an open decision. Stop and ask; do not invent.
 
 ## Core invariants
 
