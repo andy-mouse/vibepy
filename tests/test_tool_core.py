@@ -64,10 +64,19 @@ class TodoStore:
         return completed
 
 
-def create_todo_tool(store: TodoStore) -> Tool[CreateTodoInput, Todo]:
-    async def handler(_ctx: ToolContext, payload: CreateTodoInput) -> Todo:
-        return store.create(payload.title)
+async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> Todo:
+    return ctx.dependencies.create(payload.title)
 
+
+async def list_todos(ctx: ToolContext[TodoStore], _payload: EmptyInput) -> TodoList:
+    return TodoList(todos=ctx.dependencies.list())
+
+
+async def complete_todo(ctx: ToolContext[TodoStore], payload: CompleteTodoInput) -> Todo:
+    return ctx.dependencies.complete(payload.id)
+
+
+def create_todo_tool() -> Tool[TodoStore]:
     return Tool(
         definition=ToolDefinition(
             name="create_todo",
@@ -75,14 +84,11 @@ def create_todo_tool(store: TodoStore) -> Tool[CreateTodoInput, Todo]:
             input_model=CreateTodoInput,
             output_model=Todo,
         ),
-        handler=handler,
+        handler=create_todo,
     )
 
 
-def list_todos_tool(store: TodoStore) -> Tool[EmptyInput, TodoList]:
-    async def handler(_ctx: ToolContext, _payload: EmptyInput) -> TodoList:
-        return TodoList(todos=store.list())
-
+def list_todos_tool() -> Tool[TodoStore]:
     return Tool(
         definition=ToolDefinition(
             name="list_todos",
@@ -90,14 +96,11 @@ def list_todos_tool(store: TodoStore) -> Tool[EmptyInput, TodoList]:
             input_model=EmptyInput,
             output_model=TodoList,
         ),
-        handler=handler,
+        handler=list_todos,
     )
 
 
-def complete_todo_tool(store: TodoStore) -> Tool[CompleteTodoInput, Todo]:
-    async def handler(_ctx: ToolContext, payload: CompleteTodoInput) -> Todo:
-        return store.complete(payload.id)
-
+def complete_todo_tool() -> Tool[TodoStore]:
     return Tool(
         definition=ToolDefinition(
             name="complete_todo",
@@ -105,12 +108,12 @@ def complete_todo_tool(store: TodoStore) -> Tool[CompleteTodoInput, Todo]:
             input_model=CompleteTodoInput,
             output_model=Todo,
         ),
-        handler=handler,
+        handler=complete_todo,
     )
 
 
 def test_tool_definition_declares_its_models() -> None:
-    tool = create_todo_tool(TodoStore())
+    tool = create_todo_tool()
 
     assert tool.definition.name == "create_todo"
     assert tool.definition.description == "Create a todo item"
@@ -119,7 +122,7 @@ def test_tool_definition_declares_its_models() -> None:
 
 
 def test_tool_context_is_immutable() -> None:
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1")
+    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=None)
 
     with pytest.raises(FrozenInstanceError):
         ctx.app_id = "other"  # pyright: ignore[reportAttributeAccessIssue]
@@ -127,24 +130,23 @@ def test_tool_context_is_immutable() -> None:
 
 async def test_handler_protocol_accepts_a_plain_async_function() -> None:
     store = TodoStore()
-    tool = create_todo_tool(store)
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1")
+    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=store)
 
-    todo = await tool.handler(ctx, CreateTodoInput(title="buy milk"))
+    todo = await create_todo(ctx, CreateTodoInput(title="buy milk"))
 
     assert todo == Todo(id=1, title="buy milk", done=False)
 
 
-def build_registry(store: TodoStore) -> ToolRegistry:
-    registry = ToolRegistry()
-    registry.register(create_todo_tool(store))
-    registry.register(list_todos_tool(store))
-    registry.register(complete_todo_tool(store))
+def build_registry() -> ToolRegistry[TodoStore]:
+    registry: ToolRegistry[TodoStore] = ToolRegistry()
+    registry.register(create_todo_tool())
+    registry.register(list_todos_tool())
+    registry.register(complete_todo_tool())
     return registry
 
 
 def test_resolving_an_unregistered_name_raises() -> None:
-    registry = ToolRegistry()
+    registry: ToolRegistry[None] = ToolRegistry()
 
     with pytest.raises(ToolNotFoundError) as raised:
         registry.resolve("create_todo")
@@ -157,8 +159,8 @@ class ProbeOutput(BaseModel):
     invocation_id: str
 
 
-def probe_tool() -> Tool[EmptyInput, ProbeOutput]:
-    async def handler(ctx: ToolContext, _payload: EmptyInput) -> ProbeOutput:
+def probe_tool() -> Tool[None]:
+    async def handler(ctx: ToolContext[None], _payload: EmptyInput) -> ProbeOutput:
         return ProbeOutput(app_id=ctx.app_id, invocation_id=ctx.invocation_id)
 
     return Tool(
@@ -172,8 +174,8 @@ def probe_tool() -> Tool[EmptyInput, ProbeOutput]:
     )
 
 
-def broken_output_tool() -> Tool[EmptyInput, Todo]:
-    async def handler(_ctx: ToolContext, _payload: EmptyInput) -> Todo:
+def broken_output_tool() -> Tool[None]:
+    async def handler(_ctx: ToolContext[None], _payload: EmptyInput) -> Todo:
         return Todo.model_construct(id="not-an-integer", title="broken", done=False)
 
     return Tool(
@@ -188,15 +190,15 @@ def broken_output_tool() -> Tool[EmptyInput, Todo]:
 
 
 async def test_raw_input_round_trips_into_a_validated_output_model() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(TodoStore()))
+    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     result = await runtime.invoke("create_todo", {"title": "buy milk"})
 
     assert result == Todo(id=1, title="buy milk", done=False)
 
 
-async def test_tools_share_the_state_they_were_built_over() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(TodoStore()))
+async def test_tools_share_the_dependencies_they_were_invoked_with() -> None:
+    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
     await runtime.invoke("create_todo", {"title": "buy milk"})
     await runtime.invoke("create_todo", {"title": "walk the dog"})
 
@@ -211,7 +213,8 @@ async def test_tools_share_the_state_they_were_built_over() -> None:
 
 
 async def test_invoking_an_unknown_name_raises() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=ToolRegistry())
+    registry: ToolRegistry[None] = ToolRegistry()
+    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
 
     with pytest.raises(ToolNotFoundError) as raised:
         await runtime.invoke("create_todo", {})
@@ -220,7 +223,7 @@ async def test_invoking_an_unknown_name_raises() -> None:
 
 
 async def test_malformed_raw_input_raises_input_validation_error() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(TodoStore()))
+    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     with pytest.raises(ToolInputValidationError) as raised:
         await runtime.invoke("create_todo", {})
@@ -229,9 +232,9 @@ async def test_malformed_raw_input_raises_input_validation_error() -> None:
 
 
 async def test_a_result_violating_the_output_model_raises_output_validation_error() -> None:
-    registry = ToolRegistry()
+    registry: ToolRegistry[None] = ToolRegistry()
     registry.register(broken_output_tool())
-    runtime = ToolRuntime(app_id="todo", registry=registry)
+    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
 
     with pytest.raises(ToolOutputValidationError) as raised:
         await runtime.invoke("broken_output", {})
@@ -240,7 +243,7 @@ async def test_a_result_violating_the_output_model_raises_output_validation_erro
 
 
 async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(TodoStore()))
+    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     with pytest.raises(TodoNotFound) as raised:
         await runtime.invoke("complete_todo", {"id": 999})
@@ -249,9 +252,9 @@ async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
 
 
 async def test_the_handler_receives_the_runtime_app_id() -> None:
-    registry = ToolRegistry()
+    registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry)
+    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
 
     result = await runtime.invoke("probe", {})
 
@@ -260,9 +263,9 @@ async def test_the_handler_receives_the_runtime_app_id() -> None:
 
 
 async def test_each_invocation_receives_its_own_invocation_id() -> None:
-    registry = ToolRegistry()
+    registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry)
+    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
 
     first = await runtime.invoke("probe", {})
     second = await runtime.invoke("probe", {})
@@ -273,10 +276,9 @@ async def test_each_invocation_receives_its_own_invocation_id() -> None:
 
 
 def test_registry_enumerates_the_declarations_it_registered() -> None:
-    store = TodoStore()
-    registry = ToolRegistry()
-    registry.register(create_todo_tool(store))
-    registry.register(list_todos_tool(store))
+    registry: ToolRegistry[TodoStore] = ToolRegistry()
+    registry.register(create_todo_tool())
+    registry.register(list_todos_tool())
 
     definitions = registry.definitions()
 
@@ -286,9 +288,8 @@ def test_registry_enumerates_the_declarations_it_registered() -> None:
 
 
 def test_registering_a_name_twice_replaces_its_declaration() -> None:
-    store = TodoStore()
-    registry = ToolRegistry()
-    registry.register(create_todo_tool(store))
+    registry: ToolRegistry[TodoStore] = ToolRegistry()
+    registry.register(create_todo_tool())
     registry.register(
         Tool(
             definition=ToolDefinition(
@@ -297,7 +298,7 @@ def test_registering_a_name_twice_replaces_its_declaration() -> None:
                 input_model=CreateTodoInput,
                 output_model=Todo,
             ),
-            handler=create_todo_tool(store).handler,
+            handler=create_todo,
         )
     )
 
@@ -305,3 +306,12 @@ def test_registering_a_name_twice_replaces_its_declaration() -> None:
 
     assert len(definitions) == 1
     assert definitions[0].description == "Replaced"
+
+
+async def test_the_handler_receives_the_runtime_dependencies() -> None:
+    store = TodoStore()
+    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=store)
+
+    await runtime.invoke("create_todo", {"title": "buy milk"})
+
+    assert [todo.title for todo in store.list()] == ["buy milk"]

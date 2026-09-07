@@ -139,8 +139,8 @@ class TodoStore:
         return list(self._todos)
 
 
-def create_todo_tool(store: TodoStore) -> Tool[CreateTodoInput, Todo]:
-    async def handler(_ctx: ToolContext, payload: CreateTodoInput) -> Todo:
+def create_todo_tool(store: TodoStore) -> Tool[None]:
+    async def handler(_ctx: ToolContext[None], payload: CreateTodoInput) -> Todo:
         return store.create(payload.title)
 
     return Tool(
@@ -155,11 +155,11 @@ def create_todo_tool(store: TodoStore) -> Tool[CreateTodoInput, Todo]:
 
 
 def build_page_runtime(registry: PageRegistry, store: TodoStore) -> PageRuntime:
-    tool_registry = ToolRegistry()
+    tool_registry: ToolRegistry[None] = ToolRegistry()
     tool_registry.register(create_todo_tool(store))
     return PageRuntime(
         registry=registry,
-        tool_runtime=ToolRuntime(app_id="todo", registry=tool_registry),
+        tool_runtime=ToolRuntime(app_id="todo", registry=tool_registry, dependencies=None),
     )
 
 

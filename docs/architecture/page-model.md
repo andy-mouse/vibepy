@@ -84,7 +84,7 @@ response instead is a Web channel concern and belongs to the NiceGUI adapter.
 A PageDefinition paired with the handler that implements it.
 
 Page is not generic. A PageHandler declares no input or output model, so every Page already
-shares one static type and needs no binding step before storage. ADR-008 applies to Tools
+shares one static type and needs no binding step before storage. ADR-014 applies to Tools
 only.
 
 ### ToolInvoker
@@ -133,10 +133,20 @@ Resolving a name that was never registered raises `PageNotFoundError`.
 
 ### PageRuntime
 
-Constructed from a PageRegistry and a ToolRuntime.
+Constructed from a PageRegistry and one canonical Tool invocation path.
+
+That second parameter is typed by the `ToolInvocation` Protocol rather than by ToolRuntime,
+for the reason ToolInvoker exists: the Page package describes what it needs of Tool
+invocation and imports no Tool runtime. It also keeps the application-scoped dependency
+type out of the Page package, which has no use for it.
+
+```python
+class ToolInvocation(Protocol):
+    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
+```
 
 `PageRuntime.render(name)` resolves the Page, creates its PageContext with a ToolInvoker
-backed by that ToolRuntime, and awaits the handler. It holds no per-Page state and does not
+backed by that invocation path, and awaits the handler. It holds no per-Page state and does not
 serialize renders.
 
 ## Relationship to Tools

@@ -25,6 +25,11 @@ Never make MCP decorators or MCP SDK types the source of truth for framework Too
 
 MCP-specific types must not leak into the core Tool package.
 
+`build_mcp_server(app)` takes the AppRuntime, reading the registry it enumerates and the
+ToolRuntime it invokes through from one object, and taking the server's name and version
+from the AppDefinition. See
+`docs/decisions/ADR-015-adapters-are-built-from-an-app-runtime.md`.
+
 The adapter builds an SDK server object; it does not run one. Over stdio the agent platform
 owns the server process, so the executable entrypoint is package metadata rather than part
 of the runtime lifecycle. See
@@ -41,8 +46,8 @@ Responsibilities:
 3. execute PageHandlers in the NiceGUI lifecycle
 4. connect Page interaction to ToolRuntime through ToolInvoker
 
-`register_pages()` projects every PageDefinition in a PageRegistry onto a NiceGUI route
-whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a route
+`register_pages(app)` takes the AppRuntime and projects every PageDefinition it declares
+onto a NiceGUI route whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a route
 change never reaches PageRuntime, and the adapter constructs no PageContext: PageRuntime
 owns that.
 

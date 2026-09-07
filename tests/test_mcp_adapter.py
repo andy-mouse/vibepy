@@ -10,7 +10,8 @@ from mcp.types import INVALID_PARAMS, TextContent
 from pydantic import BaseModel
 
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
+from vibepy.app import AppDefinition, AppRuntime
+from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 
 class CreateTodoInput(BaseModel):
@@ -79,38 +80,45 @@ class TodoFixture:
 
     def __init__(self) -> None:
         self.todos: list[Todo] = []
-        self.contexts: list[ToolContext] = []
+        self.contexts: list[ToolContext[None]] = []
 
-    async def create_todo(self, ctx: ToolContext, payload: CreateTodoInput) -> Todo:
+    async def create_todo(self, ctx: ToolContext[None], payload: CreateTodoInput) -> Todo:
         self.contexts.append(ctx)
         todo = Todo(id=len(self.todos) + 1, title=payload.title, done=False)
         self.todos.append(todo)
         return todo
 
-    async def list_todos(self, ctx: ToolContext, payload: EmptyInput) -> TodoList:
+    async def list_todos(self, ctx: ToolContext[None], payload: EmptyInput) -> TodoList:
         self.contexts.append(ctx)
         return TodoList(todos=list(self.todos))
 
-    def registry(self) -> ToolRegistry:
-        registry = ToolRegistry()
-        registry.register(Tool(definition=create_todo_definition(), handler=self.create_todo))
-        registry.register(Tool(definition=list_todos_definition(), handler=self.list_todos))
-        return registry
+    def tools(self) -> list[Tool[None]]:
+        return [
+            Tool(definition=create_todo_definition(), handler=self.create_todo),
+            Tool(definition=list_todos_definition(), handler=self.list_todos),
+        ]
 
 
-def build_server(registry: ToolRegistry) -> Server[None]:
+def build_server(tools: list[Tool[None]]) -> Server[None]:
+    """One App with no application-scoped resource: these fixtures hold their own."""
     return build_mcp_server(
-        name="test-app",
-        version="0.0.0",
-        registry=registry,
-        runtime=ToolRuntime(app_id=APP_ID, registry=registry),
+        AppRuntime(
+            AppDefinition(
+                app_id=APP_ID,
+                name="Test",
+                version="0.0.0",
+                create_dependencies=lambda: None,
+                tools=tools,
+                pages=[],
+            )
+        )
     )
 
 
 async def test_framework_tools_appear_in_mcp_discovery() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         listed = await client.list_tools()
 
     assert [tool.name for tool in listed.tools] == ["create_todo", "list_todos"]
@@ -120,7 +128,7 @@ async def test_framework_tools_appear_in_mcp_discovery() -> None:
 async def test_discovered_schemas_are_the_projected_schemas() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         listed = await client.list_tools()
 
     assert listed.tools[0].input_schema == CreateTodoInput.model_json_schema()
@@ -131,7 +139,7 @@ async def test_discovered_schemas_are_the_projected_schemas() -> None:
 async def test_a_call_reaches_the_tool_and_changes_app_state() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         await client.call_tool("create_todo", {"title": "milk"})
 
     assert [todo.title for todo in fixture.todos] == ["milk"]
@@ -140,7 +148,7 @@ async def test_a_call_reaches_the_tool_and_changes_app_state() -> None:
 async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         await client.call_tool("create_todo", {"title": "milk"})
         await client.call_tool("create_todo", {"title": "eggs"})
 
@@ -154,7 +162,7 @@ async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
 async def test_a_result_is_the_validated_output_model() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         result = await client.call_tool("create_todo", {"title": "milk"})
 
     expected = Todo(id=1, title="milk", done=False).model_dump(by_alias=True, mode="json")
@@ -168,7 +176,7 @@ async def test_a_result_is_the_validated_output_model() -> None:
 async def test_a_nested_result_survives_the_round_trip() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         await client.call_tool("create_todo", {"title": "milk"})
         result = await client.call_tool("list_todos", {})
 
@@ -182,15 +190,14 @@ class Boom(Exception):
 class BrokenFixture:
     """Tools that fail: one raises, one returns output its own model rejects."""
 
-    async def explode(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+    async def explode(self, ctx: ToolContext[None], payload: EmptyInput) -> Todo:
         raise Boom("the handler failed")
 
-    async def lie(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+    async def lie(self, ctx: ToolContext[None], payload: EmptyInput) -> Todo:
         return Todo.model_construct(id="not-an-integer", title="broken", done=False)
 
-    def registry(self) -> ToolRegistry:
-        registry = ToolRegistry()
-        registry.register(
+    def tools(self) -> list[Tool[None]]:
+        return [
             Tool(
                 definition=ToolDefinition(
                     name="explode",
@@ -199,9 +206,7 @@ class BrokenFixture:
                     output_model=Todo,
                 ),
                 handler=self.explode,
-            )
-        )
-        registry.register(
+            ),
             Tool(
                 definition=ToolDefinition(
                     name="lie",
@@ -210,15 +215,14 @@ class BrokenFixture:
                     output_model=Todo,
                 ),
                 handler=self.lie,
-            )
-        )
-        return registry
+            ),
+        ]
 
 
 async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         with pytest.raises(MCPError) as raised:
             await client.call_tool("no_such_tool", {})
 
@@ -229,7 +233,7 @@ async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
 async def test_invalid_input_is_reported_inside_the_result() -> None:
     fixture = TodoFixture()
 
-    async with Client(build_server(fixture.registry())) as client:
+    async with Client(build_server(fixture.tools())) as client:
         result = await client.call_tool("create_todo", {})
 
     assert result.is_error is True
@@ -237,14 +241,14 @@ async def test_invalid_input_is_reported_inside_the_result() -> None:
 
 
 async def test_a_raising_handler_is_reported_inside_the_result() -> None:
-    async with Client(build_server(BrokenFixture().registry())) as client:
+    async with Client(build_server(BrokenFixture().tools())) as client:
         result = await client.call_tool("explode", {})
 
     assert result.is_error is True
 
 
 async def test_invalid_output_is_reported_inside_the_result() -> None:
-    async with Client(build_server(BrokenFixture().registry())) as client:
+    async with Client(build_server(BrokenFixture().tools())) as client:
         result = await client.call_tool("lie", {})
 
     assert result.is_error is True
@@ -260,9 +264,13 @@ def _imported_module_names(source: str) -> list[str]:
     return names
 
 
-def test_the_core_tool_and_page_packages_do_not_import_mcp() -> None:
+def test_the_core_packages_do_not_import_mcp() -> None:
     package = Path(__file__).resolve().parent.parent / "src" / "vibepy"
-    modules = sorted((package / "tool").glob("*.py")) + sorted((package / "page").glob("*.py"))
+    modules = (
+        sorted((package / "tool").glob("*.py"))
+        + sorted((package / "page").glob("*.py"))
+        + sorted((package / "app").glob("*.py"))
+    )
     assert modules != []
 
     offenders = [

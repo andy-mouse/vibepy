@@ -1,5 +1,6 @@
 """Agent-native application framework."""
 
+from vibepy.app import AppDefinition, AppRuntime
 from vibepy.errors import (
     PageNotFoundError,
     ToolInputValidationError,
@@ -14,11 +15,14 @@ from vibepy.page import (
     PageHandler,
     PageRegistry,
     PageRuntime,
+    ToolInvocation,
     ToolInvoker,
 )
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegistry, ToolRuntime
 
 __all__ = [
+    "AppDefinition",
+    "AppRuntime",
     "Page",
     "PageContext",
     "PageDefinition",
@@ -31,6 +35,7 @@ __all__ = [
     "ToolDefinition",
     "ToolHandler",
     "ToolInputValidationError",
+    "ToolInvocation",
     "ToolInvoker",
     "ToolNotFoundError",
     "ToolOutputValidationError",

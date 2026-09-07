@@ -62,33 +62,45 @@ An async-first callable implementing the Tool operation.
 Conceptual contract:
 
 ```python
-async def handler(ctx: ToolContext, payload: InputModel) -> OutputModel:
+async def handler(ctx: ToolContext[Deps], payload: InputModel) -> OutputModel:
     ...
 ```
 
+`Deps` is the app's own type for its application-scoped resource, reached as
+`ctx.dependencies`. See
+`docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
+
 Handler parameters are positional-only in the `ToolHandler` Protocol, so an app author may name them freely.
+
+### Tool
+
+A ToolDefinition paired with the handler that implements it, bound at construction into
+one uniform callable. The class is generic only in the dependency type; its `__init__` is
+generic in the declared models, so `Tool(definition=..., handler=...)` reads as a
+declaration and an AppDefinition can hold a sequence of Tools. A Tool does not expose its
+handler. See `docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
 
 ### ToolRegistry
 
 Maps a Tool name to the Tool registered under it. Storage only; it implements no
 invocation semantics.
 
-For each registered Tool it stores two things: the bound callable, which ToolRuntime
-resolves by name, and the ToolDefinition. `definitions()` enumerates the stored
-declarations in registration order, which is what a channel needs for discovery.
+One dictionary suffices: a Tool carries both its declaration and its bound callable.
+ToolRuntime resolves a Tool by name, and `definitions()` enumerates
+`tool.definition` in registration order, which is what a channel needs for discovery.
 
-Registering a name twice replaces both the bound callable and the declaration.
+Registering a name twice replaces the earlier Tool, declaration included.
 
 ### ToolRuntime
 
-The canonical invocation path for every channel. Constructed from an app id and a
-ToolRegistry.
+The canonical invocation path for every channel. Constructed from an app id, a
+ToolRegistry and the application-scoped resource AppRuntime owns.
 
 Minimal responsibilities:
 
 1. resolve Tool
 2. validate raw input
-3. create/pass ToolContext
+3. create/pass ToolContext, carrying the app-scoped resource
 4. invoke handler
 5. validate output
 6. normalize framework errors
@@ -99,7 +111,7 @@ Business logic does not belong in ToolRuntime.
 
 Framework errors are `ToolNotFoundError`, `ToolInputValidationError` and `ToolOutputValidationError`. Exceptions raised by a handler propagate unchanged.
 
-A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
+A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`. Validation happens inside the closure a Tool builds over its handler, because input validation is what proves a raw mapping has the handler's input type.
 
 ## Tool granularity
 
