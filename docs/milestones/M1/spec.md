@@ -5,6 +5,10 @@
 Implement the six core Tool abstractions named in `docs/roadmap.md`: `ToolDefinition`,
 `Tool`, `ToolHandler`, `ToolContext`, `ToolRegistry`, `ToolRuntime`.
 
+`ToolInvocation` is added as a framework-internal type. It is not new scope: any
+implementation needs one representation of a stored Tool whose type parameters have been
+erased. It stays out of the public API.
+
 Acceptance: raw input -> validation -> async handler -> validated output, with
 deterministic unknown/input/output errors.
 
@@ -65,39 +69,61 @@ an independent ToolContext" is observable in tests. `AppRuntime` does not exist 
 `ToolRuntime` is constructed with an `app_id` and creates every `ToolContext` itself.
 Channels never construct a `ToolContext`.
 
+### ToolInvocation
+
+A typed `Tool` bound into a channel-neutral, name-addressable invocation. Framework
+internal: it is not re-exported from `vibepy`.
+
+`bind(tool)` closes over a `Tool[InputT, OutputT]` and returns a `ToolInvocation` carrying
+the Tool's name, its description, and one async callable from raw input to a validated
+output model.
+
+Binding performs input validation, the handler call and output validation together. They
+are inseparable at this boundary: input validation is precisely what proves that a raw
+mapping has the handler's input type. Splitting them would hand `ToolRuntime` a value typed
+only as `BaseModel` with no way to show it is the handler's input type, which requires a
+`cast` or an unreachable type guard. Neither is acceptable.
+
+`ToolInvocation` belongs to the execution layer, not to storage. `ToolRegistry` stores it;
+`ToolRuntime` calls it.
+
+Output validation revalidates the handler result through the output model rather than
+accepting the instance as-is. Pydantic does not revalidate an instance of the same model,
+and `model_construct`, post-construction assignment and dynamically populated models all
+produce instances that never passed validation. Accepting the instance would therefore make
+output validation decorative and the acceptance criterion untestable. Since the framework
+publishes a schema derived from `output_model` to the Agent channel from M3 onward, the
+guarantee that the value matches that schema is the framework's to keep.
+
+Two costs are accepted and stated rather than hidden:
+
+- one dump/validate round trip per invocation
+- output models must round-trip through `model_dump(by_alias=True)` back into
+  `model_validate`. A model whose aliases or computed fields break that round trip fails
+  deterministically with `ToolOutputValidationError`, visible in the app's own tests.
+
 ### ToolRegistry
 
-Maps a name to a registered Tool.
+Maps a name to a `ToolInvocation`. Storage only; it does not implement invocation
+semantics.
 
-- `register(tool)` accepts a `Tool` over any input/output models.
+- `register(tool)` accepts a `Tool` over any input/output models and binds it.
 - Registering a name twice raises `ToolAlreadyRegisteredError`. Silent replacement is not
   offered; a duplicate name is a composition error, not a runtime condition.
-- Resolution for invocation is consumed by `ToolRuntime` only.
+- Resolution is consumed by `ToolRuntime` only.
 
-Registration erases the generic parameters so that heterogeneous Tools can share one map.
-Erasure happens inside a generic helper where the model types are still concrete, so
-neither `Any` nor `cast` appears anywhere in the framework.
+Binding erases the generic parameters so that heterogeneous Tools can share one map. It
+happens inside a generic function where the model types are still concrete, so neither
+`Any` nor `cast` appears anywhere in the framework.
 
 ### ToolRuntime
 
 The sole public invocation entry point. It resolves the name, creates the `ToolContext`,
-and runs the erased invocation. No business logic, no global lock, no serialization of
+and calls the `ToolInvocation`. No business logic, no global lock, no serialization of
 concurrent invocations.
 
 - Constructed from an `app_id` and a `ToolRegistry`.
 - `invoke(name, raw_input)` returns the validated output model instance.
-
-Input validation, handler call and output validation are performed together inside the
-erased invocation created at registration. They are inseparable at that boundary: input
-validation is precisely what proves the value has the handler's input type, so splitting
-them would require a `cast` or an unreachable type guard. `ToolRuntime` remains the only
-caller of that invocation.
-
-Output validation revalidates the handler result through the output model rather than
-accepting the instance as-is. Pydantic does not revalidate an instance of the same model,
-so accepting it would make output validation unobservable and the acceptance criterion
-untestable. The cost is one dump/validate round trip per invocation, and alias and
-computed-field behaviour is out of scope for M1.
 
 Serialization to dictionaries or JSON belongs to channel adapters, not to `ToolRuntime`.
 
@@ -121,10 +147,14 @@ now would pre-empt it.
 src/vibepy/
   errors.py
   tool/
-    model.py      ToolDefinition, ToolHandler, Tool, ToolContext
-    registry.py   ToolRegistry
-    runtime.py    ToolRuntime
+    model.py       ToolDefinition, ToolHandler, Tool, ToolContext
+    invocation.py  ToolInvocation, bind
+    registry.py    ToolRegistry
+    runtime.py     ToolRuntime
 ```
+
+`registry.py` and `runtime.py` both import `invocation.py`, which keeps storage free of
+execution semantics without an import cycle.
 
 A package rather than a single module, because two repository invariants are import
 boundaries - MCP types must not reach the core Tool model, NiceGUI types must not reach the
