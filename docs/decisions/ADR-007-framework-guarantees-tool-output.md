@@ -4,17 +4,31 @@ Status: Accepted
 
 ## Context
 
-The framework publishes a Tool's output schema to channels, and Pydantic assumes an existing
-model instance is valid, so a handler can return a value that never passed validation
-([Pydantic - Models](https://pydantic.dev/docs/validation/latest/concepts/models/)).
+A Tool declares an output model, and the Agent channel publishes a schema derived from that
+model, so the value a channel receives must match what was published.
+
+Pydantic treats an existing model instance as already valid. Instances "are assumed to be
+valid", `model_construct()` "does not do any validation, meaning it can create models which
+are invalid", and assignment is unvalidated by default
+([Pydantic - Models](https://pydantic.dev/docs/validation/latest/concepts/models/),
+[Pydantic - Configuration](https://pydantic.dev/docs/validation/latest/api/pydantic/config/)).
+
+A handler can therefore return an instance that never passed validation, and accepting it
+as-is would make output validation decorative.
 
 ## Decision
 
-ToolRuntime revalidates every handler result against the declared output model.
+ToolRuntime validates every handler result against the declared output model instead of
+trusting the returned instance.
+
+The guarantee belongs to the framework because the framework, not the app, publishes the
+schema to channels.
 
 ## Consequences
 
-- the published schema and the returned value cannot diverge
-- an app cannot bypass its own output contract
-- an output model that cannot survive revalidation raises ToolOutputValidationError
+- the published schema and the returned value cannot diverge silently
+- an output model must round-trip through a dump and back into validation, and one whose
+  aliases or computed fields break that round trip fails deterministically with
+  ToolOutputValidationError
 - one dump and validate round trip is spent per invocation
+- an app cannot use model_construct to bypass its own output contract

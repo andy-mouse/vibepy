@@ -4,23 +4,36 @@ Status: Accepted
 
 ## Context
 
-ToolInvoker carries ToolRuntime.invoke's signature but names the method call. One operation
-therefore has two names, ToolRuntime does not satisfy the Protocol written to describe it, and
-a private forwarder and a second Protocol cover the gap. The framework's vocabulary is
-invocation throughout: a ToolContext carries an invocation id, ToolRuntime is the canonical
-invocation path, and the narrowest state scope is invocation scope.
+ToolInvoker is a Protocol carrying ToolRuntime.invoke's signature, so that the core Page
+model depends on the shape of Tool invocation and not on the Tool runtime.
+
+ToolInvoker names that method call. One operation therefore has two names, ToolRuntime does
+not satisfy the Protocol written to describe it, and a private forwarder exists whose whole
+body forwards one call and renames nothing else.
+
+ToolRuntime is generic in the app's dependency type. PageRuntime holding a ToolRuntime
+directly — the one place in the Page package that imports it, against the principle the
+Protocol exists for — spreads that parameter through the Page package and its tests, and a
+second Protocol was introduced to hold the spread back. That treats the symptom: the Page
+package then carries two Protocols describing one operation, plus an adapter between them.
+
+The framework's own vocabulary settles which name is canonical. A ToolContext carries an
+invocation id, ToolRuntime is the canonical invocation path, and the narrowest state scope is
+invocation scope. call is the outlier.
 
 ## Decision
 
-ToolInvoker.call is renamed to invoke.
+ToolInvoker.call is renamed to invoke, matching the signature the Protocol already claimed.
 
-ToolRuntime then satisfies ToolInvoker structurally, the forwarder and the second Protocol are
-removed, and PageRuntime takes a ToolInvoker.
+ToolRuntime then satisfies ToolInvoker structurally, the forwarder and the second Protocol
+are both removed, and PageRuntime takes a ToolInvoker.
 
 ## Consequences
 
 - one operation has one name across the Page model, the Tool runtime and the documents
 - two types are removed and none is added
 - the Page package imports nothing from the Tool package
-- Page code calling the old name must be updated, with no deprecation path offered
-- an alternative invoker, a test double or a decorator, stays expressible
+- Page code that called the old name must be updated; the framework is pre-release and no
+  deprecation path is offered
+- an alternative invocation path, a test double or a decorating invoker, stays expressible,
+  because PageRuntime takes the Protocol and not the runtime
