@@ -1,0 +1,37 @@
+[project]
+name = "vibepy"
+version = "0.0.0"
+description = "Agent-native application framework exposing Tools through Web and Agent channels"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14",
+    "pyright>=1.1.400",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "pre-commit>=4.6.2",
+]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
