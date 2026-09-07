@@ -76,8 +76,7 @@
       box-shadow: 0 0 0 3px light-dark(#daf0ed, #1d4a48);
     }
 
-    #vibepy-hub-mockup button,
-    #vibepy-hub-mockup input {
+    #vibepy-hub-mockup button {
       font: inherit;
     }
 
@@ -94,8 +93,7 @@
 
     #vibepy-hub-mockup button:hover { transform: translateY(-1px); }
     #vibepy-hub-mockup button:active { transform: translateY(0); }
-    #vibepy-hub-mockup button:focus-visible,
-    #vibepy-hub-mockup input:focus-visible {
+    #vibepy-hub-mockup button:focus-visible {
       outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
       outline-offset: 2px;
     }
@@ -311,6 +309,7 @@
       background: rgba(4, 17, 21, .58);
       backdrop-filter: blur(5px);
     }
+
     #vibepy-hub-mockup .hub-dialog-backdrop.is-open { display: grid; }
 
     #vibepy-hub-mockup .hub-dialog {
@@ -344,16 +343,51 @@
       font-weight: 500;
     }
 
-    #vibepy-hub-mockup .hub-path-input {
-      width: 100%;
-      height: 44px;
-      border: 1px solid light-dark(#bfcdd0, #496066);
+    #vibepy-hub-mockup .hub-wheel-input {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+    }
+
+    #vibepy-hub-mockup .hub-wheel-picker {
+      display: flex;
+      align-items: center;
+      min-height: 46px;
+      border: 1px solid light-dark(#b9cbce, #486167);
       border-radius: 9px;
-      padding: 0 12px;
-      background: light-dark(#f7fafa, #101c20);
-      color: inherit;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      padding: 5px;
+      background: light-dark(#f7fbfa, #111f23);
+      color: light-dark(#6b7f84, #9bafb3);
       font-size: 12px;
+    }
+
+    #vibepy-hub-mockup .hub-wheel-input:focus-visible + .hub-wheel-picker {
+      outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
+      outline-offset: 2px;
+    }
+
+    #vibepy-hub-mockup .hub-wheel-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 34px;
+      margin-right: 10px;
+      border-radius: 7px;
+      padding: 0 12px;
+      background: light-dark(#dfecea, #29413f);
+      color: light-dark(#25474b, #d8e8e6);
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    #vibepy-hub-mockup .hub-wheel-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     #vibepy-hub-mockup .hub-dialog-actions {
@@ -409,7 +443,7 @@
       #vibepy-hub-mockup { padding: 0; }
       #vibepy-hub-mockup .hub-shell { min-height: 100vh; border: 0; border-radius: 0; }
       #vibepy-hub-mockup .hub-local { display: none; }
-      #vibepy-hub-mockup .hub-topbar .hub-primary { padding: 0 11px; }
+      #vibepy-hub-mockup .hub-topbar .hub-primary { padding-inline: 11px; }
       #vibepy-hub-mockup .hub-main { padding-inline: 16px; }
       #vibepy-hub-mockup .hub-summary-value { font-size: 18px; }
       #vibepy-hub-mockup .hub-dialog { padding: 22px; }
@@ -454,9 +488,13 @@
   <div class="hub-dialog-backdrop" data-dialog-backdrop>
     <section class="hub-dialog" role="dialog" aria-modal="true" aria-labelledby="hub-dialog-title">
       <h2 id="hub-dialog-title">Add a package</h2>
-      <p>Choose a local app folder. The Hub checks the package before adding it to this list.</p>
-      <label class="hub-field-label" for="hub-package-path">App folder</label>
-      <input class="hub-path-input" id="hub-package-path" value="/Users/andy/apps/inventory" spellcheck="false" />
+      <p>Choose a VibePy App wheel. The Hub checks the package before adding it to this list.</p>
+      <label class="hub-field-label" for="hub-app-wheel">App wheel</label>
+      <input class="hub-wheel-input" id="hub-app-wheel" type="file" accept=".whl" data-app-wheel />
+      <div class="hub-wheel-picker">
+        <label class="hub-wheel-button" for="hub-app-wheel">Choose .whl</label>
+        <span class="hub-wheel-name" data-app-wheel-name>No file selected</span>
+      </div>
       <div class="hub-dialog-actions">
         <button class="hub-secondary" type="button" data-close-dialog>Cancel</button>
         <button class="hub-primary" type="button" data-register-package>Add package</button>
@@ -472,15 +510,16 @@
       if (!root) return;
 
       const apps = [
-        { id: 'customer-desk', name: 'Customer Desk', version: '1.4.0', path: '~/apps/customer-desk', state: 'running' },
-        { id: 'expense-review', name: 'Expense Review', version: '0.9.2', path: '~/apps/expense-review', state: 'installed' },
-        { id: 'todo', name: 'Todo', version: '2.1.1', path: '~/apps/todo', state: 'package' }
+        { id: 'customer-desk', name: 'Customer Desk', version: '1.4.0', state: 'running' },
+        { id: 'expense-review', name: 'Expense Review', version: '0.9.2', state: 'installed' },
+        { id: 'todo', name: 'Todo', version: '2.1.1', state: 'package' }
       ];
 
       const list = root.querySelector('[data-app-list]');
       const summary = root.querySelector('[data-summary]');
       const backdrop = root.querySelector('[data-dialog-backdrop]');
-      const pathInput = root.querySelector('#hub-package-path');
+      const appWheel = root.querySelector('[data-app-wheel]');
+      const appWheelName = root.querySelector('[data-app-wheel-name]');
       const toast = root.querySelector('[data-toast]');
       let toastTimer;
 
@@ -528,7 +567,7 @@
         list.innerHTML = apps.map(app => `<article class="hub-app-row" data-app-id="${app.id}">
           <div>
             <h2 class="hub-app-name">${app.name}</h2>
-            <div class="hub-app-meta"><span>v${app.version}</span><span>${app.path}</span></div>
+            <div class="hub-app-meta"><span>v${app.version}</span></div>
           </div>
           ${renderRail(app.state)}
           <div class="hub-actions">
@@ -545,17 +584,20 @@
 
       root.querySelector('[data-add-package]').addEventListener('click', () => {
         backdrop.classList.add('is-open');
-        setTimeout(() => pathInput.focus(), 0);
+        setTimeout(() => appWheel.focus(), 0);
       });
       root.querySelector('[data-close-dialog]').addEventListener('click', closeDialog);
       backdrop.addEventListener('click', event => { if (event.target === backdrop) closeDialog(); });
       root.addEventListener('keydown', event => { if (event.key === 'Escape' && backdrop.classList.contains('is-open')) closeDialog(); });
 
+      appWheel.addEventListener('change', () => {
+        appWheelName.textContent = appWheel.files[0]?.name || 'No file selected';
+      });
+
       root.querySelector('[data-register-package]').addEventListener('click', () => {
-        const path = pathInput.value.trim();
-        if (!path) { showToast('Choose an app folder first.'); return; }
+        if (!appWheel.files.length) { showToast('Choose a VibePy App .whl first.'); return; }
         if (!apps.some(app => app.id === 'inventory')) {
-          apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', path: path.replace('/Users/andy', '~'), state: 'package' });
+          apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', state: 'package' });
         }
         closeDialog();
         render();
