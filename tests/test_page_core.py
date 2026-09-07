@@ -41,7 +41,7 @@ def test_page_context_is_immutable() -> None:
     ctx = PageContext(tools=RecordingInvoker())
 
     with pytest.raises(FrozenInstanceError):
-        ctx.tools = RecordingInvoker()  # type: ignore[misc]
+        ctx.tools = RecordingInvoker()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_page_context_exposes_nothing_but_its_tool_invoker() -> None:

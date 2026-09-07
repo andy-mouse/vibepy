@@ -122,7 +122,7 @@ def test_tool_context_is_immutable() -> None:
     ctx = ToolContext(app_id="todo", invocation_id="inv-1")
 
     with pytest.raises(FrozenInstanceError):
-        ctx.app_id = "other"  # type: ignore[misc]
+        ctx.app_id = "other"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 async def test_handler_protocol_accepts_a_plain_async_function() -> None:
