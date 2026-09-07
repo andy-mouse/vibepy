@@ -106,14 +106,8 @@ Owned by Web/Page session:
 
 ### Invocation scope
 
-Owned by ToolContext:
-
-- invocation id
-- the application-scoped resource, passed in by ToolRuntime
-- principal / actor when introduced
-- tracing metadata
-- deadline / cancellation metadata
-- invocation-specific transaction context when introduced
+Owned by ToolContext. `docs/architecture/runtime.md` describes what a ToolContext carries,
+now and later.
 
 ## Invariants
 

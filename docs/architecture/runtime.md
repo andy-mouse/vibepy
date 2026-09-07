@@ -54,20 +54,12 @@ Do not make ToolContext an untyped service-locator bag. See
 
 ## Dependency ownership
 
-Application-scoped dependencies belong to AppRuntime.
+Application-scoped dependencies belong to AppRuntime, which
+`docs/architecture/app-model.md` describes together with the other state scopes.
 
-Examples:
-
-- DB connection pool
-- repository
-- API client
-- cache
-
-Prefer typed dependency objects over generic dictionaries when practical.
-
-AppRuntime creates the resource once from `AppDefinition.create_dependencies` and hands it
-to ToolRuntime, which puts it into every ToolContext it creates. Two AppRuntimes built from
-one AppDefinition each call the factory, so they are isolated by default.
+What the runtime does with them: ToolRuntime holds the one resource AppRuntime handed it and
+puts that value into every ToolContext it creates. Prefer typed dependency objects over
+generic dictionaries when practical.
 
 ## Concurrency
 

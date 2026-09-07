@@ -104,8 +104,8 @@ ToolRegistry and the application-scoped resource AppRuntime owns.
 
 Steps that need the declared models belong to the Tool, not to the runtime: input
 validation, the handler call and output validation happen together inside the closure a
-Tool builds over its handler, because input validation is what proves a raw mapping has the
-handler's input type. See `docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
+Tool builds over its handler. See
+`docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
 
 Business logic does not belong in ToolRuntime.
 
