@@ -33,8 +33,9 @@ class PageContext:
 class PageDefinition:
     """Static declaration of a Page.
 
-    ``name`` is the identifier the framework addresses the Page by. ``route`` and
-    ``title`` are consumed by the Web channel adapter, which does not exist yet.
+    ``name`` is the identifier the framework addresses the Page by, and it survives a
+    route change. ``route`` and ``title`` are consumed by the Web channel adapter, which
+    validates their format where it registers routes.
     """
 
     name: str

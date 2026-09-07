@@ -96,22 +96,27 @@ Registering a name twice replaces the earlier Tool, declaration included.
 The canonical invocation path for every channel. Constructed from an app id, a
 ToolRegistry and the application-scoped resource AppRuntime owns.
 
-Minimal responsibilities:
+`ToolRuntime.invoke(name, raw_input)` is the whole of it:
 
-1. resolve Tool
-2. validate raw input
-3. create/pass ToolContext, carrying the app-scoped resource
-4. invoke handler
-5. validate output
-6. normalize framework errors
+1. resolve the Tool by name, through ToolRegistry
+2. create the ToolContext, carrying the invocation id and the app-scoped resource
+3. await the Tool
+
+Steps that need the declared models belong to the Tool, not to the runtime: input
+validation, the handler call and output validation happen together inside the closure a
+Tool builds over its handler, because input validation is what proves a raw mapping has the
+handler's input type. See `docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
 
 Business logic does not belong in ToolRuntime.
 
-`ToolRuntime.invoke(name, raw_input)` returns the validated output model instance. Serialization belongs to channel adapters.
+`invoke` returns the validated output model instance. Serialization belongs to channel adapters.
 
-Framework errors are `ToolNotFoundError`, `ToolInputValidationError` and `ToolOutputValidationError`. Exceptions raised by a handler propagate unchanged.
+Framework errors are `ToolNotFoundError`, raised by the registry when no Tool answers to the
+name, and `ToolInputValidationError` and `ToolOutputValidationError`, raised by the Tool.
+Nothing translates them: they reach the caller as raised, as does an exception from a
+handler. A channel adapter decides what its protocol does with them.
 
-A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`. Validation happens inside the closure a Tool builds over its handler, because input validation is what proves a raw mapping has the handler's input type.
+A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
 
 ## Tool granularity
 
