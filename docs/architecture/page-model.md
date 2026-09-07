@@ -58,8 +58,9 @@ Minimal initial metadata:
 - title
 
 `name` is the identifier the framework addresses a Page by, and it is stable across a
-route change. `route` and `title` are consumed by the Web channel adapter, so their format
-is validated where routes are registered, not in the core Page model.
+route change. `route` and `title` are consumed by the Web channel adapter, so route format
+and route uniqueness are both validated where routes are registered, not in the core Page
+model.
 
 ### PageHandler
 
@@ -132,8 +133,7 @@ semantics, and resolution is consumed by PageRuntime.
 Registering a name twice replaces the earlier registration.
 
 The registry also enumerates its declarations, because a Web channel adapter projects every
-PageDefinition into a route. Route uniqueness is therefore validated where routes are
-registered.
+PageDefinition into a route.
 
 Resolving a name that was never registered raises `PageNotFoundError`.
 
