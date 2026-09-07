@@ -6,11 +6,16 @@ registry. See docs/decisions/ADR-008-tools-are-bound-at-registration.md.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
+from typing import TYPE_CHECKING
+from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
 from vibepy.errors import ToolInputValidationError, ToolOutputValidationError
 from vibepy.tool.model import Tool, ToolContext
+
+if TYPE_CHECKING:
+    from vibepy.tool.registry import ToolRegistry
 
 type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]
 
@@ -48,3 +53,19 @@ def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> 
             raise ToolOutputValidationError(definition.name) from error
 
     return bound
+
+
+class ToolRuntime:
+    """Resolves a Tool by name, creates its ToolContext, and invokes it.
+
+    Concurrent invocations are permitted. Nothing here serializes them.
+    """
+
+    def __init__(self, *, app_id: str, registry: "ToolRegistry") -> None:
+        self._app_id = app_id
+        self._registry = registry
+
+    async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
+        bound = self._registry.resolve(name)
+        ctx = ToolContext(app_id=self._app_id, invocation_id=str(uuid4()))
+        return await bound(ctx, raw_input)

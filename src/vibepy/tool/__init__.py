@@ -2,6 +2,7 @@
 
 from vibepy.tool.model import Tool, ToolContext, ToolDefinition, ToolHandler
 from vibepy.tool.registry import ToolRegistry
+from vibepy.tool.runtime import ToolRuntime
 
 __all__ = [
     "Tool",
@@ -9,4 +10,5 @@ __all__ = [
     "ToolDefinition",
     "ToolHandler",
     "ToolRegistry",
+    "ToolRuntime",
 ]
