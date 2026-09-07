@@ -1,4 +1,6 @@
+import ast
 import json
+from pathlib import Path
 
 import pytest
 from mcp.client import Client
@@ -246,3 +248,28 @@ async def test_invalid_output_is_reported_inside_the_result() -> None:
         result = await client.call_tool("lie", {})
 
     assert result.is_error is True
+
+
+def _imported_module_names(source: str) -> list[str]:
+    names: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            names.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            names.append(node.module)
+    return names
+
+
+def test_the_core_tool_and_page_packages_do_not_import_mcp() -> None:
+    package = Path(__file__).resolve().parent.parent / "src" / "vibepy"
+    modules = sorted((package / "tool").glob("*.py")) + sorted((package / "page").glob("*.py"))
+    assert modules != []
+
+    offenders = [
+        module.name
+        for module in modules
+        for name in _imported_module_names(module.read_text(encoding="utf-8"))
+        if name == "mcp" or name.startswith("mcp.")
+    ]
+
+    assert offenders == []
