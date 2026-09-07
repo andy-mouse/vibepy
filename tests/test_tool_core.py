@@ -270,3 +270,38 @@ async def test_each_invocation_receives_its_own_invocation_id() -> None:
     assert isinstance(first, ProbeOutput)
     assert isinstance(second, ProbeOutput)
     assert first.invocation_id != second.invocation_id
+
+
+def test_registry_enumerates_the_declarations_it_registered() -> None:
+    store = TodoStore()
+    registry = ToolRegistry()
+    registry.register(create_todo_tool(store))
+    registry.register(list_todos_tool(store))
+
+    definitions = registry.definitions()
+
+    assert [definition.name for definition in definitions] == ["create_todo", "list_todos"]
+    assert definitions[0].input_model is CreateTodoInput
+    assert definitions[0].output_model is Todo
+
+
+def test_registering_a_name_twice_replaces_its_declaration() -> None:
+    store = TodoStore()
+    registry = ToolRegistry()
+    registry.register(create_todo_tool(store))
+    registry.register(
+        Tool(
+            definition=ToolDefinition(
+                name="create_todo",
+                description="Replaced",
+                input_model=CreateTodoInput,
+                output_model=Todo,
+            ),
+            handler=create_todo_tool(store).handler,
+        )
+    )
+
+    definitions = registry.definitions()
+
+    assert len(definitions) == 1
+    assert definitions[0].description == "Replaced"
