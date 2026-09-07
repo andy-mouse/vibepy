@@ -42,7 +42,7 @@ Suggested responsibilities:
 - name
 - description
 - input model
-- optional output model
+- output model
 
 Future metadata may include:
 
@@ -62,9 +62,11 @@ An async-first callable implementing the Tool operation.
 Conceptual contract:
 
 ```python
-async def handler(ctx: ToolContext, input: InputModel) -> OutputModel:
+async def handler(ctx: ToolContext, payload: InputModel) -> OutputModel:
     ...
 ```
+
+Handler parameters are positional-only in the `ToolHandler` Protocol, so an app author may name them freely.
 
 ### ToolRuntime
 
@@ -80,6 +82,12 @@ Minimal responsibilities:
 6. normalize framework errors
 
 Business logic does not belong in ToolRuntime.
+
+`ToolRuntime.invoke(name, raw_input)` returns the validated output model instance. Serialization belongs to channel adapters.
+
+Framework errors are `ToolNotFoundError`, `ToolInputValidationError` and `ToolOutputValidationError`. Exceptions raised by a handler propagate unchanged.
+
+A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
 
 ## Tool granularity
 
