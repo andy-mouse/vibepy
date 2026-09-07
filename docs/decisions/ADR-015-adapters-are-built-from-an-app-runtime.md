@@ -29,9 +29,8 @@ because it is the App's stable identifier.
 
 - "one App, one AppRuntime, two channels" is a type-level guarantee rather than a
   convention a caller must follow
-- the adapters read `tool_registry`, `tool_runtime`, `page_registry`, `page_runtime` and
-  `definition` from the AppRuntime; nothing else is exposed, and the application-scoped
-  resource is not
+- the adapters read the AppRuntime's read-only properties and nothing else; the
+  application-scoped resource is not among them
 - ADR-010 and ADR-012 are unaffected. Building an MCP server is still not running one, and
   registering routes is still not starting a Web server
 - an App reaches a channel by being passed to that channel's adapter, so an App with no

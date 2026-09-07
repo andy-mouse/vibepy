@@ -43,8 +43,6 @@ A generic `__init__` is chosen over a factory function beside a frozen dataclass
 factory is more obvious to a reader but adds a second name for one concept, and the
 generic `__init__` leaves every declaration site unchanged. It is
 [PEP 695](https://peps.python.org/pep-0695/) syntax rather than metaprogramming.
-Inference was verified under pyright's strict mode: `Tool(definition=..., handler=h)`
-resolves to `Tool[Deps]` from the handler alone.
 
 `ToolRegistry` keeps one dictionary of Tools. `definitions()` enumerates
 `tool.definition` in registration order, unchanged.

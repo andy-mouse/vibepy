@@ -32,4 +32,4 @@ structured content of its own, which is what a projection requires.
 - the adapter constructs `CallToolResult` and maps framework errors onto MCP by hand; this
   cost is accepted in exchange for the projection direction
 - the SDK's handler signatures, not decorators, are the integration surface, so an SDK
-  change is confined to `src/vibepy/adapters/mcp/server.py`
+  change is confined to the MCP adapter

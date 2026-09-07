@@ -31,5 +31,3 @@ App Package layer.
   testable in-process without a transport
 - the same object is what a package entrypoint wraps for stdio, and what a runtime starts
   in-process if MCP is ever served over HTTP; neither reuse changes this adapter
-- transport ownership is recorded outside the milestone folder, so it survives that
-  folder's deletion on integration

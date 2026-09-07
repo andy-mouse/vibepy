@@ -29,8 +29,7 @@ not report one.
 
 ## Consequences
 
-- the Web channel is testable in-process through NiceGUI's own `user` fixture, with no
-  server and no browser
+- the Web channel is testable in-process, with no server and no browser
 - what M6 adds is a call to `ui.run()` at startup step 4, not a rewrite of this adapter
 - two Pages declaring one route fail loudly at registration rather than one silently
   disappearing
