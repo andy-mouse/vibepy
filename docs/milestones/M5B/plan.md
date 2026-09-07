@@ -43,10 +43,22 @@ Every fact below was confirmed against the installed version and the library's o
 documentation, and the whole test file was run green before this plan was written. Ruff and
 pyright are clean on it.
 
-- The MCP SDK awaits *inline methods* in the read loop before dequeuing the next message and
-  spawns every other request into a task group. Only `initialize` is inline, so `tools/call`
-  is spawned. <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher>,
-  <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner>
+- The MCP protocol permits concurrent in-flight requests — the Streamable HTTP transport
+  refers to messages "unrelated to any concurrently-running JSON-RPC request from the
+  client", and `CancelledNotification` cancels a request still in flight — but does not
+  require a server to process them concurrently.
+  <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>
+- The MCP SDK's documentation states no concurrency guarantee for server request handling.
+  Its low-level server guide says nothing about concurrency, reentrancy or thread-safety.
+  Where it describes serialization it describes the exception: `inline_methods` are "awaited
+  directly in the read loop before the next message is dequeued", and notification bindings
+  deliver "one at a time per binding". The runner's API reference shows
+  `inline_methods={"initialize"}`.
+  <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher>,
+  <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner>,
+  <https://py.sdk.modelcontextprotocol.io/v2/advanced/low-level-server>
+- The SDK at 2.1.1 does spawn non-inline requests, so `tools/call` overlaps. That is a
+  current implementation behaviour the protocol allows and the SDK does not promise.
 - `Client` accepts a `Server` instance directly for an in-process connection; the SDK
   documents this as its in-memory transport and names it the testing path.
   <https://py.sdk.modelcontextprotocol.io/v2/client/transports>,
@@ -496,10 +508,13 @@ PageRuntime.render fails this test while leaving the other three passing."
 
 ### Task 3: Prove the Agent channel does not serialize
 
-This task exists because `pyproject.toml` pins only `mcp>=2.1`. The SDK spawns every request
-except `initialize`, which is what makes the Agent channel concurrent, and an upgrade can
-change that with nothing failing. The test drives the composition an agent actually
-reaches — the adapter on top of the SDK — not the SDK alone.
+This task exists because the Agent channel's concurrency is unguaranteed in writing. The
+protocol permits concurrent in-flight requests without requiring a server to process them
+concurrently; the SDK's documentation states no concurrency guarantee for request handling
+and only ever describes the serialized exception (`inline_methods`, set to `{"initialize"}`);
+and the SDK at 2.1.1 does spawn everything else. `pyproject.toml` pins only `mcp>=2.1`, so
+this framework depends on a behaviour nothing promises. The test drives the composition an
+agent actually reaches — the adapter on top of the SDK — not the SDK alone.
 
 **Files:**
 - Modify: `tests/test_execution_semantics.py`
@@ -533,11 +548,15 @@ Add at the end of the file:
 async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     """The Agent channel's request concurrency is the SDK's, and this pins it.
 
-    ``pyproject.toml`` pins only ``mcp>=2.1``. The SDK awaits inline methods in
-    its read loop and spawns everything else, with only ``initialize`` inline,
-    so two ``tools/call`` requests on one session overlap. An upgrade that made
-    them inline would leave this framework's concurrency guarantee delivering
-    nothing to an agent, and would fail here rather than silently.
+    The protocol permits concurrent in-flight requests without requiring a
+    server to process them concurrently, and the SDK documents no concurrency
+    guarantee for request handling - only the serialized exception, its
+    ``inline_methods``, which the runner sets to ``{"initialize"}``. The SDK
+    does spawn everything else, so two ``tools/call`` requests overlap, but
+    that is implementation behaviour rather than a promise, and
+    ``pyproject.toml`` pins only ``mcp>=2.1``. If it ever changed, this
+    framework's concurrency guarantee would deliver nothing to an agent, and
+    this test is what would say so.
 
     Passing a Server straight to Client is the SDK's documented in-memory
     transport, which it names as the testing path.
@@ -601,9 +620,15 @@ git add tests/test_execution_semantics.py
 git commit -m "Pin the Agent channel's concurrency to the barrier
 
 The framework's claim that two invocations may overlap reaches an agent only if
-the MCP SDK spawns tools/call rather than awaiting it in its read loop. The SDK
-does spawn it - only initialize is inline - but pyproject.toml pins mcp>=2.1, so
-an upgrade could remove that with no test noticing.
+the MCP SDK spawns tools/call rather than awaiting it in its read loop.
+
+Nothing promises that it does. The protocol permits concurrent in-flight
+requests without requiring concurrent processing, and the SDK's documentation
+states no concurrency guarantee for request handling - it only ever describes
+the serialized exception, inline_methods, which the runner sets to initialize
+alone. The SDK does spawn everything else, and pyproject.toml pins mcp>=2.1.
+This framework therefore depends on an unguaranteed behaviour, which is what a
+test is for.
 
 This is not a test of the SDK. It drives the composition an agent reaches, the
 adapter on top of the SDK, through the SDK's own documented in-memory transport.
@@ -611,6 +636,7 @@ A global lock in ToolRuntime fails it, which is how we know it reaches through
 the adapter rather than stopping at it.
 
 Sources:
+https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
 https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher
 https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner
 https://py.sdk.modelcontextprotocol.io/v2/client/transports"
@@ -839,7 +865,7 @@ dependencies from AppRuntime.
 
 | Layer | Question | Owner |
 | --- | --- | --- |
-| Channel transport | may two requests be in flight at once? | MCP SDK, uvicorn |
+| Channel transport | may two requests be in flight at once? | MCP SDK, NiceGUI over uvicorn |
 | Framework | may two invocations be in flight at once? | ToolRuntime, PageRuntime |
 | Domain | is overlapping mutation correct? | the app's own services and storage |
 
@@ -852,17 +878,20 @@ serialization of its own. See `docs/decisions/ADR-003-channel-adapters-are-thin.
 
 ### What the channel technologies do
 
-The MCP SDK awaits *inline methods* in its read loop before dequeuing the next message and
-spawns every other request into a task group. Only `initialize` is inline, so `tools/call`
-requests on one session overlap.
+The MCP protocol permits concurrent in-flight requests but does not require a server to
+process them concurrently, and the SDK documents no concurrency guarantee for request
+handling. What it documents is the serialized exception: `inline_methods` are awaited in the
+read loop before the next message is dequeued, and the runner sets that to `initialize`
+alone. Everything else is spawned, so `tools/call` requests on one session overlap in
+practice.
 
 NiceGUI runs on a single shared asyncio event loop and dispatches an async event handler as
 a background task, so an interaction does not hold the request that triggered it and two
 interactions overlap. Blocking that loop freezes the application for every user, so blocking
 I/O belongs in `run.io_bound` and CPU work in `run.cpu_bound`.
 
-`pyproject.toml` carries only a lower bound on each library, so both behaviours are
-assumptions a version upgrade can break. They are held by tests rather than by this section.
+Neither behaviour is promised in writing, and `pyproject.toml` carries only a lower bound on
+each library. They are held by tests rather than by this section.
 
 Concurrency in this framework is therefore cooperative. Overlap happens at `await` points,
 which has one consequence an app author must know: a Tool handler that blocks the event loop
@@ -871,6 +900,7 @@ absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
 Sources:
 
+- <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>
 - <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher>
 - <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner>
 - <https://github.com/zauberzeug/nicegui/blob/main/nicegui/events.py>

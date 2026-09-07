@@ -33,7 +33,7 @@ Three layers, three owners:
 
 | Layer | Concurrency question | Owner |
 | --- | --- | --- |
-| Channel transport | may two requests be in flight at once? | MCP SDK, uvicorn |
+| Channel transport | may two requests be in flight at once? | MCP SDK, NiceGUI over uvicorn |
 | Framework | may two invocations be in flight at once? | ToolRuntime, PageRuntime |
 | Domain | is overlapping mutation correct? | the app's own services and storage |
 
@@ -51,19 +51,33 @@ serialization.
 The table above asserts something about two external libraries, so it is verified rather
 than assumed.
 
-### MCP SDK: concurrent per session, except `initialize`
+### MCP SDK: concurrent in practice, not guaranteed in writing
 
-The SDK's JSON-RPC dispatcher awaits *inline methods* "directly in the read loop before the
-next message is dequeued", and spawns every other request into a task group.[^mcp-dispatch]
-The server runner configures `inline_methods={"initialize"}`, so the handshake is the only
-serialized method and `tools/call` is spawned.[^mcp-inline]
+Three layers answer this differently, and conflating them would overstate what we may rely
+on.
 
-Verified against `mcp==2.1.1`: two `tools/call` requests issued concurrently on one
-in-process `Client` session both arrive before either departs, with distinct invocation ids
-and one shared dependency instance.
+The protocol permits concurrent in-flight requests. The Streamable HTTP transport refers to
+messages "unrelated to any concurrently-running JSON-RPC request from the client", and
+`CancelledNotification` exists so a client can cancel a request that is still in
+flight.[^mcp-spec] Neither requires a server to process requests concurrently; both presume
+it may.
 
-`pyproject.toml` pins only `mcp>=2.1`, so this is an assumption an upgrade can break
-silently. It therefore becomes a test rather than a sentence in a document.
+The SDK's own documentation states no concurrency guarantee for server request handling. Its
+low-level server guide says nothing about concurrency, reentrancy or thread-safety. Where it
+does describe serialization, it describes the exception: the JSON-RPC dispatcher's
+`inline_methods` are "awaited directly in the read loop before the next message is
+dequeued", and notification bindings deliver "one at a time per binding".[^mcp-dispatch] The
+server runner's API reference shows `inline_methods={"initialize"}`, so the handshake is the
+only method described that way.[^mcp-inline]
+
+The implementation does spawn. Verified against `mcp==2.1.1`: two `tools/call` requests
+issued concurrently on one in-process `Client` session both arrive before either departs,
+with distinct invocation ids and one shared dependency instance.
+
+So the Agent channel's concurrency is a current implementation behaviour that the protocol
+allows and the SDK does not promise, and `pyproject.toml` pins only `mcp>=2.1`. That is
+precisely a dependency assumption to hold with a test rather than a sentence in a document —
+not because an upgrade is likely to break it, but because nothing in writing says it cannot.
 
 ### NiceGUI: one shared event loop, cooperative, and fire-and-forget events
 
@@ -98,6 +112,8 @@ delivers nothing, and it is why AGENTS.md requires blocking calls to be wrapped 
     <https://github.com/zauberzeug/nicegui/wiki/FAQs>
 [^nicegui-event]: NiceGUI, `nicegui.events.handle_event`,
     <https://github.com/zauberzeug/nicegui/blob/main/nicegui/events.py>
+[^mcp-spec]: Model Context Protocol specification 2025-06-18, Transports and Cancellation,
+    <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>
 
 ## The proof
 
