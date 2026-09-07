@@ -1,6 +1,8 @@
 import ast
 from pathlib import Path
 
+import pytest
+
 # NiceGUI types ``user_simulation``'s unused ``root`` parameter as a bare Callable, so
 # pyright cannot fully resolve the name. The context manager it returns is typed.
 from nicegui import app, ui
@@ -8,6 +10,7 @@ from nicegui.testing import user_simulation  # pyright: ignore[reportUnknownVari
 from starlette.routing import Route
 
 from vibepy.adapters.nicegui import register_pages
+from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page import Page, PageContext, PageDefinition, PageRegistry, PageRuntime
 from vibepy.tool import ToolRegistry, ToolRuntime
 
@@ -68,6 +71,54 @@ async def test_the_handler_receives_a_page_context() -> None:
 
     assert len(seen) == 1
     assert callable(seen[0].tools.call)
+
+
+async def noop_handler(ctx: PageContext) -> None:
+    ui.label("Todos")
+
+
+def page(name: str, route: str) -> Page:
+    return Page(
+        definition=PageDefinition(name=name, route=route, title=name),
+        handler=noop_handler,
+    )
+
+
+async def test_a_route_that_is_not_a_path_is_rejected() -> None:
+    registry = PageRegistry()
+    registry.register(page("todos", "todos"))
+
+    async with user_simulation():
+        with pytest.raises(PageRouteInvalidError) as error:
+            register_pages(registry=registry, runtime=build_runtime(registry))
+
+    assert error.value.page_name == "todos"
+    assert error.value.route == "todos"
+
+
+async def test_two_pages_may_not_claim_one_route() -> None:
+    registry = PageRegistry()
+    registry.register(page("todos", "/todos"))
+    registry.register(page("archive", "/todos"))
+
+    async with user_simulation():
+        with pytest.raises(PageRouteConflictError) as error:
+            register_pages(registry=registry, runtime=build_runtime(registry))
+
+    assert error.value.route == "/todos"
+    assert {error.value.page_name, error.value.conflicting_page_name} == {"todos", "archive"}
+
+
+async def test_a_rejected_registry_registers_nothing() -> None:
+    registry = PageRegistry()
+    registry.register(page("todos", "/todos"))
+    registry.register(page("archive", "archive"))
+
+    async with user_simulation():
+        with pytest.raises(PageRouteInvalidError):
+            register_pages(registry=registry, runtime=build_runtime(registry))
+
+        assert "/todos" not in registered_paths()
 
 
 def _imported_module_names(source: str) -> list[str]:
