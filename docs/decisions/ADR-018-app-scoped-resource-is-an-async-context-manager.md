@@ -1,6 +1,6 @@
 # ADR-018: The app-scoped resource is an async context manager
 
-Status: Accepted
+Status: Proposed
 
 ## Context
 

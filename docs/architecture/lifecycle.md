@@ -20,6 +20,12 @@ caller observes a state that forbids the transition.
 
 The framework owns state transition validation and cleanup behavior.
 
+Framework errors are `AppRuntimeTransitionError`, raised when the current state forbids the
+transition, and `AppRuntimeNotRunningError`, raised when a runtime that exists only while
+RUNNING is reached outside that window. They are distinct because they are distinct failures:
+one is a caller driving the lifecycle wrongly, the other is a caller using the App outside its
+running window.
+
 ## The lifespan
 
 An App declares its application-scoped resource as a factory returning an async context
