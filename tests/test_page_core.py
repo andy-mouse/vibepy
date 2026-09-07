@@ -4,8 +4,14 @@ from dataclasses import FrozenInstanceError, fields
 import pytest
 from pydantic import BaseModel
 
-from vibepy.errors import PageNotFoundError, VibepyError
-from vibepy.page import Page, PageContext, PageDefinition, PageRegistry
+from vibepy.errors import (
+    PageNotFoundError,
+    ToolInputValidationError,
+    ToolNotFoundError,
+    VibepyError,
+)
+from vibepy.page import Page, PageContext, PageDefinition, PageRegistry, PageRuntime
+from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
 
 
 class RecordingInvoker:
@@ -108,3 +114,135 @@ def test_definitions_enumerates_every_registered_page() -> None:
     registry.register(archive)
 
     assert registry.definitions() == (todos.definition, archive.definition)
+
+
+class CreateTodoInput(BaseModel):
+    title: str
+
+
+class Todo(BaseModel):
+    id: int
+    title: str
+    done: bool
+
+
+class TodoStore:
+    def __init__(self) -> None:
+        self._todos: list[Todo] = []
+
+    def create(self, title: str) -> Todo:
+        todo = Todo(id=len(self._todos) + 1, title=title, done=False)
+        self._todos.append(todo)
+        return todo
+
+    def list(self) -> list[Todo]:
+        return list(self._todos)
+
+
+def create_todo_tool(store: TodoStore) -> Tool[CreateTodoInput, Todo]:
+    async def handler(_ctx: ToolContext, payload: CreateTodoInput) -> Todo:
+        return store.create(payload.title)
+
+    return Tool(
+        definition=ToolDefinition(
+            name="create_todo",
+            description="Create a todo item",
+            input_model=CreateTodoInput,
+            output_model=Todo,
+        ),
+        handler=handler,
+    )
+
+
+def build_page_runtime(registry: PageRegistry, store: TodoStore) -> PageRuntime:
+    tool_registry = ToolRegistry()
+    tool_registry.register(create_todo_tool(store))
+    return PageRuntime(
+        registry=registry,
+        tool_runtime=ToolRuntime(app_id="todo", registry=tool_registry),
+    )
+
+
+class PageFailed(Exception):
+    """Exception owned by the fixture, not by the framework."""
+
+
+async def test_a_page_reaches_a_tool_through_the_tool_invoker() -> None:
+    store = TodoStore()
+    registry = PageRegistry()
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.call("create_todo", {"title": "buy milk"})
+
+    registry.register(Page(definition=todos_definition(), handler=handler))
+
+    await build_page_runtime(registry, store).render("todos")
+
+    assert store.list() == [Todo(id=1, title="buy milk", done=False)]
+
+
+async def test_a_page_receives_the_validated_output_model() -> None:
+    store = TodoStore()
+    registry = PageRegistry()
+    received: list[BaseModel] = []
+
+    async def handler(ctx: PageContext) -> None:
+        received.append(await ctx.tools.call("create_todo", {"title": "buy milk"}))
+
+    registry.register(Page(definition=todos_definition(), handler=handler))
+
+    await build_page_runtime(registry, store).render("todos")
+
+    assert received == [Todo(id=1, title="buy milk", done=False)]
+
+
+async def test_rendering_an_unregistered_page_raises() -> None:
+    runtime = build_page_runtime(PageRegistry(), TodoStore())
+
+    with pytest.raises(PageNotFoundError) as raised:
+        await runtime.render("todos")
+
+    assert raised.value.page_name == "todos"
+
+
+async def test_calling_an_unknown_tool_name_reaches_the_caller_unchanged() -> None:
+    registry = PageRegistry()
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.call("delete_todo", {})
+
+    registry.register(Page(definition=todos_definition(), handler=handler))
+    runtime = build_page_runtime(registry, TodoStore())
+
+    with pytest.raises(ToolNotFoundError) as raised:
+        await runtime.render("todos")
+
+    assert raised.value.tool_name == "delete_todo"
+
+
+async def test_malformed_tool_input_reaches_the_caller_unchanged() -> None:
+    registry = PageRegistry()
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.call("create_todo", {})
+
+    registry.register(Page(definition=todos_definition(), handler=handler))
+    runtime = build_page_runtime(registry, TodoStore())
+
+    with pytest.raises(ToolInputValidationError) as raised:
+        await runtime.render("todos")
+
+    assert raised.value.tool_name == "create_todo"
+
+
+async def test_an_exception_from_a_page_handler_reaches_the_caller_unchanged() -> None:
+    registry = PageRegistry()
+
+    async def handler(_ctx: PageContext) -> None:
+        raise PageFailed
+
+    registry.register(Page(definition=todos_definition(), handler=handler))
+    runtime = build_page_runtime(registry, TodoStore())
+
+    with pytest.raises(PageFailed):
+        await runtime.render("todos")
