@@ -343,7 +343,7 @@
       font-weight: 500;
     }
 
-    #vibepy-hub-mockup .hub-wheel-input {
+    #vibepy-hub-mockup .hub-folder-input {
       position: absolute;
       width: 1px;
       height: 1px;
@@ -352,24 +352,24 @@
       white-space: nowrap;
     }
 
-    #vibepy-hub-mockup .hub-wheel-picker {
+    #vibepy-hub-mockup .hub-folder-picker {
       display: flex;
       align-items: center;
       min-height: 46px;
-      border: 1px solid light-dark(#b9cbce, #486167);
+      border: 1px solid light-dark(#bfcdd0, #496066);
       border-radius: 9px;
       padding: 5px;
-      background: light-dark(#f7fbfa, #111f23);
+      background: light-dark(#f7fafa, #101c20);
       color: light-dark(#6b7f84, #9bafb3);
       font-size: 12px;
     }
 
-    #vibepy-hub-mockup .hub-wheel-input:focus-visible + .hub-wheel-picker {
+    #vibepy-hub-mockup .hub-folder-input:focus-visible + .hub-folder-picker {
       outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
       outline-offset: 2px;
     }
 
-    #vibepy-hub-mockup .hub-wheel-button {
+    #vibepy-hub-mockup .hub-folder-button {
       display: inline-flex;
       align-items: center;
       min-height: 34px;
@@ -383,7 +383,7 @@
       font-weight: 500;
     }
 
-    #vibepy-hub-mockup .hub-wheel-name {
+    #vibepy-hub-mockup .hub-folder-name {
       min-width: 0;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -488,12 +488,12 @@
   <div class="hub-dialog-backdrop" data-dialog-backdrop>
     <section class="hub-dialog" role="dialog" aria-modal="true" aria-labelledby="hub-dialog-title">
       <h2 id="hub-dialog-title">Add a package</h2>
-      <p>Choose a VibePy App wheel. The Hub checks the package before adding it to this list.</p>
-      <label class="hub-field-label" for="hub-app-wheel">App wheel</label>
-      <input class="hub-wheel-input" id="hub-app-wheel" type="file" accept=".whl" data-app-wheel />
-      <div class="hub-wheel-picker">
-        <label class="hub-wheel-button" for="hub-app-wheel">Choose .whl</label>
-        <span class="hub-wheel-name" data-app-wheel-name>No file selected</span>
+      <p>Choose a package folder containing the App wheel and any components shipped with it, such as .skill files.</p>
+      <label class="hub-field-label" for="hub-package-folder">Package folder</label>
+      <input class="hub-folder-input" id="hub-package-folder" type="file" webkitdirectory directory multiple data-package-folder />
+      <div class="hub-folder-picker">
+        <label class="hub-folder-button" for="hub-package-folder">Choose folder</label>
+        <span class="hub-folder-name" data-package-folder-name>No folder selected</span>
       </div>
       <div class="hub-dialog-actions">
         <button class="hub-secondary" type="button" data-close-dialog>Cancel</button>
@@ -518,8 +518,8 @@
       const list = root.querySelector('[data-app-list]');
       const summary = root.querySelector('[data-summary]');
       const backdrop = root.querySelector('[data-dialog-backdrop]');
-      const appWheel = root.querySelector('[data-app-wheel]');
-      const appWheelName = root.querySelector('[data-app-wheel-name]');
+      const folderInput = root.querySelector('[data-package-folder]');
+      const folderName = root.querySelector('[data-package-folder-name]');
       const toast = root.querySelector('[data-toast]');
       let toastTimer;
 
@@ -584,18 +584,19 @@
 
       root.querySelector('[data-add-package]').addEventListener('click', () => {
         backdrop.classList.add('is-open');
-        setTimeout(() => appWheel.focus(), 0);
+        setTimeout(() => folderInput.focus(), 0);
       });
       root.querySelector('[data-close-dialog]').addEventListener('click', closeDialog);
       backdrop.addEventListener('click', event => { if (event.target === backdrop) closeDialog(); });
       root.addEventListener('keydown', event => { if (event.key === 'Escape' && backdrop.classList.contains('is-open')) closeDialog(); });
 
-      appWheel.addEventListener('change', () => {
-        appWheelName.textContent = appWheel.files[0]?.name || 'No file selected';
+      folderInput.addEventListener('change', () => {
+        const first = folderInput.files[0];
+        folderName.textContent = first?.webkitRelativePath?.split('/')[0] || (first ? 'Selected folder' : 'No folder selected');
       });
 
       root.querySelector('[data-register-package]').addEventListener('click', () => {
-        if (!appWheel.files.length) { showToast('Choose a VibePy App .whl first.'); return; }
+        if (!folderInput.files.length) { showToast('Choose a package folder first.'); return; }
         if (!apps.some(app => app.id === 'inventory')) {
           apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', state: 'package' });
         }
