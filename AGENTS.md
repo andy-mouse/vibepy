@@ -55,6 +55,7 @@ One milestone in `docs/roadmap.md` is one Superpowers cycle. The skills own the 
 - The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
 - Implement only the current milestone, exactly as specified. Do not build ahead.
 - `docs/roadmap.md` is never edited. If a milestone cannot be implemented as specified, stop and ask.
+- Push once the milestone is merged, not before.
 
 ## Documentation
 
