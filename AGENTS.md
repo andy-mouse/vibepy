@@ -68,7 +68,6 @@ One role per document. The same fact is not stated in two places.
 | `docs/architecture.md`, `docs/architecture/` | current truth | a public contract changes |
 | `docs/decisions/` | why | a decision is taken between real alternatives |
 | `docs/roadmap.md` | scope and order of milestones | never; the owner decides |
-| `docs/design/` | UI intent, not yet built | a mockup is added or replaced |
 | `docs/milestones/` | what is next | per the milestone workflow |
 | git history | history | everything else |
 
