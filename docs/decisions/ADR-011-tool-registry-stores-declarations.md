@@ -1,6 +1,6 @@
 # ADR-011: The Tool registry stores declarations alongside bound callables
 
-Status: Accepted
+Status: Superseded by ADR-014
 
 Supersedes: ADR-008
 

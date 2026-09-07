@@ -28,11 +28,13 @@ Do not add a generic middleware framework until a concrete need appears.
 
 ToolContext is invocation-scoped and deliberately narrower than AppRuntime.
 
-Start small, for example:
+It currently carries:
 
 - app id
 - invocation id
-- typed app services/config when required
+- `dependencies`: the application-scoped resource, typed by the app itself
+
+`dependencies` is one value of the app's own type, not a mapping and not AppRuntime.
 
 Future fields may include:
 
@@ -47,7 +49,8 @@ Future fields may include:
 ToolRuntime creates a ToolContext for every invocation, with an invocation id unique to
 that invocation. Channels never construct one.
 
-Do not make ToolContext an untyped service-locator bag.
+Do not make ToolContext an untyped service-locator bag. See
+`docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
 
 ## Dependency ownership
 
@@ -61,6 +64,10 @@ Examples:
 - cache
 
 Prefer typed dependency objects over generic dictionaries when practical.
+
+AppRuntime creates the resource once from `AppDefinition.create_dependencies` and hands it
+to ToolRuntime, which puts it into every ToolContext it creates. Two AppRuntimes built from
+one AppDefinition each call the factory, so they are isolated by default.
 
 ## Concurrency
 
@@ -85,4 +92,5 @@ Example:
 3. Web-side read sees A and B.
 4. Agent-side read sees A and B.
 
-This test should remain throughout the project.
+This test should remain throughout the project. Both channels are built from one
+AppRuntime, so sharing is structural rather than arranged by the test.

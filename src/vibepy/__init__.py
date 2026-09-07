@@ -15,6 +15,7 @@ from vibepy.page import (
     PageHandler,
     PageRegistry,
     PageRuntime,
+    ToolInvocation,
     ToolInvoker,
 )
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegistry, ToolRuntime
@@ -34,6 +35,7 @@ __all__ = [
     "ToolDefinition",
     "ToolHandler",
     "ToolInputValidationError",
+    "ToolInvocation",
     "ToolInvoker",
     "ToolNotFoundError",
     "ToolOutputValidationError",
