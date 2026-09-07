@@ -56,26 +56,6 @@
       letter-spacing: -.1em;
     }
 
-    #vibepy-hub-mockup .hub-local {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      margin-left: 6px;
-      padding-left: 12px;
-      border-left: 1px solid light-dark(#d3dfe1, #384b50);
-      color: light-dark(#5f7379, #9eb1b5);
-      font-size: 12px;
-      font-weight: 400;
-    }
-
-    #vibepy-hub-mockup .hub-local-dot {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background: light-dark(#19867c, #63d1c6);
-      box-shadow: 0 0 0 3px light-dark(#daf0ed, #1d4a48);
-    }
-
     #vibepy-hub-mockup button {
       font: inherit;
     }
@@ -228,6 +208,10 @@
       color: light-dark(#acbabc, #5e7378);
     }
 
+    #vibepy-hub-mockup .hub-app-meta .hub-update-available {
+      color: light-dark(#a55a18, #f0b66f);
+    }
+
     #vibepy-hub-mockup .hub-rail {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -287,18 +271,6 @@
       flex-wrap: wrap;
     }
 
-    #vibepy-hub-mockup .hub-state-note {
-      width: 100%;
-      margin: 0 0 2px;
-      text-align: right;
-      color: light-dark(#63787d, #99adb1);
-      font-size: 11px;
-    }
-
-    #vibepy-hub-mockup .hub-state-note.is-live {
-      color: light-dark(#12746c, #6bd1c8);
-    }
-
     #vibepy-hub-mockup .hub-dialog-backdrop {
       position: fixed;
       inset: 0;
@@ -308,6 +280,7 @@
       padding: 20px;
       background: rgba(4, 17, 21, .58);
       backdrop-filter: blur(5px);
+      overscroll-behavior: contain;
     }
 
     #vibepy-hub-mockup .hub-dialog-backdrop.is-open { display: grid; }
@@ -435,14 +408,12 @@
         padding: 24px 20px;
       }
       #vibepy-hub-mockup .hub-actions { justify-content: flex-start; }
-      #vibepy-hub-mockup .hub-state-note { text-align: left; }
       #vibepy-hub-mockup .hub-rail { max-width: 430px; }
     }
 
     @media (max-width: 480px) {
       #vibepy-hub-mockup { padding: 0; }
       #vibepy-hub-mockup .hub-shell { min-height: 100vh; border: 0; border-radius: 0; }
-      #vibepy-hub-mockup .hub-local { display: none; }
       #vibepy-hub-mockup .hub-topbar .hub-primary { padding-inline: 11px; }
       #vibepy-hub-mockup .hub-main { padding-inline: 16px; }
       #vibepy-hub-mockup .hub-summary-value { font-size: 18px; }
@@ -461,9 +432,8 @@
       <div class="hub-brand">
         <span class="hub-brand-mark" aria-hidden="true">V›</span>
         <span>VibePy Hub</span>
-        <span class="hub-local"><span class="hub-local-dot"></span>Local</span>
       </div>
-      <button class="hub-primary" type="button" data-add-package>+ Add package</button>
+      <button class="hub-primary" type="button" data-import-app>+ Import app</button>
     </header>
 
     <main class="hub-main">
@@ -471,7 +441,7 @@
         <div>
           <p class="hub-eyebrow">App control board</p>
           <h1>Your apps</h1>
-          <p class="hub-subtitle">Register, install, and run each app from one clear lifecycle view.</p>
+          <p class="hub-subtitle">Import, install, update, and run your apps from one place.</p>
         </div>
         <div class="hub-summary" aria-label="App summary" data-summary></div>
       </div>
@@ -487,9 +457,9 @@
 
   <div class="hub-dialog-backdrop" data-dialog-backdrop>
     <section class="hub-dialog" role="dialog" aria-modal="true" aria-labelledby="hub-dialog-title">
-      <h2 id="hub-dialog-title">Add a package</h2>
-      <p>Choose a package folder containing the App wheel and any components shipped with it, such as .skill files.</p>
-      <label class="hub-field-label" for="hub-package-folder">Package folder</label>
+      <h2 id="hub-dialog-title">Import app</h2>
+      <p>Choose the app folder. It must contain the app’s .whl file. Any other files provided with the app will be imported together.</p>
+      <label class="hub-field-label" for="hub-package-folder">App folder</label>
       <input class="hub-folder-input" id="hub-package-folder" type="file" webkitdirectory directory multiple data-package-folder />
       <div class="hub-folder-picker">
         <label class="hub-folder-button" for="hub-package-folder">Choose folder</label>
@@ -497,7 +467,7 @@
       </div>
       <div class="hub-dialog-actions">
         <button class="hub-secondary" type="button" data-close-dialog>Cancel</button>
-        <button class="hub-primary" type="button" data-register-package>Add package</button>
+        <button class="hub-primary" type="button" data-confirm-import>Import</button>
       </div>
     </section>
   </div>
@@ -511,8 +481,8 @@
 
       const apps = [
         { id: 'customer-desk', name: 'Customer Desk', version: '1.4.0', state: 'running' },
-        { id: 'expense-review', name: 'Expense Review', version: '0.9.2', state: 'installed' },
-        { id: 'todo', name: 'Todo', version: '2.1.1', state: 'package' }
+        { id: 'expense-review', name: 'Expense Review', version: '0.9.2', availableVersion: '1.0.0', state: 'installed' },
+        { id: 'todo', name: 'Todo', version: '2.1.1', state: 'ready' }
       ];
 
       const list = root.querySelector('[data-app-list]');
@@ -521,9 +491,9 @@
       const folderInput = root.querySelector('[data-package-folder]');
       const folderName = root.querySelector('[data-package-folder-name]');
       const toast = root.querySelector('[data-toast]');
+      const appNameCollator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+      const stateOrder = { running: 0, installed: 1, ready: 2 };
       let toastTimer;
-
-      const labels = { package: 'Ready to install', installed: 'Installed · stopped', running: 'Running locally' };
 
       function showToast(message) {
         toast.textContent = message;
@@ -537,8 +507,8 @@
       }
 
       function renderRail(state) {
-        const stages = ['package', 'installed', 'running'];
-        const stageLabels = ['Package', 'Installed', 'Running'];
+        const stages = ['ready', 'installed', 'running'];
+        const stageLabels = ['Ready', 'Installed', 'Running'];
         const currentIndex = stages.indexOf(state);
         return `<div class="hub-rail" aria-label="${stageLabels[currentIndex]} stage">${stages.map((stage, index) => {
           const done = index <= currentIndex;
@@ -550,28 +520,37 @@
       }
 
       function renderActions(app) {
-        if (app.state === 'package') return button('Install', 'install', 'hub-primary');
-        if (app.state === 'installed') return `${button('Remove', 'remove', 'hub-danger')}${button('Start', 'start', 'hub-primary')}`;
+        if (app.state === 'ready') return button('Install', 'install', 'hub-primary');
+        if (app.state === 'installed' && app.availableVersion) {
+          return `${button('Uninstall', 'uninstall', 'hub-danger')}${button('Update', 'update', 'hub-primary')}`;
+        }
+        if (app.state === 'installed') return `${button('Uninstall', 'uninstall', 'hub-danger')}${button('Start', 'start', 'hub-primary')}`;
         return button('Stop', 'stop', 'hub-secondary');
       }
 
       function render() {
-        const installed = apps.filter(app => app.state !== 'package').length;
+        const installed = apps.filter(app => app.state !== 'ready').length;
         const running = apps.filter(app => app.state === 'running').length;
+        const sortedApps = [...apps].sort((left, right) => {
+          const stateDifference = stateOrder[left.state] - stateOrder[right.state];
+          return stateDifference || appNameCollator.compare(left.name, right.name);
+        });
         summary.innerHTML = [
-          [apps.length, 'Packages'],
+          [apps.length, 'Apps'],
           [installed, 'Installed'],
           [running, 'Running']
         ].map(([value, label]) => `<div class="hub-summary-item"><span class="hub-summary-value">${value}</span><span class="hub-summary-label">${label}</span></div>`).join('');
 
-        list.innerHTML = apps.map(app => `<article class="hub-app-row" data-app-id="${app.id}">
+        list.innerHTML = sortedApps.map(app => `<article class="hub-app-row" data-app-id="${app.id}">
           <div>
             <h2 class="hub-app-name">${app.name}</h2>
-            <div class="hub-app-meta"><span>v${app.version}</span></div>
+            <div class="hub-app-meta">
+              <span>v${app.version}</span>
+              ${app.availableVersion ? `<span class="hub-update-available">v${app.availableVersion} available</span>` : ''}
+            </div>
           </div>
           ${renderRail(app.state)}
           <div class="hub-actions">
-            <p class="hub-state-note ${app.state === 'running' ? 'is-live' : ''}">${labels[app.state]}</p>
             ${renderActions(app)}
           </div>
         </article>`).join('');
@@ -579,10 +558,10 @@
 
       function closeDialog() {
         backdrop.classList.remove('is-open');
-        root.querySelector('[data-add-package]').focus();
+        root.querySelector('[data-import-app]').focus();
       }
 
-      root.querySelector('[data-add-package]').addEventListener('click', () => {
+      root.querySelector('[data-import-app]').addEventListener('click', () => {
         backdrop.classList.add('is-open');
         setTimeout(() => folderInput.focus(), 0);
       });
@@ -595,14 +574,14 @@
         folderName.textContent = first?.webkitRelativePath?.split('/')[0] || (first ? 'Selected folder' : 'No folder selected');
       });
 
-      root.querySelector('[data-register-package]').addEventListener('click', () => {
-        if (!folderInput.files.length) { showToast('Choose a package folder first.'); return; }
+      root.querySelector('[data-confirm-import]').addEventListener('click', () => {
+        if (!folderInput.files.length) { showToast('Choose an app folder first.'); return; }
         if (!apps.some(app => app.id === 'inventory')) {
-          apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', state: 'package' });
+          apps.push({ id: 'inventory', name: 'Inventory', version: '1.0.0', state: 'ready' });
         }
         closeDialog();
         render();
-        showToast('Inventory package added.');
+        showToast('Inventory imported.');
       });
 
       list.addEventListener('click', event => {
@@ -614,8 +593,13 @@
         if (action === 'install') { app.state = 'installed'; showToast(`${app.name} installed.`); }
         if (action === 'start') { app.state = 'running'; showToast(`${app.name} is running.`); }
         if (action === 'stop') { app.state = 'installed'; showToast(`${app.name} stopped safely.`); }
-        if (action === 'remove' && confirm(`Remove ${app.name} from installed apps?`)) {
-          app.state = 'package'; showToast(`${app.name} removed.`);
+        if (action === 'update') {
+          app.version = app.availableVersion;
+          delete app.availableVersion;
+          showToast(`${app.name} updated to v${app.version}.`);
+        }
+        if (action === 'uninstall' && confirm(`Uninstall ${app.name}? The imported package will remain ready to install.`)) {
+          app.state = 'ready'; showToast(`${app.name} uninstalled.`);
         }
         render();
       });
