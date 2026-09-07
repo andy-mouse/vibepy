@@ -74,6 +74,7 @@ One role per document. The same fact is not stated in two places.
 | `docs/milestones/` | what is next | per the milestone workflow |
 | git history | history | everything else |
 
+- A new architecture document requires a concept that no existing document owns. Extend the owning document first.
 - ADRs use the Nygard format. Edit a `Proposed` ADR; supersede an `Accepted` one, never rewrite it.
 - An ADR records a decision that changes structure, quality characteristics, external dependencies, interfaces, or construction technique. Choices below that line go in the commit message.
 - On integration, promote what is still true out of the milestone folder, then delete the folder.
