@@ -61,6 +61,39 @@ reaches the same server that holds the MCP session.
 Both mechanisms are the libraries' own. Neither is available across a process boundary
 without a broker the framework would have to require of every App.
 
+### Local hosting is the favourable case
+
+The framework hosts Pages with NiceGUI on the machine the human uses, so the browser and the
+App share a host and a Page URL is a localhost URL. The MCP specification anticipates this
+directly: a local server "SHOULD bind only to localhost (127.0.0.1)". `ElicitRequestURLParams`
+places no constraint on the URL, so a plain `http://localhost:...` address is valid at the
+protocol level; no TLS, certificate or tunnel is involved.
+
+Two limits are worth recording rather than assuming away:
+
+- URL-mode elicitation is new. The SDK dates it to protocol version 2025-11-25, later than
+  the 2025-06-18 version this repository otherwise cites, so client support will be narrow
+  for some time.
+- Whether a given agent client will actually open a plain-HTTP localhost URL is that client's
+  policy, not the protocol's, and is not something this repository can verify.
+
+Neither limit blocks the decision, because the capability degrades in steps rather than all
+at once:
+
+| Capability | What the agent client must support |
+| --- | --- |
+| a Tool invocation updates a page the human already has open | nothing; it is internal to NiceGUI |
+| an agent hands the human a Page to continue in | nothing; the Tool returns the URL in its result |
+| the agent is notified when the human finishes | URL-mode elicitation, or the agent polling a status Tool |
+
+The first two rows work with any client today. Only the third depends on the new capability,
+and polling substitutes for it.
+
+Local hosting also changes how the stdio entrypoint should be read. Rather than a fallback
+for platforms that lack HTTP, a proxy that forwards to the App on localhost is likely the
+primary path: every agent platform supports stdio, so the proxy removes the question of
+whether a particular client speaks HTTP MCP at all, while the App itself stays one process.
+
 ## Decision
 
 One installed App is one operating-system process, owned by the Hub.
@@ -69,8 +102,9 @@ Both channel adapters are started by that AppRuntime's startup, as
 `docs/architecture/lifecycle.md` step 4 already describes. The Agent channel is served from
 that process as MCP over Streamable HTTP.
 
-Where an agent platform supports only stdio, the command the framework supplies is a proxy
-that forwards to the running App's endpoint. It holds no AppRuntime and no business logic.
+The command the framework supplies to an agent platform is a stdio proxy that forwards to
+the running App's endpoint. It holds no AppRuntime and no business logic. A platform that
+speaks HTTP MCP may address the endpoint directly instead.
 
 ## Consequences
 
@@ -90,9 +124,12 @@ that forwards to the running App's endpoint. It holds no AppRuntime and no busin
 - HTTP has a wider surface than stdio. The MCP specification requires `Origin` validation,
   recommends binding to localhost when local, and recommends authentication; none of that is
   needed for a spawned stdio process
-- the stdio proxy is code the framework must supply and support
+- the stdio proxy is code the framework must supply and support, and under local hosting it
+  is the path most agent platforms will take rather than an exception
 - the cross-channel mechanisms above are enabled, not implemented. URL-mode elicitation also
-  depends on the agent client declaring `UrlElicitationCapability`
+  depends on the agent client declaring `UrlElicitationCapability`, which the SDK dates to
+  protocol version 2025-11-25; the handoff still works without it, without the automatic
+  completion callback
 
 ## Open questions
 
