@@ -20,8 +20,10 @@ only through the App's public surface. ``tests/test_app_runtime.py`` observes
 
 import asyncio
 
+from mcp.client import Client
 from pydantic import BaseModel
 
+from vibepy.adapters.mcp import build_mcp_server
 from vibepy.app import AppDefinition, AppRuntime
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
@@ -160,3 +162,34 @@ async def test_two_page_renders_are_in_flight_at_once() -> None:
         )
 
     assert await logged(app) == ARRIVALS_THEN_DEPARTURES
+
+
+async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
+    """The Agent channel's request concurrency is the SDK's, and this pins it.
+
+    The protocol permits concurrent in-flight requests without requiring a
+    server to process them concurrently, and the SDK documents no concurrency
+    guarantee for request handling - only the serialized exception, its
+    ``inline_methods``, which the runner sets to ``{"initialize"}``. The SDK
+    does spawn everything else, so two ``tools/call`` requests overlap, but
+    that is implementation behaviour rather than a promise, and
+    ``pyproject.toml`` pins only ``mcp>=2.1``. If it ever changed, this
+    framework's concurrency guarantee would deliver nothing to an agent, and
+    this test is what would say so.
+
+    Passing a Server straight to Client is the SDK's documented in-memory
+    transport, which it names as the testing path.
+    """
+    app = build_app()
+
+    async with Client(build_mcp_server(app)) as agent:
+        async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+            first, second = await asyncio.gather(
+                agent.call_tool("meet", {}),
+                agent.call_tool("meet", {}),
+            )
+        listed = await agent.call_tool("read_log", {})
+
+    assert not first.is_error
+    assert not second.is_error
+    assert LogSnapshot.model_validate(listed.structured_content).entries == ARRIVALS_THEN_DEPARTURES
