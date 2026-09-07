@@ -29,23 +29,25 @@ class AppDefinition[DepsT]:
     app_id: str
     name: str
     version: str
-    create_dependencies: Callable[[], DepsT]
+    lifespan: Callable[[], AbstractAsyncContextManager[DepsT]]
     tools: Sequence[Tool[DepsT]]
     pages: Sequence[Page]
 ```
 
-`create_dependencies` is a factory, not a resource. A definition holding a live resource
-would not be a declaration, and one definition would yield runtimes that shared state.
+`lifespan` is a factory returning an async context manager, not a live one. A definition
+holding a live resource would not be a declaration, and one definition would yield runtimes
+that shared state. What precedes the `yield` runs at startup and what follows runs at
+shutdown; `docs/architecture/lifecycle.md` owns those boundaries.
 
 `DepsT` is the app's own type for its application-scoped resource. An App that has none
-declares `AppDefinition[None]` with a factory returning `None`; no default is provided,
+declares `AppDefinition[None]` with a lifespan yielding `None`; no default is provided,
 because the framework does not guess that an App is stateless.
 
 An AppDefinition does not contain live connections, request state, UI sessions, or running
 adapters. Because it is a value rather than an assembly procedure, later milestones can read
 it without running the App.
 
-A future version may add an optional config model (M8) and optional lifecycle hooks (M6).
+A future version may add an optional config model (M8).
 
 ## AppRuntime
 
@@ -54,11 +56,18 @@ A future version may add an optional config model (M8) and optional lifecycle ho
 ```python
 class AppRuntime[DepsT]:
     def __init__(self, definition: AppDefinition[DepsT]) -> None: ...
+
+    @property
+    def state(self) -> AppRuntimeState: ...
+
+    async def start(self) -> None: ...
+    async def stop(self) -> None: ...
 ```
 
-The constructor calls `create_dependencies()` once, fills a ToolRegistry and a PageRegistry
-from the declarations, and builds a ToolRuntime and a PageRuntime over them. Two AppRuntimes
-built from one AppDefinition are isolated by default: each has its own resource.
+The constructor fills a ToolRegistry and a PageRegistry from the declarations and nothing
+else; it acquires no resource. `start()` enters the lifespan and builds a ToolRuntime and a
+PageRuntime over the value it yields. Two AppRuntimes built from one AppDefinition are
+isolated by default: each enters its own lifespan.
 
 It owns application-scoped runtime state:
 
@@ -67,15 +76,13 @@ It owns application-scoped runtime state:
 - the application-scoped resource
 - PageRegistry and PageRuntime
 - typed configuration, when M8 introduces it
-- lifecycle state, when M6 introduces it
+- lifecycle state
 
-Read-only properties `definition`, `tool_registry`, `tool_runtime`, `page_registry` and
-`page_runtime` are what a channel adapter consumes. The resource itself is not exposed: a
-Tool handler receives it through its ToolContext, and nothing else needs it.
-
-The resource is created in the constructor. `docs/architecture/lifecycle.md` places
-dependency initialization at startup, so the runtime lifecycle milestone may move when the
-factory is called; the signature does not change.
+`definition`, `tool_registry` and `page_registry` are readable at any time: they are built
+from declarations. `tool_runtime` and `page_runtime` exist only while the App is RUNNING,
+because they are built over the resource, and reaching them outside that window raises. The
+resource itself is not exposed: a Tool handler receives it through its ToolContext, and
+nothing else needs it.
 
 Web and MCP adapters for one running app must receive the same AppRuntime instance, which
 their signatures enforce. See

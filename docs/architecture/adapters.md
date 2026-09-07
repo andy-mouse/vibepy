@@ -4,6 +4,9 @@
 
 Channel adapters translate a channel protocol/runtime into framework semantics. They do not own business logic.
 
+An adapter reads the runtimes an App produced at startup, so it is built from a started
+AppRuntime.
+
 ## MCP Adapter
 
 MCP is the Agent channel technology.
