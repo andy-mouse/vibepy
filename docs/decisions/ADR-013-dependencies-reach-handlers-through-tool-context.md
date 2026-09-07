@@ -4,52 +4,29 @@ Status: Accepted
 
 ## Context
 
-The App layer gives the App an owner: `AppDefinition`, `AppRuntime`, application-scoped
-typed dependencies, and ToolContext creation from AppRuntime. A Tool handler needs the
-App's shared resource — its repository, connection pool or API client — and nothing
-delivers one.
+A Tool handler needs the App's shared resource — its repository, connection pool or API
+client — and nothing delivers one.
 
-Two mechanisms are available.
-
-Closures: the app binds the resource into its handlers while assembling the App, as a bound
-method or a nested function. `ToolContext` does not change.
-
-ToolContext: the app declares a factory for the resource, handlers are plain functions, and
-the resource arrives as a field of the context the runtime already creates.
+Two mechanisms are available. The app can bind the resource into its handlers as closures
+while assembling the App, leaving ToolContext unchanged. Or the app can declare a factory for
+the resource and receive it as a field of the context the runtime already creates, leaving
+handlers as plain functions.
 
 ## Decision
 
-The resource reaches a handler through `ToolContext`, typed by a parameter the app supplies.
+The resource reaches a handler through ToolContext, typed by a parameter the app supplies.
 
-```python
-async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> Todo:
-    return ctx.dependencies.create(payload.title)
-```
-
-`docs/architecture/runtime.md` already reserved the position, listing "typed app
-services/config when required" among a ToolContext's fields and preferring "typed dependency
-objects over generic dictionaries".
-
-The deciding argument is that an App must be a value rather than a procedure.
-`docs/architecture/app-model.md` states that an AppDefinition holds Tool and Page
-declarations and "should not contain live connections"; a handler bound to a live resource
-puts one inside the declaration. `docs/architecture/authoring.md` requires deterministic
-inspection and validation surfaces, and every one of them — package validation, App
-inspection and validation, conformance validation — reads an App's declarations without
-running it. An assembly function has nothing to read.
+The deciding argument is that an App must be a value rather than a procedure. A handler bound
+to a live resource puts one inside the declaration, and package validation, App inspection
+and conformance validation all read an App's declarations without running it. An assembly
+function has nothing to read.
 
 ## Consequences
 
-- `DepsT` threads through `ToolContext`, `ToolHandler`, `Tool`, `ToolRegistry`, `ToolRuntime`,
-  `AppDefinition` and `AppRuntime`. ADR-008's variance problem does not recur: it arises
-  because each Tool has its own `InputT`, whereas `DepsT` is one type per App, so a
-  `ToolRegistry[DepsT]` holds uniformly typed values with neither `Any` nor `cast`
-- the Page model is untouched. A Page reaches Tools by name through `ToolInvoker`, so no
-  Page type carries `DepsT`. `PageRuntime` depends on the shape of Tool invocation rather
-  than on `ToolRuntime[DepsT]`, for the reason `ToolInvoker` itself exists
-- a handler still receives no access to AppRuntime. It receives one value of a type the app
-  declared, which is what `docs/architecture/app-model.md` requires
-- closures remain legal. An app may still bind state into a handler; the framework simply no
-  longer requires it
-- an App with no shared resource declares `None`. No default is provided, because the
-  framework does not guess that an App is stateless
+- the dependency type parameter threads through the Tool types, without `Any` or `cast`,
+  because it is one type per App rather than one per Tool
+- the Page model is untouched: a Page reaches Tools by name, so no Page type carries it
+- a handler still receives no access to AppRuntime, only one value of a type the app declared
+- closures remain legal; the framework simply no longer requires them
+- an App with no shared resource declares that explicitly, because the framework does not
+  guess that an App is stateless

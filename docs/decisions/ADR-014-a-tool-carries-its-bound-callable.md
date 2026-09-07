@@ -6,55 +6,31 @@ Supersedes: ADR-011
 
 ## Context
 
-ADR-008 established that a typed Tool is bound into one uniform callable at registration,
-because the Python typing specification treats a type parameter in a callable parameter
-position as contravariant and offers no way to recover the parameters of differently
-parameterized generics from a collection
-([Typing spec - Generics](https://typing.python.org/en/latest/spec/generics.html)).
-ADR-011 kept that decision and corrected its reach: the registry also stores each
-`ToolDefinition`, in a second dictionary beside the bound callables.
-
-`AppDefinition` must hold a sequence of Tools, and that sequence needs one element type.
-`Tool[DepsT, InputT, OutputT]` cannot supply one. `InputT` appears covariantly in the
+An AppDefinition must hold a sequence of Tools, and a sequence needs one element type. A Tool
+generic in its declared models supplies none: the input type appears covariantly in the
 declaration and contravariantly in the handler, so the class is invariant in it and no
-concrete Tool is assignable to a common `Tool[DepsT, BaseModel, BaseModel]`. This is
-ADR-008's problem in a new position, and the registry is not where it can be solved:
-`docs/architecture/app-model.md` assigns `ToolRegistry` to AppRuntime, so a definition
-cannot hold one.
+concrete Tool is assignable to a common one
+([Typing spec - Generics](https://typing.python.org/en/latest/spec/generics.html)).
+
+This is ADR-008's problem in a new position, and the registry is not where it can be solved,
+because a registry belongs to the runtime and a declaration cannot hold one.
 
 ## Decision
 
-Binding moves from `ToolRegistry.register` into `Tool` itself.
+Binding moves from the registry into the Tool itself. The class is generic only in the
+dependency type while its constructor is generic in the declared models, so a Tool has one
+static type per App and a sequence of them is expressible.
 
-```python
-class Tool[DepsT]:
-    def __init__[InputT: BaseModel, OutputT: BaseModel](
-        self,
-        *,
-        definition: ToolDefinition[InputT, OutputT],
-        handler: ToolHandler[DepsT, InputT, OutputT],
-    ) -> None: ...
-```
-
-The class is generic only in `DepsT`; `__init__` is generic in the declared models. A Tool
-therefore has one static type per App and a sequence of them is expressible.
-
-A generic `__init__` is chosen over a factory function beside a frozen dataclass. The
-factory is more obvious to a reader but adds a second name for one concept, and the
-generic `__init__` leaves every declaration site unchanged. It is
-[PEP 695](https://peps.python.org/pep-0695/) syntax rather than metaprogramming.
-
-`ToolRegistry` keeps one dictionary of Tools. `definitions()` enumerates
-`tool.definition` in registration order, unchanged.
+A generic constructor is chosen over a factory function beside a frozen dataclass. The factory
+is more obvious to a reader but adds a second name for one concept, and it is standard syntax
+rather than metaprogramming ([PEP 695](https://peps.python.org/pep-0695/)).
 
 ## Consequences
 
-- `AppDefinition` holds `Sequence[Tool[DepsT]]`, a readable declaration rather than an
-  assembly procedure
-- the free function `bind` disappears; the erasure has exactly one cause and one place
+- an AppDefinition holds a readable declaration rather than an assembly procedure
+- the free binding function disappears; the erasure has one cause and one place
 - `Tool` moves out of the declarations module into the runtime one, because it carries
   invocation behaviour and the declarations module states that its types do not
-- `Tool(definition=..., handler=...)` is unchanged at every call site
-- a Tool no longer exposes its handler. Code that reached through a Tool to call a handler
-  directly calls the function instead
-- registering a name twice still replaces the earlier Tool, declaration included
+- every declaration site is unchanged
+- a Tool no longer exposes its handler, so code that reached through a Tool calls the
+  function instead
