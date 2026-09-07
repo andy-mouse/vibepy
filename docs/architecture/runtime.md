@@ -44,6 +44,9 @@ Future fields may include:
 - permissions
 - trace context
 
+ToolRuntime creates a ToolContext for every invocation, with an invocation id unique to
+that invocation. Channels never construct one.
+
 Do not make ToolContext an untyped service-locator bag.
 
 ## Dependency ownership

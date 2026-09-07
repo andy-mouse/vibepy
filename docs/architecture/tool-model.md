@@ -68,9 +68,17 @@ async def handler(ctx: ToolContext, payload: InputModel) -> OutputModel:
 
 Handler parameters are positional-only in the `ToolHandler` Protocol, so an app author may name them freely.
 
+### ToolRegistry
+
+Maps a Tool name to the Tool bound under it. Storage only; it implements no invocation
+semantics, and resolution is consumed by ToolRuntime.
+
+Registering a name twice replaces the earlier registration.
+
 ### ToolRuntime
 
-The canonical invocation path for every channel.
+The canonical invocation path for every channel. Constructed from an app id and a
+ToolRegistry.
 
 Minimal responsibilities:
 
