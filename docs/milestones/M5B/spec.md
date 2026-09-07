@@ -34,7 +34,7 @@ Three layers, three owners:
 | Layer | Concurrency question | Owner |
 | --- | --- | --- |
 | Channel transport | may two requests be in flight at once? | MCP SDK, uvicorn |
-| Framework | may two invocations be in flight at once? | ToolRuntime |
+| Framework | may two invocations be in flight at once? | ToolRuntime, PageRuntime |
 | Domain | is overlapping mutation correct? | the app's own services and storage |
 
 Only the middle row is a framework contract. The framework's obligation is to add no
@@ -44,8 +44,60 @@ does not offer, and it does not make an app's domain state safe under overlap.
 `src/vibepy/adapters/mcp/server.py` and `src/vibepy/adapters/nicegui/web.py` reduce a
 request to a single `await` on a runtime, per
 `docs/decisions/ADR-003-channel-adapters-are-thin.md`. Neither has a place to introduce
-serialization, so neither is a subject of these tests: a test there would verify the MCP SDK
-and uvicorn rather than a Vibepy contract.
+serialization.
+
+## What the channel technologies actually do
+
+The table above asserts something about two external libraries, so it is verified rather
+than assumed.
+
+### MCP SDK: concurrent per session, except `initialize`
+
+The SDK's JSON-RPC dispatcher awaits *inline methods* "directly in the read loop before the
+next message is dequeued", and spawns every other request into a task group.[^mcp-dispatch]
+The server runner configures `inline_methods={"initialize"}`, so the handshake is the only
+serialized method and `tools/call` is spawned.[^mcp-inline]
+
+Verified against `mcp==2.1.1`: two `tools/call` requests issued concurrently on one
+in-process `Client` session both arrive before either departs, with distinct invocation ids
+and one shared dependency instance.
+
+`pyproject.toml` pins only `mcp>=2.1`, so this is an assumption an upgrade can break
+silently. It therefore becomes a test rather than a sentence in a document.
+
+### NiceGUI: one shared event loop, cooperative, and fire-and-forget events
+
+NiceGUI runs on "a single shared asyncio event loop", and blocking it "will freeze the
+application for all users"; blocking I/O belongs in `run.io_bound` and CPU work in
+`run.cpu_bound`.[^nicegui-loop][^nicegui-faq]
+
+`handle_event` states the dispatch rule: "If the handler returns an awaitable, it is
+scheduled as a background task."[^nicegui-event] An async event handler therefore does not
+hold the interaction that dispatched it, and two interactions can be in flight at once.
+
+Verified against `nicegui==3.16.0`: two users built from the `create_user` fixture, each
+clicking a button whose handler invokes a Tool, produce the arrival log
+`['arrived', 'arrived', 'departed', 'departed']`.
+
+`pyproject.toml` pins only `nicegui>=3.16`, so this is the same kind of upgrade-breakable
+assumption as the MCP one, and it becomes a test for the same reason.
+
+One consequence stays a statement rather than a test, because no framework test can catch
+it: concurrency here is cooperative, so a Tool handler that blocks the event loop serializes
+every channel in its process. That is precisely the case where "ToolRuntime holds no lock"
+delivers nothing, and it is why AGENTS.md requires blocking calls to be wrapped in
+`asyncio.to_thread`.
+
+[^mcp-dispatch]: MCP Python SDK, `mcp.shared.jsonrpc_dispatcher`,
+    <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher>
+[^mcp-inline]: MCP Python SDK, `mcp.server.runner`,
+    <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner>
+[^nicegui-loop]: NiceGUI, `nicegui/llms.md`, "Async in NiceGUI: the event loop is shared",
+    <https://github.com/zauberzeug/nicegui/blob/main/nicegui/llms.md>
+[^nicegui-faq]: NiceGUI FAQ, "Why is my long running function blocking UI updates?",
+    <https://github.com/zauberzeug/nicegui/wiki/FAQs>
+[^nicegui-event]: NiceGUI, `nicegui.events.handle_event`,
+    <https://github.com/zauberzeug/nicegui/blob/main/nicegui/events.py>
 
 ## The proof
 
@@ -79,26 +131,54 @@ A new `tests/test_execution_semantics.py` owns the execution-semantics contract,
 `tests/test_dual_channel.py` which owns the dual-channel contract. Like that file it stays
 for the life of the project.
 
-One fixture App: a dependency holding the barrier, and one Tool whose handler awaits it and
-reports `ctx.invocation_id` and `id(ctx.dependencies)` through its output model. One helper
-runs the two invocations under `asyncio.gather` inside the timeout and returns both results.
+One fixture App: a dependency holding the barrier, an arrival log and a completion Event;
+one Tool whose handler logs, awaits the barrier, logs again and reports `ctx.invocation_id`
+and `id(ctx.dependencies)`; and one Page carrying both a render path and a button whose
+handler invokes that Tool. Both arrivals must appear in the log before either departure,
+which is what makes overlap an assertion rather than an absence of failure.
 
-| Test | Asserts | Fails when |
+The completion Event exists for the Web-channel test alone. A NiceGUI event handler is
+dispatched as a background task, so a click returns before its Tool invocation finishes and
+the test needs something to await other than the click.
+
+| Test | Layer | Fails when |
 | --- | --- | --- |
-| two invocations are in flight at once | both invocations return | anything serializes invocation |
-| concurrent invocations receive independent contexts | the two invocation ids differ | a context is reused or cached across invocations |
-| concurrent invocations share app-scoped dependencies | the two dependency identities are equal | a dependency is rebuilt per invocation |
+| two invocations are in flight at once | ToolRuntime | anything serializes invocation |
+| concurrent invocations receive independent contexts | ToolRuntime | a context is reused across invocations |
+| concurrent invocations share app-scoped dependencies | ToolRuntime | a dependency is rebuilt per invocation |
+| two Page renders are in flight at once | PageRuntime | PageRuntime serializes renders |
+| two Agent-channel calls are in flight at once | MCP adapter over the SDK | the SDK stops spawning `tools/call`, or the adapter serializes |
+| two Web-channel interactions are in flight at once | NiceGUI adapter over NiceGUI | NiceGUI stops dispatching handlers as background tasks, or the adapter serializes |
 
-The App is built through `AppRuntime`, not by constructing `ToolRuntime` directly, because
-"app-scoped" is a claim about the layer that owns the resource.
+Every test but the two identity ones asserts the same arrival log. The App is built through
+`AppRuntime`, not by constructing runtimes directly, because "app-scoped" is a claim about
+the layer that owns the resource.
+
+### Why the two channel tests exist
+
+Neither is a test of an external library. Each drives the composition a real caller
+reaches — our adapter on top of that library — and pins a behaviour that makes the
+framework's concurrency guarantee mean anything at that channel. Both floors in
+`pyproject.toml` are open (`mcp>=2.1`, `nicegui>=3.16`), so an upgrade can remove either
+behaviour with nothing failing. Both are also nearly free: the in-process
+`Client(build_mcp_server(app))` pair already exists in `tests/test_dual_channel.py`, and the
+`create_user` fixture is already loaded by `tests/conftest.py`.
+
+The PageRuntime test exists for a different reason: `src/vibepy/page/runtime.py` already
+claims it "does not serialize renders", and that claim has been untested since M2.
 
 ## Documentation
 
 `docs/architecture/runtime.md` is the current-truth document for runtime execution, and its
-Concurrency section already states the properties. It gains what it does not yet say: which
-layer owns which concurrency question, per the table above, and that the framework's
-guarantee is the absence of framework-introduced serialization rather than the presence of
-request concurrency.
+Concurrency section already states the properties. It gains what it does not yet say:
+
+- which layer owns which concurrency question, per the table above
+- that the framework's guarantee is the absence of framework-introduced serialization rather
+  than the presence of request concurrency
+- what both channel technologies actually do, cited, and that both are pinned by tests
+  because their version floors are open
+- that concurrency is cooperative, so a Tool handler that blocks the event loop serializes
+  every channel in its process
 
 No new architecture document: `runtime.md` owns this concept.
 
@@ -113,8 +193,7 @@ as the barrier technique and the test file's placement, go in commit messages.
 | cancellation and timeout semantics | ADR-005 defers them explicitly | M20 |
 | synchronous or blocking handler support | ADR-005 makes async canonical; AGENTS.md puts `asyncio.to_thread` on the app author | not planned |
 | a fan-out helper such as `invoke_many` | a caller uses `asyncio.gather`; no repetition justifies the abstraction | not planned |
-| adapter-level concurrency tests | the MCP SDK and uvicorn own request concurrency; the adapters are a single `await` | not planned |
-| Page render concurrency | `PageRuntime` holds no per-render state, and a Page reaches a Tool through the ToolRuntime path proven here | not planned |
+| detecting a Tool handler that blocks the event loop | cooperative concurrency makes this the app author's responsibility; AGENTS.md requires `asyncio.to_thread`, and a framework test cannot catch it | not planned |
 | concurrency between the Web and Agent channels | requires a deployment topology no document decides; see below | M9, M10, M17 |
 
 ## Open question, not decided here
@@ -137,5 +216,5 @@ and isolation milestones, and the owner decides it.
 
 ## Verification
 
-`make lint typecheck test` passes. The three new tests pass, and every existing test still
-passes unchanged.
+`make lint typecheck test` passes. The six new tests pass, each shown to fail against a
+deliberate break, and every existing test still passes unchanged.
