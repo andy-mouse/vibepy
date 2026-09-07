@@ -23,6 +23,7 @@ import asyncio
 from pydantic import BaseModel
 
 from vibepy.app import AppDefinition, AppRuntime
+from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 PARTIES = 2
@@ -86,6 +87,11 @@ READ_LOG = Tool(
 )
 
 
+async def meeting_page(ctx: PageContext) -> None:
+    """The render path: a Page reaches the Tool through ToolInvoker."""
+    await ctx.tools.invoke("meet", {})
+
+
 def build_app() -> AppRuntime[Rendezvous]:
     return AppRuntime(
         AppDefinition(
@@ -94,7 +100,12 @@ def build_app() -> AppRuntime[Rendezvous]:
             version="0.0.0",
             create_dependencies=Rendezvous,
             tools=[MEET, READ_LOG],
-            pages=[],
+            pages=[
+                Page(
+                    definition=PageDefinition(name="meeting", route="/meeting", title="Meeting"),
+                    handler=meeting_page,
+                ),
+            ],
         )
     )
 
@@ -136,3 +147,16 @@ async def test_concurrent_invocations_share_app_scoped_dependencies() -> None:
     _app, first, second = await overlap()
 
     assert first.dependency_id == second.dependency_id
+
+
+async def test_two_page_renders_are_in_flight_at_once() -> None:
+    """PageRuntime's docstring claims it does not serialize renders; this holds it to that."""
+    app = build_app()
+
+    async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
+        await asyncio.gather(
+            app.page_runtime.render("meeting"),
+            app.page_runtime.render("meeting"),
+        )
+
+    assert await logged(app) == ARRIVALS_THEN_DEPARTURES
