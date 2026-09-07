@@ -39,13 +39,21 @@ class TodoStore:
     def __init__(self) -> None:
         self._todos: list[Todo] = []
 
-    async def create(self, ctx: ToolContext, payload: CreateTodoInput) -> Todo:
-        todo = Todo(id=len(self._todos) + 1, title=payload.title, done=False)
+    def create(self, title: str) -> Todo:
+        todo = Todo(id=len(self._todos) + 1, title=title, done=False)
         self._todos.append(todo)
         return todo
 
-    async def list_all(self, ctx: ToolContext, payload: EmptyInput) -> TodoList:
-        return TodoList(todos=list(self._todos))
+    def list_all(self) -> list[Todo]:
+        return list(self._todos)
+
+
+async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> Todo:
+    return ctx.dependencies.create(payload.title)
+
+
+async def list_todos(ctx: ToolContext[TodoStore], _payload: EmptyInput) -> TodoList:
+    return TodoList(todos=ctx.dependencies.list_all())
 
 
 async def todos_page(ctx: PageContext) -> None:
@@ -74,15 +82,15 @@ async def todos_page(ctx: PageContext) -> None:
 class TodoApp:
     """One App's registries and runtimes. AppRuntime, which owns these, is M5A."""
 
-    tool_registry: ToolRegistry
-    tool_runtime: ToolRuntime
+    tool_registry: ToolRegistry[TodoStore]
+    tool_runtime: ToolRuntime[TodoStore]
     page_registry: PageRegistry
     page_runtime: PageRuntime
 
 
 def build_todo_app() -> TodoApp:
     store = TodoStore()
-    tool_registry = ToolRegistry()
+    tool_registry: ToolRegistry[TodoStore] = ToolRegistry()
     tool_registry.register(
         Tool(
             definition=ToolDefinition(
@@ -91,7 +99,7 @@ def build_todo_app() -> TodoApp:
                 input_model=CreateTodoInput,
                 output_model=Todo,
             ),
-            handler=store.create,
+            handler=create_todo,
         )
     )
     tool_registry.register(
@@ -102,11 +110,11 @@ def build_todo_app() -> TodoApp:
                 input_model=EmptyInput,
                 output_model=TodoList,
             ),
-            handler=store.list_all,
+            handler=list_todos,
         )
     )
 
-    tool_runtime = ToolRuntime(app_id=APP_ID, registry=tool_registry)
+    tool_runtime = ToolRuntime(app_id=APP_ID, registry=tool_registry, dependencies=store)
 
     page_registry = PageRegistry()
     page_registry.register(

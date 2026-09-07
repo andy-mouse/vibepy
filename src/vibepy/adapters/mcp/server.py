@@ -47,8 +47,8 @@ def _failure(message: str) -> types.CallToolResult:
     )
 
 
-def build_mcp_server(
-    *, name: str, version: str, registry: ToolRegistry, runtime: ToolRuntime
+def build_mcp_server[DepsT](
+    *, name: str, version: str, registry: ToolRegistry[DepsT], runtime: ToolRuntime[DepsT]
 ) -> Server[None]:
     """Build the MCP projection of one App's Tools.
 

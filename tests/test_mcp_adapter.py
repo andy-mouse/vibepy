@@ -79,31 +79,31 @@ class TodoFixture:
 
     def __init__(self) -> None:
         self.todos: list[Todo] = []
-        self.contexts: list[ToolContext] = []
+        self.contexts: list[ToolContext[None]] = []
 
-    async def create_todo(self, ctx: ToolContext, payload: CreateTodoInput) -> Todo:
+    async def create_todo(self, ctx: ToolContext[None], payload: CreateTodoInput) -> Todo:
         self.contexts.append(ctx)
         todo = Todo(id=len(self.todos) + 1, title=payload.title, done=False)
         self.todos.append(todo)
         return todo
 
-    async def list_todos(self, ctx: ToolContext, payload: EmptyInput) -> TodoList:
+    async def list_todos(self, ctx: ToolContext[None], payload: EmptyInput) -> TodoList:
         self.contexts.append(ctx)
         return TodoList(todos=list(self.todos))
 
-    def registry(self) -> ToolRegistry:
-        registry = ToolRegistry()
+    def registry(self) -> ToolRegistry[None]:
+        registry: ToolRegistry[None] = ToolRegistry()
         registry.register(Tool(definition=create_todo_definition(), handler=self.create_todo))
         registry.register(Tool(definition=list_todos_definition(), handler=self.list_todos))
         return registry
 
 
-def build_server(registry: ToolRegistry) -> Server[None]:
+def build_server(registry: ToolRegistry[None]) -> Server[None]:
     return build_mcp_server(
         name="test-app",
         version="0.0.0",
         registry=registry,
-        runtime=ToolRuntime(app_id=APP_ID, registry=registry),
+        runtime=ToolRuntime(app_id=APP_ID, registry=registry, dependencies=None),
     )
 
 
@@ -182,14 +182,14 @@ class Boom(Exception):
 class BrokenFixture:
     """Tools that fail: one raises, one returns output its own model rejects."""
 
-    async def explode(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+    async def explode(self, ctx: ToolContext[None], payload: EmptyInput) -> Todo:
         raise Boom("the handler failed")
 
-    async def lie(self, ctx: ToolContext, payload: EmptyInput) -> Todo:
+    async def lie(self, ctx: ToolContext[None], payload: EmptyInput) -> Todo:
         return Todo.model_construct(id="not-an-integer", title="broken", done=False)
 
-    def registry(self) -> ToolRegistry:
-        registry = ToolRegistry()
+    def registry(self) -> ToolRegistry[None]:
+        registry: ToolRegistry[None] = ToolRegistry()
         registry.register(
             Tool(
                 definition=ToolDefinition(

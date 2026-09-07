@@ -23,10 +23,10 @@ APP_ID = "test-app"
 
 
 def build_runtime(registry: PageRegistry) -> PageRuntime:
-    tool_registry = ToolRegistry()
+    tool_registry: ToolRegistry[None] = ToolRegistry()
     return PageRuntime(
         registry=registry,
-        tool_runtime=ToolRuntime(app_id=APP_ID, registry=tool_registry),
+        tool_runtime=ToolRuntime(app_id=APP_ID, registry=tool_registry, dependencies=None),
     )
 
 
