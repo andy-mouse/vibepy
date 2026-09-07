@@ -5,13 +5,13 @@ Status: Accepted
 ## Context
 
 `docs/architecture/app-model.md` requires that "Web and MCP adapters for one running app
-must receive the same AppRuntime instance". Until M5A there was no AppRuntime, so each
-adapter took the pieces it needed: `build_mcp_server(name, version, registry, runtime)` and
+must receive the same AppRuntime instance". With no AppRuntime, each adapter takes the
+pieces it needs: `build_mcp_server(name, version, registry, runtime)` and
 `register_pages(registry, runtime)`.
 
 Those signatures cannot express the requirement. A registry and a runtime that do not belong
 together type-check, and the resulting App has two backends. ADR-013 also makes both
-parameters generic in `DepsT`, so both signatures change in this milestone regardless.
+parameters generic in `DepsT`, so both signatures change regardless.
 
 ## Decision
 

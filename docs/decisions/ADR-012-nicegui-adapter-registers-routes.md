@@ -9,9 +9,9 @@ and ADR-010 confirms that this step covers the NiceGUI Web server, which unlike 
 MCP server does live inside the app process. So the Web channel could legitimately own its
 own startup.
 
-It has nothing to start it from. AppRuntime is M5A and the lifecycle is M6, so an adapter
-that ran a server today would define startup where no lifecycle exists to own it, and M6
-would have to take it back.
+It has nothing to start it from. No runtime lifecycle exists to own startup, so an adapter
+that ran a server would define startup itself, and the lifecycle would have to take it
+back.
 
 NiceGUI also registers routes on a process-global app object. `ui.page.__call__` begins by
 removing any route already at that path, so a second registration of one path silently
@@ -30,8 +30,9 @@ not report one.
 ## Consequences
 
 - the Web channel is testable in-process, with no server and no browser
-- what M6 adds is a call to `ui.run()` at startup step 4, not a rewrite of this adapter
+- what the runtime lifecycle adds is a call to `ui.run()` at startup step 4, not a rewrite
+  of this adapter
 - two Pages declaring one route fail loudly at registration rather than one silently
   disappearing
 - registration is process-global, so one process serves one App's Pages. Isolating several
-  installed Apps is M17 and this decision does not prejudge it
+  installed Apps is a separate decision, which this one does not prejudge

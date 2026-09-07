@@ -4,10 +4,10 @@ Status: Accepted
 
 ## Context
 
-`docs/roadmap.md` M5A gives the App an owner: `AppDefinition`, `AppRuntime`, application-
-scoped typed dependencies, and ToolContext creation from AppRuntime. A Tool handler needs
-the App's shared resource — its repository, connection pool or API client — and until this
-milestone that resource was a local variable of a test helper.
+The App layer gives the App an owner: `AppDefinition`, `AppRuntime`, application-scoped
+typed dependencies, and ToolContext creation from AppRuntime. A Tool handler needs the
+App's shared resource — its repository, connection pool or API client — and nothing
+delivers one.
 
 Two mechanisms are available.
 
@@ -34,9 +34,9 @@ The deciding argument is that an App must be a value rather than a procedure.
 `docs/architecture/app-model.md` states that an AppDefinition holds Tool and Page
 declarations and "should not contain live connections"; a handler bound to a live resource
 puts one inside the declaration. `docs/architecture/authoring.md` requires deterministic
-inspection and validation surfaces, and the milestones that build them — package validation
-(M9), `inspect_app` and `validate_app` (M12), conformance validation (M16) — read an App's
-declarations without running it. An assembly function has nothing to read.
+inspection and validation surfaces, and every one of them — package validation, App
+inspection and validation, conformance validation — reads an App's declarations without
+running it. An assembly function has nothing to read.
 
 ## Consequences
 

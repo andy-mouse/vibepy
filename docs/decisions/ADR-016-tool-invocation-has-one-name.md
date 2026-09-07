@@ -8,22 +8,21 @@ Status: Accepted
 `ToolRuntime.invoke`'s", so that "the core Page model depends on the shape of Tool
 invocation, not on the Tool runtime".
 
-The implementation named the Protocol's method `call` while the runtime's stayed `invoke`.
-One operation therefore had two names, and `ToolRuntime` did not satisfy the Protocol
-written to describe it. A private `_ToolRuntimeInvoker` existed from M2 to bridge the gap;
-its whole body forwarded one call and renamed nothing else.
+The Protocol's method is named `call` while the runtime's is `invoke`. One operation
+therefore has two names, `ToolRuntime` does not satisfy the Protocol written to describe
+it, and a private `_ToolRuntimeInvoker` bridges the gap by forwarding one call and renaming
+nothing else.
 
-M5A made `ToolRuntime` generic in the app's dependency type. `PageRuntime` held a
-`ToolRuntime` directly — the one place in the Page package that imported it, against the
-principle the Protocol was written for — so the parameter spread through the Page package
-and its tests. A second Protocol, `ToolInvocation`, was added to stop the spread. That
-treated the symptom: the Page package now had two Protocols describing one operation, plus
-an adapter between them.
+`ToolRuntime` is generic in the app's dependency type, and `PageRuntime` holds one
+directly — the one place in the Page package that imports it, against the principle the
+Protocol exists for — so that parameter spreads through the Page package and its tests. A
+second Protocol, `ToolInvocation`, holds the spread back, which treats the symptom: the
+Page package then has two Protocols describing one operation and an adapter between them.
 
 The framework's own vocabulary settles which name is canonical. `ToolContext` carries an
 `invocation_id`; `docs/architecture/runtime.md` names ToolRuntime the "canonical invocation
 path" and `docs/architecture/app-model.md` calls the narrowest state scope "invocation
-scope". `call` was the outlier.
+scope". `call` is the outlier.
 
 ## Decision
 

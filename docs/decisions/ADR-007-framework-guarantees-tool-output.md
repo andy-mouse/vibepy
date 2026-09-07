@@ -4,8 +4,8 @@ Status: Accepted
 
 ## Context
 
-A Tool declares an output model. From M3 the Agent channel publishes a schema derived from
-that model, so the value a channel receives must match what was published.
+A Tool declares an output model, and the Agent channel publishes a schema derived from it,
+so the value a channel receives must match what was published.
 
 Pydantic treats an existing model instance as already valid:
 
