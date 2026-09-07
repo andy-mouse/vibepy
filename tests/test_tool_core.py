@@ -3,7 +3,8 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import BaseModel
 
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy.errors import ToolNotFoundError
+from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRegistry
 
 
 class CreateTodoInput(BaseModel):
@@ -128,3 +129,20 @@ async def test_handler_protocol_accepts_a_plain_async_function() -> None:
     todo = await tool.handler(ctx, CreateTodoInput(title="buy milk"))
 
     assert todo == Todo(id=1, title="buy milk", done=False)
+
+
+def build_registry(store: TodoStore) -> ToolRegistry:
+    registry = ToolRegistry()
+    registry.register(create_todo_tool(store))
+    registry.register(list_todos_tool(store))
+    registry.register(complete_todo_tool(store))
+    return registry
+
+
+def test_resolving_an_unregistered_name_raises() -> None:
+    registry = ToolRegistry()
+
+    with pytest.raises(ToolNotFoundError) as raised:
+        registry.resolve("create_todo")
+
+    assert raised.value.tool_name == "create_todo"
