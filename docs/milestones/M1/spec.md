@@ -80,11 +80,24 @@ neither `Any` nor `cast` appears anywhere in the framework.
 
 ### ToolRuntime
 
-Owns the six steps above and nothing else. No business logic, no global lock, no
-serialization of concurrent invocations.
+The sole public invocation entry point. It resolves the name, creates the `ToolContext`,
+and runs the erased invocation. No business logic, no global lock, no serialization of
+concurrent invocations.
 
 - Constructed from an `app_id` and a `ToolRegistry`.
 - `invoke(name, raw_input)` returns the validated output model instance.
+
+Input validation, handler call and output validation are performed together inside the
+erased invocation created at registration. They are inseparable at that boundary: input
+validation is precisely what proves the value has the handler's input type, so splitting
+them would require a `cast` or an unreachable type guard. `ToolRuntime` remains the only
+caller of that invocation.
+
+Output validation revalidates the handler result through the output model rather than
+accepting the instance as-is. Pydantic does not revalidate an instance of the same model,
+so accepting it would make output validation unobservable and the acceptance criterion
+untestable. The cost is one dump/validate round trip per invocation, and alias and
+computed-field behaviour is out of scope for M1.
 
 Serialization to dictionaries or JSON belongs to channel adapters, not to `ToolRuntime`.
 
