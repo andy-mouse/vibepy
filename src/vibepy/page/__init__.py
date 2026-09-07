@@ -2,7 +2,7 @@
 
 from vibepy.page.model import Page, PageContext, PageDefinition, PageHandler, ToolInvoker
 from vibepy.page.registry import PageRegistry
-from vibepy.page.runtime import PageRuntime, ToolInvocation
+from vibepy.page.runtime import PageRuntime
 
 __all__ = [
     "Page",
@@ -11,6 +11,5 @@ __all__ = [
     "PageHandler",
     "PageRegistry",
     "PageRuntime",
-    "ToolInvocation",
     "ToolInvoker",
 ]

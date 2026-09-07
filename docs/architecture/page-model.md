@@ -35,10 +35,10 @@ Pages consume Tools through a narrow framework interface.
 Page -> PageContext -> ToolInvoker -> ToolRuntime -> Tool
 ```
 
-A Page invokes a Tool by name and never sees ToolRuntime:
+A Page invokes a Tool by name and sees nothing of ToolRuntime beyond that one operation:
 
 ```python
-await ctx.tools.call("create_customer", raw_input)
+await ctx.tools.invoke("create_customer", raw_input)
 ```
 
 ## Core objects
@@ -92,12 +92,18 @@ only.
 The narrow interface a Page invokes Tools through.
 
 ```python
-def call(name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
+def invoke(name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
 ```
 
-The signature is `ToolRuntime.invoke`'s, so validation stays wholly inside ToolRuntime and
-no second validation path exists. ToolInvoker is a Protocol: the core Page model depends on
-the shape of Tool invocation, not on the Tool runtime.
+The signature is `ToolRuntime.invoke`'s, name included, so validation stays wholly inside
+ToolRuntime and no second validation path exists. ToolInvoker is a Protocol: the core Page
+model depends on the shape of Tool invocation, not on the Tool runtime, and the Page package
+imports nothing from the Tool package.
+
+ToolRuntime satisfies the Protocol structurally, so nothing stands between a Page and the
+canonical invocation path. What a Page can reach is what this Protocol declares: one
+operation, addressed by name. See
+`docs/decisions/ADR-016-tool-invocation-has-one-name.md`.
 
 Tool errors are not translated. `ToolNotFoundError`, `ToolInputValidationError` and
 `ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
@@ -133,21 +139,13 @@ Resolving a name that was never registered raises `PageNotFoundError`.
 
 ### PageRuntime
 
-Constructed from a PageRegistry and one canonical Tool invocation path.
+Constructed from a PageRegistry and a ToolInvoker.
 
-That second parameter is typed by the `ToolInvocation` Protocol rather than by ToolRuntime,
-for the reason ToolInvoker exists: the Page package describes what it needs of Tool
-invocation and imports no Tool runtime. It also keeps the application-scoped dependency
-type out of the Page package, which has no use for it.
+`PageRuntime.render(name)` resolves the Page, creates its PageContext over that invoker, and
+awaits the handler. It holds no per-Page state and does not serialize renders.
 
-```python
-class ToolInvocation(Protocol):
-    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
-```
-
-`PageRuntime.render(name)` resolves the Page, creates its PageContext with a ToolInvoker
-backed by that invocation path, and awaits the handler. It holds no per-Page state and does not
-serialize renders.
+AppRuntime supplies its ToolRuntime as the invoker, so a Page of a running App reaches that
+App's Tools and no others.
 
 ## Relationship to Tools
 

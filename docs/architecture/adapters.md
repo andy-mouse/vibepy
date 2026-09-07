@@ -44,7 +44,7 @@ Responsibilities:
 1. project/register PageDefinitions as Web routes
 2. construct PageContext
 3. execute PageHandlers in the NiceGUI lifecycle
-4. connect Page interaction to ToolRuntime through ToolInvoker
+4. connect Page interaction to ToolRuntime through ToolInvoker, which ToolRuntime satisfies
 
 `register_pages(app)` takes the AppRuntime and projects every PageDefinition it declares
 onto a NiceGUI route whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a route

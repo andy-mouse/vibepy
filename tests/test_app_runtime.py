@@ -77,7 +77,7 @@ IDENTIFY = Tool(
 
 
 async def counter_page(ctx: PageContext) -> None:
-    await ctx.tools.call("increment", {})
+    await ctx.tools.invoke("increment", {})
 
 
 def build_definition() -> AppDefinition[Counter]:
