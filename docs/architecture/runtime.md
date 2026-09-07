@@ -77,9 +77,73 @@ ToolRuntime permits concurrent invocations by default.
 
 ToolRuntime must not serialize all calls with a global lock.
 
-Domain consistency belongs to the app's service/repository/storage layer.
+Each invocation receives an independent ToolContext while sharing application-scoped
+dependencies from AppRuntime.
 
-Each invocation receives an independent ToolContext while sharing application-scoped dependencies from AppRuntime.
+### Where concurrency is owned
+
+| Layer | Question | Owner |
+| --- | --- | --- |
+| Channel transport | may two requests be in flight at once? | MCP SDK, NiceGUI over uvicorn |
+| Framework | may two invocations be in flight at once? | ToolRuntime, PageRuntime |
+| Domain | is overlapping mutation correct? | the app's own services and storage |
+
+Only the middle row is a framework contract. The framework guarantees the absence of
+serialization it introduces itself. It cannot create request concurrency that its channel
+technology does not offer, and it does not make an app's domain state safe under overlap.
+
+A channel adapter reduces a request to a single `await` on a runtime, so it adds no
+serialization of its own. See `docs/decisions/ADR-003-channel-adapters-are-thin.md`.
+
+### What the channel technologies do
+
+The MCP protocol permits concurrent in-flight requests but does not require a server to
+process them concurrently, and the SDK documents no concurrency guarantee for request
+handling. What it documents is the serialized exception: `inline_methods` are awaited in the
+read loop before the next message is dequeued, and the runner sets that to `initialize`
+alone. Everything else is spawned, so `tools/call` requests on one session overlap in
+practice.
+
+NiceGUI runs on a single shared asyncio event loop and dispatches an async event handler as
+a background task, so an interaction does not hold the request that triggered it and two
+interactions overlap. Blocking that loop freezes the application for every user, so blocking
+I/O belongs in `run.io_bound` and CPU work in `run.cpu_bound`.
+
+Neither behaviour is promised in writing, and `pyproject.toml` carries only a lower bound on
+each library. They are held by tests rather than by this section.
+
+Concurrency in this framework is therefore cooperative. Overlap happens at `await` points,
+which has one consequence an app author must know: a Tool handler that blocks the event loop
+serializes every channel in its process, and that is exactly the case where ToolRuntime's
+absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
+
+Sources:
+
+- <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>
+- <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/shared/jsonrpc_dispatcher>
+- <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/runner>
+- <https://github.com/zauberzeug/nicegui/blob/main/nicegui/events.py>
+- <https://github.com/zauberzeug/nicegui/blob/main/nicegui/llms.md>
+- <https://github.com/zauberzeug/nicegui/wiki/FAQs>
+
+### The execution-semantics contract
+
+The framework must maintain a constitutional integration test proving that two invocations
+of one App overlap, each with its own ToolContext, over one application-scoped resource. It
+proves this at every layer the framework owns: ToolRuntime, PageRuntime, the Agent channel
+through the MCP SDK, and the Web channel through NiceGUI.
+
+The proof is a barrier, not a duration. A barrier reached through `ToolContext.dependencies`
+opens only once two invocations are inside it, so overlap and dependency sharing are proven
+by the same event, and a passing run asserts nothing about elapsed time.
+
+Each channel is driven the way its library documents, and each waits on the mechanism that
+library provides. A test-only gate standing in for such a mechanism is not acceptable.
+
+This test should remain throughout the project.
+
+Timeouts and cancellation are not yet defined. See
+`docs/decisions/ADR-005-tool-handlers-async-first.md`.
 
 ## Dual-channel contract
 
