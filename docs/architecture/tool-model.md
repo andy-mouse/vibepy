@@ -70,10 +70,14 @@ Handler parameters are positional-only in the `ToolHandler` Protocol, so an app 
 
 ### ToolRegistry
 
-Maps a Tool name to the Tool bound under it. Storage only; it implements no invocation
-semantics, and resolution is consumed by ToolRuntime.
+Maps a Tool name to the Tool registered under it. Storage only; it implements no
+invocation semantics.
 
-Registering a name twice replaces the earlier registration.
+For each registered Tool it stores two things: the bound callable, which ToolRuntime
+resolves by name, and the ToolDefinition. `definitions()` enumerates the stored
+declarations in registration order, which is what a channel needs for discovery.
+
+Registering a name twice replaces both the bound callable and the declaration.
 
 ### ToolRuntime
 

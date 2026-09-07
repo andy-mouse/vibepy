@@ -25,6 +25,11 @@ Never make MCP decorators or MCP SDK types the source of truth for framework Too
 
 MCP-specific types must not leak into the core Tool package.
 
+The adapter builds an SDK server object; it does not run one. Over stdio the agent platform
+owns the server process, so the executable entrypoint is package metadata rather than part
+of the runtime lifecycle. See
+`docs/decisions/ADR-010-agent-platform-owns-the-mcp-process.md`.
+
 ## NiceGUI Adapter
 
 NiceGUI is the Web channel technology.
