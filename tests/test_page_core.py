@@ -5,7 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 from vibepy.errors import PageNotFoundError, VibepyError
-from vibepy.page import Page, PageContext, PageDefinition
+from vibepy.page import Page, PageContext, PageDefinition, PageRegistry
 
 
 class RecordingInvoker:
@@ -61,3 +61,50 @@ def test_page_not_found_error_carries_the_page_name() -> None:
 
     assert error.page_name == "todos"
     assert isinstance(error, VibepyError)
+
+
+async def noop_handler(_ctx: PageContext) -> None:
+    return None
+
+
+def test_resolving_an_unregistered_name_raises() -> None:
+    registry = PageRegistry()
+
+    with pytest.raises(PageNotFoundError) as raised:
+        registry.resolve("todos")
+
+    assert raised.value.page_name == "todos"
+
+
+def test_a_registered_page_resolves_by_name() -> None:
+    registry = PageRegistry()
+    page = Page(definition=todos_definition(), handler=noop_handler)
+    registry.register(page)
+
+    assert registry.resolve("todos") is page
+
+
+def test_registering_a_name_twice_replaces_the_earlier_page() -> None:
+    registry = PageRegistry()
+    registry.register(Page(definition=todos_definition(), handler=noop_handler))
+    replacement = Page(
+        definition=PageDefinition(name="todos", route="/todo-list", title="Todo list"),
+        handler=noop_handler,
+    )
+    registry.register(replacement)
+
+    assert registry.resolve("todos") is replacement
+    assert registry.definitions() == (replacement.definition,)
+
+
+def test_definitions_enumerates_every_registered_page() -> None:
+    registry = PageRegistry()
+    todos = Page(definition=todos_definition(), handler=noop_handler)
+    archive = Page(
+        definition=PageDefinition(name="archive", route="/archive", title="Archive"),
+        handler=noop_handler,
+    )
+    registry.register(todos)
+    registry.register(archive)
+
+    assert registry.definitions() == (todos.definition, archive.definition)
