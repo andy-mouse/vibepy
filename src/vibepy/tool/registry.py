@@ -11,7 +11,7 @@ class ToolRegistry:
     """Maps a Tool name to the Tool registered under it. Storage only.
 
     The bound callable and the declaration are stored separately because
-    ADR-008 erases the handler's type parameters into one uniform callable
+    binding erases the handler's type parameters into one uniform callable
     type, while a ToolDefinition holds no callable: its fields are read
     positions, so a frozen ToolDefinition is covariant in both parameters and
     a concrete declaration is storable as ``ToolDefinition[BaseModel,

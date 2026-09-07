@@ -1,14 +1,11 @@
 """The Web routes a human reaches, and the single render path behind them.
 
-``docs/architecture/adapters.md`` gives this adapter four jobs: project
-PageDefinitions into routes, construct PageContext, run PageHandlers in the
-NiceGUI lifecycle, and connect Page interaction to ToolRuntime. Only the first
-is work this module does itself: ``docs/architecture/page-model.md`` gives
-PageContext creation to PageRuntime, and the ToolInvoker a Page receives is
-already backed by ToolRuntime.
+Projecting PageDefinitions into routes is the only work this module does
+itself. PageContext creation belongs to PageRuntime, and the ToolInvoker a Page
+receives is already backed by ToolRuntime.
 
 Registering routes is not running a server. Startup belongs to the runtime
-lifecycle; see docs/decisions/ADR-012-nicegui-adapter-registers-routes.md.
+lifecycle.
 """
 
 from collections.abc import Awaitable, Callable

@@ -1,8 +1,7 @@
 """Projection of a Tool declaration into an MCP Tool definition.
 
-``docs/architecture/adapters.md`` fixes the direction as
-``Framework ToolDefinition -> MCP projection``, so schemas are derived from the
-declaration's Pydantic models and never written by hand.
+The direction is always framework declaration to MCP, so schemas are derived
+from the declaration's Pydantic models and never written by hand.
 """
 
 from mcp import types

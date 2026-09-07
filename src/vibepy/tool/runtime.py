@@ -1,8 +1,8 @@
 """The single invocation path shared by every channel.
 
-``docs/architecture/tool-model.md`` assigns input validation, the handler call and
-output validation to ToolRuntime, so binding lives here rather than in the
-registry. See docs/decisions/ADR-008-tools-are-bound-at-registration.md.
+Input validation, the handler call and output validation all belong to
+ToolRuntime, so a Tool is bound to its callable form here rather than in the
+registry.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
@@ -32,8 +32,7 @@ def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> 
     The output is revalidated from its dump rather than accepted as-is, so that
     a result built by ``model_construct`` or mutated after construction cannot
     pass unchecked. Output models must therefore round-trip through
-    ``model_dump(by_alias=True)``. See
-    docs/decisions/ADR-007-framework-guarantees-tool-output.md.
+    ``model_dump(by_alias=True)``.
     """
     definition = tool.definition
     handler = tool.handler

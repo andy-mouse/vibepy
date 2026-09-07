@@ -1,8 +1,7 @@
 """The path that runs a Page's human-facing implementation.
 
-``docs/architecture/page-model.md`` routes a Page to a Tool through PageContext and
-ToolInvoker, so PageRuntime owns PageContext creation and hands the Page an invoker
-backed by ToolRuntime.
+A Page reaches a Tool through PageContext and ToolInvoker, so PageRuntime owns
+PageContext creation and hands the Page an invoker backed by ToolRuntime.
 """
 
 from collections.abc import Awaitable, Mapping

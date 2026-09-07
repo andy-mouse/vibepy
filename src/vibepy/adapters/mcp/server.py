@@ -1,10 +1,8 @@
 """The MCP server an agent talks to, and the single call path behind it.
 
-``docs/architecture/adapters.md`` gives this adapter four jobs: project
-declarations, expose them for discovery, translate arguments into a
-ToolRuntime invocation, and translate results back. It owns no business logic
-and creates no invocation context: ``docs/architecture/runtime.md`` reserves
-that for ToolRuntime.
+The adapter projects Tool declarations, exposes them for discovery, translates
+arguments into a ToolRuntime invocation and translates results back. It owns no
+business logic and creates no invocation context; ToolRuntime does that.
 
 Building a Server is not running one. In stdio the agent platform owns the
 process, so the entrypoint belongs to package metadata rather than here.
