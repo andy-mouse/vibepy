@@ -4,7 +4,7 @@
 
 **Goal:** Implement the six core Tool abstractions so that a raw dictionary flows through validation, an async handler, and output validation, with deterministic framework errors.
 
-**Architecture:** `Tool[InputT, OutputT]` keeps the app author's types intact. `bind()` closes over a typed Tool and returns a non-generic `ToolInvocation` holding one async callable from raw input to a validated output model, which is what lets heterogeneous Tools share a single name map without `Any` or `cast`. `ToolRegistry` only stores those invocations. `ToolRuntime` is the sole entry point: it resolves the name, creates a fresh `ToolContext` per invocation, and calls the invocation.
+**Architecture:** `Tool[InputT, OutputT]` keeps the app author's types intact. `bind()` is a generic function that closes over a typed Tool and returns a plain callable, `BoundTool`, from raw input to a validated output model - the closure is what lets heterogeneous Tools share a single name-keyed map without `Any` or `cast`. `ToolRegistry` only stores those callables. `ToolRuntime` is the sole entry point: it resolves the name, creates a fresh `ToolContext` per invocation, and calls the `BoundTool`. No class beyond the six named in the roadmap is introduced.
 
 **Tech Stack:** Python 3.12 (PEP 695 generics), Pydantic 2.9+, pytest with `asyncio_mode = "auto"`, ruff, pyright strict.
 
@@ -31,8 +31,8 @@
 | Create `src/vibepy/errors.py` | `VibepyError` base plus the four framework error types |
 | Create `src/vibepy/tool/__init__.py` | public surface of the Tool model |
 | Create `src/vibepy/tool/model.py` | `ToolContext`, `ToolDefinition`, `ToolHandler`, `Tool` — declarations only, no behaviour |
-| Create `src/vibepy/tool/invocation.py` | `ToolInvocation` and `bind` — validation and handler call, framework-internal |
-| Create `src/vibepy/tool/registry.py` | `ToolRegistry` — storage of bound invocations under their names |
+| Create `src/vibepy/tool/binding.py` | `BoundTool` alias and `bind` — validation and handler call, framework-internal |
+| Create `src/vibepy/tool/registry.py` | `ToolRegistry` — storage of bound Tools under their names |
 | Create `src/vibepy/tool/runtime.py` | `ToolRuntime` — resolution, context creation, invocation |
 | Modify `src/vibepy/__init__.py` | re-export the public API |
 | Create `tests/test_tool_core.py` | Todo fixtures and the contract tests, grown task by task |
@@ -325,14 +325,14 @@ git commit -m "Add the Tool model declarations"
 ### Task 2: Tool binding and the registry
 
 **Files:**
-- Create: `src/vibepy/tool/invocation.py`
+- Create: `src/vibepy/tool/binding.py`
 - Create: `src/vibepy/tool/registry.py`
 - Modify: `src/vibepy/tool/__init__.py`
 - Test: `tests/test_tool_core.py` (append)
 
 **Interfaces:**
 - Consumes: `Tool`, `ToolContext` from `vibepy.tool.model`; `ToolAlreadyRegisteredError`, `ToolInputValidationError`, `ToolNotFoundError`, `ToolOutputValidationError` from `vibepy.errors`.
-- Produces: `ToolInvocation(name: str, description: str, invoke: Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]])` and `bind(tool: Tool[InputT, OutputT]) -> ToolInvocation` in `vibepy.tool.invocation`; `ToolRegistry()` with `register(tool: Tool[InputT, OutputT]) -> None` and `resolve(name: str) -> ToolInvocation`. `ToolInvocation` and `bind` are framework-internal and are not re-exported from `vibepy`; Task 3 calls `resolve(...).invoke(ctx, raw_input)`.
+- Produces: `type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]` and `bind(tool: Tool[InputT, OutputT]) -> BoundTool` in `vibepy.tool.binding`; `ToolRegistry()` with `register(tool: Tool[InputT, OutputT]) -> None` and `resolve(name: str) -> BoundTool`. `BoundTool` and `bind` are framework-internal and are not re-exported from `vibepy`; Task 3 calls `await resolve(name)(ctx, raw_input)`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -367,11 +367,13 @@ def test_resolving_an_unregistered_name_raises() -> None:
     assert raised.value.tool_name == "create_todo"
 
 
-def test_registry_keeps_the_declared_name_and_description() -> None:
-    invocation = build_registry(TodoStore()).resolve("complete_todo")
+async def test_a_registered_tool_can_be_resolved_and_called() -> None:
+    bound = build_registry(TodoStore()).resolve("create_todo")
+    ctx = ToolContext(app_id="todo", invocation_id="inv-1")
 
-    assert invocation.name == "complete_todo"
-    assert invocation.description == "Mark a todo item as done"
+    result = await bound(ctx, {"title": "buy milk"})
+
+    assert result == Todo(id=1, title="buy milk", done=False)
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -379,46 +381,38 @@ def test_registry_keeps_the_declared_name_and_description() -> None:
 Run: `uv run pytest tests/test_tool_core.py -v`
 Expected: FAIL — `ImportError: cannot import name 'ToolRegistry' from 'vibepy.tool'`
 
-- [ ] **Step 3: Write the invocation module**
+- [ ] **Step 3: Write the binding module**
 
-Create `src/vibepy/tool/invocation.py`:
+Create `src/vibepy/tool/binding.py`:
 
 ```python
-"""Binding of a typed Tool into a channel-neutral invocation.
+"""Binding of a typed Tool into a uniform callable.
 
-This is the execution layer, not storage. ToolRegistry stores what ``bind``
-produces and ToolRuntime is its only caller.
+A name-keyed map holds one static type, while every handler has its own input
+type, and an input type cannot be widened. Binding is the one step that turns a
+typed Tool into a uniform value, and it can only run where the model types are
+still concrete. This is the execution layer, not storage: ToolRegistry stores
+what ``bind`` produces and ToolRuntime is its only caller.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
 
 from pydantic import BaseModel, ValidationError
 
 from vibepy.errors import ToolInputValidationError, ToolOutputValidationError
 from vibepy.tool.model import Tool, ToolContext
 
-type Invoke = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]
+type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]
 
 
-@dataclass(frozen=True)
-class ToolInvocation:
-    """A Tool bound for invocation by name, with its type parameters erased.
+def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> BoundTool:
+    """Close over a typed Tool and return a callable addressable by name.
 
-    Framework-internal. Not part of the public API.
-    """
-
-    name: str
-    description: str
-    invoke: Invoke
-
-
-def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> ToolInvocation:
-    """Close over a typed Tool and expose it as a name-addressable invocation.
-
-    Input validation, the handler call and output validation happen together
-    because input validation is what proves the raw mapping has the handler's
-    input type. Splitting them would require a cast.
+    A closure rather than a wrapper class: a method would have to prove again
+    that the value it received is the handler's input type, which cannot be
+    expressed. Input validation, the handler call and output validation happen
+    together because input validation is what proves the raw mapping has the
+    handler's input type.
 
     The output is revalidated from its dump rather than accepted as-is: Pydantic
     does not revalidate an instance of the same model, so a result built by
@@ -428,7 +422,7 @@ def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> 
     definition = tool.definition
     handler = tool.handler
 
-    async def invoke(ctx: ToolContext, raw_input: Mapping[str, object]) -> BaseModel:
+    async def bound(ctx: ToolContext, raw_input: Mapping[str, object]) -> BaseModel:
         try:
             payload = definition.input_model.model_validate(raw_input)
         except ValidationError as error:
@@ -442,11 +436,7 @@ def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> 
         except ValidationError as error:
             raise ToolOutputValidationError(definition.name) from error
 
-    return ToolInvocation(
-        name=definition.name,
-        description=definition.description,
-        invoke=invoke,
-    )
+    return bound
 ```
 
 - [ ] **Step 4: Write the registry**
@@ -454,34 +444,34 @@ def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> 
 Create `src/vibepy/tool/registry.py`:
 
 ```python
-"""Storage of bound Tool invocations under their names."""
+"""Storage of bound Tools under their names."""
 
 from pydantic import BaseModel
 
 from vibepy.errors import ToolAlreadyRegisteredError, ToolNotFoundError
-from vibepy.tool.invocation import ToolInvocation, bind
+from vibepy.tool.binding import BoundTool, bind
 from vibepy.tool.model import Tool
 
 
 class ToolRegistry:
-    """Maps a Tool name to its bound invocation. Storage only."""
+    """Maps a Tool name to its bound callable. Storage only."""
 
     def __init__(self) -> None:
-        self._invocations: dict[str, ToolInvocation] = {}
+        self._bound: dict[str, BoundTool] = {}
 
     def register[InputT: BaseModel, OutputT: BaseModel](
         self, tool: Tool[InputT, OutputT]
     ) -> None:
         name = tool.definition.name
-        if name in self._invocations:
+        if name in self._bound:
             raise ToolAlreadyRegisteredError(name)
-        self._invocations[name] = bind(tool)
+        self._bound[name] = bind(tool)
 
-    def resolve(self, name: str) -> ToolInvocation:
-        invocation = self._invocations.get(name)
-        if invocation is None:
+    def resolve(self, name: str) -> BoundTool:
+        bound = self._bound.get(name)
+        if bound is None:
             raise ToolNotFoundError(name)
-        return invocation
+        return bound
 ```
 
 Modify `src/vibepy/tool/__init__.py` to add the registry:
@@ -514,8 +504,8 @@ Expected: all three pass.
 - [ ] **Step 7: Commit**
 
 ```bash
-git add src/vibepy/tool/invocation.py src/vibepy/tool/registry.py src/vibepy/tool/__init__.py tests/test_tool_core.py
-git commit -m "Bind Tools into channel-neutral invocations and register them"
+git add src/vibepy/tool/binding.py src/vibepy/tool/registry.py src/vibepy/tool/__init__.py tests/test_tool_core.py
+git commit -m "Bind typed Tools into uniform callables and register them"
 ```
 
 ---
@@ -528,7 +518,7 @@ git commit -m "Bind Tools into channel-neutral invocations and register them"
 - Test: `tests/test_tool_core.py` (append)
 
 **Interfaces:**
-- Consumes: `ToolRegistry.resolve`, `ToolInvocation.invoke`, `ToolContext`.
+- Consumes: `ToolRegistry.resolve`, the `BoundTool` it returns, and `ToolContext`.
 - Produces: `ToolRuntime(*, app_id: str, registry: ToolRegistry)` with `async invoke(name: str, raw_input: Mapping[str, object]) -> BaseModel`.
 
 - [ ] **Step 1: Write the failing test**
@@ -688,9 +678,9 @@ class ToolRuntime:
         self._registry = registry
 
     async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
-        invocation = self._registry.resolve(name)
+        bound = self._registry.resolve(name)
         ctx = ToolContext(app_id=self._app_id, invocation_id=str(uuid4()))
-        return await invocation.invoke(ctx, raw_input)
+        return await bound(ctx, raw_input)
 ```
 
 Modify `src/vibepy/tool/__init__.py` to add the runtime:

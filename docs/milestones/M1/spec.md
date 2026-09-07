@@ -5,9 +5,10 @@
 Implement the six core Tool abstractions named in `docs/roadmap.md`: `ToolDefinition`,
 `Tool`, `ToolHandler`, `ToolContext`, `ToolRegistry`, `ToolRuntime`.
 
-`ToolInvocation` is added as a framework-internal type. It is not new scope: any
-implementation needs one representation of a stored Tool whose type parameters have been
-erased. It stays out of the public API.
+No abstraction beyond those six is introduced. Registration needs one step that turns a
+typed Tool into something a name-keyed map can hold uniformly; that step is a generic
+function returning a closure, named by a type alias. It adds no class and no new concept,
+and the `ToolInvoker` name and its position in front of `ToolRuntime` stay reserved for M2.
 
 Acceptance: raw input -> validation -> async handler -> validated output, with
 deterministic unknown/input/output errors.
@@ -69,23 +70,34 @@ an independent ToolContext" is observable in tests. `AppRuntime` does not exist 
 `ToolRuntime` is constructed with an `app_id` and creates every `ToolContext` itself.
 Channels never construct a `ToolContext`.
 
-### ToolInvocation
+### Binding
 
-A typed `Tool` bound into a channel-neutral, name-addressable invocation. Framework
-internal: it is not re-exported from `vibepy`.
+A name-keyed map can only hold values of one static type, while every handler has its own
+input type. A handler's input type cannot be widened: `Tool[BaseModel, BaseModel]` would
+mean a Tool accepting any model, which a concrete handler does not. So registration needs
+one step that turns a typed Tool into a uniform value, and that step can only run where the
+model types are still concrete - inside a generic function.
 
-`bind(tool)` closes over a `Tool[InputT, OutputT]` and returns a `ToolInvocation` carrying
-the Tool's name, its description, and one async callable from raw input to a validated
-output model.
+```python
+type BoundTool = Callable[[ToolContext, Mapping[str, object]], Awaitable[BaseModel]]
 
-Binding performs input validation, the handler call and output validation together. They
-are inseparable at this boundary: input validation is precisely what proves that a raw
-mapping has the handler's input type. Splitting them would hand `ToolRuntime` a value typed
-only as `BaseModel` with no way to show it is the handler's input type, which requires a
-`cast` or an unreachable type guard. Neither is acceptable.
+def bind[InputT: BaseModel, OutputT: BaseModel](tool: Tool[InputT, OutputT]) -> BoundTool
+```
 
-`ToolInvocation` belongs to the execution layer, not to storage. `ToolRegistry` stores it;
-`ToolRuntime` calls it.
+`bind` closes over the typed Tool and returns a plain callable from raw input to a validated
+output model. A closure rather than a wrapper class: a class method would have to prove
+again that the value it received is the handler's input type, which is exactly what cannot
+be expressed. This is the shape FastAPI and Starlette use for the same problem - a per-route
+factory closure behind a uniform stored callable.
+
+The closure performs input validation, the handler call and output validation together. They
+are inseparable here: input validation is precisely what proves that a raw mapping has the
+handler's input type. Splitting them would hand `ToolRuntime` a value typed only as
+`BaseModel` with no way to show it is the handler's input type, requiring a `cast` or an
+unreachable type guard. Neither is acceptable.
+
+Binding belongs to the execution layer, not to storage: `ToolRegistry` stores what `bind`
+produces and `ToolRuntime` calls it.
 
 Output validation revalidates the handler result through the output model rather than
 accepting the instance as-is. Pydantic does not revalidate an instance of the same model,
@@ -104,22 +116,20 @@ Two costs are accepted and stated rather than hidden:
 
 ### ToolRegistry
 
-Maps a name to a `ToolInvocation`. Storage only; it does not implement invocation
-semantics.
+Maps a name to a `BoundTool`. Storage only; it does not implement invocation semantics.
 
 - `register(tool)` accepts a `Tool` over any input/output models and binds it.
 - Registering a name twice raises `ToolAlreadyRegisteredError`. Silent replacement is not
   offered; a duplicate name is a composition error, not a runtime condition.
 - Resolution is consumed by `ToolRuntime` only.
 
-Binding erases the generic parameters so that heterogeneous Tools can share one map. It
-happens inside a generic function where the model types are still concrete, so neither
-`Any` nor `cast` appears anywhere in the framework.
+Binding is what lets heterogeneous Tools share one map, and it happens where the model
+types are still concrete, so neither `Any` nor `cast` appears anywhere in the framework.
 
 ### ToolRuntime
 
 The sole public invocation entry point. It resolves the name, creates the `ToolContext`,
-and calls the `ToolInvocation`. No business logic, no global lock, no serialization of
+and calls the `BoundTool`. No business logic, no global lock, no serialization of
 concurrent invocations.
 
 - Constructed from an `app_id` and a `ToolRegistry`.
@@ -147,14 +157,15 @@ now would pre-empt it.
 src/vibepy/
   errors.py
   tool/
-    model.py       ToolDefinition, ToolHandler, Tool, ToolContext
-    invocation.py  ToolInvocation, bind
-    registry.py    ToolRegistry
-    runtime.py     ToolRuntime
+    model.py     ToolDefinition, ToolHandler, Tool, ToolContext
+    binding.py   BoundTool, bind
+    registry.py  ToolRegistry
+    runtime.py   ToolRuntime
 ```
 
-`registry.py` and `runtime.py` both import `invocation.py`, which keeps storage free of
-execution semantics without an import cycle.
+`binding.py` is a separate module because the alternatives do not work: putting `bind` in
+`registry.py` makes the storage module implement invocation semantics, and putting it in
+`runtime.py` forces the registry to import the runtime, which is a cycle.
 
 A package rather than a single module, because two repository invariants are import
 boundaries - MCP types must not reach the core Tool model, NiceGUI types must not reach the
