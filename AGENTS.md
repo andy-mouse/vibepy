@@ -69,3 +69,34 @@ One milestone in `docs/roadmap.md` is one cycle. A milestone does not start befo
 - Architectural decisions are recorded as `docs/decisions/ADR-NNN-<slug>.md`, not only inside a spec.
 - Design depth scales with the milestone. Milestones specified down to class names in the roadmap need a short design step; adapter milestones need real boundary design.
 - Implement only the current milestone. Do not build ahead.
+
+## Documentation
+
+One role per document. The same fact is not stated in two places.
+
+| Surface | Sole role |
+| --- | --- |
+| `AGENTS.md` | non-negotiable repository rules |
+| `docs/architecture.md`, `docs/architecture/` | current truth |
+| `docs/decisions/` | why |
+| `docs/roadmap.md` | scope and order of milestones |
+| `docs/milestones/` | what is next |
+| git history | history |
+
+What triggers an update:
+
+- A change to a public contract updates `docs/architecture/`.
+- A new or changed invariant updates `AGENTS.md`.
+- A decision taken between real alternatives adds an ADR.
+- A change to milestone scope updates `docs/roadmap.md`.
+- Everything else belongs in the commit message, not in a document.
+
+ADRs follow the Nygard format with a `Status:` line of `Proposed`, `Accepted`, `Superseded by ADR-NNN`, or `Deprecated`.
+
+- A `Proposed` ADR may still be edited.
+- The substance of an `Accepted` ADR is not rewritten. Typo and clarity fixes are allowed.
+- A reversed decision gets a new ADR, and the old one's `Status` becomes `Superseded by ADR-NNN`.
+
+Milestone specs and plans state intent at one point in time. They are not a source of current truth.
+
+- On integration, whatever is still true is promoted into `docs/architecture/` or an ADR, and the milestone folder is removed. Git keeps the history.
