@@ -10,7 +10,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 import pytest
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition, Lifespan, page_runtime_for, tool_runtime_for
+from vibepy.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
@@ -30,7 +30,7 @@ class Entry(BaseModel):
     seen: str
 
 
-def journal_definition(log: list[str]) -> AppDefinition[Journal]:
+def journal_definition(log: list[str]) -> AppDefinition[Journal, NoConfig]:
     async def read(ctx: ToolContext[Journal], _payload: EmptyInput) -> Entry:
         ctx.dependencies.log.append("invoked")
         return Entry(seen=ctx.app_id)
@@ -42,6 +42,7 @@ def journal_definition(log: list[str]) -> AppDefinition[Journal]:
         app_id="journal",
         name="Journal",
         version="0.0.0",
+        config=NoConfig,
         tools=[
             Tool(
                 definition=ToolDefinition(
@@ -62,9 +63,9 @@ def journal_definition(log: list[str]) -> AppDefinition[Journal]:
     )
 
 
-def journal_lifespan(log: list[str]) -> Lifespan[Journal]:
+def journal_lifespan(log: list[str]) -> Lifespan[Journal, NoConfig]:
     @asynccontextmanager
-    async def lifespan() -> AsyncGenerator[Journal]:
+    async def lifespan(_config: NoConfig) -> AsyncGenerator[Journal]:
         log.append("acquired")
         try:
             yield Journal(log)
@@ -77,7 +78,7 @@ def journal_lifespan(log: list[str]) -> Lifespan[Journal]:
 async def test_the_lifespan_runs_on_both_sides_of_the_window() -> None:
     log: list[str] = []
 
-    async with tool_runtime_for(journal_definition(log), journal_lifespan(log)):
+    async with tool_runtime_for(journal_definition(log), journal_lifespan(log), config={}):
         assert log == ["acquired"]
 
     assert log == ["acquired", "released"]
@@ -86,7 +87,7 @@ async def test_the_lifespan_runs_on_both_sides_of_the_window() -> None:
 async def test_a_tool_receives_what_the_lifespan_yielded() -> None:
     log: list[str] = []
 
-    async with tool_runtime_for(journal_definition(log), journal_lifespan(log)) as tools:
+    async with tool_runtime_for(journal_definition(log), journal_lifespan(log), config={}) as tools:
         result = await tools.invoke("read", {})
 
     assert isinstance(result, Entry)
@@ -98,8 +99,8 @@ async def test_two_windows_enter_two_lifespans() -> None:
     log: list[str] = []
     definition = journal_definition(log)
 
-    async with tool_runtime_for(definition, journal_lifespan(log)) as first:
-        async with tool_runtime_for(definition, journal_lifespan(log)) as second:
+    async with tool_runtime_for(definition, journal_lifespan(log), config={}) as first:
+        async with tool_runtime_for(definition, journal_lifespan(log), config={}) as second:
             first_seen = await first.invoke("read", {})
             second_seen = await second.invoke("read", {})
 
@@ -113,7 +114,7 @@ async def test_two_windows_enter_two_lifespans() -> None:
 async def test_a_page_reaches_a_tool_through_the_window() -> None:
     log: list[str] = []
 
-    async with page_runtime_for(journal_definition(log), journal_lifespan(log)) as pages:
+    async with page_runtime_for(journal_definition(log), journal_lifespan(log), config={}) as pages:
         await pages.render("journal")
 
     assert log == ["acquired", "invoked", "released"]
@@ -145,7 +146,9 @@ async def test_a_failing_acquisition_reaches_the_caller() -> None:
     log: list[str] = []
 
     with pytest.raises(Boom):
-        async with tool_runtime_for(journal_definition(log), lambda: FailingAcquire(log)):
+        async with tool_runtime_for(
+            journal_definition(log), lambda _config: FailingAcquire(log), config={}
+        ):
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["attempted"]
@@ -167,12 +170,12 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             log.append("earlier released")
 
     @asynccontextmanager
-    async def both() -> AsyncGenerator[Journal]:
+    async def both(_config: NoConfig) -> AsyncGenerator[Journal]:
         async with earlier(), FailingAcquire(log) as journal:
             yield journal
 
     with pytest.raises(Boom):
-        async with tool_runtime_for(journal_definition(log), both):
+        async with tool_runtime_for(journal_definition(log), both, config={}):
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]

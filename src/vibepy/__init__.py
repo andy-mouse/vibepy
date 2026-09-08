@@ -3,6 +3,7 @@
 from vibepy.app import (
     AppDefinition,
     Lifespan,
+    NoConfig,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -36,6 +37,7 @@ __all__ = [
     "ErrorCategory",
     "ErrorInfo",
     "Lifespan",
+    "NoConfig",
     "Page",
     "PageContext",
     "PageDefinition",

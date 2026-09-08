@@ -22,18 +22,19 @@ from mcp.client import Client
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.todo_fixture import TODO_APP, TodoList, TodoStore
+from tests.todo_fixture import TODO_APP, TODO_CONFIG, TodoConfig, TodoList, TodoStore
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
 from vibepy.app import Lifespan, page_runtime_for
 
 
-def one_store() -> Lifespan[TodoStore]:
+def one_store() -> Lifespan[TodoStore, TodoConfig]:
     """One resource composed into both channels, so a private backend shows."""
-    store = TodoStore()
+
+    store = TodoStore(TodoConfig.model_validate(TODO_CONFIG).db_path)
 
     @asynccontextmanager
-    async def lifespan() -> AsyncGenerator[TodoStore]:
+    async def lifespan(_config: TodoConfig) -> AsyncGenerator[TodoStore]:
         yield store
 
     return lifespan
@@ -51,10 +52,10 @@ def titles(result: object) -> list[str]:
 async def test_both_channels_reach_one_backend(user: User) -> None:
     lifespan = one_store()
 
-    async with page_runtime_for(TODO_APP, lifespan) as pages:
+    async with page_runtime_for(TODO_APP, lifespan, config=TODO_CONFIG) as pages:
         register_pages(TODO_APP, pages)
 
-        async with Client(build_mcp_server(TODO_APP, lifespan)) as agent:
+        async with Client(build_mcp_server(TODO_APP, lifespan, config=TODO_CONFIG)) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")

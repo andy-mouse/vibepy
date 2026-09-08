@@ -13,7 +13,7 @@ from pydantic import BaseModel, TypeAdapter
 
 from tests.lifecycle import no_dependencies
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
-from vibepy.app import AppDefinition
+from vibepy.app import AppDefinition, NoConfig
 from vibepy.errors import UNHANDLED_CODE, ErrorCategory
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
@@ -111,10 +111,12 @@ async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[ToolRunti
             app_id=APP_ID,
             name="Test",
             version="0.0.0",
+            config=NoConfig,
             tools=tools,
             pages=[],
         ),
         no_dependencies,
+        config={},
     )
 
 
