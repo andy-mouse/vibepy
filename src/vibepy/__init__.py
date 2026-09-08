@@ -2,8 +2,12 @@
 
 from vibepy.app import (
     AppDefinition,
+    AppDescription,
+    AppEntrypoint,
     Lifespan,
     NoConfig,
+    PageDescription,
+    ToolDescription,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -34,6 +38,8 @@ from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegi
 __all__ = [
     "AppConfigInvalidError",
     "AppDefinition",
+    "AppDescription",
+    "AppEntrypoint",
     "ErrorCategory",
     "ErrorInfo",
     "Lifespan",
@@ -41,6 +47,7 @@ __all__ = [
     "Page",
     "PageContext",
     "PageDefinition",
+    "PageDescription",
     "PageHandler",
     "PageNotFoundError",
     "PageRegistry",
@@ -50,6 +57,7 @@ __all__ = [
     "Tool",
     "ToolContext",
     "ToolDefinition",
+    "ToolDescription",
     "ToolHandler",
     "ToolInputValidationError",
     "ToolInvoker",

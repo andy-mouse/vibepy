@@ -11,7 +11,7 @@ from pathlib import Path
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition
+from vibepy.app import AppDefinition, AppEntrypoint
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
@@ -128,3 +128,7 @@ TODO_APP: AppDefinition[TodoStore, TodoConfig] = AppDefinition(
 )
 
 TODO_CONFIG: dict[str, object] = {"db_path": "/tmp/vibepy-todo.db"}
+
+TODO_ENTRYPOINT: AppEntrypoint[TodoStore, TodoConfig] = AppEntrypoint(
+    definition=TODO_APP, lifespan=todo_lifespan
+)
