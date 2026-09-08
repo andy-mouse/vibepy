@@ -37,3 +37,43 @@ class SourceListing(BaseModel):
     sources: list[Path]
     candidates: list[CandidateRow]
     diagnostic: Diagnostic | None = None
+
+
+class AppFacts(BaseModel):
+    """What an App declares, read from its environment after installation."""
+
+    app_id: str
+    name: str
+    version: str
+    config_schema: dict[str, object] = {}
+    has_pages: bool = False
+
+
+class AppName(BaseModel):
+    app_name: str
+
+
+class AppRow(BaseModel):
+    """One App as the control plane sees it.
+
+    `state` is `available`, `installed` or `running`. It is a string because an
+    output model round-trips through JSON and the set is the Hub's to publish.
+    """
+
+    app_name: str
+    name: str | None = None
+    version: str | None = None
+    state: str
+    url: str | None = None
+    configured: bool = False
+    has_pages: bool = False
+    diagnostic: Diagnostic | None = None
+
+
+class AppListing(BaseModel):
+    apps: list[AppRow]
+
+
+class Installation(BaseModel):
+    app: AppRow
+    diagnostic: Diagnostic | None = None
