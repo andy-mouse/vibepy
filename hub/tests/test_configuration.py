@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from tests_support import SAMPLES, hub
+from vibepy_hub.internals.state import STATE_FILE
 from vibepy_hub.models import AppListing, HeldConfig
-from vibepy_hub.state import STATE_FILE
 
 TOKEN = "s3cret-token-value"
 

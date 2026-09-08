@@ -2,8 +2,7 @@
 
 Entry points are not core metadata and a build backend may add them, so a static
 reading is a hint rather than a verdict: a folder with no visible declaration is
-still offered, and installing it is what decides. See
-`docs/milestones/M10/spec.md`.
+still offered, and installing it is what decides.
 """
 
 import logging

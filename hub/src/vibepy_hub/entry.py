@@ -12,8 +12,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from vibepy.app import AppDefinition, AppEntrypoint
-from vibepy_hub.internals import HubDeps
-from vibepy_hub.processes import Processes
+from vibepy_hub.internals import HubDeps, Processes
 from vibepy_hub.tools import HUB_TOOLS
 
 logger = logging.getLogger(__name__)

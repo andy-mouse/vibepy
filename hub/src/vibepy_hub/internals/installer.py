@@ -135,3 +135,9 @@ def write_facts(env: Path, facts: AppFacts, /) -> None:
     is installed: `discover_apps` still answers that.
     """
     (env / FACTS_FILE).write_text(facts.model_dump_json(indent=1), encoding="utf-8")
+
+
+def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
+    """What one installed App declared, or nothing when it is not installed."""
+    env = environment(root, app_name)
+    return read_facts(env) if env.is_dir() else None
