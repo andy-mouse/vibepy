@@ -61,6 +61,7 @@ route is registered, so a rejected registry leaves no half-registered app behind
 Errors are not translated. A Tool error or a handler exception propagates into NiceGUI,
 which renders it. The MCP adapter wraps failures in a result because the MCP protocol
 demands an answer to every call; the Web channel makes no such demand.
+`docs/architecture/errors.md` describes what the MCP adapter sends.
 
 The adapter registers routes and starts no server. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.

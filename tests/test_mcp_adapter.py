@@ -8,12 +8,13 @@ import pytest
 from mcp.client import Client
 from mcp.server import Server
 from mcp.shared.exceptions import MCPError
-from mcp.types import INVALID_PARAMS, TextContent
-from pydantic import BaseModel
+from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
+from pydantic import BaseModel, TypeAdapter
 
 from tests.lifecycle import no_dependencies, started
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy.app import AppDefinition, AppRuntime
+from vibepy.errors import UNHANDLED_CODE, ErrorCategory
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 
@@ -224,6 +225,16 @@ class BrokenFixture:
         ]
 
 
+_ERROR_PAYLOAD = TypeAdapter(dict[str, object])
+
+
+def _payload(result: CallToolResult) -> dict[str, object]:
+    """The error an agent reads out of a failed result."""
+    content = result.content[0]
+    assert isinstance(content, TextContent)
+    return _ERROR_PAYLOAD.validate_json(content.text)
+
+
 async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
     fixture = TodoFixture()
 
@@ -232,7 +243,12 @@ async def test_an_unknown_tool_name_is_a_protocol_error() -> None:
             await client.call_tool("no_such_tool", {})
 
     assert raised.value.code == INVALID_PARAMS
-    assert "no_such_tool" in raised.value.message
+    assert raised.value.data == {
+        "code": "tool.not_found",
+        "category": ErrorCategory.CALLER.value,
+        "message": raised.value.message,
+        "details": {"tool_name": "no_such_tool"},
+    }
 
 
 async def test_invalid_input_is_reported_inside_the_result() -> None:
@@ -243,6 +259,10 @@ async def test_invalid_input_is_reported_inside_the_result() -> None:
 
     assert result.is_error is True
     assert result.structured_content is None
+    payload = _payload(result)
+    assert payload["code"] == "tool.input_invalid"
+    assert payload["category"] == ErrorCategory.CALLER.value
+    assert payload["details"] == {"tool_name": "create_todo"}
 
 
 async def test_a_raising_handler_is_reported_inside_the_result() -> None:
@@ -250,6 +270,10 @@ async def test_a_raising_handler_is_reported_inside_the_result() -> None:
         result = await client.call_tool("explode", {})
 
     assert result.is_error is True
+    payload = _payload(result)
+    assert payload["code"] == UNHANDLED_CODE
+    assert payload["category"] == ErrorCategory.EXECUTION.value
+    assert payload["details"] == {}
 
 
 async def test_invalid_output_is_reported_inside_the_result() -> None:
@@ -257,6 +281,23 @@ async def test_invalid_output_is_reported_inside_the_result() -> None:
         result = await client.call_tool("lie", {})
 
     assert result.is_error is True
+    payload = _payload(result)
+    assert payload["code"] == "tool.output_invalid"
+    assert payload["category"] == ErrorCategory.EXECUTION.value
+    assert payload["details"] == {"tool_name": "lie"}
+
+
+async def test_a_failure_never_carries_a_structured_result() -> None:
+    """A declared output schema binds structuredContent, so an error may not use it.
+
+    https://modelcontextprotocol.io/specification/2025-06-18/server/tools
+    """
+    async with server_for(BrokenFixture().tools()) as server, Client(server) as client:
+        explode = await client.call_tool("explode", {})
+        lie = await client.call_tool("lie", {})
+
+    assert explode.structured_content is None
+    assert lie.structured_content is None
 
 
 def _imported_module_names(source: str) -> list[str]:

@@ -4,11 +4,16 @@ from vibepy.app import AppDefinition, AppRuntime
 from vibepy.errors import (
     AppRuntimeNotRunningError,
     AppRuntimeTransitionError,
+    ErrorCategory,
+    ErrorInfo,
     PageNotFoundError,
+    PageRouteConflictError,
+    PageRouteInvalidError,
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
+    to_error_info,
 )
 from vibepy.lifecycle import AppRuntimeState
 from vibepy.page import (
@@ -28,12 +33,16 @@ __all__ = [
     "AppRuntimeNotRunningError",
     "AppRuntimeState",
     "AppRuntimeTransitionError",
+    "ErrorCategory",
+    "ErrorInfo",
     "Page",
     "PageContext",
     "PageDefinition",
     "PageHandler",
     "PageNotFoundError",
     "PageRegistry",
+    "PageRouteConflictError",
+    "PageRouteInvalidError",
     "PageRuntime",
     "Tool",
     "ToolContext",
@@ -46,4 +55,5 @@ __all__ = [
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",
+    "to_error_info",
 ]

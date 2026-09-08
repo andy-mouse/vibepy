@@ -24,7 +24,7 @@ Framework errors are `AppRuntimeTransitionError`, raised when the current state 
 transition, and `AppRuntimeNotRunningError`, raised when a runtime that exists only while
 RUNNING is reached outside that window. They are distinct because they are distinct failures:
 one is a caller driving the lifecycle wrongly, the other is a caller using the App outside its
-running window.
+running window. `docs/architecture/errors.md` carries their codes.
 
 ## The lifespan
 

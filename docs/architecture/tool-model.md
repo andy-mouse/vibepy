@@ -114,7 +114,8 @@ Business logic does not belong in ToolRuntime.
 Framework errors are `ToolNotFoundError`, raised by the registry when no Tool answers to the
 name, and `ToolInputValidationError` and `ToolOutputValidationError`, raised by the Tool.
 Nothing translates them: they reach the caller as raised, as does an exception from a
-handler. A channel adapter decides what its protocol does with them.
+handler. A channel adapter decides what its protocol does with them, and
+`docs/architecture/errors.md` carries their codes.
 
 A handler result is revalidated through the output model, so an output model must round-trip through `model_dump(by_alias=True)` back into `model_validate`. See `docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
 
