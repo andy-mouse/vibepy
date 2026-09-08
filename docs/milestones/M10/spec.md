@@ -79,14 +79,22 @@ integrations. There is no facade class and no Tool over those internals.
 The repository becomes a uv workspace. One `pyproject.toml` defines one distribution, so the
 split requires one project file per distribution.
 
-Two shapes are rejected on published guidance. Shipping the Hub as `vibepy.hub` from a second
-distribution would make `vibepy` a namespace package, and the guide requires that every
-distribution sharing a namespace omit `__init__.py` — one that does not breaks the import of
-every other. `src/vibepy/__init__.py` exists, so a separate top-level package avoids the
-failure rather than managing it. Moving the framework into a subdirectory is rejected for the
-reason the same guidance gives: installing from a repository URL then needs `subdirectory=`,
-and existing workflows break. The framework stays at the root, which is also the workspace
-root.
+Each distribution provides a top-level import package of its own: `vibepy`, `vibepy_hub`,
+`todo_app`. Discovery is the entry point group's job, not the import path's, so a package need
+not sit inside the framework's name to be found.
+
+The alternative — shipping the Hub as `vibepy.hub` — requires `vibepy` to become a namespace
+package, and the guide requires every distribution sharing a namespace to omit `__init__.py`.
+`src/vibepy/__init__.py` is the framework's public API: thirty-seven names in `__all__`, which
+`AGENTS.md` calls a product. Taking the namespace route means deleting that surface, so it is
+rejected for what it costs rather than for the mechanism it uses. A separate top-level name is
+also what the ecosystem reaches for in this position — `typing_extensions`, `importlib_metadata`
+and pytest's plugins are separate distributions with separate top-level names, found through
+entry points.
+
+Moving the framework into a subdirectory is rejected for the reason the same guidance gives:
+installing from a repository URL then needs `subdirectory=`, and existing workflows break. The
+framework stays at the root, which is also the workspace root.
 
 The shape has precedent. Airflow keeps its core and its separately released providers in one
 repository, each provider a directory that builds with standard tooling from its own
