@@ -23,6 +23,9 @@ code on the class and maps its category in `vibepy/errors.py`.
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
+| `config.invalid` | caller | `AppConfigInvalidError` |
+| `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
+| `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.
@@ -41,7 +44,7 @@ it to learn whether a different call could succeed.
 | --- | --- |
 | `caller` | the call itself was wrong; a different call may succeed |
 | `execution` | the call was well formed and running it failed; the same call fails again |
-| `declaration` | the App declared something the framework rejects, raised at registration |
+| `declaration` | the App declared something the framework rejects, raised at registration or at the point a package's declaration is read |
 
 The set is closed and is an enum, so a branch over it ends with `assert_never` and a category
 added later cannot be silently unhandled.

@@ -55,7 +55,9 @@ Do not make ToolContext an untyped service-locator bag. See
 ## Dependency ownership
 
 Application-scoped dependencies belong to the channel's running window, which
-`docs/architecture/app-model.md` describes together with the other state scopes.
+`docs/architecture/app-model.md` describes together with the other state scopes. A window
+validates the App's configuration before it acquires anything, so a resource is never acquired
+for a window that cannot run. See `docs/decisions/ADR-022-configuration-is-a-declaration.md`.
 
 What the runtime does with them: ToolRuntime holds the one resource the window acquired and puts
 that value into every ToolContext it creates. Prefer typed dependency objects over generic

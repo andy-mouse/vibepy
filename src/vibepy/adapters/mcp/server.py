@@ -13,12 +13,13 @@ process, so the entrypoint belongs to package metadata rather than here.
 
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 
 from mcp import types
 from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
+from pydantic import BaseModel
 
 from vibepy.adapters.mcp.projection import to_mcp_tool
 from vibepy.app.composition import Lifespan, tool_registry_for, tool_runtime_for
@@ -62,8 +63,12 @@ def _failure(error: Exception) -> types.CallToolResult:
     )
 
 
-def build_mcp_server[DepsT](
-    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
+def build_mcp_server[DepsT, ConfigT: BaseModel](
+    definition: AppDefinition[DepsT, ConfigT],
+    lifespan: Lifespan[DepsT, ConfigT],
+    /,
+    *,
+    config: Mapping[str, object],
 ) -> Server[ToolRuntime[DepsT]]:
     """Build the MCP projection of one App's Tools.
 
@@ -81,7 +86,7 @@ def build_mcp_server[DepsT](
     async def server_lifespan(
         server: Server[ToolRuntime[DepsT]],
     ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-        async with tool_runtime_for(definition, lifespan) as runtime:
+        async with tool_runtime_for(definition, lifespan, config=config) as runtime:
             yield runtime
 
     async def list_tools(

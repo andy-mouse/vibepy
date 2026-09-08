@@ -32,7 +32,7 @@ from pydantic import BaseModel
 
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
-from vibepy.app import AppDefinition, Lifespan, page_runtime_for, tool_runtime_for
+from vibepy.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
@@ -64,12 +64,12 @@ class Rendezvous:
         self.log: list[str] = []
 
 
-def rendezvous_lifespan() -> Lifespan[Rendezvous]:
+def rendezvous_lifespan() -> Lifespan[Rendezvous, NoConfig]:
     """One Rendezvous, however many windows are opened over it."""
     rendezvous = Rendezvous()
 
     @asynccontextmanager
-    async def lifespan() -> AsyncGenerator[Rendezvous]:
+    async def lifespan(_config: NoConfig) -> AsyncGenerator[Rendezvous]:
         yield rendezvous
 
     return lifespan
@@ -133,6 +133,7 @@ RENDEZVOUS = AppDefinition(
     app_id="rendezvous-app",
     name="Rendezvous",
     version="0.0.0",
+    config=NoConfig,
     tools=[MEET, READ_LOG],
     pages=[
         Page(
@@ -169,21 +170,21 @@ async def overlap(tools: ToolRuntime[Rendezvous]) -> tuple[Meeting, Meeting]:
 
 
 async def test_two_invocations_are_in_flight_at_once() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan()) as tools:
+    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
         await overlap(tools)
 
         assert await logged(tools) == ARRIVALS_THEN_DEPARTURES
 
 
 async def test_concurrent_invocations_receive_independent_contexts() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan()) as tools:
+    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
         first, second = await overlap(tools)
 
     assert first.invocation_id != second.invocation_id
 
 
 async def test_concurrent_invocations_share_app_scoped_dependencies() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan()) as tools:
+    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
         first, second = await overlap(tools)
 
     assert first.dependency_id == second.dependency_id
@@ -193,14 +194,14 @@ async def test_two_page_renders_are_in_flight_at_once() -> None:
     """PageRuntime's docstring claims it does not serialize renders; this holds it to that."""
     lifespan = rendezvous_lifespan()
 
-    async with page_runtime_for(RENDEZVOUS, lifespan) as pages:
+    async with page_runtime_for(RENDEZVOUS, lifespan, config={}) as pages:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
             await asyncio.gather(
                 pages.render("meeting"),
                 pages.render("meeting"),
             )
 
-        async with tool_runtime_for(RENDEZVOUS, lifespan) as tools:
+        async with tool_runtime_for(RENDEZVOUS, lifespan, config={}) as tools:
             assert await logged(tools) == ARRIVALS_THEN_DEPARTURES
 
 
@@ -220,7 +221,7 @@ async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     Passing a Server straight to Client is the SDK's documented in-memory
     transport, which it names as the testing path.
     """
-    server = build_mcp_server(RENDEZVOUS, rendezvous_lifespan())
+    server = build_mcp_server(RENDEZVOUS, rendezvous_lifespan(), config={})
 
     async with Client(server) as agent:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
@@ -251,7 +252,7 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
     """
     lifespan = rendezvous_lifespan()
 
-    async with page_runtime_for(RENDEZVOUS, lifespan) as pages:
+    async with page_runtime_for(RENDEZVOUS, lifespan, config={}) as pages:
         register_pages(RENDEZVOUS, pages)
 
         first = create_user()
@@ -265,5 +266,5 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
         await first.should_see("met")
         await second.should_see("met")
 
-        async with tool_runtime_for(RENDEZVOUS, lifespan) as tools:
+        async with tool_runtime_for(RENDEZVOUS, lifespan, config={}) as tools:
             assert await logged(tools) == ARRIVALS_THEN_DEPARTURES

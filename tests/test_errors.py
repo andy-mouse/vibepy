@@ -13,6 +13,9 @@ import pytest
 
 from vibepy.errors import (
     UNHANDLED_CODE,
+    AppConfigInvalidError,
+    AppEntrypointInvalidError,
+    AppEntrypointUnloadableError,
     ErrorCategory,
     ErrorInfo,
     PageNotFoundError,
@@ -75,6 +78,28 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "page.route_conflict",
         ErrorCategory.DECLARATION,
         {"route": "/todos", "page_name": "todos", "conflicting_page_name": "other"},
+    ),
+    (
+        AppConfigInvalidError("todo-app", ["db_path", "limits.max"]),
+        "config.invalid",
+        ErrorCategory.CALLER,
+        {"app_id": "todo-app", "fields": "db_path, limits.max"},
+    ),
+    (
+        AppEntrypointUnloadableError("todo", "todo_app.entry:app"),
+        "package.entrypoint_unloadable",
+        ErrorCategory.DECLARATION,
+        {"app_name": "todo", "reference": "todo_app.entry:app"},
+    ),
+    (
+        AppEntrypointInvalidError("todo", "todo_app.entry:app", "AppDefinition"),
+        "package.entrypoint_invalid",
+        ErrorCategory.DECLARATION,
+        {
+            "app_name": "todo",
+            "reference": "todo_app.entry:app",
+            "found": "AppDefinition",
+        },
     ),
 ]
 

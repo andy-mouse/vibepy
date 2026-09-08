@@ -9,7 +9,7 @@ property of the code, and one table is easier to keep exhaustive than eight
 scattered declarations.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
@@ -131,6 +131,52 @@ class PageRouteConflictError(VibepyError):
         }
 
 
+class AppConfigInvalidError(VibepyError):
+    """Raw configuration did not satisfy the App's declared configuration model."""
+
+    code = "config.invalid"
+
+    def __init__(self, app_id: str, fields: Sequence[str]) -> None:
+        named = ", ".join(fields)
+        super().__init__(f"Configuration for App {app_id!r} failed validation at {named}")
+        self.app_id = app_id
+        self.fields = tuple(fields)
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_id": self.app_id, "fields": ", ".join(self.fields)}
+
+
+class AppEntrypointUnloadableError(VibepyError):
+    """A declared entrypoint could not be resolved: no such module, or no such attribute."""
+
+    code = "package.entrypoint_unloadable"
+
+    def __init__(self, app_name: str, reference: str) -> None:
+        super().__init__(f"Entrypoint {reference!r} declared by App {app_name!r} did not load")
+        self.app_name = app_name
+        self.reference = reference
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name, "reference": self.reference}
+
+
+class AppEntrypointInvalidError(VibepyError):
+    """A declared entrypoint resolved to something other than an AppEntrypoint."""
+
+    code = "package.entrypoint_invalid"
+
+    def __init__(self, app_name: str, reference: str, found: str) -> None:
+        super().__init__(
+            f"Entrypoint {reference!r} declared by App {app_name!r} resolved to {found}"
+        )
+        self.app_name = app_name
+        self.reference = reference
+        self.found = found
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name, "reference": self.reference, "found": self.found}
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -138,6 +184,9 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,
+    AppConfigInvalidError.code: ErrorCategory.CALLER,
+    AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
+    AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
 }
 
 

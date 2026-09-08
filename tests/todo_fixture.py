@@ -6,15 +6,22 @@ App Package layer, which is M9.
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition
+from vibepy.app import AppDefinition, AppEntrypoint
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 APP_ID = "todo-app"
+
+
+class TodoConfig(BaseModel):
+    """What the Todo App requires of its host."""
+
+    db_path: Path
 
 
 class CreateTodoInput(BaseModel):
@@ -38,7 +45,8 @@ class TodoList(BaseModel):
 class TodoStore:
     """The app's domain internals. Not a Tool, and no channel reaches it."""
 
-    def __init__(self) -> None:
+    def __init__(self, db_path: Path) -> None:
+        self.db_path = db_path
         self._todos: list[Todo] = []
 
     def create(self, title: str) -> Todo:
@@ -51,9 +59,9 @@ class TodoStore:
 
 
 @asynccontextmanager
-async def todo_lifespan() -> AsyncGenerator[TodoStore]:
+async def todo_lifespan(config: TodoConfig) -> AsyncGenerator[TodoStore]:
     """The Todo App's resource, acquired at startup and dropped at shutdown."""
-    yield TodoStore()
+    yield TodoStore(config.db_path)
 
 
 async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> Todo:
@@ -86,10 +94,11 @@ async def todos_page(ctx: PageContext) -> None:
     rendered(listing)
 
 
-TODO_APP: AppDefinition[TodoStore] = AppDefinition(
+TODO_APP: AppDefinition[TodoStore, TodoConfig] = AppDefinition(
     app_id=APP_ID,
     name="Todo",
     version="0.0.0",
+    config=TodoConfig,
     tools=[
         Tool(
             definition=ToolDefinition(
@@ -116,4 +125,10 @@ TODO_APP: AppDefinition[TodoStore] = AppDefinition(
             handler=todos_page,
         )
     ],
+)
+
+TODO_CONFIG: dict[str, object] = {"db_path": "/tmp/vibepy-todo.db"}
+
+TODO_ENTRYPOINT: AppEntrypoint[TodoStore, TodoConfig] = AppEntrypoint(
+    definition=TODO_APP, lifespan=todo_lifespan
 )
