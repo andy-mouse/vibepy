@@ -14,6 +14,7 @@ This repository implements an agent-native application framework where one App e
 ## Core invariants
 
 - App is the unit of packaging and declaration; a channel process is the unit of execution.
+- An App declares itself in package metadata. Reading what an environment offers imports nothing, and the framework publishes no operation that imports an App into its caller's process.
 - Tools are the canonical public backend operations of an App.
 - Tools are channel-neutral.
 - Pages consume Tools to implement human workflows.
@@ -26,6 +27,7 @@ This repository implements an agent-native application framework where one App e
 - ToolRuntime owns generic invocation semantics, not business logic.
 - A declaration is not a running channel.
 - Runtime lifecycle and package installation lifecycle are different concepts.
+- An App declares what it requires of its host as a type, and a channel validates against that declaration before it acquires anything.
 - Application-scoped state belongs to the channel's running window and reaches a handler only through ToolContext.
 - Page/session state is not application-scoped state.
 - Invocation state belongs to ToolContext.

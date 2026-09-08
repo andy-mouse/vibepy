@@ -10,8 +10,8 @@ channel of an installed App in its own operating-system process, so what runs is
 AppDefinition + lifespan -> a channel's running window
 ```
 
-A future distribution layer may introduce a package and an installation above the definition.
-Do not introduce either until packaging or Hub work requires it.
+`docs/architecture/packaging.md` owns the layer above the definition: how a distribution says
+which App it contains, and how a reader learns that without importing it.
 
 ## AppDefinition
 
@@ -20,25 +20,28 @@ dependency type:
 
 ```python
 @dataclass(frozen=True)
-class AppDefinition[DepsT]:
+class AppDefinition[DepsT, ConfigT: BaseModel]:
     app_id: str
     name: str
     version: str
+    config: type[ConfigT]
     tools: Sequence[Tool[DepsT]]
     pages: Sequence[Page]
 ```
 
 `DepsT` is the app's own type for its application-scoped resource. The definition declares
 that its Tools require one of that type; it does not declare where one comes from. An App whose
-Tools need no resource declares `AppDefinition[None]`; no default is provided, because the
+Tools need no resource declares `AppDefinition[None, ...]`; no default is provided, because the
 framework does not guess that an App is stateless.
+
+`config` is the other kind of type: a Pydantic model stating what this App requires of its host.
+It is readable without acquiring anything, and it is required — an App that requires nothing
+declares `NoConfig`, an empty model. See
+`docs/decisions/ADR-022-configuration-is-a-declaration.md`.
 
 A definition contains no live connections, no request state, no UI sessions and no running
 adapters, and no factory for any of them. It is a value, so a later milestone can read it without
 running it. See `docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.md`.
-
-A future version may add an optional config model and a statement of what the App requires of
-its host (M8).
 
 ## The running window
 
@@ -47,20 +50,30 @@ lifespan. The window is the block; there is no object for an App that is not run
 therefore no state to inspect and no error to raise for reaching one.
 
 ```python
-type Lifespan[DepsT] = Callable[[], AbstractAsyncContextManager[DepsT]]
+type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 
-def tool_runtime_for[DepsT](
-    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
+def tool_runtime_for[DepsT, ConfigT: BaseModel](
+    definition: AppDefinition[DepsT, ConfigT],
+    lifespan: Lifespan[DepsT, ConfigT],
+    /,
+    *,
+    config: Mapping[str, object],
 ) -> AbstractAsyncContextManager[ToolRuntime[DepsT]]: ...
 
-def page_runtime_for[DepsT](
-    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
+def page_runtime_for[DepsT, ConfigT: BaseModel](
+    definition: AppDefinition[DepsT, ConfigT],
+    lifespan: Lifespan[DepsT, ConfigT],
+    /,
+    *,
+    config: Mapping[str, object],
 ) -> AbstractAsyncContextManager[PageRuntime]: ...
 ```
 
 Each yields the one runtime its channel needs. Registries are built from declarations alone, so
-they are made before the resource is acquired. Two windows over one definition are isolated by
-default: each enters its own lifespan.
+they are made before the resource is acquired. `config` is a raw mapping the window validates
+against the declaration before it enters the lifespan, so a window that cannot run acquires
+nothing; the lifespan receives the validated model. Two windows over one definition are
+isolated by default: each enters its own lifespan.
 
 The resource itself is never exposed. A Tool handler receives it through its ToolContext, and
 nothing else needs it. `docs/architecture/lifecycle.md` owns the boundaries of the window, and
@@ -108,15 +121,18 @@ Owned by Web/Page session:
 Owned by ToolContext. `docs/architecture/runtime.md` describes what a ToolContext carries, now
 and later.
 
-There is no per-invocation *resource* scope. A ToolContext carries the application-scoped value
-and no resource acquired and released around one invocation, so an App that needs a database
-session or a transaction per call has nowhere to declare it. No milestone has required one, and
-the gap stayed invisible while the only resource in the repository was an in-memory store. M8
-owns the decision.
+There is no per-invocation *resource* scope, and there will not be one. A ToolContext carries
+the application-scoped value and nothing acquired and released around one invocation. Adding a
+second resource mechanism beside ToolContext would put two answers in the codebase to the
+question of where a handler's resource comes from, which is what ADR-013 settled. An App that
+needs a session per call takes one from the pool its application-scoped resource holds. See
+`docs/decisions/ADR-022-configuration-is-a-declaration.md`.
 
 ## Invariants
 
 - AppDefinition is static metadata and declarations, and holds no factory.
+- An App declares what it requires of its host as a type, and a window validates against that
+  declaration before it acquires anything.
 - A declaration is not a running channel.
 - ToolRuntime and PageRuntime exist only inside a window.
 - Page/session state must not leak into application-scoped state.
