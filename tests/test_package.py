@@ -8,12 +8,16 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "AppRuntimeNotRunningError",
         "AppRuntimeState",
         "AppRuntimeTransitionError",
+        "ErrorCategory",
+        "ErrorInfo",
         "Page",
         "PageContext",
         "PageDefinition",
         "PageHandler",
         "PageNotFoundError",
         "PageRegistry",
+        "PageRouteConflictError",
+        "PageRouteInvalidError",
         "PageRuntime",
         "Tool",
         "ToolContext",
@@ -26,6 +30,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolRegistry",
         "ToolRuntime",
         "VibepyError",
+        "to_error_info",
     ]
 
 
