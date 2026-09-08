@@ -1,9 +1,6 @@
 """Agent-native application framework."""
 
-from vibepy.app import AppDefinition, AppRuntime
 from vibepy.errors import (
-    AppRuntimeNotRunningError,
-    AppRuntimeTransitionError,
     ErrorCategory,
     ErrorInfo,
     PageNotFoundError,
@@ -15,7 +12,6 @@ from vibepy.errors import (
     VibepyError,
     to_error_info,
 )
-from vibepy.lifecycle import AppRuntimeState
 from vibepy.page import (
     Page,
     PageContext,
@@ -25,16 +21,18 @@ from vibepy.page import (
     PageRuntime,
     ToolInvoker,
 )
+from vibepy.plugin import (
+    Lifespan,
+    PluginDefinition,
+    page_runtime_for,
+    tool_runtime_for,
+)
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegistry, ToolRuntime
 
 __all__ = [
-    "AppDefinition",
-    "AppRuntime",
-    "AppRuntimeNotRunningError",
-    "AppRuntimeState",
-    "AppRuntimeTransitionError",
     "ErrorCategory",
     "ErrorInfo",
+    "Lifespan",
     "Page",
     "PageContext",
     "PageDefinition",
@@ -44,6 +42,7 @@ __all__ = [
     "PageRouteConflictError",
     "PageRouteInvalidError",
     "PageRuntime",
+    "PluginDefinition",
     "Tool",
     "ToolContext",
     "ToolDefinition",
@@ -55,5 +54,7 @@ __all__ = [
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",
+    "page_runtime_for",
     "to_error_info",
+    "tool_runtime_for",
 ]

@@ -3,13 +3,9 @@ import vibepy
 
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy.__all__ == [
-        "AppDefinition",
-        "AppRuntime",
-        "AppRuntimeNotRunningError",
-        "AppRuntimeState",
-        "AppRuntimeTransitionError",
         "ErrorCategory",
         "ErrorInfo",
+        "Lifespan",
         "Page",
         "PageContext",
         "PageDefinition",
@@ -19,6 +15,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "PageRouteConflictError",
         "PageRouteInvalidError",
         "PageRuntime",
+        "PluginDefinition",
         "Tool",
         "ToolContext",
         "ToolDefinition",
@@ -30,7 +27,9 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolRegistry",
         "ToolRuntime",
         "VibepyError",
+        "page_runtime_for",
         "to_error_info",
+        "tool_runtime_for",
     ]
 
 

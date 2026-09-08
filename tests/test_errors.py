@@ -13,8 +13,6 @@ import pytest
 
 from vibepy.errors import (
     UNHANDLED_CODE,
-    AppRuntimeNotRunningError,
-    AppRuntimeTransitionError,
     ErrorCategory,
     ErrorInfo,
     PageNotFoundError,
@@ -26,7 +24,6 @@ from vibepy.errors import (
     VibepyError,
     to_error_info,
 )
-from vibepy.lifecycle import AppRuntimeState
 
 
 def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
@@ -78,18 +75,6 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "page.route_conflict",
         ErrorCategory.DECLARATION,
         {"route": "/todos", "page_name": "todos", "conflicting_page_name": "other"},
-    ),
-    (
-        AppRuntimeTransitionError("todo", AppRuntimeState.RUNNING, "start"),
-        "lifecycle.transition_forbidden",
-        ErrorCategory.LIFECYCLE,
-        {"plugin_id": "todo", "state": "running", "transition": "start"},
-    ),
-    (
-        AppRuntimeNotRunningError("todo", AppRuntimeState.CREATED),
-        "lifecycle.not_running",
-        ErrorCategory.LIFECYCLE,
-        {"plugin_id": "todo", "state": "created"},
     ),
 ]
 

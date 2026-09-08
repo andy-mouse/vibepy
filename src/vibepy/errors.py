@@ -14,9 +14,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
 
-from vibepy.lifecycle import AppRuntimeState
-
-UNHANDLED_CODE = "app.unhandled"
+UNHANDLED_CODE = "plugin.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
 
 
@@ -29,7 +27,6 @@ class ErrorCategory(StrEnum):
 
     CALLER = "caller"
     EXECUTION = "execution"
-    LIFECYCLE = "lifecycle"
     DECLARATION = "declaration"
 
 
@@ -134,39 +131,6 @@ class PageRouteConflictError(VibepyError):
         }
 
 
-class AppRuntimeTransitionError(VibepyError):
-    """A lifecycle transition the runtime's current state forbids."""
-
-    code = "lifecycle.transition_forbidden"
-
-    def __init__(self, plugin_id: str, state: AppRuntimeState, transition: str) -> None:
-        super().__init__(f"App {plugin_id!r} cannot {transition} while {state.value}")
-        self.plugin_id = plugin_id
-        self.state = state
-        self.transition = transition
-
-    def details(self) -> Mapping[str, str]:
-        return {
-            "plugin_id": self.plugin_id,
-            "state": self.state.value,
-            "transition": self.transition,
-        }
-
-
-class AppRuntimeNotRunningError(VibepyError):
-    """A runtime that exists only while RUNNING was reached outside that window."""
-
-    code = "lifecycle.not_running"
-
-    def __init__(self, plugin_id: str, state: AppRuntimeState) -> None:
-        super().__init__(f"App {plugin_id!r} is {state.value}, not running")
-        self.plugin_id = plugin_id
-        self.state = state
-
-    def details(self) -> Mapping[str, str]:
-        return {"plugin_id": self.plugin_id, "state": self.state.value}
-
-
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -174,8 +138,6 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,
-    AppRuntimeTransitionError.code: ErrorCategory.LIFECYCLE,
-    AppRuntimeNotRunningError.code: ErrorCategory.LIFECYCLE,
 }
 
 
