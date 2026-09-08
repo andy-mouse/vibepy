@@ -9,8 +9,11 @@ and this module's discovery never calls it.
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from importlib.metadata import distributions
+from importlib.metadata import EntryPoint, distributions
 from pathlib import Path
+
+from vibepy.app.entrypoint import AppDescription, AppEntrypoint
+from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
 
 logger = logging.getLogger(__name__)
 
@@ -54,3 +57,20 @@ def discover_apps(*, path: Sequence[Path] | None = None) -> tuple[AppRef, ...]:
     ]
     logger.debug("discovered %d App declaration(s)", len(refs))
     return tuple(sorted(refs, key=lambda ref: (ref.app_name, ref.distribution)))
+
+
+def describe_app(ref: AppRef, /) -> AppDescription:
+    """Load one declared entrypoint and project it.
+
+    This imports, so it belongs in the App's own environment. A host that cannot
+    import an App runs it there instead: see `src/vibepy/describe.py`.
+    """
+    reference = f"{ref.module}:{ref.attr}"
+    entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)
+    try:
+        loaded: object = entry.load()
+    except (ImportError, AttributeError) as error:
+        raise AppEntrypointUnloadableError(ref.app_name, reference) from error
+    if not isinstance(loaded, AppEntrypoint):
+        raise AppEntrypointInvalidError(ref.app_name, reference, type(loaded).__name__)
+    return loaded.describe()

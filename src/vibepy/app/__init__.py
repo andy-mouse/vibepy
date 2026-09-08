@@ -14,7 +14,7 @@ from vibepy.app.entrypoint import (
     ToolDescription,
 )
 from vibepy.app.model import AppDefinition, NoConfig
-from vibepy.app.package import APP_GROUP, AppRef, discover_apps
+from vibepy.app.package import APP_GROUP, AppRef, describe_app, discover_apps
 
 __all__ = [
     "APP_GROUP",
@@ -26,6 +26,7 @@ __all__ = [
     "NoConfig",
     "PageDescription",
     "ToolDescription",
+    "describe_app",
     "discover_apps",
     "page_registry_for",
     "page_runtime_for",

@@ -3,7 +3,11 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from vibepy.app import discover_apps
+import pytest
+
+from tests.todo_fixture import TODO_ENTRYPOINT
+from vibepy.app import AppRef, describe_app, discover_apps
+from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
 
 
 def write_distribution(
@@ -63,3 +67,72 @@ def test_discovery_is_ordered_by_app_name(tmp_path: Path) -> None:
     )
 
     assert [ref.app_name for ref in discover_apps(path=[tmp_path])] == ["alpha", "zulu"]
+
+
+def test_a_declared_entrypoint_is_loaded_and_described() -> None:
+    ref = AppRef(
+        app_name="todo",
+        distribution="tests",
+        distribution_version="0.0.0",
+        module="tests.todo_fixture",
+        attr="TODO_ENTRYPOINT",
+    )
+
+    assert describe_app(ref) == TODO_ENTRYPOINT.describe()
+
+
+def test_a_missing_module_is_reported_as_unloadable() -> None:
+    ref = AppRef(
+        app_name="ghost",
+        distribution="ghost",
+        distribution_version="0.0.0",
+        module="no_such_module_anywhere",
+        attr="app",
+    )
+
+    with pytest.raises(AppEntrypointUnloadableError) as raised:
+        describe_app(ref)
+
+    assert raised.value.code == "package.entrypoint_unloadable"
+    assert raised.value.reference == "no_such_module_anywhere:app"
+
+
+def test_a_missing_attribute_is_reported_as_unloadable() -> None:
+    ref = AppRef(
+        app_name="ghost",
+        distribution="ghost",
+        distribution_version="0.0.0",
+        module="tests.todo_fixture",
+        attr="NOT_DECLARED",
+    )
+
+    with pytest.raises(AppEntrypointUnloadableError):
+        describe_app(ref)
+
+
+def test_an_object_that_is_not_an_entrypoint_is_rejected() -> None:
+    ref = AppRef(
+        app_name="wrong",
+        distribution="wrong",
+        distribution_version="0.0.0",
+        module="tests.todo_fixture",
+        attr="TODO_APP",
+    )
+
+    with pytest.raises(AppEntrypointInvalidError) as raised:
+        describe_app(ref)
+
+    assert raised.value.code == "package.entrypoint_invalid"
+
+
+def test_an_object_merely_carrying_a_describe_attribute_is_rejected() -> None:
+    ref = AppRef(
+        app_name="impostor",
+        distribution="impostor",
+        distribution_version="0.0.0",
+        module="tests.impostor_fixture",
+        attr="IMPOSTOR",
+    )
+
+    with pytest.raises(AppEntrypointInvalidError):
+        describe_app(ref)

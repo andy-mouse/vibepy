@@ -146,6 +146,37 @@ class AppConfigInvalidError(VibepyError):
         return {"app_id": self.app_id, "fields": ", ".join(self.fields)}
 
 
+class AppEntrypointUnloadableError(VibepyError):
+    """A declared entrypoint could not be resolved: no such module, or no such attribute."""
+
+    code = "package.entrypoint_unloadable"
+
+    def __init__(self, app_name: str, reference: str) -> None:
+        super().__init__(f"Entrypoint {reference!r} declared by App {app_name!r} did not load")
+        self.app_name = app_name
+        self.reference = reference
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name, "reference": self.reference}
+
+
+class AppEntrypointInvalidError(VibepyError):
+    """A declared entrypoint resolved to something other than an AppEntrypoint."""
+
+    code = "package.entrypoint_invalid"
+
+    def __init__(self, app_name: str, reference: str, found: str) -> None:
+        super().__init__(
+            f"Entrypoint {reference!r} declared by App {app_name!r} resolved to {found}"
+        )
+        self.app_name = app_name
+        self.reference = reference
+        self.found = found
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name, "reference": self.reference, "found": self.found}
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -154,6 +185,8 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,
     AppConfigInvalidError.code: ErrorCategory.CALLER,
+    AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
+    AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
 }
 
 
