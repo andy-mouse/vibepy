@@ -34,6 +34,8 @@ Capabilities named there: list/install/remove/start/stop/status.
 | a backend may only append to statically declared entry points | [pyproject.toml spec](https://packaging.python.org/en/latest/specifications/pyproject-toml/) |
 | metadata without installing requires the optional `prepare_metadata_for_build_wheel` hook, else a wheel build | [PEP 517](https://peps.python.org/pep-0517/) |
 | a workspace root declares `tool.uv.workspace`; every member has its own `pyproject.toml`; members depend on each other through `tool.uv.sources` | [uv workspaces](https://docs.astral.sh/uv/concepts/projects/workspaces/) |
+| splitting one package across distributions means a namespace package, and every such distribution must omit `__init__.py` | [namespace packages](https://packaging.python.org/en/latest/guides/packaging-namespace-packages/) |
+| moving a package into a subdirectory breaks installs from a repository URL unless `subdirectory=` is added | [packaging overview](https://packaging.python.org/en/latest/overview/) |
 | only a parent can observe its own children: `Popen.poll`, `wait`, `terminate`, `kill`; no documented API observes an arbitrary pid | [subprocess](https://docs.python.org/3/library/subprocess.html) |
 
 ## Problem
@@ -75,6 +77,15 @@ integrations. There is no facade class and no Tool over those internals.
 
 The repository becomes a uv workspace. One `pyproject.toml` defines one distribution, so the
 split requires one project file per distribution.
+
+Two shapes are rejected on published guidance. Shipping the Hub as `vibepy.hub` from a second
+distribution would make `vibepy` a namespace package, and the guide requires that every
+distribution sharing a namespace omit `__init__.py` — one that does not breaks the import of
+every other. `src/vibepy/__init__.py` exists, so a separate top-level package avoids the
+failure rather than managing it. Moving the framework into a subdirectory is rejected for the
+reason the same guidance gives: installing from a repository URL then needs `subdirectory=`,
+and existing workflows break. The framework stays at the root, which is also the workspace
+root.
 
 ```text
 pyproject.toml              vibepy-framework, and [tool.uv.workspace] members
