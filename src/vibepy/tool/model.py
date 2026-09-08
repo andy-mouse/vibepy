@@ -11,12 +11,12 @@ from pydantic import BaseModel
 class ToolContext[DepsT]:
     """Invocation-scoped context. Created by ToolRuntime, never by a channel.
 
-    ``dependencies`` is the App's own application-scoped resource. AppRuntime
-    creates it once and every invocation on every channel receives that same
-    value, which is narrower than AppRuntime and typed by the app itself.
+    ``dependencies`` is the Plugin's own application-scoped resource. The
+    channel's running window acquires it once and every invocation inside that
+    window receives that same value, typed by the plugin itself.
     """
 
-    app_id: str
+    plugin_id: str
     invocation_id: str
     dependencies: DepsT
 

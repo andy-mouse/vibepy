@@ -109,7 +109,7 @@ async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[None]]:
     async with started(
         AppRuntime(
             AppDefinition(
-                app_id=APP_ID,
+                plugin_id=APP_ID,
                 name="Test",
                 version="0.0.0",
                 lifespan=no_dependencies,
@@ -159,8 +159,8 @@ async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
         await client.call_tool("create_todo", {"title": "eggs"})
 
     first, second = fixture.contexts
-    assert first.app_id == APP_ID
-    assert second.app_id == APP_ID
+    assert first.plugin_id == APP_ID
+    assert second.plugin_id == APP_ID
     assert first.invocation_id != ""
     assert first.invocation_id != second.invocation_id
 

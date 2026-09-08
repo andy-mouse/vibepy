@@ -27,7 +27,7 @@ def build_web_app(pages: list[Page]) -> AppRuntime[None]:
     """One App with no Tools and no application-scoped resource: routes only."""
     return AppRuntime(
         AppDefinition(
-            app_id=APP_ID,
+            plugin_id=APP_ID,
             name="Test",
             version="0.0.0",
             lifespan=no_dependencies,

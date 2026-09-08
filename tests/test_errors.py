@@ -83,13 +83,13 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         AppRuntimeTransitionError("todo", AppRuntimeState.RUNNING, "start"),
         "lifecycle.transition_forbidden",
         ErrorCategory.LIFECYCLE,
-        {"app_id": "todo", "state": "running", "transition": "start"},
+        {"plugin_id": "todo", "state": "running", "transition": "start"},
     ),
     (
         AppRuntimeNotRunningError("todo", AppRuntimeState.CREATED),
         "lifecycle.not_running",
         ErrorCategory.LIFECYCLE,
-        {"app_id": "todo", "state": "created"},
+        {"plugin_id": "todo", "state": "created"},
     ),
 ]
 

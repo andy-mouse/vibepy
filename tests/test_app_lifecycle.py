@@ -60,7 +60,7 @@ def journal_app(entries: list[str]) -> AppRuntime[Journal]:
 
     return AppRuntime(
         AppDefinition(
-            app_id="journal-app",
+            plugin_id="journal-app",
             name="Journal",
             version="0.0.0",
             lifespan=lifespan,
@@ -146,7 +146,7 @@ async def test_the_pre_yield_body_runs_while_starting() -> None:
 
     app = AppRuntime(
         AppDefinition(
-            app_id="slow-app",
+            plugin_id="slow-app",
             name="Slow",
             version="0.0.0",
             lifespan=lifespan,
@@ -177,7 +177,7 @@ async def test_the_post_yield_body_runs_while_stopping() -> None:
 
     app = AppRuntime(
         AppDefinition(
-            app_id="slow-app",
+            plugin_id="slow-app",
             name="Slow",
             version="0.0.0",
             lifespan=lifespan,
@@ -203,7 +203,7 @@ async def test_starting_a_running_runtime_is_refused() -> None:
     with pytest.raises(AppRuntimeTransitionError) as raised:
         await app.start()
 
-    assert raised.value.app_id == "journal-app"
+    assert raised.value.plugin_id == "journal-app"
     assert raised.value.state is AppRuntimeState.RUNNING
     assert app.state is AppRuntimeState.RUNNING
     await app.stop()
@@ -257,7 +257,7 @@ def test_the_tool_runtime_is_unavailable_before_start() -> None:
     with pytest.raises(AppRuntimeNotRunningError) as raised:
         _ = app.tool_runtime
 
-    assert raised.value.app_id == "journal-app"
+    assert raised.value.plugin_id == "journal-app"
     assert raised.value.state is AppRuntimeState.CREATED
 
 
@@ -314,7 +314,7 @@ class FailingAcquire(AbstractAsyncContextManager[None]):
 def app_with(lifespan: Callable[[], AbstractAsyncContextManager[None]]) -> AppRuntime[None]:
     return AppRuntime(
         AppDefinition(
-            app_id="failing-app",
+            plugin_id="failing-app",
             name="Failing",
             version="0.0.0",
             lifespan=lifespan,

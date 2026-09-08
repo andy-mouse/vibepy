@@ -124,7 +124,7 @@ async def meeting_button_page(ctx: PageContext) -> None:
 def build_app() -> AppRuntime[Rendezvous]:
     return AppRuntime(
         AppDefinition(
-            app_id="rendezvous-app",
+            plugin_id="rendezvous-app",
             name="Rendezvous",
             version="0.0.0",
             lifespan=rendezvous_lifespan,

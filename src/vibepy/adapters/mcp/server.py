@@ -109,7 +109,7 @@ def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
         )
 
     return Server(
-        app.definition.app_id,
+        app.definition.plugin_id,
         version=app.definition.version,
         lifespan=_no_lifespan,
         on_list_tools=list_tools,

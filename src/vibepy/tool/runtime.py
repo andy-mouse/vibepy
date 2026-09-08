@@ -73,16 +73,16 @@ class ToolRuntime[DepsT]:
     """
 
     def __init__(
-        self, *, app_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
+        self, *, plugin_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
     ) -> None:
-        self._app_id = app_id
+        self._plugin_id = plugin_id
         self._registry = registry
         self._dependencies = dependencies
 
     async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
         tool = self._registry.resolve(name)
         ctx = ToolContext(
-            app_id=self._app_id,
+            plugin_id=self._plugin_id,
             invocation_id=str(uuid4()),
             dependencies=self._dependencies,
         )

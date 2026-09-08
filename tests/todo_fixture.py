@@ -89,7 +89,7 @@ async def todos_page(ctx: PageContext) -> None:
 def build_todo_app() -> AppRuntime[TodoStore]:
     return AppRuntime(
         AppDefinition(
-            app_id=APP_ID,
+            plugin_id=APP_ID,
             name="Todo",
             version="0.0.0",
             lifespan=todo_lifespan,

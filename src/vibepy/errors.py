@@ -139,14 +139,18 @@ class AppRuntimeTransitionError(VibepyError):
 
     code = "lifecycle.transition_forbidden"
 
-    def __init__(self, app_id: str, state: AppRuntimeState, transition: str) -> None:
-        super().__init__(f"App {app_id!r} cannot {transition} while {state.value}")
-        self.app_id = app_id
+    def __init__(self, plugin_id: str, state: AppRuntimeState, transition: str) -> None:
+        super().__init__(f"App {plugin_id!r} cannot {transition} while {state.value}")
+        self.plugin_id = plugin_id
         self.state = state
         self.transition = transition
 
     def details(self) -> Mapping[str, str]:
-        return {"app_id": self.app_id, "state": self.state.value, "transition": self.transition}
+        return {
+            "plugin_id": self.plugin_id,
+            "state": self.state.value,
+            "transition": self.transition,
+        }
 
 
 class AppRuntimeNotRunningError(VibepyError):
@@ -154,13 +158,13 @@ class AppRuntimeNotRunningError(VibepyError):
 
     code = "lifecycle.not_running"
 
-    def __init__(self, app_id: str, state: AppRuntimeState) -> None:
-        super().__init__(f"App {app_id!r} is {state.value}, not running")
-        self.app_id = app_id
+    def __init__(self, plugin_id: str, state: AppRuntimeState) -> None:
+        super().__init__(f"App {plugin_id!r} is {state.value}, not running")
+        self.plugin_id = plugin_id
         self.state = state
 
     def details(self) -> Mapping[str, str]:
-        return {"app_id": self.app_id, "state": self.state.value}
+        return {"plugin_id": self.plugin_id, "state": self.state.value}
 
 
 _CATEGORIES: Mapping[str, ErrorCategory] = {

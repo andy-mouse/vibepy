@@ -38,7 +38,7 @@ class Count(BaseModel):
 
 
 class Identity(BaseModel):
-    app_id: str
+    plugin_id: str
     dependency_id: int
 
 
@@ -51,7 +51,7 @@ async def read(ctx: ToolContext[Counter], _payload: EmptyInput) -> Count:
 
 
 async def identify(ctx: ToolContext[Counter], _payload: EmptyInput) -> Identity:
-    return Identity(app_id=ctx.app_id, dependency_id=id(ctx.dependencies))
+    return Identity(plugin_id=ctx.plugin_id, dependency_id=id(ctx.dependencies))
 
 
 INCREMENT = Tool(
@@ -91,7 +91,7 @@ async def counter_page(ctx: PageContext) -> None:
 
 def build_definition() -> AppDefinition[Counter]:
     return AppDefinition(
-        app_id="counter-app",
+        plugin_id="counter-app",
         name="Counter",
         version="0.1.0",
         lifespan=counter_lifespan,
@@ -131,7 +131,7 @@ async def test_every_invocation_receives_the_same_dependency_instance() -> None:
     assert isinstance(first, Identity)
     assert isinstance(second, Identity)
     assert first.dependency_id == second.dependency_id
-    assert first.app_id == "counter-app"
+    assert first.plugin_id == "counter-app"
 
 
 async def test_a_declared_page_reaches_a_tool_through_the_runtime() -> None:

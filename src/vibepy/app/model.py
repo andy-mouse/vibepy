@@ -29,7 +29,7 @@ class AppDefinition[DepsT]:
     App is stateless.
     """
 
-    app_id: str
+    plugin_id: str
     name: str
     version: str
     lifespan: Callable[[], AbstractAsyncContextManager[DepsT]]

@@ -66,7 +66,7 @@ class AppRuntime[DepsT]:
         entering a second lifespan.
         """
         if self._state is not AppRuntimeState.CREATED:
-            raise AppRuntimeTransitionError(self._definition.app_id, self._state, "start")
+            raise AppRuntimeTransitionError(self._definition.plugin_id, self._state, "start")
         self._state = AppRuntimeState.STARTING
 
         try:
@@ -77,7 +77,7 @@ class AppRuntime[DepsT]:
             raise
 
         tool_runtime = ToolRuntime(
-            app_id=self._definition.app_id,
+            plugin_id=self._definition.plugin_id,
             registry=self._tool_registry,
             dependencies=dependencies,
         )
@@ -88,7 +88,7 @@ class AppRuntime[DepsT]:
     async def stop(self) -> None:
         """Unwind what startup acquired, in reverse."""
         if self._state is not AppRuntimeState.RUNNING:
-            raise AppRuntimeTransitionError(self._definition.app_id, self._state, "stop")
+            raise AppRuntimeTransitionError(self._definition.plugin_id, self._state, "stop")
         self._state = AppRuntimeState.STOPPING
 
         try:
@@ -113,11 +113,11 @@ class AppRuntime[DepsT]:
     @property
     def tool_runtime(self) -> ToolRuntime[DepsT]:
         if self._tool_runtime is None:
-            raise AppRuntimeNotRunningError(self._definition.app_id, self._state)
+            raise AppRuntimeNotRunningError(self._definition.plugin_id, self._state)
         return self._tool_runtime
 
     @property
     def page_runtime(self) -> PageRuntime:
         if self._page_runtime is None:
-            raise AppRuntimeNotRunningError(self._definition.app_id, self._state)
+            raise AppRuntimeNotRunningError(self._definition.plugin_id, self._state)
         return self._page_runtime

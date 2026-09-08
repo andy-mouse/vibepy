@@ -122,15 +122,15 @@ def test_tool_definition_declares_its_models() -> None:
 
 
 def test_tool_context_is_immutable() -> None:
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=None)
+    ctx = ToolContext(plugin_id="todo", invocation_id="inv-1", dependencies=None)
 
     with pytest.raises(FrozenInstanceError):
-        ctx.app_id = "other"  # pyright: ignore[reportAttributeAccessIssue]
+        ctx.plugin_id = "other"  # pyright: ignore[reportAttributeAccessIssue]
 
 
 async def test_handler_protocol_accepts_a_plain_async_function() -> None:
     store = TodoStore()
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=store)
+    ctx = ToolContext(plugin_id="todo", invocation_id="inv-1", dependencies=store)
 
     todo = await create_todo(ctx, CreateTodoInput(title="buy milk"))
 
@@ -155,13 +155,13 @@ def test_resolving_an_unregistered_name_raises() -> None:
 
 
 class ProbeOutput(BaseModel):
-    app_id: str
+    plugin_id: str
     invocation_id: str
 
 
 def probe_tool() -> Tool[None]:
     async def handler(ctx: ToolContext[None], _payload: EmptyInput) -> ProbeOutput:
-        return ProbeOutput(app_id=ctx.app_id, invocation_id=ctx.invocation_id)
+        return ProbeOutput(plugin_id=ctx.plugin_id, invocation_id=ctx.invocation_id)
 
     return Tool(
         definition=ToolDefinition(
@@ -190,7 +190,7 @@ def broken_output_tool() -> Tool[None]:
 
 
 async def test_raw_input_round_trips_into_a_validated_output_model() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(plugin_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     result = await runtime.invoke("create_todo", {"title": "buy milk"})
 
@@ -198,7 +198,7 @@ async def test_raw_input_round_trips_into_a_validated_output_model() -> None:
 
 
 async def test_tools_share_the_dependencies_they_were_invoked_with() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(plugin_id="todo", registry=build_registry(), dependencies=TodoStore())
     await runtime.invoke("create_todo", {"title": "buy milk"})
     await runtime.invoke("create_todo", {"title": "walk the dog"})
 
@@ -214,7 +214,7 @@ async def test_tools_share_the_dependencies_they_were_invoked_with() -> None:
 
 async def test_invoking_an_unknown_name_raises() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
-    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
+    runtime = ToolRuntime(plugin_id="todo", registry=registry, dependencies=None)
 
     with pytest.raises(ToolNotFoundError) as raised:
         await runtime.invoke("create_todo", {})
@@ -223,7 +223,7 @@ async def test_invoking_an_unknown_name_raises() -> None:
 
 
 async def test_malformed_raw_input_raises_input_validation_error() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(plugin_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     with pytest.raises(ToolInputValidationError) as raised:
         await runtime.invoke("create_todo", {})
@@ -234,7 +234,7 @@ async def test_malformed_raw_input_raises_input_validation_error() -> None:
 async def test_a_result_violating_the_output_model_raises_output_validation_error() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(broken_output_tool())
-    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
+    runtime = ToolRuntime(plugin_id="todo", registry=registry, dependencies=None)
 
     with pytest.raises(ToolOutputValidationError) as raised:
         await runtime.invoke("broken_output", {})
@@ -243,7 +243,7 @@ async def test_a_result_violating_the_output_model_raises_output_validation_erro
 
 
 async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(plugin_id="todo", registry=build_registry(), dependencies=TodoStore())
 
     with pytest.raises(TodoNotFound) as raised:
         await runtime.invoke("complete_todo", {"id": 999})
@@ -251,21 +251,21 @@ async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
     assert raised.value.todo_id == 999
 
 
-async def test_the_handler_receives_the_runtime_app_id() -> None:
+async def test_the_handler_receives_the_runtime_plugin_id() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
+    runtime = ToolRuntime(plugin_id="todo-app", registry=registry, dependencies=None)
 
     result = await runtime.invoke("probe", {})
 
     assert isinstance(result, ProbeOutput)
-    assert result.app_id == "todo-app"
+    assert result.plugin_id == "todo-app"
 
 
 async def test_each_invocation_receives_its_own_invocation_id() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
+    runtime = ToolRuntime(plugin_id="todo-app", registry=registry, dependencies=None)
 
     first = await runtime.invoke("probe", {})
     second = await runtime.invoke("probe", {})
@@ -310,7 +310,7 @@ def test_registering_a_name_twice_replaces_its_declaration() -> None:
 
 async def test_the_handler_receives_the_runtime_dependencies() -> None:
     store = TodoStore()
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=store)
+    runtime = ToolRuntime(plugin_id="todo", registry=build_registry(), dependencies=store)
 
     await runtime.invoke("create_todo", {"title": "buy milk"})
 
