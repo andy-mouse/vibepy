@@ -2,7 +2,7 @@
 
 ## Goal
 
-The framework is designed so a coding agent such as Codex can implement app domains through an iterative development loop.
+The framework is designed so a coding agent such as Codex can implement Plugin domains through an iterative development loop.
 
 The agent is not merely a one-shot code generator.
 
@@ -18,7 +18,7 @@ The framework should provide deterministic feedback surfaces for agents:
 - type validation
 - runtime errors
 - policy/conformance errors
-- app status
+- plugin status
 - Tool invocation tests
 - package validation
 
@@ -31,18 +31,22 @@ Authoring semantics should exist as a channel-neutral Python service/API before 
 Conceptual capabilities:
 
 - inspect_framework
-- inspect_app
-- validate_app
+- inspect_plugin
+- validate_plugin
 - validate_package
-- start_app
-- stop_app
-- app_status
+- start_plugin
+- stop_plugin
+- plugin_status
 - invoke_tool
 - run_conformance_tests
-- get_app_errors
+- get_plugin_errors
 - get_runtime_logs
-- package_app
+- package_plugin
 - install_package
+
+`start_plugin`, `stop_plugin` and `plugin_status` describe the Web channel window the Hub owns. A
+process the agent platform spawned is not one the Hub started. See
+`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 
 ## Authoring MCP
 
@@ -60,4 +64,4 @@ The Authoring MCP should provide framework-specific introspection, validation, r
 
 ## North-star dogfooding test
 
-A fresh Codex session should be able to use repository documentation plus Authoring MCP to build a new app, validate it, run it, test both channels, package it, and install it with minimal human intervention.
+A fresh Codex session should be able to use repository documentation plus Authoring MCP to build a new Plugin, validate it, run it, test both channels, package it, and install it with minimal human intervention.

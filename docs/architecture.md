@@ -5,16 +5,16 @@
 The framework lets developers or coding agents implement one application domain once and expose it through two first-class channels:
 
 ```text
-Human -> NiceGUI -> Page -> ToolRuntime -> Tool -> App Domain
-Agent -> MCP     -> MCP Adapter -> ToolRuntime -> Tool -> App Domain
+Human -> NiceGUI -> Page -> ToolRuntime -> Tool -> Plugin Domain
+Agent -> MCP     -> MCP Adapter -> ToolRuntime -> Tool -> Plugin Domain
 ```
 
-The framework provides the application contract, lifecycle policy, runtime, validation, and channel adapters. An app authoring agent supplies the domain implementation.
+The framework provides the Plugin contract, the runtime, validation, and channel adapters. A plugin authoring agent supplies the domain implementation.
 
 ## Core model
 
 ```text
-App
+Plugin
 ├─ Manifest / metadata
 ├─ Tools
 │  ├─ ToolDefinition
@@ -22,13 +22,14 @@ App
 ├─ Pages
 │  ├─ PageDefinition
 │  └─ Page implementation
-└─ App domain internals
+└─ Plugin domain internals
    ├─ models
    ├─ services / policies
    └─ repositories / integrations
 ```
 
-The framework runtime composes these into an executable `AppRuntime`.
+An entrypoint pairs that declaration with a lifespan, and each channel opens its own running
+window over the pair.
 
 ## Channel model
 
@@ -61,16 +62,16 @@ Both channels converge at `ToolRuntime` and therefore execute the same backend o
 
 The framework owns:
 
-- App / Tool / Page declarative contracts
+- Plugin / Tool / Page declarative contracts
 - validation
 - ToolRuntime
 - execution context creation
 - channel adapters
-- runtime lifecycle
+- composition of a channel's running window
 - package/runtime boundaries
 - future permission and audit hooks
 
-The app owns:
+The plugin owns:
 
 - domain models
 - Tool implementations
@@ -82,13 +83,13 @@ The app owns:
 
 - Tool != MCP Tool. An MCP Tool is a projection of a framework Tool.
 - Page != NiceGUI Page primitive. NiceGUI is the rendering/entry technology for framework Pages.
-- AppDefinition != AppRuntime.
-- AppRuntime lifecycle != package install/upgrade lifecycle.
+- PluginDefinition != a running channel. A declaration holds no resource and no factory for one.
+- A channel's running window != package install/upgrade lifecycle.
 - Tool public operation != every internal Python function.
 
 ## Documents
 
-- `docs/architecture/app-model.md`
+- `docs/architecture/plugin-model.md`
 - `docs/architecture/tool-model.md`
 - `docs/architecture/page-model.md`
 - `docs/architecture/runtime.md`
