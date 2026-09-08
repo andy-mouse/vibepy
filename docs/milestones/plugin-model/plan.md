@@ -205,7 +205,7 @@ The new package lands beside the old one. Nothing imports it yet, so the suite s
 
 **Interfaces:**
 - Consumes: `ToolContext.plugin_id` and `ToolRuntime(plugin_id=...)` from Task 2.
-- Produces: `PluginDefinition[DepsT]` with fields `plugin_id, name, version, tools, pages`; `type Lifespan[DepsT] = Callable[[], AbstractAsyncContextManager[DepsT]]`; `tool_registry_for(definition, /) -> ToolRegistry[DepsT]`; `page_registry_for(definition, /) -> PageRegistry`; `tool_runtime_for(definition, lifespan, /)` and `page_runtime_for(definition, lifespan, /)`, both async context managers. From the fixture: `TODO: PluginDefinition[TodoStore]` and `todo_lifespan`.
+- Produces: `PluginDefinition[DepsT]` with fields `plugin_id, name, version, tools, pages`; `type Lifespan[DepsT] = Callable[[], AbstractAsyncContextManager[DepsT]]`; `tool_registry_for(definition, /) -> ToolRegistry[DepsT]`; `page_registry_for(definition, /) -> PageRegistry`; `tool_runtime_for(definition, lifespan, /)` and `page_runtime_for(definition, lifespan, /)`, both async context managers. From the fixture: `TODO_PLUGIN: PluginDefinition[TodoStore]` and `todo_lifespan`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -219,13 +219,13 @@ window itself, which is why every one of them is an ``async with``.
 """
 
 from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 import pytest
 from pydantic import BaseModel
 
-from vibepy.plugin import PluginDefinition, page_runtime_for, tool_runtime_for
 from vibepy.page import Page, PageContext, PageDefinition
+from vibepy.plugin import Lifespan, PluginDefinition, page_runtime_for, tool_runtime_for
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 
@@ -276,7 +276,7 @@ def journal_definition(log: list[str]) -> PluginDefinition[Journal]:
     )
 
 
-def journal_lifespan(log: list[str]):
+def journal_lifespan(log: list[str]) -> Lifespan[Journal]:
     @asynccontextmanager
     async def lifespan() -> AsyncGenerator[Journal]:
         log.append("acquired")
@@ -337,18 +337,40 @@ class Boom(Exception):
     """A failure inside the plugin's own lifespan."""
 
 
-async def test_a_failing_acquisition_reaches_the_caller() -> None:
-    @asynccontextmanager
-    async def failing() -> AsyncGenerator[Journal]:
+class FailingAcquire(AbstractAsyncContextManager[Journal]):
+    """A lifespan that raises on the way in.
+
+    Written as a class rather than a generator because a generator whose body
+    raises before its ``yield`` has an unreachable ``yield``. This is the form
+    the retired lifecycle tests already used.
+    """
+
+    def __init__(self, log: list[str]) -> None:
+        self._log = log
+
+    async def __aenter__(self) -> Journal:
+        self._log.append("attempted")
         raise Boom("acquisition failed")
-        yield  # pragma: no cover - unreachable, required to make this a generator
+
+    async def __aexit__(self, *exc_info: object) -> None:
+        self._log.append("released")
+
+
+async def test_a_failing_acquisition_reaches_the_caller() -> None:
+    log: list[str] = []
 
     with pytest.raises(Boom):
-        async with tool_runtime_for(journal_definition([]), failing):
+        async with tool_runtime_for(journal_definition(log), lambda: FailingAcquire(log)):
             pass  # pragma: no cover - the block is never entered
+
+    assert log == ["attempted"]
 
 
 async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
+    """``__aexit__`` is registered only after ``__aenter__`` returns, so the
+
+    resource that was acquired is released and the one that failed is not.
+    """
     log: list[str] = []
 
     @asynccontextmanager
@@ -361,15 +383,14 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
 
     @asynccontextmanager
     async def both() -> AsyncGenerator[Journal]:
-        async with earlier():
-            raise Boom("the later resource failed")
-            yield Journal(log)  # pragma: no cover - unreachable
+        async with earlier(), FailingAcquire(log) as journal:
+            yield journal
 
     with pytest.raises(Boom):
         async with tool_runtime_for(journal_definition(log), both):
             pass  # pragma: no cover - the block is never entered
 
-    assert log == ["earlier acquired", "earlier released"]
+    assert log == ["earlier acquired", "attempted", "earlier released"]
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
@@ -527,7 +548,7 @@ Keep `build_todo_app()` for now; Task 4 removes it. Add to `tests/todo_fixture.p
 ```python
 from vibepy.plugin import PluginDefinition
 
-TODO: PluginDefinition[TodoStore] = PluginDefinition(
+TODO_PLUGIN: PluginDefinition[TodoStore] = PluginDefinition(
     plugin_id=PLUGIN_ID,
     name="Todo",
     version="0.0.0",
@@ -766,7 +787,7 @@ Rename `APP_ID` to `PLUGIN_ID` and `first.app_id`/`second.app_id` to `first.plug
 
 - [ ] **Step 4: Move the NiceGUI adapter tests onto the window**
 
-In `tests/test_nicegui_adapter.py`, replace `build_web_app` with a definition builder and每 test's `async with started(...)` with `async with page_runtime_for(definition, no_dependencies) as pages: register_pages(definition, pages)`:
+In `tests/test_nicegui_adapter.py`, replace `build_web_app` with a definition builder and each test's `async with started(...)` with `async with page_runtime_for(definition, no_dependencies) as pages: register_pages(definition, pages)`:
 
 ```python
 def web_definition(pages: list[Page]) -> PluginDefinition[None]:
@@ -820,7 +841,7 @@ from mcp.client import Client
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.todo_fixture import TODO, TodoList, TodoStore
+from tests.todo_fixture import TODO_PLUGIN, TodoList, TodoStore
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
 from vibepy.plugin import page_runtime_for
@@ -843,10 +864,10 @@ async def test_both_channels_reach_one_backend(user: User) -> None:
         """One resource composed into both channels, so a private backend shows."""
         yield store
 
-    async with page_runtime_for(TODO, shared) as pages:
-        register_pages(TODO, pages)
+    async with page_runtime_for(TODO_PLUGIN, shared) as pages:
+        register_pages(TODO_PLUGIN, pages)
 
-        async with Client(build_mcp_server(TODO, shared)) as agent:
+        async with Client(build_mcp_server(TODO_PLUGIN, shared)) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")
@@ -866,7 +887,7 @@ async def test_both_channels_reach_one_backend(user: User) -> None:
 
 - [ ] **Step 7: Delete the superseded fixture entrypoint**
 
-Remove `build_todo_app()` and the `AppDefinition`/`AppRuntime` imports from `tests/todo_fixture.py`. `TODO` and `todo_lifespan` are what remains.
+Remove `build_todo_app()` and the `AppDefinition`/`AppRuntime` imports from `tests/todo_fixture.py`. `TODO_PLUGIN` and `todo_lifespan` are what remains.
 
 - [ ] **Step 8: Verify**
 
