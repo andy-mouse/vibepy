@@ -49,7 +49,7 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
     config = json.dumps({"db_path": str(tmp_path / "todo.db")})
     process = subprocess.Popen(
-        [sys.executable, "-m", "vibepy.serve", "todo", "--port", str(port)],
+        [sys.executable, "-m", "vibepy.serve", "todo-app", "--port", str(port)],
         stdin=subprocess.PIPE,
         env=child_environment(),
     )

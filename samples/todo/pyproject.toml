@@ -6,7 +6,7 @@ requires-python = ">=3.12"
 dependencies = ["vibepy-framework"]
 
 [project.entry-points."vibepy.apps"]
-todo = "todo_app.entry:APP"
+todo-app = "todo_app.entry:APP"
 
 [build-system]
 requires = ["hatchling"]

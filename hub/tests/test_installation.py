@@ -4,18 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from vibepy.app.composition import tool_runtime_for
-from vibepy_hub.entry import APP, HUB_APP
+from tests_support import SAMPLES, hub, write_project
 from vibepy_hub.installer import environment, interpreter
-from vibepy_hub.models import AppListing, Installation
-
-REPO = Path(__file__).resolve().parents[2]
-SAMPLES = REPO / "samples"
-
-
-def hub(root: Path):
-    """One Hub window over a temporary root."""
-    return tool_runtime_for(HUB_APP, APP.lifespan, config={"root": str(root)})
+from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
 async def test_installing_the_todo_app_creates_its_own_environment(tmp_path: Path) -> None:
@@ -89,3 +80,43 @@ async def test_a_missing_uv_is_a_diagnostic(
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.install_failed"
     assert "uv" in answered.diagnostic.message
+
+
+async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None:
+    """A folder's name is not a declaration.
+
+    `samples/todo` declares itself as `todo-app`, so the Hub files it under the
+    name it was asked for and runs it under the name its environment answers to.
+    """
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke(
+            "configure_app",
+            {"app_name": "todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+        )
+        started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(started, RunningApp)
+    assert started.diagnostic is None
+    assert isinstance(listed, AppListing)
+    rows = {row.app_name: row for row in listed.apps}
+    assert rows["todo"].state == "running"
+    assert rows["todo"].version == "0.0.0"
+
+
+async def test_a_folder_that_installs_no_app_is_a_diagnostic(tmp_path: Path) -> None:
+    source = tmp_path / "packages"
+    write_project(source / "plain", name="plain-package", declares=False)
+    (source / "plain" / "plain_package.py").write_text("", encoding="utf-8")
+
+    async with hub(tmp_path / "hub") as tools:
+        await tools.invoke("register_package_source", {"path": str(source)})
+        answered = await tools.invoke("install_app", {"app_name": "plain"})
+
+    assert isinstance(answered, Installation)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code in {"hub.no_app_declared", "hub.install_failed"}

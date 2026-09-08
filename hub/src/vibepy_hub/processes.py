@@ -11,11 +11,39 @@ channel's processes.
 import asyncio
 import json
 import logging
+import os
 import socket
 from collections.abc import Mapping
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+DESCRIBES_THIS_PROCESS = frozenset(
+    {
+        # the environment this process runs in, which is not the App's
+        "VIRTUAL_ENV",
+        "PYTHONHOME",
+        "PYTHONPATH",
+        "PYTHONEXECUTABLE",
+        "PYTHONSTARTUP",
+        # the test this process is running, if it is running one
+        "PYTEST_CURRENT_TEST",
+        # the server this process is serving, if it is serving one
+        "NICEGUI_HOST",
+        "NICEGUI_PORT",
+        "NICEGUI_PROTOCOL",
+        "NICEGUI_SCREEN_TEST_PORT",
+    }
+)
+"""Variables that describe the Hub's own process rather than the App's.
+
+A launcher hands a child the environment the child is entitled to. Passing on
+what describes the launcher misdescribes the child: an App told it runs in the
+Hub's virtual environment, or that it is running the Hub's current test, behaves
+as something it is not. Removing them is what keeps the isolation the Hub exists
+to provide — see
+`docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
+"""
 
 STOP_TIMEOUT = 10.0
 READY_TIMEOUT = 30.0
@@ -28,6 +56,11 @@ class StartFailed(Exception):
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
+
+
+def child_environment() -> dict[str, str]:
+    """The environment a started App is entitled to."""
+    return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
 
 
 def free_port() -> int:
@@ -83,8 +116,19 @@ class Processes:
             return
         raise StartFailed(f"the App did not answer on port {port} within {READY_TIMEOUT:.0f}s")
 
-    async def start(self, *, app_name: str, interpreter: Path, config: Mapping[str, object]) -> int:
+    async def start(
+        self,
+        *,
+        app_name: str,
+        interpreter: Path,
+        config: Mapping[str, object],
+        known_as: str,
+    ) -> int:
         """Serve one App on a free port, handing it its configuration on stdin.
+
+        `app_name` is the name the App declares itself under, which is what its
+        environment answers to; `known_as` is what this Hub filed it under. The
+        two need not match, because a folder's name is not a declaration.
 
         Standard input carries the configuration so that a secret reaches the
         child without a file, an environment variable or an argument vector.
@@ -98,6 +142,7 @@ class Processes:
             "--port",
             str(port),
             stdin=asyncio.subprocess.PIPE,
+            env=child_environment(),
         )
         if process.stdin is not None:
             process.stdin.write(json.dumps(dict(config)).encode())
@@ -110,8 +155,8 @@ class Processes:
                 process.kill()
                 await process.wait()
             raise
-        self._running[app_name] = (process, port)
-        logger.info("started %s on port %d", app_name, port)
+        self._running[known_as] = (process, port)
+        logger.info("started %s on port %d", known_as, port)
         return port
 
     async def stop(self, app_name: str, /) -> bool:

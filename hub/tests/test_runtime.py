@@ -1,18 +1,19 @@
-"""An installed App starts, answers, and stops."""
+"""An installed App starts, answers, and stops.
+
+These run inside pytest and start Apps without hiding anything from them: the
+Hub composes a child's environment rather than passing on its own.
+"""
 
 import asyncio
 from pathlib import Path
 
 import pytest
 
-from tests_support import SAMPLES, hide_the_pytest_marker, http_status, hub
+from tests_support import SAMPLES, http_status, hub
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
-async def test_an_installed_app_starts_answers_and_stops(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    hide_the_pytest_marker(monkeypatch)
+async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
@@ -72,10 +73,7 @@ async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Pat
     assert answered.diagnostic.code == "hub.not_running"
 
 
-async def test_closing_the_window_leaves_no_child_behind(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    hide_the_pytest_marker(monkeypatch)
+async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:

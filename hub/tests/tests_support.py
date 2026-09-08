@@ -5,8 +5,6 @@ from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from urllib.request import urlopen
 
-import pytest
-
 from vibepy.app.composition import tool_runtime_for
 from vibepy.tool import ToolRuntime
 from vibepy_hub.entry import APP, HUB_APP
@@ -33,18 +31,6 @@ async def http_status(url: str, /) -> int:
 def _status(url: str, /) -> int:
     with urlopen(url, timeout=30) as answer:
         return int(answer.status)
-
-
-def hide_the_pytest_marker(monkeypatch: "pytest.MonkeyPatch", /) -> None:
-    """Let a started App look like the ordinary process it is.
-
-    pytest sets `PYTEST_CURRENT_TEST` to say which test *this* process runs, and
-    NiceGUI reads that variable to decide it is under test. A child inherits the
-    environment, so a served App would be told it is running a test it is not.
-    pytest re-sets the variable when the call phase begins, so this belongs in a
-    test body rather than in a fixture.
-    """
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
 
 def write_project(folder: Path, *, name: str, declares: bool) -> None:

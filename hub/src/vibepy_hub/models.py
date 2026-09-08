@@ -47,6 +47,9 @@ class AppFacts(BaseModel):
     version: str
     config_schema: dict[str, object] = {}
     has_pages: bool = False
+    purelib: Path | None = None
+    declared_name: str = ""
+    """The name the App declares itself under, which a folder's need not match."""
 
 
 class AppName(BaseModel):

@@ -44,11 +44,18 @@ def interpreter(env: Path, /) -> Path:
     return env / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
-def site_packages(env: Path, /) -> Path:
-    """Where an environment keeps its distribution metadata."""
-    if sys.platform == "win32":
-        return env / "Lib" / "site-packages"
-    return env / "lib" / f"python3.{sys.version_info.minor}" / "site-packages"
+async def purelib(env: Path, /) -> Path:
+    """Where an environment keeps its distribution metadata.
+
+    Asked of that environment rather than derived from this one. A virtual
+    environment takes its version from the base Python that created it, so a
+    path built from the Hub's own version is a guess that fails as soon as the
+    two differ. `sysconfig.get_path("purelib")` is the interpreter's own answer.
+    """
+    written = await _run(
+        [str(interpreter(env)), "-c", "import sysconfig;print(sysconfig.get_path('purelib'))"]
+    )
+    return Path(written.strip())
 
 
 def _is_runnable(program: str, /) -> bool:

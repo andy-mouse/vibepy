@@ -20,8 +20,8 @@ from vibepy_hub.installer import (
     environment,
     install,
     interpreter,
+    purelib,
     read_facts,
-    site_packages,
     write_facts,
 )
 from vibepy_hub.internals import HubDeps
@@ -109,7 +109,7 @@ def _candidate_folder(deps: HubDeps, app_name: str, /) -> Path | None:
     return None
 
 
-def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
+async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
     """One row per environment this Hub created, read without importing."""
     envs = deps.root / "envs"
     rows: dict[str, AppRow] = {}
@@ -117,18 +117,27 @@ def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
         return rows
     held = read_state(deps.root).config
     for env in sorted(path for path in envs.iterdir() if path.is_dir()):
-        declared = discover_apps(path=[site_packages(env)])
-        found = next((ref for ref in declared if ref.app_name == env.name), None)
         facts = read_facts(env)
+        metadata = facts.purelib if facts and facts.purelib else await purelib(env)
+        declared = discover_apps(path=[metadata])
+        wanted = facts.declared_name if facts else env.name
+        present = any(ref.app_name == wanted for ref in declared)
         port = deps.processes.running(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
             name=facts.name if facts else None,
-            version=found.distribution_version if found else None,
+            version=facts.version if facts else None,
             state="running" if port is not None else "installed",
             url=f"http://127.0.0.1:{port}" if port is not None else None,
             configured=env.name in held,
             has_pages=bool(facts and facts.has_pages),
+            diagnostic=None
+            if present
+            else Diagnostic(
+                code="hub.declaration_missing",
+                message=f"{env} no longer declares {wanted!r}",
+                details={"app_name": env.name, "declared_name": wanted},
+            ),
         )
     return rows
 
@@ -160,16 +169,28 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"step": failure.step, "output": failure.output},
             ),
         )
-    facts = next((entry for entry in described if entry.name), None)
-    if facts is not None:
-        write_facts(env, facts)
+    metadata = await purelib(env)
+    declared = discover_apps(path=[metadata])
+    found = next(iter(described), None)
+    if found is None or not declared:
+        shutil.rmtree(env, ignore_errors=True)
+        return Installation(
+            app=AppRow(app_name=payload.app_name, state="available"),
+            diagnostic=Diagnostic(
+                code="hub.no_app_declared",
+                message=f"{folder} installs no App",
+                details={"folder": str(folder)},
+            ),
+        )
+    facts = found.model_copy(update={"purelib": metadata, "declared_name": declared[0].app_name})
+    write_facts(env, facts)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
-            name=facts.name if facts else None,
-            version=facts.version if facts else None,
+            name=facts.name,
+            version=facts.version,
             state="installed",
-            has_pages=bool(facts and facts.has_pages),
+            has_pages=facts.has_pages,
         )
     )
 
@@ -177,7 +198,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
 async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     """Every App this Hub can act on, installed or merely offered."""
     deps = ctx.dependencies
-    rows = _installed(deps)
+    rows = await _installed(deps)
     for source in read_state(deps.root).sources:
         for row in candidates(source):
             app_name = row.folder.name
@@ -284,9 +305,10 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
     held = read_state(deps.root).config.get(payload.app_name, {})
     try:
         port = await deps.processes.start(
-            app_name=payload.app_name,
+            app_name=facts.declared_name,
             interpreter=interpreter(environment(deps.root, payload.app_name)),
             config={**held, **payload.secrets},
+            known_as=payload.app_name,
         )
     except StartFailed as failure:
         return _refusal(payload.app_name, "hub.start_failed", str(failure))
