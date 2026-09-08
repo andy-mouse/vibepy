@@ -1,6 +1,6 @@
 # ADR-004: Definition and Runtime are separate concepts
 
-Status: Accepted
+Status: Superseded by ADR-020
 
 ## Decision
 
