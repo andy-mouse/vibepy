@@ -62,8 +62,6 @@ share-nothing. `docs/architecture/app-model.md` carries what that admits and wha
   framework provides none
 - the handoff between the two channels needs a broker: a `ui.refreshable` in global scope updates
   the tabs of one process only, so a Tool invocation cannot refresh an open Page directly
-- the Hub UI must express an App with no Web channel, which its current mockup cannot: the
-  lifecycle track ends at Installed and reads as "not started yet". M11 owns the affordance
 - MCP over HTTP is not required, so the Origin validation, loopback binding and endpoint
   authentication that transport would have demanded are not incurred
 - whether capabilities are declared and resolved across Apps is a separate decision, belonging
