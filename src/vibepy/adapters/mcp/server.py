@@ -23,6 +23,7 @@ from vibepy.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
+    to_error_info,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,10 +40,31 @@ async def _no_lifespan(server: Server[None]) -> AsyncGenerator[None]:
     yield None
 
 
-def _failure(message: str) -> types.CallToolResult:
-    """A failure the agent can read and act on, rather than a protocol error."""
+def _payload(error: Exception) -> dict[str, object]:
+    """The framework's own description of a failure, in the form an agent reads.
+
+    Both MCP failure paths carry it, so the Agent channel reports one failure one
+    way whether the protocol answers with an error or with a result.
+    """
+    info = to_error_info(error)
+    return {
+        "code": info.code,
+        "category": info.category.value,
+        "message": info.message,
+        "details": dict(info.details),
+    }
+
+
+def _failure(error: Exception) -> types.CallToolResult:
+    """A failure the agent can read and act on, rather than a protocol error.
+
+    The payload travels as text rather than as structured content: a Tool declares
+    an output schema, and the specification requires structured results to conform
+    to it.
+    """
     return types.CallToolResult(
-        content=[types.TextContent(type="text", text=message)], is_error=True
+        content=[types.TextContent(type="text", text=json.dumps(_payload(error)))],
+        is_error=True,
     )
 
 
@@ -70,16 +92,16 @@ def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
         try:
             result = await runtime.invoke(params.name, params.arguments or {})
         except ToolNotFoundError as error:
-            raise MCPError(types.INVALID_PARAMS, str(error)) from error
+            raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
         except ToolInputValidationError as error:
-            return _failure(str(error))
+            return _failure(error)
         except ToolOutputValidationError as error:
             logger.error("Tool %r returned output its own model rejected", params.name)
-            return _failure(str(error))
+            return _failure(error)
         # Broad on purpose: an app defect must not surface as a protocol error.
-        except Exception:
+        except Exception as error:
             logger.exception("Tool %r raised", params.name)
-            return _failure(f"Tool {params.name!r} failed")
+            return _failure(error)
         data = result.model_dump(by_alias=True, mode="json")
         return types.CallToolResult(
             content=[types.TextContent(type="text", text=json.dumps(data))],
