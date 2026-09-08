@@ -43,8 +43,9 @@ framework release a resource whose type it does not know. See
 3. enter RUNNING
 
 Channel adapters are not started. `docs/architecture/adapters.md` describes what each adapter
-does instead, and whether an App's own process serves its channels is open in
-`docs/decisions/ADR-017-one-process-serves-both-channels.md`.
+does instead. Each channel of an installed App runs in its own process, so a runtime the Hub
+started serves the Web channel and the Agent channel process is launched by its MCP client. See
+`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 
 ## Shutdown
 
