@@ -86,6 +86,20 @@ This is how a Host reads an App it must not import. The Host runs the command wi
 environment's interpreter and parses the result; the import happens on the far side of a process
 boundary, where the App's dependencies belong.
 
+## Running a channel
+
+```text
+python -m vibepy.serve <app-name> --port <n>
+```
+
+Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
+is entered inside the Web technology's own startup hook and left in its shutdown hook, and one
+JSON object of configuration is read from standard input. A configuration therefore reaches a
+running App without a file, an environment variable or an argument vector.
+
+Both commands exist for one reason. Reading a declaration and running one both import, and an
+import belongs on the App's side of a process boundary.
+
 ## The isolation invariant
 
 Three statements, and they are not guaranteed in the same place.
@@ -94,12 +108,13 @@ Three statements, and they are not guaranteed in the same place.
 | --- | --- |
 | the Host never imports an App | the framework: no published operation imports an App into its caller, and `tests/test_app_isolation.py` proves discovery leaves `sys.modules` untouched |
 | loading happens in the App's own interpreter | the framework: `describe_app` is reached across a process boundary through `python -m vibepy.describe` |
-| an App is installed into an environment of its own | the installation model. `uv tool install` satisfies it by construction; Python packaging cannot enforce it |
+| an App is installed into an environment of its own | the installation model. The Hub creates one environment per App and installs into it; Python packaging cannot enforce it |
 
 The third is a contract, not a guarantee, and the difference is stated rather than blurred:
-nothing in packaging stops two Apps being installed into one environment by hand. M10's Hub must
-install through a mechanism that satisfies it, and M17 owns hardening it. This is the division
-ADR-017 already made — the framework states the contract, the host implements it.
+nothing in packaging stops two Apps being installed into one environment by hand. The Hub keeps
+the contract by construction — `uv venv` then `uv pip install` per App — and M17 owns hardening
+it. This is the division ADR-017 already made: the framework states the contract, the host
+implements it.
 
 What the invariant buys is that no App's dependencies constrain another's, and that no top-level
 import name can collide between two Apps or between an App and the framework. That is why

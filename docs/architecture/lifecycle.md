@@ -50,11 +50,14 @@ Package lifecycle is a later layer:
 Package -> install -> configure -> open a channel
 ```
 
-`configure` is the host supplying the values the App declared it requires. The App's own window
+`configure` is the host supplying the values the App declared it requires; the Hub holds those
+values per installation, and never the fields an App declared as secret. The App's own window
 validates them as it opens, so a configuration failure happens before anything is acquired;
 `docs/architecture/app-model.md` carries that boundary. `docs/architecture/packaging.md` owns the
 step before it — how a Host learns which App a distribution contains and what it requires.
 
-Operations such as install, upgrade, uninstall, and version migration belong to the package/Hub
-control plane. The Hub also owns the Web channel's window, which is what its start, stop and
-status describe. See `docs/decisions/ADR-006-runtime-vs-package-lifecycle.md`.
+Operations such as install, remove, upgrade, and version migration belong to the package/Hub
+control plane. The Hub also owns the Web channel's window, which it opens by running
+`python -m vibepy.serve` with the App environment's interpreter, and which is what its start,
+stop and status describe. See `docs/decisions/ADR-006-runtime-vs-package-lifecycle.md` and
+`docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
