@@ -3,6 +3,7 @@ import vibepy
 
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy.__all__ == [
+        "AppConfigInvalidError",
         "AppDefinition",
         "ErrorCategory",
         "ErrorInfo",

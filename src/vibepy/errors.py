@@ -9,7 +9,7 @@ property of the code, and one table is easier to keep exhaustive than eight
 scattered declarations.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
@@ -131,6 +131,21 @@ class PageRouteConflictError(VibepyError):
         }
 
 
+class AppConfigInvalidError(VibepyError):
+    """Raw configuration did not satisfy the App's declared configuration model."""
+
+    code = "config.invalid"
+
+    def __init__(self, app_id: str, fields: Sequence[str]) -> None:
+        named = ", ".join(fields)
+        super().__init__(f"Configuration for App {app_id!r} failed validation at {named}")
+        self.app_id = app_id
+        self.fields = tuple(fields)
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_id": self.app_id, "fields": ", ".join(self.fields)}
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -138,6 +153,7 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,
+    AppConfigInvalidError.code: ErrorCategory.CALLER,
 }
 
 

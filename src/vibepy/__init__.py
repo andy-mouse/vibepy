@@ -7,6 +7,7 @@ from vibepy.app import (
     tool_runtime_for,
 )
 from vibepy.errors import (
+    AppConfigInvalidError,
     ErrorCategory,
     ErrorInfo,
     PageNotFoundError,
@@ -30,6 +31,7 @@ from vibepy.page import (
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegistry, ToolRuntime
 
 __all__ = [
+    "AppConfigInvalidError",
     "AppDefinition",
     "ErrorCategory",
     "ErrorInfo",
