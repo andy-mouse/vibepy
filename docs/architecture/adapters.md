@@ -7,7 +7,7 @@ Channel adapters translate a channel protocol/runtime into framework semantics. 
 An adapter is built from a declaration and a lifespan, and reads its runtime from the window its
 own host opens. Each channel uses the mechanism that host documents, so the two adapters differ;
 giving them a common shape would mean inventing one. See
-`docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 ## MCP Adapter
 
@@ -64,7 +64,7 @@ rather than a library one.
 
 Route format and route uniqueness are validated here, which is where
 `docs/architecture/page-model.md` places them. Every declaration is checked before any
-route is registered, so a rejected registry leaves no half-registered plugin behind.
+route is registered, so a rejected registry leaves no half-registered app behind.
 
 Errors are not translated. A Tool error or a handler exception propagates into NiceGUI,
 which renders it. The MCP adapter wraps failures in a result because the MCP protocol
@@ -74,9 +74,9 @@ demands an answer to every call; the Web channel makes no such demand.
 The adapter registers routes and starts no server. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
-The plugin owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
+The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
 
-NiceGUI-specific types must not leak into the core Page model unless required at the plugin's UI implementation boundary.
+NiceGUI-specific types must not leak into the core Page model unless required at the app's UI implementation boundary.
 
 ## Future adapters
 

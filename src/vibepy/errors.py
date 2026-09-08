@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
 
-UNHANDLED_CODE = "plugin.unhandled"
+UNHANDLED_CODE = "app.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
 
 

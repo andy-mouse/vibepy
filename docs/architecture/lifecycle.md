@@ -6,8 +6,8 @@ Runtime lifecycle is distinct from package installation lifecycle.
 
 The framework owns no runtime lifecycle object and no lifecycle state. A channel's runtime exists
 for the duration of an `async with` block and cannot be reached outside it, so there is no state
-in which a Plugin is constructed but not running, and no transition to validate. See
-`docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
+in which an App is constructed but not running, and no transition to validate. See
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 Each channel opens its own window, and neither depends on the other. The Agent channel's window
 is opened by the MCP SDK, which enters the lifespan inside `run()`; over stdio the client launches
@@ -17,10 +17,10 @@ entrypoint the Hub runs. See
 
 ## The lifespan
 
-A Plugin's application-scoped resource is declared as a factory returning an async context
+An App's application-scoped resource is declared as a factory returning an async context
 manager, supplied to a channel at composition time rather than inside the declaration. What
 precedes the `yield` runs as the window opens; what follows runs as it closes.
-`docs/architecture/plugin-model.md` carries the signatures.
+`docs/architecture/app-model.md` carries the signatures.
 
 There are no separate start and stop hooks. Binding acquisition to release is what lets a channel
 release a resource whose type it does not know. See

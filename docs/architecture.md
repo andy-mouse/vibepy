@@ -5,16 +5,16 @@
 The framework lets developers or coding agents implement one application domain once and expose it through two first-class channels:
 
 ```text
-Human -> NiceGUI -> Page -> ToolRuntime -> Tool -> Plugin Domain
-Agent -> MCP     -> MCP Adapter -> ToolRuntime -> Tool -> Plugin Domain
+Human -> NiceGUI -> Page -> ToolRuntime -> Tool -> App Domain
+Agent -> MCP     -> MCP Adapter -> ToolRuntime -> Tool -> App Domain
 ```
 
-The framework provides the Plugin contract, the runtime, validation, and channel adapters. A plugin authoring agent supplies the domain implementation.
+The framework provides the App contract, the runtime, validation, and channel adapters. A app authoring agent supplies the domain implementation.
 
 ## Core model
 
 ```text
-Plugin
+App
 ├─ Manifest / metadata
 ├─ Tools
 │  ├─ ToolDefinition
@@ -22,7 +22,7 @@ Plugin
 ├─ Pages
 │  ├─ PageDefinition
 │  └─ Page implementation
-└─ Plugin domain internals
+└─ App domain internals
    ├─ models
    ├─ services / policies
    └─ repositories / integrations
@@ -62,7 +62,7 @@ Both channels converge at `ToolRuntime` and therefore execute the same backend o
 
 The framework owns:
 
-- Plugin / Tool / Page declarative contracts
+- App / Tool / Page declarative contracts
 - validation
 - ToolRuntime
 - execution context creation
@@ -71,7 +71,7 @@ The framework owns:
 - package/runtime boundaries
 - future permission and audit hooks
 
-The plugin owns:
+The app owns:
 
 - domain models
 - Tool implementations
@@ -83,13 +83,13 @@ The plugin owns:
 
 - Tool != MCP Tool. An MCP Tool is a projection of a framework Tool.
 - Page != NiceGUI Page primitive. NiceGUI is the rendering/entry technology for framework Pages.
-- PluginDefinition != a running channel. A declaration holds no resource and no factory for one.
+- AppDefinition != a running channel. A declaration holds no resource and no factory for one.
 - A channel's running window != package install/upgrade lifecycle.
 - Tool public operation != every internal Python function.
 
 ## Documents
 
-- `docs/architecture/plugin-model.md`
+- `docs/architecture/app-model.md`
 - `docs/architecture/tool-model.md`
 - `docs/architecture/page-model.md`
 - `docs/architecture/runtime.md`

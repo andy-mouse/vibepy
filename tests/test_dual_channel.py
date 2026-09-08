@@ -4,7 +4,7 @@ Both channels reach one Tool implementation over one resource, so neither keeps
 a backend of its own. This test is constitutional: it stays for the life of the
 project.
 
-What it does not claim is that a deployed Plugin shares one resource across its
+What it does not claim is that a deployed App shares one resource across its
 channels. ADR-017 puts each channel in its own process, so sharing is a property
 of the composition an entrypoint or a test arranges, never a framework
 guarantee. Here one lifespan is composed into both channels precisely so that a
@@ -22,10 +22,10 @@ from mcp.client import Client
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.todo_fixture import TODO_PLUGIN, TodoList, TodoStore
+from tests.todo_fixture import TODO_APP, TodoList, TodoStore
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
-from vibepy.plugin import Lifespan, page_runtime_for
+from vibepy.app import Lifespan, page_runtime_for
 
 
 def one_store() -> Lifespan[TodoStore]:
@@ -51,10 +51,10 @@ def titles(result: object) -> list[str]:
 async def test_both_channels_reach_one_backend(user: User) -> None:
     lifespan = one_store()
 
-    async with page_runtime_for(TODO_PLUGIN, lifespan) as pages:
-        register_pages(TODO_PLUGIN, pages)
+    async with page_runtime_for(TODO_APP, lifespan) as pages:
+        register_pages(TODO_APP, pages)
 
-        async with Client(build_mcp_server(TODO_PLUGIN, lifespan)) as agent:
+        async with Client(build_mcp_server(TODO_APP, lifespan)) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")

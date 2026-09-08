@@ -1,6 +1,6 @@
 """What a channel's running window is, and what it is not.
 
-There is no object for a plugin that is not running. These tests address the
+There is no object for a app that is not running. These tests address the
 window itself, which is why every one of them is an ``async with``.
 """
 
@@ -10,13 +10,13 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 import pytest
 from pydantic import BaseModel
 
+from vibepy.app import AppDefinition, Lifespan, page_runtime_for, tool_runtime_for
 from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.plugin import Lifespan, PluginDefinition, page_runtime_for, tool_runtime_for
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
 
 class Journal:
-    """The plugin's resource. Records what the lifespan did to it."""
+    """The app's resource. Records what the lifespan did to it."""
 
     def __init__(self, log: list[str]) -> None:
         self.log = log
@@ -30,16 +30,16 @@ class Entry(BaseModel):
     seen: str
 
 
-def journal_definition(log: list[str]) -> PluginDefinition[Journal]:
+def journal_definition(log: list[str]) -> AppDefinition[Journal]:
     async def read(ctx: ToolContext[Journal], _payload: EmptyInput) -> Entry:
         ctx.dependencies.log.append("invoked")
-        return Entry(seen=ctx.plugin_id)
+        return Entry(seen=ctx.app_id)
 
     async def render(ctx: PageContext) -> None:
         await ctx.tools.invoke("read", {})
 
-    return PluginDefinition(
-        plugin_id="journal",
+    return AppDefinition(
+        app_id="journal",
         name="Journal",
         version="0.0.0",
         tools=[
@@ -120,7 +120,7 @@ async def test_a_page_reaches_a_tool_through_the_window() -> None:
 
 
 class Boom(Exception):
-    """A failure inside the plugin's own lifespan."""
+    """A failure inside the app's own lifespan."""
 
 
 class FailingAcquire(AbstractAsyncContextManager[Journal]):

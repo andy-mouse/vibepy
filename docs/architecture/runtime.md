@@ -30,11 +30,11 @@ ToolContext is invocation-scoped and deliberately narrower than the window it co
 
 It currently carries:
 
-- plugin id
+- app id
 - invocation id
-- `dependencies`: the application-scoped resource, typed by the plugin itself
+- `dependencies`: the application-scoped resource, typed by the app itself
 
-`dependencies` is one value of the plugin's own type, not a mapping and not the runtime.
+`dependencies` is one value of the app's own type, not a mapping and not the runtime.
 
 Future fields may include:
 
@@ -55,7 +55,7 @@ Do not make ToolContext an untyped service-locator bag. See
 ## Dependency ownership
 
 Application-scoped dependencies belong to the channel's running window, which
-`docs/architecture/plugin-model.md` describes together with the other state scopes.
+`docs/architecture/app-model.md` describes together with the other state scopes.
 
 What the runtime does with them: ToolRuntime holds the one resource the window acquired and puts
 that value into every ToolContext it creates. Prefer typed dependency objects over generic
@@ -78,11 +78,11 @@ resource its window acquired.
 | --- | --- | --- |
 | Channel transport | may two requests be in flight at once? | MCP SDK, NiceGUI over uvicorn |
 | Framework | may two invocations be in flight at once? | ToolRuntime, PageRuntime |
-| Domain | is overlapping mutation correct? | the plugin's own services and storage |
+| Domain | is overlapping mutation correct? | the app's own services and storage |
 
 Only the middle row is a framework contract. The framework guarantees the absence of
 serialization it introduces itself. It cannot create request concurrency that its channel
-technology does not offer, and it does not make a plugin's domain state safe under overlap.
+technology does not offer, and it does not make a app's domain state safe under overlap.
 
 A channel adapter reduces a request to a single `await` on a runtime, so it adds no
 serialization of its own. See `docs/decisions/ADR-003-channel-adapters-are-thin.md`.
@@ -105,7 +105,7 @@ Neither behaviour is promised in writing, and `pyproject.toml` carries only a lo
 each library. They are held by tests rather than by this section.
 
 Concurrency in this framework is therefore cooperative. Overlap happens at `await` points,
-which has one consequence a plugin author must know: a Tool handler that blocks the event loop
+which has one consequence a app author must know: a Tool handler that blocks the event loop
 serializes every channel in its process, and that is exactly the case where ToolRuntime's
 absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
@@ -121,7 +121,7 @@ Sources:
 ### The execution-semantics contract
 
 The framework must maintain a constitutional integration test proving that two invocations
-of one Plugin overlap, each with its own ToolContext, over one application-scoped resource. It
+of one App overlap, each with its own ToolContext, over one application-scoped resource. It
 proves this at every layer the framework owns: ToolRuntime, PageRuntime, the Agent channel
 through the MCP SDK, and the Web channel through NiceGUI.
 
@@ -151,7 +151,7 @@ Example:
 
 The test composes one lifespan into both channels, so a private backend on either side shows up
 as a divergence. That composition is the test's own arrangement, not a framework guarantee: a
-deployed Plugin runs each channel in its own process, so a resource that must be shared across
+deployed App runs each channel in its own process, so a resource that must be shared across
 them belongs in a backing service. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 

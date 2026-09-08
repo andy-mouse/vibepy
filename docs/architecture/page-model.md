@@ -2,9 +2,9 @@
 
 ## Definition
 
-A Page is the human-facing interaction composition of a Plugin.
+A Page is the human-facing interaction composition of an App.
 
-Pages let humans view state, provide input, and invoke the Plugin's canonical backend Tools.
+Pages let humans view state, provide input, and invoke the App's canonical backend Tools.
 
 A Page is not itself a NiceGUI-specific primitive. NiceGUI is the current Web channel implementation technology.
 
@@ -73,7 +73,7 @@ async def handler(ctx: PageContext) -> None:
     ...
 ```
 
-The parameter is positional-only in the `PageHandler` Protocol, so a plugin author may name
+The parameter is positional-only in the `PageHandler` Protocol, so a app author may name
 it freely.
 
 A handler returns nothing. A Page builds its interface by side effect, as a NiceGUI page
@@ -144,7 +144,7 @@ Constructed from a PageRegistry and a ToolInvoker.
 `PageRuntime.render(name)` resolves the Page, creates its PageContext over that invoker, and
 awaits the handler. It holds no per-Page state and does not serialize renders.
 
-The window supplies its ToolRuntime as the invoker, so a Page reaches the Tools of the Plugin
+The window supplies its ToolRuntime as the invoker, so a Page reaches the Tools of the App
 whose window it belongs to and no others.
 
 ## Relationship to Tools

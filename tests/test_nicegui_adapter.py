@@ -14,19 +14,19 @@ from nicegui.testing import User
 from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
-from tests.todo_fixture import TODO_PLUGIN, todo_lifespan
+from tests.todo_fixture import TODO_APP, todo_lifespan
 from vibepy.adapters.nicegui import register_pages
+from vibepy.app import AppDefinition, page_runtime_for
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.plugin import PluginDefinition, page_runtime_for
 
-PLUGIN_ID = "test-app"
+APP_ID = "test-app"
 
 
-def web_definition(pages: list[Page]) -> PluginDefinition[None]:
-    """One Plugin with no Tools and no application-scoped resource: routes only."""
-    return PluginDefinition(
-        plugin_id=PLUGIN_ID,
+def web_definition(pages: list[Page]) -> AppDefinition[None]:
+    """One App with no Tools and no application-scoped resource: routes only."""
+    return AppDefinition(
+        app_id=APP_ID,
         name="Test",
         version="0.0.0",
         tools=[],
@@ -127,8 +127,8 @@ async def test_a_rejected_registry_registers_nothing(user: User) -> None:
 
 
 async def test_page_interaction_invokes_a_tool(user: User) -> None:
-    async with page_runtime_for(TODO_PLUGIN, todo_lifespan) as pages:
-        register_pages(TODO_PLUGIN, pages)
+    async with page_runtime_for(TODO_APP, todo_lifespan) as pages:
+        register_pages(TODO_APP, pages)
         await user.open("/todos")
         user.find("title").type("write the spec")
         user.find("Add").click()
@@ -150,7 +150,7 @@ def test_the_core_packages_do_not_import_nicegui() -> None:
     modules = (
         sorted((package / "tool").glob("*.py"))
         + sorted((package / "page").glob("*.py"))
-        + sorted((package / "plugin").glob("*.py"))
+        + sorted((package / "app").glob("*.py"))
     )
     assert modules != []
 

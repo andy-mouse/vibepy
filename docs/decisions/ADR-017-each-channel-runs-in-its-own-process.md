@@ -70,5 +70,5 @@ backing service.
   lifecycle track ends at Installed and reads as "not started yet". M11 owns the affordance
 - MCP over HTTP is not required, so the Origin validation, loopback binding and endpoint
   authentication that transport would have demanded are not incurred
-- whether an App is renamed a Plugin, and whether capabilities are declared and resolved across
+- whether an App is renamed an App, and whether capabilities are declared and resolved across
   Apps, are separate decisions belonging to the packaging and Hub milestones

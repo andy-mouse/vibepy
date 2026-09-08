@@ -1,8 +1,8 @@
-# ADR-021: The channel host owns the runtime lifecycle
+# ADR-020: The channel host owns the runtime lifecycle
 
 Status: Accepted
 
-Supersedes: ADR-015, ADR-018
+Supersedes: ADR-004, ADR-015, ADR-018
 
 ## Context
 
@@ -40,7 +40,7 @@ The channel host owns the running window. The framework owns no lifecycle object
 state and no lifecycle error.
 
 The framework supplies two async context managers, `tool_runtime_for` and `page_runtime_for`.
-Each pairs a `PluginDefinition` with a lifespan and yields the one runtime its channel needs, for
+Each pairs a `AppDefinition` with a lifespan and yields the one runtime its channel needs, for
 the duration of the block and no longer.
 
 The Agent channel hands its context manager to `Server(lifespan=...)` and reads the runtime from
@@ -53,7 +53,7 @@ each page builder close over the runtime.
   removed, and with them the codes `lifecycle.transition_forbidden` and `lifecycle.not_running`
   and the `ErrorCategory.LIFECYCLE` that no code then maps to. A lifespan that fails propagates to
   its host, which the host's own contract already covers
-- a plugin that is not running is not representable. What replaced the guard is not a better guard
+- a app that is not running is not representable. What replaced the guard is not a better guard
   but the absence of the state it guarded
 - `_no_lifespan` is removed. It existed only to keep `Any` out of the adapter's return type, and a
   real lifespan carries a real type: the server is `Server[ToolRuntime[DepsT]]`
@@ -63,9 +63,12 @@ each page builder close over the runtime.
   the process, because the client launches one server process and speaks to it over that process's
   streams, which is what ADR-010 and ADR-017 already rest on
 - ADR-017 is completed on two points it left unsaid. A lifespan is entered once per channel
-  process, so an installed Plugin acquires its resource once per channel and not once in total;
+  process, so an installed App acquires its resource once per channel and not once in total;
   and ADR-015's requirement that both adapters receive one instance is destroyed by that same
   fact, not merely weakened
+- ADR-004 is superseded. Its artifact, `AppDefinition -> AppRuntime`, no longer exists: what a
+  declaration becomes is a window rather than an object. The principle underneath it — a
+  declaration is not executable state — survives in ADR-021, which states it about a value
 - ADR-015 is superseded. Its context sentence — "Both adapters of one running App must receive the
   same AppRuntime instance" — is false across processes. What it was protecting, that a channel
   cannot be wired to a backend that is not its own, is now carried by each adapter taking one

@@ -1,6 +1,6 @@
 """The execution-semantics contract from docs/architecture/runtime.md.
 
-Two invocations of one Plugin overlap, each with its own ToolContext, over one
+Two invocations of one App overlap, each with its own ToolContext, over one
 application-scoped resource. This test is constitutional: it stays for the life
 of the project.
 
@@ -13,9 +13,9 @@ failure. A passing run asserts nothing about elapsed time; ``asyncio.timeout``
 exists only to turn the deadlock of a serialized runtime into a failure.
 
 The log is read back through a Tool rather than by holding the resource, so the
-test observes application-scoped state only through the Plugin's public surface.
+test observes application-scoped state only through the App's public surface.
 
-Where a test needs two windows of one Plugin at once - a Web window to render
+Where a test needs two windows of one App at once - a Web window to render
 through and an Agent-shaped window to read the log from - it composes both over
 one lifespan of its own. That is an arrangement the test makes, not a guarantee
 the framework offers: ADR-017 puts each channel in its own process.
@@ -32,8 +32,8 @@ from pydantic import BaseModel
 
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
+from vibepy.app import AppDefinition, Lifespan, page_runtime_for, tool_runtime_for
 from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.plugin import Lifespan, PluginDefinition, page_runtime_for, tool_runtime_for
 from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 PARTIES = 2
@@ -129,8 +129,8 @@ async def meeting_button_page(ctx: PageContext) -> None:
     ui.button("Meet", on_click=meet_now)
 
 
-RENDEZVOUS = PluginDefinition(
-    plugin_id="rendezvous-plugin",
+RENDEZVOUS = AppDefinition(
+    app_id="rendezvous-app",
     name="Rendezvous",
     version="0.0.0",
     tools=[MEET, READ_LOG],

@@ -10,11 +10,11 @@ from contextlib import asynccontextmanager
 from nicegui import ui
 from pydantic import BaseModel
 
+from vibepy.app import AppDefinition
 from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.plugin import PluginDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
 
-PLUGIN_ID = "todo-app"
+APP_ID = "todo-app"
 
 
 class CreateTodoInput(BaseModel):
@@ -86,8 +86,8 @@ async def todos_page(ctx: PageContext) -> None:
     rendered(listing)
 
 
-TODO_PLUGIN: PluginDefinition[TodoStore] = PluginDefinition(
-    plugin_id=PLUGIN_ID,
+TODO_APP: AppDefinition[TodoStore] = AppDefinition(
+    app_id=APP_ID,
     name="Todo",
     version="0.0.0",
     tools=[

@@ -24,14 +24,13 @@ code on the class and maps its category in `vibepy/errors.py`.
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
 
-`plugin.unhandled` is the code for a failure the framework did not define. It belongs to no
-exception class: an exception raised by a Plugin's own code is described, not classified.
+`app.unhandled` is the code for a failure the framework did not define. It belongs to no
+exception class: an exception raised by an App's own code is described, not classified.
 
-Three codes are retired and are never reused: `lifecycle.transition_forbidden` and
-`lifecycle.not_running`, whose state machine no longer exists, and `app.unhandled`, which
-`plugin.unhandled` replaces. See
-`docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md` and
-`docs/decisions/ADR-020-the-plugin-replaces-the-app.md`.
+Two codes are retired and are never reused: `lifecycle.transition_forbidden` and
+`lifecycle.not_running`, whose state machine no longer exists. The `lifecycle` category is
+retired with them, because no code maps to it. See
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 ## Categories
 
@@ -42,7 +41,7 @@ it to learn whether a different call could succeed.
 | --- | --- |
 | `caller` | the call itself was wrong; a different call may succeed |
 | `execution` | the call was well formed and running it failed; the same call fails again |
-| `declaration` | the Plugin declared something the framework rejects, raised at registration |
+| `declaration` | the App declared something the framework rejects, raised at registration |
 
 The set is closed and is an enum, so a branch over it ends with `assert_never` and a category
 added later cannot be silently unhandled.
@@ -82,4 +81,4 @@ A client ignores payload members it does not recognize, so a later milestone may
 ## Related
 
 - `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md`
-- `docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`
+- `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`

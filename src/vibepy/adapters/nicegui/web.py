@@ -7,7 +7,7 @@ and a builder holds its runtime for exactly as long as the window lasts.
 NiceGUI documents no lifespan and mounts as a sub-application, and Starlette does
 not document lifespan state reaching one, so nothing here reads request state. A
 closure is a language guarantee rather than a library one. See
-`docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 Registering routes is not running a server.
 """
@@ -16,16 +16,16 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import ui
 
+from vibepy.app.model import AppDefinition
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page.runtime import PageRuntime
-from vibepy.plugin.model import PluginDefinition
 
 
-def register_pages[DepsT](definition: PluginDefinition[DepsT], pages: PageRuntime, /) -> None:
-    """Project every declared Page of one Plugin onto a NiceGUI route.
+def register_pages[DepsT](definition: AppDefinition[DepsT], pages: PageRuntime, /) -> None:
+    """Project every declared Page of one App onto a NiceGUI route.
 
     Every declaration is validated before any route is registered, so a rejected
-    Plugin leaves no half-registered application behind.
+    App leaves no half-registered application behind.
     """
     claimed: dict[str, str] = {}
     for page in definition.pages:

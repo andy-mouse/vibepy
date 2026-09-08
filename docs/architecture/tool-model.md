@@ -2,7 +2,7 @@
 
 ## Definition
 
-A Tool is the canonical public backend operation of a Plugin.
+A Tool is the canonical public backend operation of an App.
 
 A Tool represents a meaningful application or business operation that an external actor can intentionally invoke. Actors may include humans through Pages, agents through MCP, and future channels such as REST, CLI, automations, or webhooks.
 
@@ -18,7 +18,7 @@ Good Tool names:
 - `request_discount`
 - `close_opportunity`
 
-Avoid infrastructure-shaped Tools unless the plugin's domain genuinely requires them:
+Avoid infrastructure-shaped Tools unless the app's domain genuinely requires them:
 
 - `update_database_row`
 - `set_field`
@@ -66,18 +66,18 @@ async def handler(ctx: ToolContext[Deps], payload: InputModel) -> OutputModel:
     ...
 ```
 
-`Deps` is the plugin's own type for its application-scoped resource, reached as
+`Deps` is the app's own type for its application-scoped resource, reached as
 `ctx.dependencies`. See
 `docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
 
-Handler parameters are positional-only in the `ToolHandler` Protocol, so a plugin author may name them freely.
+Handler parameters are positional-only in the `ToolHandler` Protocol, so a app author may name them freely.
 
 ### Tool
 
 A ToolDefinition paired with the handler that implements it, bound at construction into
 one uniform callable. The class is generic only in the dependency type; its `__init__` is
 generic in the declared models, so `Tool(definition=..., handler=...)` reads as a
-declaration and a PluginDefinition can hold a sequence of Tools. A Tool does not expose its
+declaration and an AppDefinition can hold a sequence of Tools. A Tool does not expose its
 handler. See `docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
 
 ### ToolRegistry
@@ -93,7 +93,7 @@ Registering a name twice replaces the earlier Tool, declaration included.
 
 ### ToolRuntime
 
-The canonical invocation path for every channel. Constructed from a plugin id, a ToolRegistry
+The canonical invocation path for every channel. Constructed from a app id, a ToolRegistry
 and the application-scoped resource the channel's window acquired.
 
 `ToolRuntime.invoke(name, raw_input)` is the whole of it:

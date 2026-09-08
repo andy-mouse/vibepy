@@ -1,6 +1,6 @@
 # ADR-015: Channel adapters are built from an AppRuntime
 
-Status: Superseded by ADR-021
+Status: Superseded by ADR-020
 
 ## Context
 

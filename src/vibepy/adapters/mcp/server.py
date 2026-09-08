@@ -21,14 +21,14 @@ from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
 
 from vibepy.adapters.mcp.projection import to_mcp_tool
+from vibepy.app.composition import Lifespan, tool_registry_for, tool_runtime_for
+from vibepy.app.model import AppDefinition
 from vibepy.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     to_error_info,
 )
-from vibepy.plugin.composition import Lifespan, tool_registry_for, tool_runtime_for
-from vibepy.plugin.model import PluginDefinition
 from vibepy.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
@@ -63,9 +63,9 @@ def _failure(error: Exception) -> types.CallToolResult:
 
 
 def build_mcp_server[DepsT](
-    definition: PluginDefinition[DepsT], lifespan: Lifespan[DepsT], /
+    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
 ) -> Server[ToolRuntime[DepsT]]:
-    """Build the MCP projection of one Plugin's Tools.
+    """Build the MCP projection of one App's Tools.
 
     The registry this enumerates for discovery, and the server's name and version,
     are read from the declaration. The ToolRuntime a call goes through is read
@@ -73,7 +73,7 @@ def build_mcp_server[DepsT](
 
     The SDK enters that lifespan inside ``run()``. Over stdio the client launches
     one process per server, so that window is the process. See
-    `docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
+    `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
     """
     registry = tool_registry_for(definition)
 
@@ -104,7 +104,7 @@ def build_mcp_server[DepsT](
         except ToolOutputValidationError as error:
             logger.error("Tool %r returned output its own model rejected", params.name)
             return _failure(error)
-        # Broad on purpose: a plugin defect must not surface as a protocol error.
+        # Broad on purpose: a app defect must not surface as a protocol error.
         except Exception as error:
             logger.exception("Tool %r raised", params.name)
             return _failure(error)
@@ -115,7 +115,7 @@ def build_mcp_server[DepsT](
         )
 
     return Server(
-        definition.plugin_id,
+        definition.app_id,
         version=definition.version,
         lifespan=server_lifespan,
         on_list_tools=list_tools,

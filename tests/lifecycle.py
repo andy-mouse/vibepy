@@ -6,5 +6,5 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def no_dependencies() -> AsyncGenerator[None]:
-    """The lifespan of a Plugin with no application-scoped resource."""
+    """The lifespan of an App with no application-scoped resource."""
     yield None

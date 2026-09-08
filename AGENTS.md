@@ -1,6 +1,6 @@
 # Repository Instructions
 
-This repository implements an agent-native application framework where one Plugin exposes the same backend Tools through two first-class channels:
+This repository implements an agent-native application framework where one App exposes the same backend Tools through two first-class channels:
 
 - Web channel: Pages rendered with NiceGUI for humans
 - Agent channel: Tools exposed through MCP for AI agents
@@ -13,8 +13,8 @@ This repository implements an agent-native application framework where one Plugi
 
 ## Core invariants
 
-- Plugin is the unit of packaging and declaration; a channel process is the unit of execution.
-- Tools are the canonical public backend operations of a Plugin.
+- App is the unit of packaging and declaration; a channel process is the unit of execution.
+- Tools are the canonical public backend operations of an App.
 - Tools are channel-neutral.
 - Pages consume Tools to implement human workflows.
 - NiceGUI is the Web channel technology used to expose Pages to humans.

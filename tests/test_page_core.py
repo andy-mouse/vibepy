@@ -159,7 +159,7 @@ def build_page_runtime(registry: PageRegistry, store: TodoStore) -> PageRuntime:
     tool_registry.register(create_todo_tool(store))
     return PageRuntime(
         registry=registry,
-        tools=ToolRuntime(plugin_id="todo", registry=tool_registry, dependencies=None),
+        tools=ToolRuntime(app_id="todo", registry=tool_registry, dependencies=None),
     )
 
 

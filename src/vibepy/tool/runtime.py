@@ -26,7 +26,7 @@ class Tool[DepsT]:
 
     The class is generic in ``DepsT`` only, while ``__init__`` is generic in the
     declared models. A Tool therefore has one static type per App, which is what
-    lets a PluginDefinition hold a sequence of them: ``InputT`` appears covariantly
+    lets an AppDefinition hold a sequence of them: ``InputT`` appears covariantly
     in the declaration and contravariantly in the handler, so a Tool generic in it
     would be invariant and no common element type would exist.
 
@@ -73,16 +73,16 @@ class ToolRuntime[DepsT]:
     """
 
     def __init__(
-        self, *, plugin_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
+        self, *, app_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
     ) -> None:
-        self._plugin_id = plugin_id
+        self._app_id = app_id
         self._registry = registry
         self._dependencies = dependencies
 
     async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
         tool = self._registry.resolve(name)
         ctx = ToolContext(
-            plugin_id=self._plugin_id,
+            app_id=self._app_id,
             invocation_id=str(uuid4()),
             dependencies=self._dependencies,
         )
