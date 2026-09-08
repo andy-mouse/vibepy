@@ -23,6 +23,7 @@ decided with the owner. Nothing is invented.
 | The NiceGUI adapter translates nothing, because only MCP's protocol demands an answer to every call | `docs/architecture/adapters.md` |
 | The MCP adapter translates validated Tool results and errors into MCP responses | `docs/architecture/adapters.md` (responsibility 4) |
 | MCP types must not leak into the core Tool package | `docs/architecture/adapters.md`, ADR-003 |
+| Adapters translate a channel protocol into framework semantics and own no logic of their own | ADR-003 |
 | Future REST/CLI adapters are projections over the same ToolRuntime | `docs/architecture/adapters.md` |
 | The two lifecycle errors, and why they are distinct failures | `docs/architecture/lifecycle.md` |
 | Diagnostics should be machine-readable whenever practical | `docs/architecture/authoring.md` |
@@ -48,16 +49,13 @@ External behaviour comes from official documentation. Each fact is cited where i
 
 Five questions no repository document answered were decided with the owner:
 
-1. A code is added to each existing exception rather than replacing the type. Within Python the
-   type remains the contract; the code is the projection of that type across a boundary a Python
-   type cannot cross. See "Codes live on the exception class".
-2. A closed category set exists alongside the specific code. See "Category is a closed set".
-3. Normalization lives in the core as `ErrorInfo` and `to_error_info`, rather than each adapter
-   classifying exceptions itself. See "ErrorInfo is the channel-neutral form".
-4. The diagnostics M9 and M16 collect are a separate type, sharing this milestone's code
-   namespace and nothing else. See "Non-goals".
-5. An occurrence identifier is deferred to M15 and an error domain to M10, rather than being
-   reserved now. See "Non-goals".
+1. Whether a code replaces the exception type or is added to it. See "Codes live on the exception
+   class".
+2. Whether a category exists alongside the specific code. See "Category is a closed set".
+3. Whether normalization belongs to the core or to each adapter. See "ErrorInfo is the
+   channel-neutral form".
+4. Whether the diagnostics M9 and M16 collect share this milestone's type. See "Non-goals".
+5. Whether an occurrence identifier and an error domain are reserved now. See "Non-goals".
 
 ## Problem
 
@@ -140,22 +138,18 @@ category added by M14 cannot be silently unhandled.
 
 ### ErrorInfo is the channel-neutral form
 
-A frozen dataclass in `vibepy/errors.py`, carrying `code`, `category`, `message` and `details`.
-It imports nothing from any adapter.
+Classifying a failure is knowledge about the framework's own errors, so it belongs to the
+framework. Were each adapter to do it, the Web, Agent and every future channel would hold the
+same knowledge separately and could disagree, which is what ADR-003 forbids. `ErrorInfo` lives in
+`vibepy/errors.py` and imports nothing from any adapter.
 
-`details` is a `Mapping[str, str]`. AIP-193 requires that any request-specific information
-contributing to the message be present in the structured metadata, and every framework message
-interpolates such a value: `tool_name`, `page_name`, `route`, `state`, `transition`. Each becomes
-a `details` entry. An agent that needs to know which Tool failed reads `details`, never the
-sentence.
+Its `details` exist because AIP-193 requires that any request-specific information contributing
+to the message be present in the structured metadata. Every framework message interpolates such a
+value: `tool_name`, `page_name`, `route`, `state`, `transition`. An agent that needs to know which
+Tool failed reads `details`, never the sentence.
 
-A normalization function converts an exception into an `ErrorInfo`. A framework error contributes
-its own code, category and details. Any other exception normalizes to `app.unhandled` in the
-`execution` category, because a failure the framework did not define came from the App's own code
-and running it is what failed. `app.unhandled` belongs to no exception class and carries no
-details: the framework knows nothing about the value it received. Normalizing
-is not wrapping: the exception still propagates unchanged, and normalization happens only where a
-channel must render an answer.
+Normalizing is not wrapping. The exception still propagates unchanged, and normalization happens
+only where a channel must render an answer.
 
 ### What the MCP adapter sends
 
@@ -171,12 +165,6 @@ whether to retry, and what a future REST adapter maps to 4xx or 5xx.
 
 Clients must ignore payload members they do not recognize, per RFC 9457, so M14 and M15 can add
 fields without breaking an agent written against M7.
-
-### Uniform exports
-
-`PageRouteInvalidError` and `PageRouteConflictError` join the package root exports. Once a code is
-a contract, an error that cannot be caught where the others are caught is an inconsistency, not a
-choice.
 
 ## Public API
 
@@ -233,8 +221,10 @@ yields `app.unhandled` in the `EXECUTION` category with empty details.
 ### Exports
 
 `ErrorCategory`, `ErrorInfo` and `to_error_info` join the package root, as do
-`PageRouteInvalidError` and `PageRouteConflictError`. `test_package.py` asserts the full export
-list, so it is updated in the same change.
+`PageRouteInvalidError` and `PageRouteConflictError`. The route errors are added because once a
+code is a contract, an error that cannot be caught where the others are caught is an
+inconsistency rather than a choice. `test_package.py` asserts the full export list, so it is
+updated in the same change.
 
 ## Contract changes
 
