@@ -6,6 +6,14 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "vibepy-framework",
+    "vibepy-hub",
+    "vibepy-notes",
+    "vibepy-todo",
+]
+
 [[package]]
 name = "aiofiles"
 version = "25.1.0"
@@ -1703,9 +1711,11 @@ name = "vibepy-framework"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "mcp" },
     { name = "nicegui" },
     { name = "pydantic" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -1716,13 +1726,18 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "vibepy-hub" },
+    { name = "vibepy-notes" },
+    { name = "vibepy-todo" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "mcp", specifier = ">=2.1" },
     { name = "nicegui", specifier = ">=3.16" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "uvicorn", specifier = ">=0.34" },
 ]
 
 [package.metadata.requires-dev]
@@ -1733,7 +1748,47 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.14" },
+    { name = "vibepy-hub", editable = "hub" },
+    { name = "vibepy-notes", editable = "samples/notes" },
+    { name = "vibepy-todo", editable = "samples/todo" },
 ]
+
+[[package]]
+name = "vibepy-hub"
+version = "0.1.0"
+source = { editable = "hub" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "vibepy-framework", editable = "." },
+]
+
+[[package]]
+name = "vibepy-notes"
+version = "0.1.0"
+source = { editable = "samples/notes" }
+dependencies = [
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-framework", editable = "." }]
+
+[[package]]
+name = "vibepy-todo"
+version = "0.1.0"
+source = { editable = "samples/todo" }
+dependencies = [
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-framework", editable = "." }]
 
 [[package]]
 name = "virtualenv"

@@ -1,7 +1,8 @@
-"""The Todo sample app from docs/roadmap.md, used as a test fixture.
+"""The Todo sample App from docs/roadmap.md.
 
-It stays a fixture rather than a package: an importable sample app presumes the
-App Package layer, which is M9.
+The App the Hub installs and starts. Its store keeps todos in memory, which is
+enough for one window; an App that must agree across its channels reaches a
+backing service, as `docs/architecture/app-model.md` requires.
 """
 
 from collections.abc import AsyncGenerator
@@ -129,6 +130,6 @@ TODO_APP: AppDefinition[TodoStore, TodoConfig] = AppDefinition(
 
 TODO_CONFIG: dict[str, object] = {"db_path": "/tmp/vibepy-todo.db"}
 
-TODO_ENTRYPOINT: AppEntrypoint[TodoStore, TodoConfig] = AppEntrypoint(
+APP: AppEntrypoint[TodoStore, TodoConfig] = AppEntrypoint(
     definition=TODO_APP, lifespan=todo_lifespan
 )

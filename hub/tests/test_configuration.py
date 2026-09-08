@@ -1,0 +1,97 @@
+"""What the Hub holds for an installed App, and what it hands back."""
+
+import stat
+import sys
+from pathlib import Path
+
+import pytest
+
+from tests_support import SAMPLES, hub
+from vibepy_hub.internals.state import STATE_FILE
+from vibepy_hub.models import AppListing, HeldConfig
+
+TOKEN = "s3cret-token-value"
+
+
+async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("install_app", {"app_name": "todo"})
+        held = await tools.invoke(
+            "configure_app",
+            {"app_name": "todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+        )
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(held, HeldConfig)
+    assert held.diagnostic is None
+    assert held.values == {"db_path": str(tmp_path / "todo.db")}
+    assert held.secret_fields == []
+    assert isinstance(listed, AppListing)
+    assert [row.configured for row in listed.apps if row.app_name == "todo"] == [True]
+
+
+async def test_an_app_missing_a_required_value_is_not_configured(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("install_app", {"app_name": "todo"})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(listed, AppListing)
+    assert [row.configured for row in listed.apps if row.app_name == "todo"] == [False]
+
+
+async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
+    async with hub(tmp_path / "hub") as tools:
+        answered = await tools.invoke("configure_app", {"app_name": "todo", "values": {}})
+
+    assert isinstance(answered, HeldConfig)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.not_installed"
+
+
+async def held_notes_secret(root: Path) -> HeldConfig:
+    """Notes declares a secret, so configuring it exercises the secret path."""
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("install_app", {"app_name": "notes"})
+        held = await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "notes",
+                "values": {"api_base_url": "https://notes.internal", "api_token": TOKEN},
+            },
+        )
+    assert isinstance(held, HeldConfig)
+    return held
+
+
+async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    held = await held_notes_secret(root)
+
+    assert held.secret_fields == ["api_token"]
+    assert TOKEN in (root / STATE_FILE).read_text(encoding="utf-8")
+
+
+async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    held = await held_notes_secret(root)
+
+    assert held.values == {"api_base_url": "https://notes.internal", "api_token": "set"}
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+async def test_what_is_held_is_readable_only_by_its_owner(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    await held_notes_secret(root)
+
+    assert stat.S_IMODE((root / STATE_FILE).stat().st_mode) == 0o600
+    assert stat.S_IMODE(root.stat().st_mode) == 0o700

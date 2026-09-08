@@ -67,7 +67,7 @@ The framework owns:
 - ToolRuntime
 - execution context creation
 - channel adapters
-- composition of a channel's running window
+- composition of a channel's running window, and the command that opens one for the Web channel
 - package/runtime boundaries
 - future permission and audit hooks
 

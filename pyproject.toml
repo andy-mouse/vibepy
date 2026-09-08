@@ -4,10 +4,15 @@ version = "0.0.0"
 description = "Agent-native application framework exposing Tools through Web and Agent channels"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.115",
     "mcp>=2.1",
     "nicegui>=3.16",
     "pydantic>=2.9",
+    "uvicorn>=0.34",
 ]
+
+[tool.uv.workspace]
+members = ["hub", "samples/*"]
 
 [build-system]
 requires = ["hatchling"]
@@ -18,6 +23,9 @@ packages = ["src/vibepy"]
 
 [dependency-groups]
 dev = [
+    "vibepy-hub",
+    "vibepy-todo",
+    "vibepy-notes",
     "nicegui[testing]>=3.16",
     "ruff>=0.14",
     "pyright>=1.1.400",
@@ -26,20 +34,25 @@ dev = [
     "pre-commit>=4.6.2",
 ]
 
+[tool.uv.sources]
+vibepy-hub = { workspace = true }
+vibepy-todo = { workspace = true }
+vibepy-notes = { workspace = true }
+
 [tool.ruff]
 line-length = 100
-src = ["src", "tests"]
+src = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 
 [tool.pyright]
-include = ["src", "tests"]
+include = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "hub/tests"]
 asyncio_mode = "auto"
 # NiceGUI's user fixture runs a main file unless this is empty. Pages are
 # registered by the tests themselves, so there is no main file to run.
