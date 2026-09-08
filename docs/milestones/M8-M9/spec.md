@@ -50,6 +50,9 @@ And:
 | pytest discovers third-party plugins through the `pytest11` entry point group, declared as `[project.entry-points.pytest11]`, loaded at startup unless `PYTEST_DISABLE_PLUGIN_AUTOLOAD` is set | <https://docs.pytest.org/en/stable/how-to/writing_plugins.html> |
 | `PluginManager.load_setuptools_entrypoints(group)` "loads the associated modules into the current process" and registers them | <https://pluggy.readthedocs.io/en/stable/api_reference.html> |
 | `uv tool install` creates a virtual environment per tool in the uv tools directory, and exposes "all console entry points, script entry points, and binary scripts provided by a Python package" — but not those of its dependencies | <https://docs.astral.sh/uv/concepts/tools/> |
+| a tool environment is persistent — "When installing a tool with `uv tool install`, a virtual environment is created in the uv tools directory" and "The environment will not be removed unless the tool is uninstalled" — whereas `uvx` uses a cached environment "treated as disposable"; "Tool environments are _not_ intended to be mutated directly" | <https://github.com/astral-sh/uv/blob/main/docs/concepts/tools.md>, <https://docs.astral.sh/uv/concepts/tools/> |
+| the tools directory defaults to `~/.local/share/uv/tools` and is queried with `uv tool dir`; executables live in a separate directory queried with `uv tool dir --bin` | <https://docs.astral.sh/uv/reference/storage/> |
+| verified on uv 0.12.1: each installed tool is a complete virtual environment at `<tools dir>/<tool>/`, with its own `bin/`, its own `lib/pythonX.Y/site-packages/` carrying that tool's `.dist-info`, and `pyvenv.cfg` recording `include-system-site-packages = false` | local inspection; the layout is what `distributions(path=...)` is pointed at |
 | core metadata has no field declaring a conflict with another distribution; `Obsoletes-Dist` means "the two projects should not be installed at the same time" and is rarely used because "popular installation tools ignore them completely" | <https://packaging.python.org/en/latest/specifications/core-metadata/> |
 | `packages_distributions()` maps each top-level import name to a *list* of distributions, so one import name provided by two distributions is representable and observable | <https://docs.python.org/3/library/importlib.metadata.html> |
 
@@ -94,6 +97,15 @@ distribution on PyPI already claims. With it, the only remaining conflict is one
 inside its own dependency set, which is that App's to resolve and is not a framework concern.
 No name is changed and no collision detector is added: neither would remove the class of
 failure, and the invariant does.
+
+The three parts are not guaranteed in the same place, and the difference is stated rather than
+blurred. The second and third are guarantees this framework makes and this milestone tests: it
+publishes no operation that imports an App into its caller's process, and description runs under
+the App's own interpreter. The first is a requirement on the installation model, which Python
+packaging cannot enforce — nothing stops two Apps being installed into one environment by hand.
+`uv tool install` satisfies it by construction, M10's Hub must install through such a mechanism,
+and M17 owns hardening it. This is the same division ADR-017 already made: the framework states
+the contract, the host implements it.
 
 ## Configuration is a declaration
 
