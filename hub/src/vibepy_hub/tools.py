@@ -7,8 +7,10 @@ published as a Tool.
 
 import logging
 import shutil
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
+
+from pydantic import BaseModel, ValidationError
 
 from vibepy.app.package import discover_apps
 from vibepy.tool import Tool, ToolContext, ToolDefinition
@@ -23,12 +25,15 @@ from vibepy_hub.installer import (
 )
 from vibepy_hub.internals import HubDeps
 from vibepy_hub.models import (
+    AppFacts,
     AppListing,
     AppName,
     AppRow,
     CandidateRow,
+    ConfigureRequest,
     Diagnostic,
     Empty,
+    HeldConfig,
     Installation,
     SourceListing,
     SourcePath,
@@ -181,6 +186,68 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     return AppListing(apps=[rows[name] for name in sorted(rows)])
 
 
+class _SchemaField(BaseModel):
+    """One property of a projected configuration schema, as the Hub reads it."""
+
+    format: str | None = None
+
+
+class _ConfigSchema(BaseModel):
+    """As much of a JSON Schema as telling a secret from a string requires."""
+
+    properties: dict[str, _SchemaField] = {}
+
+
+def secret_fields(schema: Mapping[str, object], /) -> tuple[str, ...]:
+    """The fields an App declared as secret, read from its projected schema.
+
+    Pydantic projects `SecretStr` as `format: password`, so a Host tells a secret
+    from an ordinary string without importing the App. See
+    `docs/decisions/ADR-022-configuration-is-a-declaration.md`.
+    """
+    try:
+        described = _ConfigSchema.model_validate(dict(schema))
+    except ValidationError:
+        logger.info("unreadable configuration schema")
+        return ()
+    return tuple(name for name, field in described.properties.items() if field.format == "password")
+
+
+def _facts(deps: HubDeps, app_name: str, /) -> AppFacts | None:
+    """What an installed App declared, or nothing when it is not installed."""
+    env = environment(deps.root, app_name)
+    return read_facts(env) if env.is_dir() else None
+
+
+async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) -> HeldConfig:
+    """Hold the values one App runs with, excluding the secrets it declared.
+
+    The Hub does not validate them: the App's own window validates configuration
+    as it opens and raises `config.invalid`.
+    """
+    deps = ctx.dependencies
+    facts = _facts(deps, payload.app_name)
+    if facts is None:
+        return HeldConfig(
+            app_name=payload.app_name,
+            values={},
+            required_secrets=[],
+            diagnostic=Diagnostic(
+                code="hub.not_installed",
+                message=f"{payload.app_name!r} is not installed",
+                details={"app_name": payload.app_name},
+            ),
+        )
+    secrets = secret_fields(facts.config_schema)
+    kept = {name: value for name, value in payload.values.items() if name not in secrets}
+    state = read_state(deps.root)
+    write_state(
+        deps.root,
+        HubState(sources=state.sources, config={**state.config, payload.app_name: kept}),
+    )
+    return HeldConfig(app_name=payload.app_name, values=kept, required_secrets=list(secrets))
+
+
 async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     """Delete an App's environment, leaving the data it wrote elsewhere."""
     deps = ctx.dependencies
@@ -234,6 +301,15 @@ HUB_TOOLS: Sequence[Tool[HubDeps]] = [
             output_model=Installation,
         ),
         handler=install_app,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="configure_app",
+            description="Hold the values an App runs with",
+            input_model=ConfigureRequest,
+            output_model=HeldConfig,
+        ),
+        handler=configure_app,
     ),
     Tool(
         definition=ToolDefinition(

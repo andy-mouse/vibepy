@@ -2,15 +2,26 @@
 
 ADR-017 states that an App declaring no Pages has no Web channel and therefore no
 runtime for the Hub to start, and is complete for an agent. This is that App.
+
+It also declares a secret, which is what an agent-facing App usually needs of its
+host, and what lets a Host show that a secret is declared by type rather than by
+storage.
 """
 
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from pydantic import BaseModel
+from pydantic import BaseModel, SecretStr
 
-from vibepy.app import AppDefinition, AppEntrypoint, NoConfig
+from vibepy.app import AppDefinition, AppEntrypoint
 from vibepy.tool import Tool, ToolContext, ToolDefinition
+
+
+class NotesConfig(BaseModel):
+    """What the Notes App requires of its host."""
+
+    api_base_url: str
+    api_token: SecretStr
 
 
 class NoteInput(BaseModel):
@@ -23,7 +34,7 @@ class Note(BaseModel):
 
 
 @asynccontextmanager
-async def notes_lifespan(_config: NoConfig) -> AsyncGenerator[None]:
+async def notes_lifespan(_config: NotesConfig) -> AsyncGenerator[None]:
     """The Notes App needs no resource, and says so by yielding None."""
     yield None
 
@@ -32,11 +43,11 @@ async def measure_note(_ctx: ToolContext[None], payload: NoteInput) -> Note:
     return Note(body=payload.body, length=len(payload.body))
 
 
-NOTES_APP: AppDefinition[None, NoConfig] = AppDefinition(
+NOTES_APP: AppDefinition[None, NotesConfig] = AppDefinition(
     app_id="notes-app",
     name="Notes",
     version="0.1.0",
-    config=NoConfig,
+    config=NotesConfig,
     tools=[
         Tool(
             definition=ToolDefinition(
@@ -51,4 +62,4 @@ NOTES_APP: AppDefinition[None, NoConfig] = AppDefinition(
     pages=[],
 )
 
-APP: AppEntrypoint[None, NoConfig] = AppEntrypoint(definition=NOTES_APP, lifespan=notes_lifespan)
+APP: AppEntrypoint[None, NotesConfig] = AppEntrypoint(definition=NOTES_APP, lifespan=notes_lifespan)

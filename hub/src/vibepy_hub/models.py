@@ -77,3 +77,21 @@ class AppListing(BaseModel):
 class Installation(BaseModel):
     app: AppRow
     diagnostic: Diagnostic | None = None
+
+
+class ConfigureRequest(BaseModel):
+    app_name: str
+    values: dict[str, object] = {}
+
+
+class HeldConfig(BaseModel):
+    """What the Hub holds for one App, and what a start still needs.
+
+    A secret is never held. `required_secrets` names the fields whose values a
+    caller supplies at each start.
+    """
+
+    app_name: str
+    values: dict[str, object]
+    required_secrets: list[str]
+    diagnostic: Diagnostic | None = None
