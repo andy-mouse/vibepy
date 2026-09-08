@@ -10,10 +10,14 @@ here and not in a Hub.
 The window is the served application's own lifespan. That is what makes a window
 that cannot open stop the server: ASGI defines that a server seeing
 `lifespan.startup.failed` logs the message and exits
-(<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>). NiceGUI's own
-startup hook does not carry that meaning — an exception raised there leaves the
-server running and answering for an App whose window never opened — so the
-protocol's mechanism is used rather than the convenience one.
+(<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>).
+
+The Web technology's own startup hook carries no such meaning. Its documentation
+says when the hook runs and nothing about a hook that raises, and a server
+observed to keep answering after one did is behaviour no document promises. The
+protocol's mechanism is used because it is the one that says what a failed
+startup means; `tests/test_serve_command.py` holds the framework to it either
+way.
 """
 
 import argparse

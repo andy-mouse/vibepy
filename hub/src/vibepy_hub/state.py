@@ -9,6 +9,9 @@ what is read and writes what is stored.
 """
 
 import logging
+import os
+import stat
+import sys
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
@@ -37,7 +40,26 @@ def read_state(root: Path, /) -> HubState:
         return HubState()
 
 
+OWNER_ONLY_FILE = stat.S_IRUSR | stat.S_IWUSR
+OWNER_ONLY_DIRECTORY = stat.S_IRWXU
+
+
 def write_state(root: Path, state: HubState, /) -> None:
-    """Replace the stored state."""
+    """Replace the stored state, readable by its owner and no one else.
+
+    The state holds the values an App runs with, secrets included, unencrypted
+    and protected only by filesystem permissions. That is the same trade git's
+    `store` credential helper makes and documents, and the same one it answers
+    with: the file's permissions keep other users out
+    (<https://git-scm.com/docs/git-credential-store>).
+
+    `os.chmod` carries these bits on POSIX. On Windows it sets only the read-only
+    flag, so a Hub root there is protected by the directory's own access control
+    rather than by this call.
+    """
     root.mkdir(parents=True, exist_ok=True)
-    (root / STATE_FILE).write_text(state.model_dump_json(indent=1), encoding="utf-8")
+    path = root / STATE_FILE
+    path.write_text(state.model_dump_json(indent=1), encoding="utf-8")
+    if sys.platform != "win32":
+        os.chmod(root, OWNER_ONLY_DIRECTORY)
+        os.chmod(path, OWNER_ONLY_FILE)

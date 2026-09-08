@@ -26,6 +26,7 @@ from vibepy_hub.installer import (
 )
 from vibepy_hub.internals import HubDeps
 from vibepy_hub.models import (
+    SET,
     AppFacts,
     AppListing,
     AppName,
@@ -129,7 +130,7 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
             version=facts.version if facts else None,
             state="running" if port is not None else "installed",
             url=f"http://127.0.0.1:{port}" if port is not None else None,
-            configured=env.name in held,
+            configured=bool(facts and _is_configured(facts, held.get(env.name, {}))),
             has_pages=bool(facts and facts.has_pages),
             diagnostic=None
             if present
@@ -220,9 +221,10 @@ class _SchemaField(BaseModel):
 
 
 class _ConfigSchema(BaseModel):
-    """As much of a JSON Schema as telling a secret from a string requires."""
+    """As much of a JSON Schema as the control plane reads."""
 
     properties: dict[str, _SchemaField] = {}
+    required: list[str] = []
 
 
 def secret_fields(schema: Mapping[str, object], /) -> tuple[str, ...]:
@@ -246,11 +248,27 @@ def _facts(deps: HubDeps, app_name: str, /) -> AppFacts | None:
     return read_facts(env) if env.is_dir() else None
 
 
+def _masked(values: Mapping[str, object], secrets: Sequence[str], /) -> dict[str, object]:
+    """The held values, with a stored secret reported as set rather than given."""
+    return {
+        name: (SET if name in secrets and value not in (None, "") else value)
+        for name, value in values.items()
+    }
+
+
+def _is_configured(facts: AppFacts, held: Mapping[str, object], /) -> bool:
+    """Whether every field an App declared as required has a value."""
+    required = _ConfigSchema.model_validate(dict(facts.config_schema)).required
+    return all(held.get(name) not in (None, "") for name in required)
+
+
 async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) -> HeldConfig:
-    """Hold the values one App runs with, excluding the secrets it declared.
+    """Hold the values one App runs with, its secrets included.
 
     The Hub does not validate them: the App's own window validates configuration
-    as it opens and raises `config.invalid`.
+    as it opens and raises `config.invalid`. What it does do is keep a secret's
+    value out of every answer it gives, so a value written once is not read back
+    out through a channel.
     """
     deps = ctx.dependencies
     facts = _facts(deps, payload.app_name)
@@ -258,7 +276,7 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
         return HeldConfig(
             app_name=payload.app_name,
             values={},
-            required_secrets=[],
+            secret_fields=[],
             diagnostic=Diagnostic(
                 code="hub.not_installed",
                 message=f"{payload.app_name!r} is not installed",
@@ -266,13 +284,17 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
             ),
         )
     secrets = secret_fields(facts.config_schema)
-    kept = {name: value for name, value in payload.values.items() if name not in secrets}
     state = read_state(deps.root)
+    kept = {**state.config.get(payload.app_name, {}), **payload.values}
     write_state(
         deps.root,
         HubState(sources=state.sources, config={**state.config, payload.app_name: kept}),
     )
-    return HeldConfig(app_name=payload.app_name, values=kept, required_secrets=list(secrets))
+    return HeldConfig(
+        app_name=payload.app_name,
+        values=_masked(kept, secrets),
+        secret_fields=list(secrets),
+    )
 
 
 def _refusal(app_name: str, code: str, message: str, /) -> RunningApp:

@@ -37,7 +37,7 @@ async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
     assert isinstance(held, HeldConfig)
     assert held.diagnostic is None
     assert held.values == {"db_path": str(tmp_path / "todo.db")}
-    assert held.required_secrets == []
+    assert held.secret_fields == []
 
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
@@ -49,7 +49,7 @@ async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path
     assert answered.diagnostic.code == "hub.not_installed"
 
 
-async def test_a_declared_secret_is_never_stored(tmp_path: Path) -> None:
+async def test_a_declared_secret_is_held_but_not_returned(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
@@ -64,6 +64,5 @@ async def test_a_declared_secret_is_never_stored(tmp_path: Path) -> None:
         )
 
     assert isinstance(held, HeldConfig)
-    assert held.values == {"api_base_url": "https://notes.internal"}
-    assert held.required_secrets == ["api_token"]
-    assert "s3cret" not in (root / "state.json").read_text(encoding="utf-8")
+    assert held.values == {"api_base_url": "https://notes.internal", "api_token": "set"}
+    assert held.secret_fields == ["api_token"]

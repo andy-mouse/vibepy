@@ -87,16 +87,21 @@ class ConfigureRequest(BaseModel):
     values: dict[str, object] = {}
 
 
-class HeldConfig(BaseModel):
-    """What the Hub holds for one App, and what a start still needs.
+SET = "set"
+"""What a stored secret reads as once it has one. Never the value itself."""
 
-    A secret is never held. `required_secrets` names the fields whose values a
-    caller supplies at each start.
+
+class HeldConfig(BaseModel):
+    """What the Hub holds for one App.
+
+    A secret's value is stored but never handed back: `values` reports it as
+    `set`, the way `SecretStr` reports itself as masked. `secret_fields` names
+    which fields those are.
     """
 
     app_name: str
     values: dict[str, object]
-    required_secrets: list[str]
+    secret_fields: list[str]
     diagnostic: Diagnostic | None = None
 
 
