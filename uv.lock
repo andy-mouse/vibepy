@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "vibepy-framework",
+    "vibepy-hub",
     "vibepy-notes",
     "vibepy-todo",
 ]
@@ -1723,6 +1724,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "vibepy-hub" },
     { name = "vibepy-notes" },
     { name = "vibepy-todo" },
 ]
@@ -1742,8 +1744,24 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.14" },
+    { name = "vibepy-hub", editable = "hub" },
     { name = "vibepy-notes", editable = "samples/notes" },
     { name = "vibepy-todo", editable = "samples/todo" },
+]
+
+[[package]]
+name = "vibepy-hub"
+version = "0.1.0"
+source = { editable = "hub" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.9" },
+    { name = "vibepy-framework", editable = "." },
 ]
 
 [[package]]

@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = ["samples/*"]
+members = ["hub", "samples/*"]
 
 [build-system]
 requires = ["hatchling"]
@@ -21,6 +21,7 @@ packages = ["src/vibepy"]
 
 [dependency-groups]
 dev = [
+    "vibepy-hub",
     "vibepy-todo",
     "vibepy-notes",
     "nicegui[testing]>=3.16",
@@ -32,23 +33,24 @@ dev = [
 ]
 
 [tool.uv.sources]
+vibepy-hub = { workspace = true }
 vibepy-todo = { workspace = true }
 vibepy-notes = { workspace = true }
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests", "samples/todo/src", "samples/notes/src"]
+src = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 
 [tool.pyright]
-include = ["src", "tests", "samples/todo/src", "samples/notes/src"]
+include = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "hub/tests"]
 asyncio_mode = "auto"
 # NiceGUI's user fixture runs a main file unless this is empty. Pages are
 # registered by the tests themselves, so there is no main file to run.
