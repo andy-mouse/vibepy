@@ -15,14 +15,6 @@ decided with the owner. Nothing is invented.
 
 | Contract | Source |
 | --- | --- |
-| Exception types are the contract; message strings are not | `AGENTS.md` |
-| Framework exceptions derive from a single base class | `AGENTS.md` |
-| `Any` and `cast` are unacceptable in the public API | `AGENTS.md` |
-| Exhaustive branches over typed unions end with `assert_never` | `AGENTS.md` |
-| The milestone's acceptance criteria in the roadmap are the tests | `AGENTS.md` |
-| A new architecture document requires a concept no existing document owns | `AGENTS.md` |
-| An accepted ADR is superseded, never rewritten | `AGENTS.md` |
-| The same fact is not stated in two documents | `AGENTS.md` |
 | Errors are not translated; they reach the caller as raised | `docs/architecture/tool-model.md`, `page-model.md` |
 | The three Tool errors and what raises each | `docs/architecture/tool-model.md` |
 | A handler exception propagates unchanged | `docs/architecture/tool-model.md` |
