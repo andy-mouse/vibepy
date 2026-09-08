@@ -50,6 +50,8 @@ And:
 | pytest discovers third-party plugins through the `pytest11` entry point group, declared as `[project.entry-points.pytest11]`, loaded at startup unless `PYTEST_DISABLE_PLUGIN_AUTOLOAD` is set | <https://docs.pytest.org/en/stable/how-to/writing_plugins.html> |
 | `PluginManager.load_setuptools_entrypoints(group)` "loads the associated modules into the current process" and registers them | <https://pluggy.readthedocs.io/en/stable/api_reference.html> |
 | `uv tool install` creates a virtual environment per tool in the uv tools directory, and exposes "all console entry points, script entry points, and binary scripts provided by a Python package" — but not those of its dependencies | <https://docs.astral.sh/uv/concepts/tools/> |
+| core metadata has no field declaring a conflict with another distribution; `Obsoletes-Dist` means "the two projects should not be installed at the same time" and is rarely used because "popular installation tools ignore them completely" | <https://packaging.python.org/en/latest/specifications/core-metadata/> |
+| `packages_distributions()` maps each top-level import name to a *list* of distributions, so one import name provided by two distributions is representable and observable | <https://docs.python.org/3/library/importlib.metadata.html> |
 
 ## Problem
 
@@ -75,6 +77,23 @@ App is a separate program. The declaration mechanism transfers; the loading mech
 > the App's own environment.
 
 The framework offers one operation on each side of that line and nothing that spans it.
+
+This is not a convenience. It is the dependency dimension of ADR-017, and it is what makes
+installing an App unable to disturb anything else:
+
+- an App is installed into an environment of its own, so two Apps never resolve one dependency
+  set and never share a top-level import name
+- the Host reads metadata and never imports an App, so no App dependency enters the Host's
+  environment and the Host's own dependencies constrain no App
+- loading an App happens in that App's interpreter, so what the framework is called in the
+  Host's environment is irrelevant to every App
+
+Without the invariant, every installed App is a possible version conflict and every top-level
+import name is a possible collision — including the framework's own, which an unrelated
+distribution on PyPI already claims. With it, the only remaining conflict is one an App declares
+inside its own dependency set, which is that App's to resolve and is not a framework concern.
+No name is changed and no collision detector is added: neither would remove the class of
+failure, and the invariant does.
 
 ## Configuration is a declaration
 
@@ -156,12 +175,12 @@ No manifest file is invented. The group is standard metadata, written to `entry_
 the distribution's `*.dist-info` at build time, and pytest's `pytest11` is the same pattern in
 the same place.
 
-The group name claims no PyPI name. PyPA's advice to prefix a group with a name the consumer owns
-is collision avoidance, and `pytest11` shows how loosely the ecosystem follows it. This framework
-already occupies the `vibepy` import package, so an environment cannot hold both it and a
-different distribution providing `vibepy` whatever the group is called: the group name adds no
-collision surface that the import name does not already assert. Group names admit no hyphen,
-which is the only hard rule here, and `vibepy.apps` satisfies it.
+The group name claims no PyPI name and creates no dependency on one. PyPA's advice to prefix a
+group with a name the consumer owns is collision avoidance, and `pytest11` shows how loosely the
+ecosystem follows it. A group name is read as a string out of metadata and imports nothing, so
+two projects using one group name would at worst list each other's entry points — which the
+loader rejects, because the resolved object would not be an `AppEntrypoint`. Group names admit no
+hyphen, which is the only hard rule here, and `vibepy.apps` satisfies it.
 
 One group is defined. `vibepy.skills` and `vibepy.mcp_servers` are the same mechanism applied to
 other capability kinds and belong to M19; leaving them undefined costs nothing, because a group
@@ -177,8 +196,9 @@ describe_app()    imports, in this process   ->  AppDescription
 `discover_apps` selects the `vibepy.apps` group and returns one `AppRef` per entry point, built
 from `.name`, `.value`, `.module`, `.attr` and the providing distribution's name and version.
 Nothing is imported. An optional `path` is forwarded to `DistributionFinder.Context`, so an
-environment other than the running interpreter's can be enumerated — which is what a Hub needs,
-and is the only concession this milestone makes to a Host that is not yet built.
+environment other than the running interpreter's can be enumerated. That parameter is what makes
+the invariant implementable: a Host inspects an App's environment without installing anything
+into its own, and without importing anything from the App's.
 
 `describe_app` loads one reference and projects it. `.load()` imports, so this is the operation
 that must run inside the App's own environment. It rejects three distinguishable failures and
@@ -217,14 +237,15 @@ A Host cannot import an App, so the framework provides the command that describe
 inside its environment:
 
 ```bash
-python -m vibepy.describe
+<app environment>/bin/python -m vibepy.describe
 ```
 
-It discovers the current environment's `vibepy.apps`, describes each one, and writes the
-descriptions to standard output as JSON. The App declares nothing to obtain this: the framework
-is already a dependency in that environment. Nor does it depend on the executable directory,
-which is what makes it usable against a `uv tool` environment, whose exposed scripts are the
-tool package's own and not its dependencies'.
+It discovers its own environment's `vibepy.apps`, describes each one, and writes the descriptions
+to standard output as JSON. The App declares nothing to obtain this: the framework is already a
+dependency in that environment. Nor does it depend on the executable directory, which matters for
+a `uv tool` environment, whose exposed scripts are the tool package's own and not its
+dependencies' — so the interpreter path is the only thing a Host needs, and it needs no framework
+of its own.
 
 The command reads configuration schemas; it does not read configuration values and does not
 enter a lifespan. Describing an App runs its module's import, and nothing else.
@@ -374,6 +395,7 @@ No category is added. The existing three remain closed and exhaustive.
 | `tests/test_app_config.py` | new. A valid mapping reaches the lifespan as a validated model; an invalid one raises `AppConfigInvalidError` and the lifespan is never entered, proven by a flag the fixture sets on entry; `NoConfig` requires no mapping content; a `SecretStr` field does not appear in the object's representation; two windows over one definition with different configurations do not observe each other |
 | `tests/test_app_composition.py` | rewired for the new signature. Its existing claims — the window's two sides, what a Tool receives, isolation between two compositions, release ordering on failure — are unchanged and cover M8's second and third criteria |
 | `tests/test_app_package.py` | new. `discover_apps` finds an App from a `dist-info` fixture written into a temporary directory and passed as `path`, imports nothing, and orders its results; `describe_app` returns a description whose schemas match the declarations; the three failure codes are each provoked and distinguished; a distribution with no `vibepy.apps` group yields nothing |
+| `tests/test_app_isolation.py` | new. The invariant is proven, not assumed: `discover_apps` over a `path` fixture leaves the fixture's module absent from `sys.modules`, so inspection imports nothing; and a description obtained through the subprocess command holds for an environment the test process never imported |
 | `tests/test_describe_command.py` | new. `python -m vibepy.describe` runs as a subprocess against an environment containing the Todo fixture and writes parseable JSON carrying the App's identity, configuration schema, Tool schemas and Page routes |
 | `tests/test_mcp_adapter.py`, `tests/test_nicegui_adapter.py`, `tests/test_dual_channel.py`, `tests/test_execution_semantics.py` | fixture rewiring only. No claim changes; the two constitutional tests keep their barrier and their divergence proof |
 | `tests/test_errors.py` | catalogue grows by four |
@@ -409,8 +431,13 @@ anything; `lifecycle.md`'s `configure` step gains the sentence that says who val
 document, `docs/architecture/packaging.md`, owns discovery, description and the entry point
 groups, because no existing document owns packaging. `docs/architecture.md` gains its link.
 
-`AGENTS.md` gains one invariant: an App declares what it requires of its host, and a channel
-validates that declaration before opening a window.
+`AGENTS.md` gains two invariants: an App declares what it requires of its host, and a channel
+validates that declaration before opening a window; and an App is installed into an environment
+of its own, which the Host reads without importing and loads through that environment's own
+interpreter.
+
+ADR-023 records the second as the dependency dimension of ADR-017, and why the framework neither
+renames itself nor detects collisions to obtain it.
 
 ## Out of scope
 
@@ -418,6 +445,9 @@ validates that declaration before opening a window.
   stored. The installation model owns these
 - scanning `uv tool` environments, enumerating installed Apps across environments, and
   registering capabilities with a Host. That is M10's control plane
+- enforcing environment isolation. M17 owns dependency, process, filesystem and resource
+  isolation; this milestone fixes the contract those mechanisms must satisfy, so that no Hub
+  design may put two Apps in one environment
 - blocking or disabling discovery. pytest shows that automatic discovery eventually needs an
   off switch, but the policy belongs to the Host that discovers
 - `vibepy.skills` and `vibepy.mcp_servers`, and reading non-Python payloads out of an installed
