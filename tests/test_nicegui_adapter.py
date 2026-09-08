@@ -14,7 +14,7 @@ from nicegui.testing import User
 from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
-from tests.todo_fixture import TODO_APP, TODO_CONFIG, todo_lifespan
+from todo_app.entry import TODO_APP, TODO_CONFIG, todo_lifespan
 from vibepy.adapters.nicegui import register_pages
 from vibepy.app import AppDefinition, NoConfig, page_runtime_for
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError

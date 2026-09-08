@@ -22,7 +22,7 @@ from mcp.client import Client
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.todo_fixture import TODO_APP, TODO_CONFIG, TodoConfig, TodoList, TodoStore
+from todo_app.entry import TODO_APP, TODO_CONFIG, TodoConfig, TodoList, TodoStore
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
 from vibepy.app import Lifespan, page_runtime_for

@@ -5,6 +5,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 from tests.test_app_package import write_distribution
 
@@ -24,35 +25,67 @@ def run_describe(environment_root: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def declare_todo(root: Path) -> None:
-    write_distribution(
-        root,
-        distribution="todo-fixture-app",
-        version="9.9.9",
-        entries=[("todo", "tests.todo_fixture:TODO_ENTRYPOINT")],
-    )
+class DescribedTool(TypedDict):
+    name: str
+
+
+class DescribedPage(TypedDict):
+    route: str
+
+
+class DescribedConfig(TypedDict):
+    properties: dict[str, object]
+
+
+class Described(TypedDict):
+    """The JSON shape `vibepy.describe` writes, as a test reads it."""
+
+    app_id: str
+    name: str
+    version: str
+    config_schema: DescribedConfig
+    tools: list[DescribedTool]
+    pages: list[DescribedPage]
+
+
+def described_app(result: subprocess.CompletedProcess[str], app_id: str) -> Described:
+    """One App out of everything the environment declares.
+
+    The environment declares more than one App, so a test names the one it is
+    about rather than asserting how many there are.
+    """
+    described: list[Described] = json.loads(result.stdout)
+    found = [entry for entry in described if entry["app_id"] == app_id]
+    assert found, f"{app_id} was not described: {[entry['app_id'] for entry in described]}"
+    return found[0]
 
 
 def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) -> None:
-    declare_todo(tmp_path)
+    result = run_describe(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    todo = described_app(result, "todo-app")
+    assert todo["version"] == "0.0.0"
+    assert sorted(todo["config_schema"]["properties"]) == ["db_path"]
+    assert [tool["name"] for tool in todo["tools"]] == ["create_todo", "list_todos"]
+    assert [page["route"] for page in todo["pages"]] == ["/todos"]
+    assert described_app(result, "notes-app")["pages"] == []
+
+
+def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> None:
+    first: list[Described] = json.loads(run_describe(tmp_path).stdout)
+    before = {entry["app_id"] for entry in first}
+    dist_info = tmp_path / "plain-1.0.0.dist-info"
+    dist_info.mkdir()
+    (dist_info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: plain\nVersion: 1.0.0\n", encoding="utf-8"
+    )
 
     result = run_describe(tmp_path)
 
     assert result.returncode == 0, result.stderr
-    described = json.loads(result.stdout)
-    assert len(described) == 1
-    assert described[0]["app_id"] == "todo-app"
-    assert described[0]["version"] == "0.0.0"
-    assert sorted(described[0]["config_schema"]["properties"]) == ["db_path"]
-    assert [tool["name"] for tool in described[0]["tools"]] == ["create_todo", "list_todos"]
-    assert [page["route"] for page in described[0]["pages"]] == ["/todos"]
-
-
-def test_an_environment_declaring_no_app_describes_nothing(tmp_path: Path) -> None:
-    result = run_describe(tmp_path)
-
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout) == []
+    again: list[Described] = json.loads(result.stdout)
+    assert {entry["app_id"] for entry in again} == before
 
 
 def test_an_unloadable_declaration_fails_with_the_framework_code(tmp_path: Path) -> None:

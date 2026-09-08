@@ -6,6 +6,13 @@ resolution-markers = [
     "python_full_version < '3.14'",
 ]
 
+[manifest]
+members = [
+    "vibepy-framework",
+    "vibepy-notes",
+    "vibepy-todo",
+]
+
 [[package]]
 name = "aiofiles"
 version = "25.1.0"
@@ -1716,6 +1723,8 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "vibepy-notes" },
+    { name = "vibepy-todo" },
 ]
 
 [package.metadata]
@@ -1733,7 +1742,31 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.14" },
+    { name = "vibepy-notes", editable = "samples/notes" },
+    { name = "vibepy-todo", editable = "samples/todo" },
 ]
+
+[[package]]
+name = "vibepy-notes"
+version = "0.1.0"
+source = { editable = "samples/notes" }
+dependencies = [
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-framework", editable = "." }]
+
+[[package]]
+name = "vibepy-todo"
+version = "0.1.0"
+source = { editable = "samples/todo" }
+dependencies = [
+    { name = "vibepy-framework" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-framework", editable = "." }]
 
 [[package]]
 name = "virtualenv"

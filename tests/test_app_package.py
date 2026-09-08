@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.todo_fixture import TODO_ENTRYPOINT
+from todo_app.entry import APP
 from vibepy.app import AppRef, describe_app, discover_apps
 from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
 
@@ -74,11 +74,11 @@ def test_a_declared_entrypoint_is_loaded_and_described() -> None:
         app_name="todo",
         distribution="tests",
         distribution_version="0.0.0",
-        module="tests.todo_fixture",
-        attr="TODO_ENTRYPOINT",
+        module="todo_app.entry",
+        attr="APP",
     )
 
-    assert describe_app(ref) == TODO_ENTRYPOINT.describe()
+    assert describe_app(ref) == APP.describe()
 
 
 def test_a_missing_module_is_reported_as_unloadable() -> None:
@@ -102,7 +102,7 @@ def test_a_missing_attribute_is_reported_as_unloadable() -> None:
         app_name="ghost",
         distribution="ghost",
         distribution_version="0.0.0",
-        module="tests.todo_fixture",
+        module="todo_app.entry",
         attr="NOT_DECLARED",
     )
 
@@ -115,7 +115,7 @@ def test_an_object_that_is_not_an_entrypoint_is_rejected() -> None:
         app_name="wrong",
         distribution="wrong",
         distribution_version="0.0.0",
-        module="tests.todo_fixture",
+        module="todo_app.entry",
         attr="TODO_APP",
     )
 
