@@ -1,4 +1,71 @@
-# M7 - Structured error model
+# M7 - Structured error model: Design
+
+## Acceptance criteria
+
+From `docs/roadmap.md`:
+
+- framework failures are represented with stable machine-readable error codes
+- Tool, Page, lifecycle, and adapter failures can be distinguished consistently
+- channel adapters preserve the same framework error semantics
+
+## Sources
+
+Every contract below either comes from a repository document or is an open decision that was
+decided with the owner. Nothing is invented.
+
+| Contract | Source |
+| --- | --- |
+| Exception types are the contract; message strings are not | `AGENTS.md` |
+| Framework exceptions derive from a single base class | `AGENTS.md` |
+| `Any` and `cast` are unacceptable in the public API | `AGENTS.md` |
+| Exhaustive branches over typed unions end with `assert_never` | `AGENTS.md` |
+| The milestone's acceptance criteria in the roadmap are the tests | `AGENTS.md` |
+| A new architecture document requires a concept no existing document owns | `AGENTS.md` |
+| An accepted ADR is superseded, never rewritten | `AGENTS.md` |
+| The same fact is not stated in two documents | `AGENTS.md` |
+| Errors are not translated; they reach the caller as raised | `docs/architecture/tool-model.md`, `page-model.md` |
+| The three Tool errors and what raises each | `docs/architecture/tool-model.md` |
+| A handler exception propagates unchanged | `docs/architecture/tool-model.md` |
+| `PageNotFoundError` is raised by the registry | `docs/architecture/page-model.md` |
+| Route format and uniqueness are validated where routes are registered | `docs/architecture/page-model.md`, `adapters.md` |
+| The NiceGUI adapter translates nothing, because only MCP's protocol demands an answer to every call | `docs/architecture/adapters.md` |
+| The MCP adapter translates validated Tool results and errors into MCP responses | `docs/architecture/adapters.md` (responsibility 4) |
+| MCP types must not leak into the core Tool package | `docs/architecture/adapters.md`, ADR-003 |
+| Future REST/CLI adapters are projections over the same ToolRuntime | `docs/architecture/adapters.md` |
+| The two lifecycle errors, and why they are distinct failures | `docs/architecture/lifecycle.md` |
+| Diagnostics should be machine-readable whenever practical | `docs/architecture/authoring.md` |
+| `get_app_errors` is a future Authoring capability | `docs/architecture/authoring.md` |
+| The adapter maps framework errors onto MCP by hand, an accepted cost | ADR-009 |
+| `ToolOutputValidationError` exists because the framework publishes the schema | ADR-007 |
+| Handler parameters are positional-only, so an author may name them freely | `docs/architecture/tool-model.md`, `page-model.md` |
+| M9 and M16 produce structured diagnostics; M14 adds a rejection before handler execution; M15 owns invocation correlation; M10 aggregates several installed Apps | `docs/roadmap.md` |
+
+External behaviour comes from official documentation. Each fact is cited where it is used:
+
+- [MCP - Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools): a server
+  MUST provide structured results conforming to a declared output schema; unknown tools are a
+  protocol error, while execution failures are reported inside the result with `isError`
+- [Google AIP-193 - Errors](https://google.aip.dev/193): the same identifier must always mean the
+  same failure and never two different ones; information contributing to the message must appear
+  in the structured metadata; a message may change over time only once a structured error exists
+- [RFC 9457 - Problem Details](https://www.rfc-editor.org/rfc/rfc9457.html): consumers must use
+  the stable identifier rather than parse human-readable members; unrecognized extension members
+  must be ignored; `instance` is the slot for an occurrence identifier
+- [gRPC - Status codes](https://grpc.io/docs/guides/status-codes/): a closed canonical set exists
+  so that a caller can tell whether retrying can change the outcome
+
+Five questions no repository document answered were decided with the owner:
+
+1. A code is added to each existing exception rather than replacing the type. Within Python the
+   type remains the contract; the code is the projection of that type across a boundary a Python
+   type cannot cross. See "Codes live on the exception class".
+2. A closed category set exists alongside the specific code. See "Category is a closed set".
+3. Normalization lives in the core as `ErrorInfo` and `to_error_info`, rather than each adapter
+   classifying exceptions itself. See "ErrorInfo is the channel-neutral form".
+4. The diagnostics M9 and M16 collect are a separate type, sharing this milestone's code
+   namespace and nothing else. See "Non-goals".
+5. An occurrence identifier is deferred to M15 and an error domain to M10, rather than being
+   reserved now. See "Non-goals".
 
 ## Problem
 
@@ -119,6 +186,64 @@ fields without breaking an agent written against M7.
 a contract, an error that cannot be caught where the others are caught is an inconsistency, not a
 choice.
 
+## Public API
+
+### ErrorCategory
+
+```python
+class ErrorCategory(StrEnum):
+    CALLER = "caller"
+    EXECUTION = "execution"
+    LIFECYCLE = "lifecycle"
+    DECLARATION = "declaration"
+```
+
+A `StrEnum` because the value crosses a channel boundary as a string and reads as itself in a
+JSON payload, while remaining a closed type a branch can exhaust with `assert_never`.
+
+### VibepyError
+
+```python
+class VibepyError(Exception):
+    code: ClassVar[str]
+
+    def details(self) -> Mapping[str, str]: ...
+```
+
+`code` is declared on the base without a value, so a subclass that forgets one fails the
+catalogue test rather than inheriting a meaningless default. `category` is not a field on the
+exception: it is a property of the code, and the normalization function owns that mapping.
+
+`details` returns the values the subclass interpolates into its message. Each subclass overrides
+it; the base returns an empty mapping.
+
+### ErrorInfo
+
+```python
+@dataclass(frozen=True)
+class ErrorInfo:
+    code: str
+    category: ErrorCategory
+    message: str
+    details: Mapping[str, str]
+```
+
+### Normalization
+
+```python
+def to_error_info(error: Exception, /) -> ErrorInfo: ...
+```
+
+Positional-only, matching the parameter convention the Tool and Page handler protocols already
+use. A `VibepyError` contributes its own code, details and mapped category; any other exception
+yields `app.unhandled` in the `EXECUTION` category with empty details.
+
+### Exports
+
+`ErrorCategory`, `ErrorInfo` and `to_error_info` join the package root, as do
+`PageRouteInvalidError` and `PageRouteConflictError`. `test_package.py` asserts the full export
+list, so it is updated in the same change.
+
 ## Contract changes
 
 The text of an MCP failure result changes from an English sentence to a JSON object. An agent
@@ -156,12 +281,3 @@ restating it. Removing that duplication is part of the milestone, not a follow-u
 ADR-019 records that framework errors carry stable codes and that adapters read a normalized
 form. It adds to the ADR record; it supersedes nothing, because no accepted ADR decides the error
 model.
-
-## Sources
-
-- `AGENTS.md`, `docs/architecture/{tool-model,page-model,adapters,lifecycle,authoring}.md`,
-  `docs/roadmap.md`, ADR-003, ADR-007, ADR-009
-- [MCP - Tools](https://modelcontextprotocol.io/specification/2025-06-18/server/tools)
-- [Google AIP-193 - Errors](https://google.aip.dev/193)
-- [RFC 9457 - Problem Details for HTTP APIs](https://www.rfc-editor.org/rfc/rfc9457.html)
-- [gRPC - Status codes](https://grpc.io/docs/guides/status-codes/)
