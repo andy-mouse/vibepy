@@ -42,7 +42,7 @@ And:
 | a framework error carries a stable code; a retired code is never reused | `docs/architecture/errors.md`, `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md` |
 | runtime lifecycle and package lifecycle are separate; `Package -> install -> configure -> open a channel` | `docs/decisions/ADR-006-runtime-vs-package-lifecycle.md`, `docs/architecture/lifecycle.md` |
 | per-invocation resource scope is undecided and M8 owns the decision | `docs/architecture/app-model.md` |
-| entry points live in `entry_points.txt` inside `*.dist-info`; group names match `^\w+(\.\w+)*$`; a value is `importable.module:object.attr`; "consumers defining a new group should use names starting with a PyPI name owned by the consumer project, followed by `.`" | <https://packaging.python.org/en/latest/specifications/entry-points/> |
+| entry points live in `entry_points.txt` inside `*.dist-info`; group names match `^\w+(\.\w+)*$`; a value is `importable.module:object.attr`; "consumers defining a new group should use names starting with a PyPI name owned by the consumer project, followed by `.`" is advice, not a rule | <https://packaging.python.org/en/latest/specifications/entry-points/> |
 | `.name`, `.group`, `.value`, `.module`, `.attr` are read from package metadata; `.load()` "resolves and loads the value" and imports; the selectable interface exists from Python 3.10 and is not provisional | <https://docs.python.org/3/library/importlib.metadata.html> |
 | `distributions(**kwargs)` accepts a `DistributionFinder.Context` or the keyword arguments to build one; "The `path` attribute defaults to `sys.path` and is the set of import paths to be considered in the search" | <https://docs.python.org/3/library/importlib.metadata.html>, <https://github.com/python/cpython/blob/main/Doc/library/importlib.metadata.rst> |
 | `Distribution.files` returns `PackagePath` instances, does not require importing the package, and returns `None` when the installation database's file records are missing | <https://docs.python.org/3/library/importlib.metadata.html> |
@@ -154,10 +154,14 @@ todo = "todo_app.entry:app"
 
 No manifest file is invented. The group is standard metadata, written to `entry_points.txt` in
 the distribution's `*.dist-info` at build time, and pytest's `pytest11` is the same pattern in
-the same place. Group names admit no hyphen, and PyPA asks that a group name begin with a PyPI
-name the consumer owns, so `vibepy.*` presumes the `vibepy` distribution name. The framework is
-published as `vibepy-framework` today; securing `vibepy` on PyPI is an owner decision and is
-recorded as such. Nothing in this design changes if the prefix does.
+the same place.
+
+The group name claims no PyPI name. PyPA's advice to prefix a group with a name the consumer owns
+is collision avoidance, and `pytest11` shows how loosely the ecosystem follows it. This framework
+already occupies the `vibepy` import package, so an environment cannot hold both it and a
+different distribution providing `vibepy` whatever the group is called: the group name adds no
+collision surface that the import name does not already assert. Group names admit no hyphen,
+which is the only hard rule here, and `vibepy.apps` satisfies it.
 
 One group is defined. `vibepy.skills` and `vibepy.mcp_servers` are the same mechanism applied to
 other capability kinds and belong to M19; leaving them undefined costs nothing, because a group
@@ -393,7 +397,7 @@ Two ADRs are written.
 | ADR | Content |
 | --- | --- |
 | ADR-022 configuration is a declaration validated before the window opens | why configuration is a readable type on the declaration rather than a factory's private business, why the declaration is required rather than optional, why validation belongs to the window and not to the App, why the raw mapping's origin is left to the installation model, and that per-invocation resource scope is not introduced |
-| ADR-023 a package points at its App through a Python entry point | why no manifest file is invented, the PyPA group-naming rule and the `vibepy` distribution-name consequence, why inspection and loading are separated, why pluggy's in-process loading does not transfer, and why one group is defined rather than three |
+| ADR-023 a package points at its App through a Python entry point | why no manifest file is invented, why `vibepy.apps` claims no distribution name, why inspection and loading are separated, why pluggy's in-process loading does not transfer, and why one group is defined rather than three |
 
 ADR-022 closes the question `docs/architecture/app-model.md` left open: no per-invocation
 resource scope is introduced, because no milestone requires one and a request-scoped dependency
