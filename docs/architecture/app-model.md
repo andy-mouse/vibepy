@@ -99,8 +99,12 @@ Owned by AppRuntime:
 - repository instances
 - DB connection pools
 - API clients
-- shared cache
 - immutable or typed application configuration
+
+An installed App may run as several AppRuntimes, one per channel, so an application-scoped
+resource must be share-nothing. A pool, a client and configuration qualify. An authoritative
+in-memory cache, a scheduler, and a store that admits one writer do not: they belong in a
+backing service. See `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 
 ### Session scope
 
