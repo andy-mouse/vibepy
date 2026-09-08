@@ -3,10 +3,12 @@ import vibepy
 
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy.__all__ == [
+        "APP_GROUP",
         "AppConfigInvalidError",
         "AppDefinition",
         "AppDescription",
         "AppEntrypoint",
+        "AppRef",
         "ErrorCategory",
         "ErrorInfo",
         "Lifespan",
@@ -33,6 +35,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolRegistry",
         "ToolRuntime",
         "VibepyError",
+        "discover_apps",
         "page_runtime_for",
         "to_error_info",
         "tool_runtime_for",
