@@ -213,14 +213,17 @@ the invariant implementable: a Host inspects an App's environment without instal
 into its own, and without importing anything from the App's.
 
 `describe_app` loads one reference and projects it. `.load()` imports, so this is the operation
-that must run inside the App's own environment. It rejects three distinguishable failures and
+that must run inside the App's own environment. It rejects two distinguishable failures and
 succeeds otherwise, which is M9's second criterion:
 
 | Failure | Code |
 | --- | --- |
-| no entry point of that name in the searched environment | `package.app_not_found` |
 | the module does not import, or the attribute does not exist | `package.entrypoint_unloadable` |
 | the resolved object is not an `AppEntrypoint` | `package.entrypoint_invalid` |
+
+There is no third code for an App that is not there, because no operation asks for one by name:
+discovery returns what an environment declares, and an environment declaring nothing is not a
+failure. M10 introduces such a lookup if a Host needs one.
 
 The description is a value and carries no type parameters, so an unparameterized entrypoint
 never reaches the public API:
@@ -236,9 +239,11 @@ class AppDescription:
     pages: Sequence[PageDescription]
 ```
 
-`AppEntrypoint.describe()` produces it, and the loader narrows a loaded object through a
-runtime-checkable Protocol declaring that one method. `Any` and `cast` appear nowhere:
-the generic parameters stay inside the App's own module, where they are known statically.
+`AppEntrypoint.describe()` produces it, and the loader narrows the loaded object with
+`isinstance(loaded, AppEntrypoint)` — the concrete class rather than a structural Protocol, so
+an unrelated object carrying a `describe` attribute is rejected rather than called. `Any` and
+`cast` appear nowhere: the loaded value is annotated `object`, and the generic parameters stay
+inside the App's own module where they are known statically.
 
 Determinism is a property of the result, which M9's first criterion requires: references are
 ordered by entry point name, and diagnostics by the order the references were visited.
@@ -383,12 +388,11 @@ Execution, in the App's process
 
 ## Errors
 
-Four codes are added. None is retired.
+Three codes are added. None is retired.
 
 | Code | Category | Exception |
 | --- | --- | --- |
 | `config.invalid` | caller | `AppConfigInvalidError` |
-| `package.app_not_found` | caller | `AppNotFoundError` |
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
 
@@ -396,7 +400,6 @@ Four codes are added. None is retired.
 `details` name the App and the rejected field paths, so a Host can point at the fields rather
 than reproduce a sentence. The two entrypoint failures are declaration failures, raised while
 reading what a package declared, which is where `page.route_invalid` already sits.
-`package.app_not_found` is a caller failure, by the same reasoning as `tool.not_found`.
 
 No category is added. The existing three remain closed and exhaustive.
 
@@ -406,11 +409,11 @@ No category is added. The existing three remain closed and exhaustive.
 | --- | --- |
 | `tests/test_app_config.py` | new. A valid mapping reaches the lifespan as a validated model; an invalid one raises `AppConfigInvalidError` and the lifespan is never entered, proven by a flag the fixture sets on entry; `NoConfig` requires no mapping content; a `SecretStr` field does not appear in the object's representation; two windows over one definition with different configurations do not observe each other |
 | `tests/test_app_composition.py` | rewired for the new signature. Its existing claims — the window's two sides, what a Tool receives, isolation between two compositions, release ordering on failure — are unchanged and cover M8's second and third criteria |
-| `tests/test_app_package.py` | new. `discover_apps` finds an App from a `dist-info` fixture written into a temporary directory and passed as `path`, imports nothing, and orders its results; `describe_app` returns a description whose schemas match the declarations; the three failure codes are each provoked and distinguished; a distribution with no `vibepy.apps` group yields nothing |
+| `tests/test_app_package.py` | new. `discover_apps` finds an App from a `dist-info` fixture written into a temporary directory and passed as `path`, imports nothing, and orders its results; `describe_app` returns a description whose schemas match the declarations; both failure codes are provoked and distinguished, including an entry point resolving to an object that merely carries a `describe` attribute; a distribution with no `vibepy.apps` group yields nothing |
 | `tests/test_app_isolation.py` | new. The invariant is proven, not assumed: `discover_apps` over a `path` fixture leaves the fixture's module absent from `sys.modules`, so inspection imports nothing; and a description obtained through the subprocess command holds for an environment the test process never imported |
 | `tests/test_describe_command.py` | new. `python -m vibepy.describe` runs as a subprocess against an environment containing the Todo fixture and writes parseable JSON carrying the App's identity, configuration schema, Tool schemas and Page routes |
 | `tests/test_mcp_adapter.py`, `tests/test_nicegui_adapter.py`, `tests/test_dual_channel.py`, `tests/test_execution_semantics.py` | fixture rewiring only. No claim changes; the two constitutional tests keep their barrier and their divergence proof |
-| `tests/test_errors.py` | catalogue grows by four |
+| `tests/test_errors.py` | catalogue grows by three |
 | `tests/test_package.py` | `__all__` |
 | `tests/todo_fixture.py` | declares a configuration model and a lifespan that takes it; the Todo App's store path becomes configuration rather than a literal |
 
