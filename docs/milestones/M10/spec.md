@@ -36,6 +36,7 @@ Capabilities named there: list/install/remove/start/stop/status.
 | a workspace root declares `tool.uv.workspace`; every member has its own `pyproject.toml`; members depend on each other through `tool.uv.sources` | [uv workspaces](https://docs.astral.sh/uv/concepts/projects/workspaces/) |
 | splitting one package across distributions means a namespace package, and every such distribution must omit `__init__.py` | [namespace packages](https://packaging.python.org/en/latest/guides/packaging-namespace-packages/) |
 | moving a package into a subdirectory breaks installs from a repository URL unless `subdirectory=` is added | [packaging overview](https://packaging.python.org/en/latest/overview/) |
+| a core distribution and separately released extensions live in one repository, each building from its own `pyproject.toml` | [Airflow providers](https://airflow.apache.org/docs/apache-airflow-providers/), [apache/airflow#44511](https://github.com/apache/airflow/issues/44511) |
 | only a parent can observe its own children: `Popen.poll`, `wait`, `terminate`, `kill`; no documented API observes an arbitrary pid | [subprocess](https://docs.python.org/3/library/subprocess.html) |
 
 ## Problem
@@ -86,6 +87,10 @@ failure rather than managing it. Moving the framework into a subdirectory is rej
 reason the same guidance gives: installing from a repository URL then needs `subdirectory=`,
 and existing workflows break. The framework stays at the root, which is also the workspace
 root.
+
+The shape has precedent. Airflow keeps its core and its separately released providers in one
+repository, each provider a directory that builds with standard tooling from its own
+`pyproject.toml`, and discovers an installed provider rather than importing a list of them.
 
 ```text
 pyproject.toml              vibepy-framework, and [tool.uv.workspace] members
