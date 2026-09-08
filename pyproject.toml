@@ -4,9 +4,11 @@ version = "0.0.0"
 description = "Agent-native application framework exposing Tools through Web and Agent channels"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.115",
     "mcp>=2.1",
     "nicegui>=3.16",
     "pydantic>=2.9",
+    "uvicorn>=0.34",
 ]
 
 [tool.uv.workspace]

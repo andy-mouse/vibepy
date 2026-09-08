@@ -90,3 +90,24 @@ async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None
 
     with pytest.raises(OSError):
         await asyncio.open_connection("127.0.0.1", int(url.rsplit(":", 1)[1]))
+
+
+async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
+    tmp_path: Path,
+) -> None:
+    """Starting means answering, and a window that will not open never answers.
+
+    Todo declares `db_path`, so an empty configuration is refused as the window
+    opens. The Hub must report that rather than hand over a url.
+    """
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("install_app", {"app_name": "todo"})
+        started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+
+    assert isinstance(started, RunningApp)
+    assert started.url is None
+    assert started.diagnostic is not None
+    assert started.diagnostic.code == "hub.start_failed"

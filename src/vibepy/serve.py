@@ -5,21 +5,29 @@ than library calls for the same reason: the import belongs on the App's side of 
 process boundary. See `docs/architecture/packaging.md`.
 
 Composing a channel's running window is the framework's, which is why this lives
-here and not in a Hub. NiceGUI owns the server, and `app.on_startup` and
-`app.on_shutdown` are its documented lifecycle hooks, so nothing here builds an
-ASGI application or calls a server.
+here and not in a Hub.
+
+The window is the served application's own lifespan. That is what makes a window
+that cannot open stop the server: ASGI defines that a server seeing
+`lifespan.startup.failed` logs the message and exits
+(<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>). NiceGUI's own
+startup hook does not carry that meaning — an exception raised there leaves the
+server running and answering for an App whose window never opened — so the
+protocol's mechanism is used rather than the convenience one.
 """
 
 import argparse
 import json
 import logging
 import sys
-from collections.abc import Mapping, Sequence
-from contextlib import AsyncExitStack
+from collections.abc import AsyncGenerator, Mapping, Sequence
+from contextlib import asynccontextmanager
 from importlib.metadata import EntryPoint
 from typing import TypeGuard
 
-from nicegui import app, ui
+import uvicorn
+from fastapi import FastAPI
+from nicegui import ui
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from vibepy.adapters.nicegui import register_pages
@@ -68,35 +76,35 @@ def _entrypoint(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
 def _serve(
     entrypoint: AppEntrypoint[object, BaseModel], config: Mapping[str, object], port: int, /
 ) -> None:
-    """Hold the App's window open for as long as the server runs.
+    """Serve one App for as long as its window is open.
 
-    The stack is what binds acquisition to release across two hooks: it registers
-    a release only after its acquisition returned, which is the property
-    `docs/architecture/lifecycle.md` relies on.
+    The window is entered in the served application's lifespan and left when
+    that lifespan ends, so the `async with` that `docs/architecture/lifecycle.md`
+    relies on is the whole of the server's life, and a window that refuses to
+    open fails the server's startup instead of leaving it answering for nothing.
     """
-    stack = AsyncExitStack()
 
-    async def opened() -> None:
-        pages = await stack.enter_async_context(
-            page_runtime_for(entrypoint.definition, entrypoint.lifespan, config=config)
-        )
-        register_pages(entrypoint.definition, pages)
+    @asynccontextmanager
+    async def window(_served: FastAPI) -> AsyncGenerator[None]:
+        async with page_runtime_for(
+            entrypoint.definition, entrypoint.lifespan, config=config
+        ) as pages:
+            register_pages(entrypoint.definition, pages)
+            yield
 
-    async def closed() -> None:
-        await stack.aclose()
-
-    app.on_startup(opened)  # pyright: ignore[reportUnknownMemberType]
-    app.on_shutdown(closed)  # pyright: ignore[reportUnknownMemberType]
-    # `ui.run` takes `**kwargs: Any`, so its type is partially unknown to a strict
-    # checker. Reload is off because a reloading child never calls `ui.run` again
-    # under `python -m`, and the browser is not this process's to open.
-    ui.run(  # pyright: ignore[reportUnknownMemberType]
-        host="127.0.0.1", port=port, reload=False, show=False
-    )
+    served = FastAPI(lifespan=window)
+    ui.run_with(served)  # pyright: ignore[reportUnknownMemberType]
+    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning")
 
 
 def main(argv: Sequence[str], /) -> int:
-    """Read configuration from standard input and serve one App."""
+    """Read configuration from standard input and serve one App.
+
+    Exits 1 for a failure of the command itself — an App this environment does
+    not declare, a declaration that will not load, configuration that is not a
+    JSON object. A window the App refuses to open fails the server's startup,
+    and the server's own exit code says so.
+    """
     parser = argparse.ArgumentParser(prog="vibepy.serve")
     parser.add_argument("app_name")
     parser.add_argument("--port", type=int, required=True)

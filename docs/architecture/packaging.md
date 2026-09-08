@@ -93,9 +93,15 @@ python -m vibepy.serve <app-name> --port <n>
 ```
 
 Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
-is entered inside the Web technology's own startup hook and left in its shutdown hook, and one
-JSON object of configuration is read from standard input. A configuration therefore reaches a
-running App without a file, an environment variable or an argument vector.
+is the served application's own lifespan, and one JSON object of configuration is read from
+standard input. A configuration therefore reaches a running App without a file, an environment
+variable or an argument vector.
+
+The window is the lifespan and not a startup hook because ASGI already decides what a window
+that cannot open means: a server that sees `lifespan.startup.failed` logs the message and exits
+(<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>). An App whose configuration its
+window refuses therefore has no server, rather than a server answering for an App that never
+opened.
 
 Both commands exist for one reason. Reading a declaration and running one both import, and an
 import belongs on the App's side of a process boundary.

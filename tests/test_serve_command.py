@@ -74,3 +74,23 @@ def test_an_unknown_app_name_fails_with_a_message() -> None:
     )
     assert finished.returncode == 1
     assert "absent" in finished.stderr.decode()
+
+
+def test_a_window_that_will_not_open_stops_the_server() -> None:
+    """A refused configuration is a server that does not serve.
+
+    The App's window is the served application's lifespan, and ASGI defines that
+    a server seeing `lifespan.startup.failed` logs the message and exits. So the
+    command ends rather than answering for an App that never opened.
+    """
+    finished = subprocess.run(
+        [sys.executable, "-m", "vibepy.serve", "todo-app", "--port", str(free_port())],
+        input=b"{}",
+        capture_output=True,
+        check=False,
+        env=child_environment(),
+    )
+
+    assert finished.returncode != 0
+    written = finished.stderr.decode()
+    assert "config.invalid" in written or "AppConfigInvalidError" in written

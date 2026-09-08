@@ -95,26 +95,45 @@ class Processes:
     async def _wait_until_answering(
         self, process: asyncio.subprocess.Process, port: int, /
     ) -> None:
-        """Return once the child answers on its port, or say why it never will.
+        """Return once the child answers a request, or say why it never will.
 
-        Starting means answering: a caller that receives a url can use it, and a
-        child that exits — a port taken between the choice and the bind, a
-        configuration its window rejected — is reported instead of handed over.
+        A request rather than a connection: a server binds its socket before it
+        opens the App's window, so an accepted connection proves only that the
+        port is held. An answer proves the window opened, which is what makes a
+        configuration the window refuses a failed start rather than a url that
+        never works. Any status counts — the Hub asks for a path no App has to
+        declare.
         """
-        deadline = asyncio.get_running_loop().time() + READY_TIMEOUT
-        while asyncio.get_running_loop().time() < deadline:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + READY_TIMEOUT
+        while loop.time() < deadline:
             if process.returncode is not None:
                 raise StartFailed(f"the App exited with {process.returncode}")
-            try:
-                reader, writer = await asyncio.open_connection("127.0.0.1", port)
-            except OSError:
-                await asyncio.sleep(READY_INTERVAL)
-                continue
-            writer.close()
-            await writer.wait_closed()
-            del reader
-            return
+            if await self._answers(port):
+                return
+            await asyncio.sleep(READY_INTERVAL)
         raise StartFailed(f"the App did not answer on port {port} within {READY_TIMEOUT:.0f}s")
+
+    @staticmethod
+    async def _answers(port: int, /) -> bool:
+        """Whether the server on this port answers an HTTP request at all."""
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        except OSError:
+            return False
+        try:
+            writer.write(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            await writer.drain()
+            answered = await asyncio.wait_for(reader.read(12), timeout=READY_TIMEOUT)
+        except (OSError, TimeoutError):
+            return False
+        finally:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except OSError:
+                pass
+        return answered.startswith(b"HTTP/")
 
     async def start(
         self,

@@ -1711,9 +1711,11 @@ name = "vibepy-framework"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "mcp" },
     { name = "nicegui" },
     { name = "pydantic" },
+    { name = "uvicorn" },
 ]
 
 [package.dev-dependencies]
@@ -1731,9 +1733,11 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.115" },
     { name = "mcp", specifier = ">=2.1" },
     { name = "nicegui", specifier = ">=3.16" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "uvicorn", specifier = ">=0.34" },
 ]
 
 [package.metadata.requires-dev]
