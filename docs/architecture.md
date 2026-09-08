@@ -93,6 +93,7 @@ The app owns:
 - `docs/architecture/page-model.md`
 - `docs/architecture/runtime.md`
 - `docs/architecture/lifecycle.md`
+- `docs/architecture/errors.md`
 - `docs/architecture/adapters.md`
 - `docs/architecture/authoring.md`
 - `docs/roadmap.md`
