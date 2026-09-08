@@ -95,3 +95,17 @@ class HeldConfig(BaseModel):
     values: dict[str, object]
     required_secrets: list[str]
     diagnostic: Diagnostic | None = None
+
+
+class StartRequest(BaseModel):
+    """An App to start, with the secret values its declaration requires."""
+
+    app_name: str
+    secrets: dict[str, object] = {}
+
+
+class RunningApp(BaseModel):
+    app_name: str
+    url: str | None = None
+    state: str
+    diagnostic: Diagnostic | None = None

@@ -13,6 +13,7 @@ from pydantic import BaseModel
 
 from vibepy.app import AppDefinition, AppEntrypoint
 from vibepy_hub.internals import HubDeps
+from vibepy_hub.processes import Processes
 from vibepy_hub.tools import HUB_TOOLS
 
 logger = logging.getLogger(__name__)
@@ -30,9 +31,17 @@ class HubConfig(BaseModel):
 
 @asynccontextmanager
 async def hub_lifespan(config: HubConfig) -> AsyncGenerator[HubDeps]:
-    """The Hub's resource for the life of one window."""
+    """The Hub's resource for the life of one window.
+
+    Acquisition is bound to release, so a window that closes leaves no child
+    behind. See `docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
+    """
     config.root.mkdir(parents=True, exist_ok=True)
-    yield HubDeps(root=config.root)
+    processes = Processes()
+    try:
+        yield HubDeps(root=config.root, processes=processes)
+    finally:
+        await processes.aclose()
 
 
 HUB_APP: AppDefinition[HubDeps, HubConfig] = AppDefinition(

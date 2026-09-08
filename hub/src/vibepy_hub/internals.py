@@ -8,9 +8,12 @@ is why calling `uv`, reading a folder and holding a child process are not Tools.
 from dataclasses import dataclass
 from pathlib import Path
 
+from vibepy_hub.processes import Processes
+
 
 @dataclass
 class HubDeps:
     """What one Hub window owns."""
 
     root: Path
+    processes: Processes

@@ -19,6 +19,7 @@ from vibepy_hub.installer import (
     describe,
     environment,
     install,
+    interpreter,
     read_facts,
     site_packages,
     write_facts,
@@ -35,9 +36,12 @@ from vibepy_hub.models import (
     Empty,
     HeldConfig,
     Installation,
+    RunningApp,
     SourceListing,
     SourcePath,
+    StartRequest,
 )
+from vibepy_hub.processes import StartFailed
 from vibepy_hub.sources import candidates
 from vibepy_hub.state import HubState, read_state, write_state
 
@@ -116,11 +120,13 @@ def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
         declared = discover_apps(path=[site_packages(env)])
         found = next((ref for ref in declared if ref.app_name == env.name), None)
         facts = read_facts(env)
+        port = deps.processes.running(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
             name=facts.name if facts else None,
             version=found.distribution_version if found else None,
-            state="installed",
+            state="running" if port is not None else "installed",
+            url=f"http://127.0.0.1:{port}" if port is not None else None,
             configured=env.name in held,
             has_pages=bool(facts and facts.has_pages),
         )
@@ -248,9 +254,58 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
     return HeldConfig(app_name=payload.app_name, values=kept, required_secrets=list(secrets))
 
 
+def _refusal(app_name: str, code: str, message: str, /) -> RunningApp:
+    """An App that will not start or stop, and why."""
+    return RunningApp(
+        app_name=app_name,
+        state="installed",
+        diagnostic=Diagnostic(code=code, message=message, details={"app_name": app_name}),
+    )
+
+
+async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> RunningApp:
+    """Open one installed App's Web channel on a port of its own."""
+    deps = ctx.dependencies
+    facts = _facts(deps, payload.app_name)
+    if facts is None:
+        return _refusal(
+            payload.app_name, "hub.not_installed", f"{payload.app_name!r} is not installed"
+        )
+    if not facts.has_pages:
+        return _refusal(
+            payload.app_name,
+            "hub.no_web_channel",
+            f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
+        )
+    if deps.processes.running(payload.app_name) is not None:
+        return _refusal(
+            payload.app_name, "hub.already_running", f"{payload.app_name!r} is already running"
+        )
+    held = read_state(deps.root).config.get(payload.app_name, {})
+    try:
+        port = await deps.processes.start(
+            app_name=payload.app_name,
+            interpreter=interpreter(environment(deps.root, payload.app_name)),
+            config={**held, **payload.secrets},
+        )
+    except StartFailed as failure:
+        return _refusal(payload.app_name, "hub.start_failed", str(failure))
+    return RunningApp(app_name=payload.app_name, url=f"http://127.0.0.1:{port}", state="running")
+
+
+async def stop_app(ctx: ToolContext[HubDeps], payload: AppName) -> RunningApp:
+    """Stop an App this window started."""
+    if not await ctx.dependencies.processes.stop(payload.app_name):
+        return _refusal(
+            payload.app_name, "hub.not_running", f"{payload.app_name!r} is not running here"
+        )
+    return RunningApp(app_name=payload.app_name, state="installed")
+
+
 async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     """Delete an App's environment, leaving the data it wrote elsewhere."""
     deps = ctx.dependencies
+    await deps.processes.stop(payload.app_name)
     shutil.rmtree(environment(deps.root, payload.app_name), ignore_errors=True)
     state = read_state(deps.root)
     write_state(
@@ -310,6 +365,24 @@ HUB_TOOLS: Sequence[Tool[HubDeps]] = [
             output_model=HeldConfig,
         ),
         handler=configure_app,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="start_app",
+            description="Open an installed App's Web channel",
+            input_model=StartRequest,
+            output_model=RunningApp,
+        ),
+        handler=start_app,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="stop_app",
+            description="Stop an App this Hub started",
+            input_model=AppName,
+            output_model=RunningApp,
+        ),
+        handler=stop_app,
     ),
     Tool(
         definition=ToolDefinition(
