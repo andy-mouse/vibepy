@@ -10,7 +10,6 @@ from contextlib import asynccontextmanager
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition, AppRuntime
 from vibepy.page import Page, PageContext, PageDefinition
 from vibepy.plugin import PluginDefinition
 from vibepy.tool import Tool, ToolContext, ToolDefinition
@@ -85,43 +84,6 @@ async def todos_page(ctx: PageContext) -> None:
     ui.button("Add", on_click=add)
     assert isinstance(listing, TodoList)
     rendered(listing)
-
-
-def build_todo_app() -> AppRuntime[TodoStore]:
-    return AppRuntime(
-        AppDefinition(
-            plugin_id=PLUGIN_ID,
-            name="Todo",
-            version="0.0.0",
-            lifespan=todo_lifespan,
-            tools=[
-                Tool(
-                    definition=ToolDefinition(
-                        name="create_todo",
-                        description="Create a todo",
-                        input_model=CreateTodoInput,
-                        output_model=Todo,
-                    ),
-                    handler=create_todo,
-                ),
-                Tool(
-                    definition=ToolDefinition(
-                        name="list_todos",
-                        description="List every todo",
-                        input_model=EmptyInput,
-                        output_model=TodoList,
-                    ),
-                    handler=list_todos,
-                ),
-            ],
-            pages=[
-                Page(
-                    definition=PageDefinition(name="todos", route="/todos", title="Todos"),
-                    handler=todos_page,
-                )
-            ],
-        )
-    )
 
 
 TODO_PLUGIN: PluginDefinition[TodoStore] = PluginDefinition(

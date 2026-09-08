@@ -1,42 +1,45 @@
 """The Web routes a human reaches, and the single render path behind them.
 
-Projecting PageDefinitions into routes is the only work this module does
-itself. PageContext creation belongs to PageRuntime, and the ToolInvoker a Page
-receives is already backed by ToolRuntime.
+Route validation reads the declaration; the builders close over the PageRuntime
+the caller's window yielded. Registration therefore happens inside that window,
+and a builder holds its runtime for exactly as long as the window lasts.
 
-Registering routes is not running a server. Startup belongs to the runtime
-lifecycle.
+NiceGUI documents no lifespan and mounts as a sub-application, and Starlette does
+not document lifespan state reaching one, so nothing here reads request state. A
+closure is a language guarantee rather than a library one. See
+`docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
+
+Registering routes is not running a server.
 """
 
 from collections.abc import Awaitable, Callable
 
 from nicegui import ui
 
-from vibepy.app.runtime import AppRuntime
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page.runtime import PageRuntime
+from vibepy.plugin.model import PluginDefinition
 
 
-def register_pages[DepsT](app: AppRuntime[DepsT]) -> None:
-    """Project every declared Page of one App onto a NiceGUI route.
+def register_pages[DepsT](definition: PluginDefinition[DepsT], pages: PageRuntime, /) -> None:
+    """Project every declared Page of one Plugin onto a NiceGUI route.
 
-    Every declaration is validated before any route is registered, so a
-    rejected App leaves no half-registered application behind.
+    Every declaration is validated before any route is registered, so a rejected
+    Plugin leaves no half-registered application behind.
     """
-    definitions = app.page_registry.definitions()
     claimed: dict[str, str] = {}
-    for definition in definitions:
-        if not definition.route.startswith("/"):
-            raise PageRouteInvalidError(definition.name, definition.route)
-        owner = claimed.get(definition.route)
+    for page in definition.pages:
+        declared = page.definition
+        if not declared.route.startswith("/"):
+            raise PageRouteInvalidError(declared.name, declared.route)
+        owner = claimed.get(declared.route)
         if owner is not None:
-            raise PageRouteConflictError(definition.route, owner, definition.name)
-        claimed[definition.route] = definition.name
+            raise PageRouteConflictError(declared.route, owner, declared.name)
+        claimed[declared.route] = declared.name
 
-    for definition in definitions:
-        ui.page(definition.route, title=definition.title)(
-            _builder(app.page_runtime, definition.name)
-        )
+    for page in definition.pages:
+        declared = page.definition
+        ui.page(declared.route, title=declared.title)(_builder(pages, declared.name))
 
 
 def _builder(runtime: PageRuntime, name: str) -> Callable[[], Awaitable[None]]:

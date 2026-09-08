@@ -11,11 +11,11 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
 from pydantic import BaseModel, TypeAdapter
 
-from tests.lifecycle import no_dependencies, started
+from tests.lifecycle import no_dependencies
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
-from vibepy.app import AppDefinition, AppRuntime
 from vibepy.errors import UNHANDLED_CODE, ErrorCategory
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy.plugin import PluginDefinition
+from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 
 class CreateTodoInput(BaseModel):
@@ -76,7 +76,7 @@ def test_a_nested_output_model_keeps_its_definitions() -> None:
     assert "$defs" in projected.output_schema
 
 
-APP_ID = "test-app"
+PLUGIN_ID = "test-app"
 
 
 class TodoFixture:
@@ -104,21 +104,18 @@ class TodoFixture:
 
 
 @asynccontextmanager
-async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[None]]:
-    """One started App with no application-scoped resource: these fixtures hold their own."""
-    async with started(
-        AppRuntime(
-            AppDefinition(
-                plugin_id=APP_ID,
-                name="Test",
-                version="0.0.0",
-                lifespan=no_dependencies,
-                tools=tools,
-                pages=[],
-            )
-        )
-    ) as app:
-        yield build_mcp_server(app)
+async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[ToolRuntime[None]]]:
+    """One Plugin with no application-scoped resource: these fixtures hold their own."""
+    yield build_mcp_server(
+        PluginDefinition(
+            plugin_id=PLUGIN_ID,
+            name="Test",
+            version="0.0.0",
+            tools=tools,
+            pages=[],
+        ),
+        no_dependencies,
+    )
 
 
 async def test_framework_tools_appear_in_mcp_discovery() -> None:
@@ -159,8 +156,8 @@ async def test_the_invocation_context_is_created_by_the_tool_runtime() -> None:
         await client.call_tool("create_todo", {"title": "eggs"})
 
     first, second = fixture.contexts
-    assert first.plugin_id == APP_ID
-    assert second.plugin_id == APP_ID
+    assert first.plugin_id == PLUGIN_ID
+    assert second.plugin_id == PLUGIN_ID
     assert first.invocation_id != ""
     assert first.invocation_id != second.invocation_id
 
@@ -315,7 +312,7 @@ def test_the_core_packages_do_not_import_mcp() -> None:
     modules = (
         sorted((package / "tool").glob("*.py"))
         + sorted((package / "page").glob("*.py"))
-        + sorted((package / "app").glob("*.py"))
+        + sorted((package / "plugin").glob("*.py"))
     )
     assert modules != []
 

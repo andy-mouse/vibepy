@@ -4,6 +4,9 @@ The adapter projects Tool declarations, exposes them for discovery, translates
 arguments into a ToolRuntime invocation and translates results back. It owns no
 business logic and creates no invocation context; ToolRuntime does that.
 
+Static state is read from the declaration and dynamic state from the SDK's own
+request context, so the adapter holds no running state of its own.
+
 Building a Server is not running one. In stdio the agent platform owns the
 process, so the entrypoint belongs to package metadata rather than here.
 """
@@ -18,26 +21,17 @@ from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
 
 from vibepy.adapters.mcp.projection import to_mcp_tool
-from vibepy.app.runtime import AppRuntime
 from vibepy.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     to_error_info,
 )
+from vibepy.plugin.composition import Lifespan, tool_registry_for, tool_runtime_for
+from vibepy.plugin.model import PluginDefinition
+from vibepy.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def _no_lifespan(server: Server[None]) -> AsyncGenerator[None]:
-    """Create no app-scoped state; AppRuntime owns that.
-
-    Declared only so the server's lifespan result type is ``None``. The SDK's
-    default lifespan is typed as yielding ``dict[str, Any]``, which would put
-    ``Any`` into this module's public return type.
-    """
-    yield None
 
 
 def _payload(error: Exception) -> dict[str, object]:
@@ -68,29 +62,41 @@ def _failure(error: Exception) -> types.CallToolResult:
     )
 
 
-def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
-    """Build the MCP projection of one App's Tools.
+def build_mcp_server[DepsT](
+    definition: PluginDefinition[DepsT], lifespan: Lifespan[DepsT], /
+) -> Server[ToolRuntime[DepsT]]:
+    """Build the MCP projection of one Plugin's Tools.
 
-    Constructed from the AppRuntime rather than from a registry and a runtime, so
-    the Agent channel provably addresses the same running App as the Web channel.
-    The registry answers what Tools exist, which is enumeration; ToolRuntime runs
-    them, which is the framework's only invocation path.
+    The registry this enumerates for discovery, and the server's name and version,
+    are read from the declaration. The ToolRuntime a call goes through is read
+    from the request context, which carries whatever the lifespan yielded.
+
+    The SDK enters that lifespan inside ``run()``. Over stdio the client launches
+    one process per server, so that window is the process. See
+    `docs/decisions/ADR-021-the-channel-host-owns-the-runtime-lifecycle.md`.
     """
-    registry = app.tool_registry
-    runtime = app.tool_runtime
+    registry = tool_registry_for(definition)
+
+    @asynccontextmanager
+    async def server_lifespan(
+        server: Server[ToolRuntime[DepsT]],
+    ) -> AsyncGenerator[ToolRuntime[DepsT]]:
+        async with tool_runtime_for(definition, lifespan) as runtime:
+            yield runtime
 
     async def list_tools(
-        ctx: ServerRequestContext[None], params: types.PaginatedRequestParams | None
+        ctx: ServerRequestContext[ToolRuntime[DepsT]],
+        params: types.PaginatedRequestParams | None,
     ) -> types.ListToolsResult:
         return types.ListToolsResult(
-            tools=[to_mcp_tool(definition) for definition in registry.definitions()]
+            tools=[to_mcp_tool(declared) for declared in registry.definitions()]
         )
 
     async def call_tool(
-        ctx: ServerRequestContext[None], params: types.CallToolRequestParams
+        ctx: ServerRequestContext[ToolRuntime[DepsT]], params: types.CallToolRequestParams
     ) -> types.CallToolResult:
         try:
-            result = await runtime.invoke(params.name, params.arguments or {})
+            result = await ctx.lifespan_context.invoke(params.name, params.arguments or {})
         except ToolNotFoundError as error:
             raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
         except ToolInputValidationError as error:
@@ -98,7 +104,7 @@ def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
         except ToolOutputValidationError as error:
             logger.error("Tool %r returned output its own model rejected", params.name)
             return _failure(error)
-        # Broad on purpose: an app defect must not surface as a protocol error.
+        # Broad on purpose: a plugin defect must not surface as a protocol error.
         except Exception as error:
             logger.exception("Tool %r raised", params.name)
             return _failure(error)
@@ -109,9 +115,9 @@ def build_mcp_server[DepsT](app: AppRuntime[DepsT]) -> Server[None]:
         )
 
     return Server(
-        app.definition.plugin_id,
-        version=app.definition.version,
-        lifespan=_no_lifespan,
+        definition.plugin_id,
+        version=definition.version,
+        lifespan=server_lifespan,
         on_list_tools=list_tools,
         on_call_tool=call_tool,
     )
