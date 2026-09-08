@@ -65,9 +65,9 @@ class Tool[DepsT]:
 class ToolRuntime[DepsT]:
     """Resolves a Tool by name, creates its ToolContext, and invokes it.
 
-    ``dependencies`` is the application-scoped resource AppRuntime owns. The
-    runtime holds it and puts it into every ToolContext it creates, so a channel
-    never constructs a context and never sees AppRuntime.
+    ``dependencies`` is the application-scoped resource the channel's window
+    acquired. The runtime holds it and puts it into every ToolContext it creates,
+    so a channel never constructs a context.
 
     Concurrent invocations are permitted. Nothing here serializes them.
     """

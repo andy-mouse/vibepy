@@ -23,11 +23,14 @@ code on the class and maps its category in `vibepy/errors.py`.
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
-| `lifecycle.transition_forbidden` | lifecycle | `AppRuntimeTransitionError` |
-| `lifecycle.not_running` | lifecycle | `AppRuntimeNotRunningError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.
+
+Two codes are retired and are never reused: `lifecycle.transition_forbidden` and
+`lifecycle.not_running`, whose state machine no longer exists. The `lifecycle` category is
+retired with them, because no code maps to it. See
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 ## Categories
 
@@ -38,7 +41,6 @@ it to learn whether a different call could succeed.
 | --- | --- |
 | `caller` | the call itself was wrong; a different call may succeed |
 | `execution` | the call was well formed and running it failed; the same call fails again |
-| `lifecycle` | the App is not in a state that permits the call |
 | `declaration` | the App declared something the framework rejects, raised at registration |
 
 The set is closed and is an enum, so a branch over it ends with `assert_never` and a category
@@ -59,7 +61,8 @@ Were each adapter to classify, the channels could disagree about the same failur
 ## What the framework does not do
 
 Nothing is translated. An exception propagates to the caller as raised, and a handler's own
-exception propagates unchanged. Normalization is not wrapping: `to_error_info` is called where
+exception propagates unchanged. A lifespan that fails propagates to its host, which the host's
+own contract already covers. Normalization is not wrapping: `to_error_info` is called where
 a channel must render an answer, and nowhere else.
 
 ## What each channel does
@@ -78,3 +81,4 @@ A client ignores payload members it does not recognize, so a later milestone may
 ## Related
 
 - `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md`
+- `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`

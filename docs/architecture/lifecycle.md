@@ -4,78 +4,52 @@
 
 Runtime lifecycle is distinct from package installation lifecycle.
 
-AppRuntime states:
+The framework owns no runtime lifecycle object and no lifecycle state. A channel's runtime exists
+for the duration of an `async with` block and cannot be reached outside it, so there is no state
+in which an App is constructed but not running, and no transition to validate. See
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
-```text
-CREATED -> STARTING -> RUNNING -> STOPPING -> STOPPED
-```
-
-STOPPED is terminal. An unwound runtime holds no resource to re-enter, so a restart is a new
-AppRuntime.
-
-`AppRuntime.state` reports the current state. `start()` and `stop()` are the only transitions,
-and a transition the current state forbids raises rather than being ignored. The move into
-STARTING and STOPPING precedes the first await, so concurrent calls need no lock: the second
-caller observes a state that forbids the transition.
-
-The framework owns state transition validation and cleanup behavior.
-
-Framework errors are `AppRuntimeTransitionError`, raised when the current state forbids the
-transition, and `AppRuntimeNotRunningError`, raised when a runtime that exists only while
-RUNNING is reached outside that window. They are distinct because they are distinct failures:
-one is a caller driving the lifecycle wrongly, the other is a caller using the App outside its
-running window. `docs/architecture/errors.md` carries their codes.
+Each channel opens its own window, and neither depends on the other. The Agent channel's window
+is opened by the MCP SDK, which enters the lifespan inside `run()`; over stdio the client launches
+one server process, so that window is the process. The Web channel's window is opened by whatever
+entrypoint the Hub runs. See
+`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 
 ## The lifespan
 
-An App declares its application-scoped resource as a factory returning an async context
-manager. What precedes the `yield` runs while the runtime is STARTING; what follows runs while
-it is STOPPING. `docs/architecture/app-model.md` carries the field.
+An App's application-scoped resource is declared as a factory returning an async context
+manager, supplied to a channel at composition time rather than inside the declaration. What
+precedes the `yield` runs as the window opens; what follows runs as it closes.
+`docs/architecture/app-model.md` carries the signatures.
 
-There are no separate start and stop hooks. Binding acquisition to release is what lets the
-framework release a resource whose type it does not know. See
+There are no separate start and stop hooks. Binding acquisition to release is what lets a channel
+release a resource whose type it does not know. See
 `docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
-
-## Startup
-
-1. validate the state transition
-2. enter the lifespan and build the runtimes over what it yields
-3. enter RUNNING
-
-Channel adapters are not started. `docs/architecture/adapters.md` describes what each adapter
-does instead. Each channel of an installed App runs in its own process, so a runtime the Hub
-started serves the Web channel and the Agent channel process is launched by its MCP client. See
-`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
-
-## Shutdown
-
-1. validate the state transition
-2. unwind what startup acquired, in reverse
-3. enter STOPPED
 
 ## Cleanup
 
-Startup is a stack and shutdown pops it. Cleanup unwinds the steps that completed, in reverse;
-a step that did not complete has nothing to unwind. An acquisition that fails is responsible
-for leaving nothing behind, which is the contract `async with` already places on `__aenter__`.
+Cleanup is the language's, not the framework's. Entering a window is a stack and leaving it pops
+that stack: `async with` places an acquisition outside its own `try`, so an acquisition that
+raises never reaches its release and is itself responsible for leaving nothing behind, and an
+`AsyncExitStack` registers a release only after its acquisition returns.
 
-| Failure | Unwound | Final state |
-| --- | --- | --- |
-| entering the lifespan raises | nothing was acquired | STOPPED |
-| a resource inside the lifespan fails after an earlier one was acquired | the lifespan releases the earlier one | STOPPED |
-| the lifespan raises on exit | nothing further is owned | STOPPED |
+| Failure | Unwound |
+| --- | --- |
+| entering the lifespan raises | nothing was acquired |
+| a resource inside the lifespan fails after an earlier one was acquired | the lifespan releases the earlier one |
+| the lifespan raises on exit | nothing further is owned |
 
-The error reaches the caller of `start()` or `stop()` in every row. The framework does not
-swallow it, and `state` is accurate when the caller sees it. A runtime left in STARTING or
-STOPPING is one a control plane could never finish cleaning up.
+The error reaches the caller in every row. The framework neither swallows it nor classifies it: a
+failing lifespan is the host's to report, and the host's own contract already covers that.
 
 ## Package lifecycle
 
 Package lifecycle is a later layer:
 
 ```text
-Package -> install -> configure -> start Runtime
+Package -> install -> configure -> open a channel
 ```
 
-Operations such as install, upgrade, uninstall, and version migration belong to the
-package/Hub control plane, not AppRuntime.
+Operations such as install, upgrade, uninstall, and version migration belong to the package/Hub
+control plane. The Hub also owns the Web channel's window, which is what its start, stop and
+status describe. See `docs/decisions/ADR-006-runtime-vs-package-lifecycle.md`.

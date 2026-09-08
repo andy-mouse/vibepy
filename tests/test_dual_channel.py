@@ -1,28 +1,42 @@
 """The dual-channel contract from docs/architecture/runtime.md.
 
-Both channels converge on one ToolRuntime, so neither keeps a backend of its
-own. This test is constitutional: it stays for the life of the project.
+Both channels reach one Tool implementation over one resource, so neither keeps
+a backend of its own. This test is constitutional: it stays for the life of the
+project.
+
+What it does not claim is that a deployed App shares one resource across its
+channels. ADR-017 puts each channel in its own process, so sharing is a property
+of the composition an entrypoint or a test arranges, never a framework
+guarantee. Here one lifespan is composed into both channels precisely so that a
+private backend on either side would show up as a divergence.
 
 It does not assert that every Tool belongs on every channel. Deciding that a
 Tool is hidden from a channel is M14.
 """
 
 import json
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from mcp.client import Client
-from mcp.server import Server
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from tests.lifecycle import started
-from tests.todo_fixture import TodoList, TodoStore, build_todo_app
+from tests.todo_fixture import TODO_APP, TodoList, TodoStore
 from vibepy.adapters.mcp import build_mcp_server
 from vibepy.adapters.nicegui import register_pages
-from vibepy.app import AppRuntime
+from vibepy.app import Lifespan, page_runtime_for
 
 
-def build_server(app_under_test: AppRuntime[TodoStore]) -> Server[None]:
-    return build_mcp_server(app_under_test)
+def one_store() -> Lifespan[TodoStore]:
+    """One resource composed into both channels, so a private backend shows."""
+    store = TodoStore()
+
+    @asynccontextmanager
+    async def lifespan() -> AsyncGenerator[TodoStore]:
+        yield store
+
+    return lifespan
 
 
 def titles(result: object) -> list[str]:
@@ -34,11 +48,13 @@ def titles(result: object) -> list[str]:
     return [todo.title for todo in TodoList.model_validate(result).todos]
 
 
-async def test_both_channels_share_one_backend_state(user: User) -> None:
-    async with started(build_todo_app()) as app_under_test:
-        register_pages(app_under_test)
+async def test_both_channels_reach_one_backend(user: User) -> None:
+    lifespan = one_store()
 
-        async with Client(build_server(app_under_test)) as agent:
+    async with page_runtime_for(TODO_APP, lifespan) as pages:
+        register_pages(TODO_APP, pages)
+
+        async with Client(build_mcp_server(TODO_APP, lifespan)) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")

@@ -36,4 +36,3 @@ answer.
   walks every subclass enforces both
 - one classification exists for all channels, so the Web, Agent and any future adapter cannot
   disagree about the same failure
-- a code is permanent: it is never reused for a different failure and never redefined

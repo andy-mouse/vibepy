@@ -2,21 +2,16 @@
 
 ## Definition
 
-`App` is the top-level unit of application definition, packaging, and runtime composition.
-
-The initial core should distinguish at least:
-
-```text
-AppDefinition -> AppRuntime
-```
-
-A future distribution layer may introduce:
+An App is the unit of packaging and declaration. It is what a Hub installs, removes and
+updates, and what a channel is opened over. It is not a unit of execution: ADR-017 puts each
+channel of an installed App in its own operating-system process, so what runs is a channel.
 
 ```text
-AppPackage -> AppInstallation -> AppRuntime
+AppDefinition + lifespan -> a channel's running window
 ```
 
-Do not introduce `AppInstallation` until packaging/Hub work requires it.
+A future distribution layer may introduce a package and an installation above the definition.
+Do not introduce either until packaging or Hub work requires it.
 
 ## AppDefinition
 
@@ -29,82 +24,75 @@ class AppDefinition[DepsT]:
     app_id: str
     name: str
     version: str
-    lifespan: Callable[[], AbstractAsyncContextManager[DepsT]]
     tools: Sequence[Tool[DepsT]]
     pages: Sequence[Page]
 ```
 
-`lifespan` is a factory returning an async context manager, not a live one. A definition
-holding a live resource would not be a declaration, and one definition would yield runtimes
-that shared state. What precedes the `yield` runs at startup and what follows runs at
-shutdown; `docs/architecture/lifecycle.md` owns those boundaries.
+`DepsT` is the app's own type for its application-scoped resource. The definition declares
+that its Tools require one of that type; it does not declare where one comes from. An App whose
+Tools need no resource declares `AppDefinition[None]`; no default is provided, because the
+framework does not guess that an App is stateless.
 
-`DepsT` is the app's own type for its application-scoped resource. An App that has none
-declares `AppDefinition[None]` with a lifespan yielding `None`; no default is provided,
-because the framework does not guess that an App is stateless.
+A definition contains no live connections, no request state, no UI sessions and no running
+adapters, and no factory for any of them. It is a value, so a later milestone can read it without
+running it. See `docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.md`.
 
-An AppDefinition does not contain live connections, request state, UI sessions, or running
-adapters. Because it is a value rather than an assembly procedure, later milestones can read
-it without running the App.
+A future version may add an optional config model and a statement of what the App requires of
+its host (M8).
 
-A future version may add an optional config model (M8).
+## The running window
 
-## AppRuntime
-
-`AppRuntime` is the executable instance of an AppDefinition.
+A channel obtains its runtime from an async context manager that pairs a definition with a
+lifespan. The window is the block; there is no object for an App that is not running, and
+therefore no state to inspect and no error to raise for reaching one.
 
 ```python
-class AppRuntime[DepsT]:
-    def __init__(self, definition: AppDefinition[DepsT]) -> None: ...
+type Lifespan[DepsT] = Callable[[], AbstractAsyncContextManager[DepsT]]
 
-    @property
-    def state(self) -> AppRuntimeState: ...
+def tool_runtime_for[DepsT](
+    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
+) -> AbstractAsyncContextManager[ToolRuntime[DepsT]]: ...
 
-    async def start(self) -> None: ...
-    async def stop(self) -> None: ...
+def page_runtime_for[DepsT](
+    definition: AppDefinition[DepsT], lifespan: Lifespan[DepsT], /
+) -> AbstractAsyncContextManager[PageRuntime]: ...
 ```
 
-The constructor fills a ToolRegistry and a PageRegistry from the declarations and nothing
-else; it acquires no resource. `start()` enters the lifespan and builds a ToolRuntime and a
-PageRuntime over the value it yields. Two AppRuntimes built from one AppDefinition are
-isolated by default: each enters its own lifespan.
+Each yields the one runtime its channel needs. Registries are built from declarations alone, so
+they are made before the resource is acquired. Two windows over one definition are isolated by
+default: each enters its own lifespan.
 
-It owns application-scoped runtime state:
+The resource itself is never exposed. A Tool handler receives it through its ToolContext, and
+nothing else needs it. `docs/architecture/lifecycle.md` owns the boundaries of the window, and
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md` records why the framework
+owns no lifecycle of its own.
 
-- ToolRegistry
-- ToolRuntime
-- the application-scoped resource
-- PageRegistry and PageRuntime
-- typed configuration, when M8 introduces it
-- lifecycle state
+## The composition root
 
-`definition`, `tool_registry` and `page_registry` are readable at any time: they are built
-from declarations. `tool_runtime` and `page_runtime` exist only while the App is RUNNING,
-because they are built over the resource, and reaching them outside that window raises. The
-resource itself is not exposed: a Tool handler receives it through its ToolContext, and
-nothing else needs it.
+A definition and a lifespan meet in an entrypoint, and nowhere else. That entrypoint is package
+metadata rather than framework behaviour, which is where ADR-010 already places one.
 
-Web and MCP adapters for one running app must receive the same AppRuntime instance, which
-their signatures enforce. See
-`docs/decisions/ADR-015-adapters-are-built-from-an-app-runtime.md`.
+An installed App has one entrypoint per channel it offers. The Agent channel's is a command
+the MCP client launches; the Web channel's is what the Hub opens. An App declaring no Pages has
+no Web channel, and is complete for an agent.
 
 ## State ownership
 
-Three scopes are distinguished:
+Three scopes are distinguished.
 
 ### Application scope
 
-Owned by AppRuntime:
+Owned by the channel's running window:
 
 - repository instances
 - DB connection pools
 - API clients
 - immutable or typed application configuration
 
-An installed App may run as several AppRuntimes, one per channel, so an application-scoped
-resource must be share-nothing. A pool, a client and configuration qualify. An authoritative
-in-memory cache, a scheduler, and a store that admits one writer do not: they belong in a
-backing service. See `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
+An installed App runs one window per channel, so an application-scoped resource must be
+share-nothing. A pool, a client and configuration qualify. An authoritative in-memory cache, a
+scheduler, and a store that admits one writer do not: they belong in a backing service. See
+`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
 
 ### Session scope
 
@@ -117,16 +105,21 @@ Owned by Web/Page session:
 
 ### Invocation scope
 
-Owned by ToolContext. `docs/architecture/runtime.md` describes what a ToolContext carries,
-now and later.
+Owned by ToolContext. `docs/architecture/runtime.md` describes what a ToolContext carries, now
+and later.
+
+There is no per-invocation *resource* scope. A ToolContext carries the application-scoped value
+and no resource acquired and released around one invocation, so an App that needs a database
+session or a transaction per call has nowhere to declare it. No milestone has required one, and
+the gap stayed invisible while the only resource in the repository was an in-memory store. M8
+owns the decision.
 
 ## Invariants
 
-- AppDefinition is static metadata and declarations.
-- AppRuntime is executable state.
-- ToolRuntime belongs to AppRuntime.
-- AppRuntime is shared by the Web and Agent channels of the same app instance.
+- AppDefinition is static metadata and declarations, and holds no factory.
+- A declaration is not a running channel.
+- ToolRuntime and PageRuntime exist only inside a window.
 - Page/session state must not leak into application-scoped state.
-- Tool handlers must not receive unrestricted access to AppRuntime internals. A handler
-  receives one value of a type the app itself declared. See
+- Tool handlers must not receive unrestricted access to a window's internals. A handler receives
+  one value of a type the app itself declared. See
   `docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.

@@ -1,6 +1,6 @@
 # ADR-018: The app-scoped resource is an async context manager
 
-Status: Accepted
+Status: Superseded by ADR-020
 
 ## Context
 
@@ -47,7 +47,7 @@ shutdown.
   never releases
 - the resource is acquired at startup rather than at construction, so ToolRuntime and
   PageRuntime exist only while the App is RUNNING and a channel adapter is built from a
-  started AppRuntime; ADR-015 is unchanged and gains that ordering constraint
+  started AppRuntime
 - route validation runs behind startup, because `register_pages` reads the AppRuntime.
   Validating an App without running it needs a path that reads PageRegistry alone, which no
   milestone has required yet

@@ -18,7 +18,7 @@ Good Tool names:
 - `request_discount`
 - `close_opportunity`
 
-Avoid infrastructure-shaped Tools unless the app domain genuinely requires them:
+Avoid infrastructure-shaped Tools unless the app's domain genuinely requires them:
 
 - `update_database_row`
 - `set_field`
@@ -70,7 +70,7 @@ async def handler(ctx: ToolContext[Deps], payload: InputModel) -> OutputModel:
 `ctx.dependencies`. See
 `docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
 
-Handler parameters are positional-only in the `ToolHandler` Protocol, so an app author may name them freely.
+Handler parameters are positional-only in the `ToolHandler` Protocol, so a app author may name them freely.
 
 ### Tool
 
@@ -93,13 +93,13 @@ Registering a name twice replaces the earlier Tool, declaration included.
 
 ### ToolRuntime
 
-The canonical invocation path for every channel. Constructed from an app id, a
-ToolRegistry and the application-scoped resource AppRuntime owns.
+The canonical invocation path for every channel. Constructed from a app id, a ToolRegistry
+and the application-scoped resource the channel's window acquired.
 
 `ToolRuntime.invoke(name, raw_input)` is the whole of it:
 
 1. resolve the Tool by name, through ToolRegistry
-2. create the ToolContext, carrying the invocation id and the app-scoped resource
+2. create the ToolContext, carrying the invocation id and the application-scoped resource
 3. await the Tool
 
 Steps that need the declared models belong to the Tool, not to the runtime: input

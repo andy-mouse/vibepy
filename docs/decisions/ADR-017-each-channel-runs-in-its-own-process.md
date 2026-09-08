@@ -49,10 +49,8 @@ ADR-010 already decided.
 An App declaring no Pages has no Web channel and therefore no runtime for the Hub to start. It is
 installable, and it is complete for an agent.
 
-Because one installed App may run as several AppRuntimes, an app-scoped resource must be
-share-nothing. A connection pool, an HTTP client and typed configuration qualify. An authoritative
-in-memory cache, a scheduler, and a store that admits a single writer do not; they belong in a
-backing service.
+Because one installed App may run as several runtimes, an app-scoped resource must be
+share-nothing. `docs/architecture/app-model.md` carries what that admits and what it excludes.
 
 ## Consequences
 
@@ -60,8 +58,6 @@ backing service.
   demand
 - Hub status and stop describe the Web channel; a process the agent platform spawned ends when
   that client ends it
-- `docs/architecture/app-model.md` no longer lists a shared cache as application-scoped state,
-  because a cache that two runtimes disagree about is not shared
 - an App that needs coordination across its runtimes reaches a backing service for it, and the
   framework provides none
 - the handoff between the two channels needs a broker: a `ui.refreshable` in global scope updates
@@ -70,5 +66,5 @@ backing service.
   lifecycle track ends at Installed and reads as "not started yet". M11 owns the affordance
 - MCP over HTTP is not required, so the Origin validation, loopback binding and endpoint
   authentication that transport would have demanded are not incurred
-- whether an App is renamed a Plugin, and whether capabilities are declared and resolved across
-  Apps, are separate decisions belonging to the packaging and Hub milestones
+- whether capabilities are declared and resolved across Apps is a separate decision, belonging
+  to the packaging and Hub milestones

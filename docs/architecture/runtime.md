@@ -26,7 +26,7 @@ Do not add a generic middleware framework until a concrete need appears.
 
 ## ToolContext
 
-ToolContext is invocation-scoped and deliberately narrower than AppRuntime.
+ToolContext is invocation-scoped and deliberately narrower than the window it comes from.
 
 It currently carries:
 
@@ -34,7 +34,7 @@ It currently carries:
 - invocation id
 - `dependencies`: the application-scoped resource, typed by the app itself
 
-`dependencies` is one value of the app's own type, not a mapping and not AppRuntime.
+`dependencies` is one value of the app's own type, not a mapping and not the runtime.
 
 Future fields may include:
 
@@ -54,12 +54,12 @@ Do not make ToolContext an untyped service-locator bag. See
 
 ## Dependency ownership
 
-Application-scoped dependencies belong to AppRuntime, which
+Application-scoped dependencies belong to the channel's running window, which
 `docs/architecture/app-model.md` describes together with the other state scopes.
 
-What the runtime does with them: ToolRuntime holds the one resource AppRuntime handed it and
-puts that value into every ToolContext it creates. Prefer typed dependency objects over
-generic dictionaries when practical.
+What the runtime does with them: ToolRuntime holds the one resource the window acquired and puts
+that value into every ToolContext it creates. Prefer typed dependency objects over generic
+dictionaries when practical.
 
 ## Concurrency
 
@@ -69,8 +69,8 @@ ToolRuntime permits concurrent invocations by default.
 
 ToolRuntime must not serialize all calls with a global lock.
 
-Each invocation receives an independent ToolContext while sharing application-scoped
-dependencies from AppRuntime.
+Each invocation receives an independent ToolContext while sharing the application-scoped
+resource its window acquired.
 
 ### Where concurrency is owned
 
@@ -82,7 +82,7 @@ dependencies from AppRuntime.
 
 Only the middle row is a framework contract. The framework guarantees the absence of
 serialization it introduces itself. It cannot create request concurrency that its channel
-technology does not offer, and it does not make an app's domain state safe under overlap.
+technology does not offer, and it does not make a app's domain state safe under overlap.
 
 A channel adapter reduces a request to a single `await` on a runtime, so it adds no
 serialization of its own. See `docs/decisions/ADR-003-channel-adapters-are-thin.md`.
@@ -105,7 +105,7 @@ Neither behaviour is promised in writing, and `pyproject.toml` carries only a lo
 each library. They are held by tests rather than by this section.
 
 Concurrency in this framework is therefore cooperative. Overlap happens at `await` points,
-which has one consequence an app author must know: a Tool handler that blocks the event loop
+which has one consequence a app author must know: a Tool handler that blocks the event loop
 serializes every channel in its process, and that is exactly the case where ToolRuntime's
 absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
@@ -139,7 +139,8 @@ Timeouts and cancellation are not yet defined. See
 
 ## Dual-channel contract
 
-The framework must maintain a constitutional integration test proving that Web-like and Agent-like calls share the same AppRuntime and state.
+The framework must maintain a constitutional integration test proving that neither channel keeps
+a backend of its own: both reach one Tool implementation over one resource.
 
 Example:
 
@@ -148,5 +149,10 @@ Example:
 3. Web-side read sees A and B.
 4. Agent-side read sees A and B.
 
-This test should remain throughout the project. Both channels are built from one
-AppRuntime, so sharing is structural rather than arranged by the test.
+The test composes one lifespan into both channels, so a private backend on either side shows up
+as a divergence. That composition is the test's own arrangement, not a framework guarantee: a
+deployed App runs each channel in its own process, so a resource that must be shared across
+them belongs in a backing service. See
+`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
+
+This test should remain throughout the project.

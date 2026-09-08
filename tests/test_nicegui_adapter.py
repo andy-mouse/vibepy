@@ -13,27 +13,24 @@ from nicegui import app, ui
 from nicegui.testing import User
 from starlette.routing import Route
 
-from tests.lifecycle import no_dependencies, started
-from tests.todo_fixture import build_todo_app
+from tests.lifecycle import no_dependencies
+from tests.todo_fixture import TODO_APP, todo_lifespan
 from vibepy.adapters.nicegui import register_pages
-from vibepy.app import AppDefinition, AppRuntime
+from vibepy.app import AppDefinition, page_runtime_for
 from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy.page import Page, PageContext, PageDefinition
 
 APP_ID = "test-app"
 
 
-def build_web_app(pages: list[Page]) -> AppRuntime[None]:
+def web_definition(pages: list[Page]) -> AppDefinition[None]:
     """One App with no Tools and no application-scoped resource: routes only."""
-    return AppRuntime(
-        AppDefinition(
-            app_id=APP_ID,
-            name="Test",
-            version="0.0.0",
-            lifespan=no_dependencies,
-            tools=[],
-            pages=pages,
-        )
+    return AppDefinition(
+        app_id=APP_ID,
+        name="Test",
+        version="0.0.0",
+        tools=[],
+        pages=pages,
     )
 
 
@@ -45,17 +42,17 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
     async def handler(ctx: PageContext) -> None:
         ui.label("Todos")
 
-    async with started(
-        build_web_app(
-            [
-                Page(
-                    definition=PageDefinition(name="todos", route="/todos", title="Todos"),
-                    handler=handler,
-                )
-            ]
-        )
-    ) as app_under_test:
-        register_pages(app_under_test)
+    definition = web_definition(
+        [
+            Page(
+                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                handler=handler,
+            )
+        ]
+    )
+
+    async with page_runtime_for(definition, no_dependencies) as pages:
+        register_pages(definition, pages)
 
         assert "/todos" in registered_paths()
         await user.open("/todos")
@@ -69,17 +66,17 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
         seen.append(ctx)
         ui.label("Todos")
 
-    async with started(
-        build_web_app(
-            [
-                Page(
-                    definition=PageDefinition(name="todos", route="/todos", title="Todos"),
-                    handler=handler,
-                )
-            ]
-        )
-    ) as app_under_test:
-        register_pages(app_under_test)
+    definition = web_definition(
+        [
+            Page(
+                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                handler=handler,
+            )
+        ]
+    )
+
+    async with page_runtime_for(definition, no_dependencies) as pages:
+        register_pages(definition, pages)
         await user.open("/todos")
 
     assert len(seen) == 1
@@ -98,38 +95,40 @@ def page(name: str, route: str) -> Page:
 
 
 async def test_a_route_that_is_not_a_path_is_rejected(user: User) -> None:
-    async with started(build_web_app([page("todos", "todos")])) as app_under_test:
+    definition = web_definition([page("todos", "todos")])
+
+    async with page_runtime_for(definition, no_dependencies) as pages:
         with pytest.raises(PageRouteInvalidError) as error:
-            register_pages(app_under_test)
+            register_pages(definition, pages)
 
     assert error.value.page_name == "todos"
     assert error.value.route == "todos"
 
 
 async def test_two_pages_may_not_claim_one_route(user: User) -> None:
-    pages = [page("todos", "/todos"), page("archive", "/todos")]
+    definition = web_definition([page("todos", "/todos"), page("archive", "/todos")])
 
-    async with started(build_web_app(pages)) as app_under_test:
+    async with page_runtime_for(definition, no_dependencies) as pages:
         with pytest.raises(PageRouteConflictError) as error:
-            register_pages(app_under_test)
+            register_pages(definition, pages)
 
     assert error.value.route == "/todos"
     assert {error.value.page_name, error.value.conflicting_page_name} == {"todos", "archive"}
 
 
 async def test_a_rejected_registry_registers_nothing(user: User) -> None:
-    pages = [page("todos", "/todos"), page("archive", "archive")]
+    definition = web_definition([page("todos", "/todos"), page("archive", "archive")])
 
-    async with started(build_web_app(pages)) as app_under_test:
+    async with page_runtime_for(definition, no_dependencies) as pages:
         with pytest.raises(PageRouteInvalidError):
-            register_pages(app_under_test)
+            register_pages(definition, pages)
 
     assert "/todos" not in registered_paths()
 
 
 async def test_page_interaction_invokes_a_tool(user: User) -> None:
-    async with started(build_todo_app()) as app_under_test:
-        register_pages(app_under_test)
+    async with page_runtime_for(TODO_APP, todo_lifespan) as pages:
+        register_pages(TODO_APP, pages)
         await user.open("/todos")
         user.find("title").type("write the spec")
         user.find("Add").click()

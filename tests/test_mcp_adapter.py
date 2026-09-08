@@ -11,11 +11,11 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
 from pydantic import BaseModel, TypeAdapter
 
-from tests.lifecycle import no_dependencies, started
+from tests.lifecycle import no_dependencies
 from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
-from vibepy.app import AppDefinition, AppRuntime
+from vibepy.app import AppDefinition
 from vibepy.errors import UNHANDLED_CODE, ErrorCategory
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 
 class CreateTodoInput(BaseModel):
@@ -104,21 +104,18 @@ class TodoFixture:
 
 
 @asynccontextmanager
-async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[None]]:
-    """One started App with no application-scoped resource: these fixtures hold their own."""
-    async with started(
-        AppRuntime(
-            AppDefinition(
-                app_id=APP_ID,
-                name="Test",
-                version="0.0.0",
-                lifespan=no_dependencies,
-                tools=tools,
-                pages=[],
-            )
-        )
-    ) as app:
-        yield build_mcp_server(app)
+async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[ToolRuntime[None]]]:
+    """One App with no application-scoped resource: these fixtures hold their own."""
+    yield build_mcp_server(
+        AppDefinition(
+            app_id=APP_ID,
+            name="Test",
+            version="0.0.0",
+            tools=tools,
+            pages=[],
+        ),
+        no_dependencies,
+    )
 
 
 async def test_framework_tools_appear_in_mcp_discovery() -> None:

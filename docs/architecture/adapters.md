@@ -4,8 +4,10 @@
 
 Channel adapters translate a channel protocol/runtime into framework semantics. They do not own business logic.
 
-An adapter reads the runtimes an App produced at startup, so it is built from a started
-AppRuntime.
+An adapter is built from a declaration and a lifespan, and reads its runtime from the window its
+own host opens. Each channel uses the mechanism that host documents, so the two adapters differ;
+giving them a common shape would mean inventing one. See
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 ## MCP Adapter
 
@@ -28,10 +30,10 @@ Never make MCP decorators or MCP SDK types the source of truth for framework Too
 
 MCP-specific types must not leak into the core Tool package.
 
-`build_mcp_server(app)` takes the AppRuntime, reading the registry it enumerates and the
-ToolRuntime it invokes through from one object, and taking the server's name and version
-from the AppDefinition. See
-`docs/decisions/ADR-015-adapters-are-built-from-an-app-runtime.md`.
+`build_mcp_server(definition, lifespan)` reads the registry it enumerates, and the server's name
+and version, from the declaration. The ToolRuntime a call goes through is read from the SDK's
+request context, which carries whatever the lifespan yielded, so the adapter holds no running
+state of its own.
 
 The adapter builds an SDK server object; it does not run one. Over stdio the agent platform
 owns the server process, so the executable entrypoint is package metadata rather than part
@@ -49,10 +51,16 @@ Responsibilities:
 3. execute PageHandlers in the NiceGUI lifecycle
 4. connect Page interaction to ToolRuntime through ToolInvoker, which ToolRuntime satisfies
 
-`register_pages(app)` takes the AppRuntime and projects every PageDefinition it declares
-onto a NiceGUI route whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a route
-change never reaches PageRuntime, and the adapter constructs no PageContext: PageRuntime
+`register_pages(definition, pages)` projects every PageDefinition the declaration carries onto a
+NiceGUI route whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a
+route change never reaches PageRuntime, and the adapter constructs no PageContext: PageRuntime
 owns that.
+
+Registration happens inside the caller's window and each builder closes over the PageRuntime, so
+a builder holds its runtime for exactly as long as that window lasts. Nothing reads request
+state: NiceGUI documents no lifespan and mounts as a sub-application, and Starlette does not
+document lifespan state reaching one, so a closure is used because it is a language guarantee
+rather than a library one.
 
 Route format and route uniqueness are validated here, which is where
 `docs/architecture/page-model.md` places them. Every declaration is checked before any
@@ -68,7 +76,7 @@ The adapter registers routes and starts no server. See
 
 The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
 
-NiceGUI-specific types must not leak into the core Page model unless required at the app UI implementation boundary.
+NiceGUI-specific types must not leak into the core Page model unless required at the app's UI implementation boundary.
 
 ## Future adapters
 
