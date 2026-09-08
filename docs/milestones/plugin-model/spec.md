@@ -34,7 +34,8 @@ No roadmap entry owns this change, so its criteria are stated here.
 | a framework error carries a stable code; a retired code is never reused | `docs/architecture/errors.md`, `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md` |
 | a Page reaches Tools through one named operation | `docs/decisions/ADR-016-tool-invocation-has-one-name.md` |
 | pre-release removal without a deprecation path has precedent | `docs/decisions/ADR-016-tool-invocation-has-one-name.md` |
-| `Server(lifespan=...)` is entered once when the server starts and exited once when it stops; whatever it yields becomes `ctx.lifespan_context` | <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/lowlevel/server> |
+| `lifespan: Callable[[Server[LifespanResultT]], AbstractAsyncContextManager[LifespanResultT]]`; `Server` and `ServerRequestContext` share that parameter; the lifespan is entered and exited inside `run()`, spanning one connection | <https://py.sdk.modelcontextprotocol.io/v2/api/mcp/server/lowlevel/server> |
+| the yielded value is reached as `ctx.lifespan_context` on SDK 2.1.1, and the in-memory `Client(server)` enters and exits the lifespan | verified against the installed SDK; the documentation page names the internal parameter `lifespan_state` |
 | `ui.run_with(fastapi_app, mount_path=...)` mounts NiceGUI as a sub-application | <https://github.com/zauberzeug/nicegui/blob/main/nicegui/llms.md> |
 | NiceGUI documents `app.on_startup`/`app.on_shutdown` and no lifespan | <https://nicegui.io/documentation/section_action_events> |
 | NiceGUI runs as a single process; module-level variables are shared across all users | <https://github.com/zauberzeug/nicegui/blob/main/README.md> |
@@ -96,10 +97,16 @@ and nothing more, which is narrower than the five properties `AppRuntime` expose
 The two channels are deliberately asymmetric, because each uses the mechanism its own host
 documents. Forcing a common shape would mean inventing one.
 
-**Agent channel.** The MCP SDK documents a lifespan on `Server` and documents that what it
-yields becomes `ctx.lifespan_context`. The adapter passes one, the handler reads it, and the
-server's type becomes `Server[ToolRuntime[DepsT]]`. `_no_lifespan` disappears: it existed only to
-keep `Any` out of the return type, and a real lifespan now carries a real type.
+**Agent channel.** The MCP SDK documents a lifespan on `Server`, generic in what it yields, and
+reached from a handler through the request context. The adapter passes one, the handler reads it,
+and the server's type becomes `Server[ToolRuntime[DepsT]]`. `_no_lifespan` disappears: it existed
+only to keep `Any` out of the return type, and a real lifespan now carries a real type.
+
+The SDK enters that lifespan inside `run()`, so its window is one connection rather than the
+process. Over stdio the two coincide, because the client launches one process and speaks to it
+over that process's streams. A transport that multiplexed connections would enter the lifespan
+per connection, which is a property of that transport and not of this design; ADR-017 already
+rules such a transport out.
 
 **Web channel.** NiceGUI documents no lifespan. It mounts as a sub-application under
 `ui.run_with`, and Starlette does not document lifespan state reaching a mounted sub-application,
