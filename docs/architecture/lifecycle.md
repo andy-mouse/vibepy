@@ -51,8 +51,10 @@ Package -> install -> configure -> open a channel
 ```
 
 `configure` is the host supplying the values the App declared it requires; the Hub holds those
-values per installation, and never the fields an App declared as secret. The App's own window
-validates them as it opens, so a configuration failure happens before anything is acquired;
+values per installation, secrets included, and gives a secret's value back to no channel: it
+reports such a field as set. What it holds is readable by its owner and by no one else. The App's
+own window validates them as it opens, so a configuration failure happens before anything is
+acquired;
 `docs/architecture/app-model.md` carries that boundary. `docs/architecture/packaging.md` owns the
 step before it — how a Host learns which App a distribution contains and what it requires.
 
