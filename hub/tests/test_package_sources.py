@@ -2,31 +2,50 @@
 
 from pathlib import Path
 
-from tests_support import write_project
-from vibepy.app.composition import tool_runtime_for
-from vibepy_hub.entry import APP, HUB_APP
+from tests_support import hub, write_project
 from vibepy_hub.models import SourceListing
 
 
-async def test_registering_a_folder_lists_its_candidates(tmp_path: Path) -> None:
+async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None:
     source = tmp_path / "packages"
-    write_project(source / "demo", name="demo", declares=True)
-    config = {"root": str(tmp_path / "hub")}
+    write_project(source / "zulu", name="zulu-app", declares=True)
+    write_project(source / "alpha", name="alpha-app", declares=True)
 
-    async with tool_runtime_for(HUB_APP, APP.lifespan, config=config) as tools:
+    async with hub(tmp_path / "hub") as tools:
         listed = await tools.invoke("register_package_source", {"path": str(source)})
-        assert isinstance(listed, SourceListing)
-        assert [row.name for row in listed.candidates] == ["demo"]
 
-        remaining = await tools.invoke("remove_package_source", {"path": str(source)})
-        assert isinstance(remaining, SourceListing)
-        assert remaining.sources == []
+    assert isinstance(listed, SourceListing)
+    assert [(row.name, row.version, row.declares_app) for row in listed.candidates] == [
+        ("alpha-app", "1.2.3", True),
+        ("zulu-app", "1.2.3", True),
+    ]
+
+
+async def test_a_folder_without_a_visible_declaration_is_still_offered(tmp_path: Path) -> None:
+    """A backend may add entry points, so a static reading is a hint."""
+    source = tmp_path / "packages"
+    write_project(source / "plain", name="plain", declares=False)
+
+    async with hub(tmp_path / "hub") as tools:
+        listed = await tools.invoke("register_package_source", {"path": str(source)})
+
+    assert isinstance(listed, SourceListing)
+    assert [(row.name, row.declares_app) for row in listed.candidates] == [("plain", False)]
+
+
+async def test_a_folder_carrying_no_project_file_offers_nothing(tmp_path: Path) -> None:
+    source = tmp_path / "packages"
+    (source / "notes").mkdir(parents=True)
+
+    async with hub(tmp_path / "hub") as tools:
+        listed = await tools.invoke("register_package_source", {"path": str(source)})
+
+    assert isinstance(listed, SourceListing)
+    assert listed.candidates == []
 
 
 async def test_an_absent_folder_is_a_diagnostic(tmp_path: Path) -> None:
-    config = {"root": str(tmp_path / "hub")}
-
-    async with tool_runtime_for(HUB_APP, APP.lifespan, config=config) as tools:
+    async with hub(tmp_path / "hub") as tools:
         answered = await tools.invoke("register_package_source", {"path": str(tmp_path / "no")})
 
     assert isinstance(answered, SourceListing)
@@ -34,16 +53,22 @@ async def test_an_absent_folder_is_a_diagnostic(tmp_path: Path) -> None:
     assert answered.diagnostic.code == "hub.source_unreadable"
 
 
-async def test_a_registered_folder_outlives_the_window(tmp_path: Path) -> None:
+async def test_a_removed_folder_offers_nothing_and_a_kept_one_outlives_the_window(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "packages"
     write_project(source / "demo", name="demo", declares=True)
-    config = {"root": str(tmp_path / "hub")}
+    root = tmp_path / "hub"
 
-    async with tool_runtime_for(HUB_APP, APP.lifespan, config=config) as tools:
+    async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)})
 
-    async with tool_runtime_for(HUB_APP, APP.lifespan, config=config) as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(source)})
+    async with hub(root) as tools:
+        kept = await tools.invoke("register_package_source", {"path": str(source)})
+        removed = await tools.invoke("remove_package_source", {"path": str(source)})
 
-    assert isinstance(listed, SourceListing)
-    assert listed.sources == [source]
+    assert isinstance(kept, SourceListing)
+    assert kept.sources == [source]
+    assert isinstance(removed, SourceListing)
+    assert removed.sources == []
+    assert removed.candidates == []

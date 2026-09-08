@@ -1,7 +1,9 @@
 """An installed App starts, answers, and stops.
 
-These run inside pytest and start Apps without hiding anything from them: the
-Hub composes a child's environment rather than passing on its own.
+These run inside pytest and start Apps without hiding anything from them. That
+is itself the contract: the Hub composes a child's environment rather than
+passing on its own, so a served App is never told it is running the Hub's
+current test or living in the Hub's virtual environment.
 """
 
 import asyncio
