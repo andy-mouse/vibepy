@@ -108,6 +108,12 @@ Owned by Web/Page session:
 Owned by ToolContext. `docs/architecture/runtime.md` describes what a ToolContext carries, now
 and later.
 
+There is no per-invocation *resource* scope. A ToolContext carries the application-scoped value
+and no resource acquired and released around one invocation, so a Plugin that needs a database
+session or a transaction per call has nowhere to declare it. No milestone has required one, and
+the gap stayed invisible while the only resource in the repository was an in-memory store. M8
+owns the decision.
+
 ## Invariants
 
 - PluginDefinition is static metadata and declarations, and holds no factory.
