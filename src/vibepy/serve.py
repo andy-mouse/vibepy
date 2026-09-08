@@ -4,38 +4,22 @@
 than library calls for the same reason: the import belongs on the App's side of a
 process boundary. See `docs/architecture/packaging.md`.
 
-Composing a channel's running window is the framework's, which is why this lives
-here and not in a Hub.
-
-The window is the served application's own lifespan. That is what makes a window
-that cannot open stop the server: ASGI defines that a server seeing
-`lifespan.startup.failed` logs the message and exits
-(<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>).
-
-The Web technology's own startup hook carries no such meaning. Its documentation
-says when the hook runs and nothing about a hook that raises, and a server
-observed to keep answering after one did is behaviour no document promises. The
-protocol's mechanism is used because it is the one that says what a failed
-startup means; `tests/test_serve_command.py` holds the framework to it either
-way.
+The adapter builds the application this serves; the command owns the process and
+runs it. `tests/test_serve_command.py` holds both to that.
 """
 
 import argparse
 import json
 import logging
 import sys
-from collections.abc import AsyncGenerator, Mapping, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import Mapping, Sequence
 from importlib.metadata import EntryPoint
 from typing import TypeGuard
 
 import uvicorn
-from fastapi import FastAPI
-from nicegui import ui
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from vibepy.adapters.nicegui import register_pages
-from vibepy.app.composition import page_runtime_for
+from vibepy.adapters.nicegui import build_web_app
 from vibepy.app.entrypoint import AppEntrypoint
 from vibepy.app.package import APP_GROUP, discover_apps
 from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError, to_error_info
@@ -82,22 +66,11 @@ def _serve(
 ) -> None:
     """Serve one App for as long as its window is open.
 
-    The window is entered in the served application's lifespan and left when
-    that lifespan ends, so the `async with` that `docs/architecture/lifecycle.md`
-    relies on is the whole of the server's life, and a window that refuses to
-    open fails the server's startup instead of leaving it answering for nothing.
+    The window is the served application's own lifespan, so the `async with` that
+    `docs/architecture/lifecycle.md` relies on is the whole of the server's life
+    and a window that refuses to open fails the server's startup.
     """
-
-    @asynccontextmanager
-    async def window(_served: FastAPI) -> AsyncGenerator[None]:
-        async with page_runtime_for(
-            entrypoint.definition, entrypoint.lifespan, config=config
-        ) as pages:
-            register_pages(entrypoint.definition, pages)
-            yield
-
-    served = FastAPI(lifespan=window)
-    ui.run_with(served)  # pyright: ignore[reportUnknownMemberType]
+    served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)
     uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning")
 
 

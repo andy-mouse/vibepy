@@ -5,8 +5,10 @@
 Channel adapters translate a channel protocol/runtime into framework semantics. They do not own business logic.
 
 An adapter is built from a declaration and a lifespan, and reads its runtime from the window its
-own host opens. Each channel uses the mechanism that host documents, so the two adapters differ;
-giving them a common shape would mean inventing one. See
+own host opens. Every adapter builds the object its channel is served through and runs nothing:
+`build_mcp_server` returns an SDK server, `build_web_app` returns an ASGI application, and
+whoever owns the process runs it. The mechanism each window is opened with is the one that
+channel's host documents, and differs between them. See
 `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
 ## MCP Adapter
@@ -71,7 +73,13 @@ which renders it. The MCP adapter wraps failures in a result because the MCP pro
 demands an answer to every call; the Web channel makes no such demand.
 `docs/architecture/errors.md` describes what the MCP adapter sends.
 
-The adapter registers routes and starts no server. See
+`build_web_app(definition, lifespan, config=…)` returns the ASGI application those routes are
+served through, with the running window as that application's own lifespan: routes are
+registered as the window opens and left when it closes, and a window that refuses to open fails
+the application's startup rather than leaving a server answering for nothing.
+
+The adapter registers routes and starts no server; building the application it hands back is not
+running one. `vibepy.serve` owns the process and runs it. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
 The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
