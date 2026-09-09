@@ -102,12 +102,12 @@ is that case.
    the Hub's state does not already hold, and stores it under the App's canonical name.
    `remove_app` releases it. A reinstall of an App that still holds a port keeps that port.
 2. **The Hub writes both halves of the proxy's configuration.** A window writes
-   `<root>/traefik.yml` when it opens: one entry point on `:8080` and a file provider watching
-   `<root>/routes`, with `watch` true. It does not change as Apps come and go. `install_app`
+   `<root>/traefik.yml` when it opens: one entry point on the port the Hub was configured with
+   and a file provider watching `<root>/routes`, with `watch` true. It does not change as Apps come and go. `install_app`
    writes `<root>/routes/<app>.yml`, one router matching `Host(<app>.localhost)` and one service
    pointing at `http://127.0.0.1:<port>`; `remove_app` deletes it.
 3. **An address replaces a port in every answer.** `AppRow.url` and `RunningApp.url` become
-   `http://<app>.localhost:8080` for an installed App, whether it is running or not, `stop_app`'s
+   `http://<app>.localhost:<proxy port>` for an installed App, whether it is running or not, `stop_app`'s
    answer included: the address belongs to the installation, and a stopped App is one whose
    address does not answer. The child's own port stops leaving the Hub.
 4. **`free_port` is gone.** `Processes.start` takes the port it is to serve on and returns
@@ -120,6 +120,7 @@ is that case.
 
 | Change | Kind |
 | --- | --- |
+| `HubConfig.proxy_port`, an `int` defaulting to `8080` | added |
 | `HubState.ports`, a `dict[str, int]` | added |
 | `AppRow.url` is the App's proxy address, present whenever the App is installed | changed |
 | `RunningApp.url` is the App's proxy address | changed |
@@ -139,9 +140,21 @@ expected.
 
 ## Where each thing lives
 
-**The address is derived, not stored.** State holds the port; the hostname is the App's canonical
-name and the entry point is a constant. Storing the full URL would put the same fact in two
-places and let a state file disagree with the proxy configuration the Hub itself wrote.
+**The address is derived, not stored.** State holds the App's port; the hostname is the App's
+canonical name and the entry point comes from the Hub's own configuration. Storing the full URL
+would put the same fact in two places and let a state file disagree with the proxy configuration
+the Hub itself wrote.
+
+**What is published is declared; what is internal is allocated.** The entry point is part of
+every address the Hub answers with, and a Hub that hardcoded it would assert a fact about its
+host that it cannot know: when the port is taken, Traefik does not bind, the Hub is not told —
+it owns no proxy — and it goes on publishing addresses that reach nothing, or reach whatever
+else holds that port. `HubConfig` is documented as what the Hub requires of its host and already
+declares `root` for this reason; a port on that host is the same kind of fact as a directory on
+it, and ADR-022 makes an App's configuration its declaration rather than something hidden in its
+code. It defaults to 8080, so nothing is configured in the ordinary case. An App's own port is
+not published, is reached only by the proxy, and fails loudly as `hub.start_failed` when it is
+taken, so it is allocated rather than declared.
 
 **The name is already a valid label.** ADR-028 addresses an App by its canonical distribution
 name, and the normalization specification leaves only lowercase letters, digits and `-`, with a
@@ -229,8 +242,9 @@ owns none.
 - **HTTPS, certificates and any origin that is not `.localhost`.** A single developer machine is
   the shape this stage serves.
 - **Running, supervising or health-checking the proxy.** The Hub writes files.
-- **A configurable base domain or entry point.** No criterion asks for one, and a constant that
-  two places must agree on is smaller than a setting three places must read.
+- **A configurable base domain.** `.localhost` is what needs no resolver configuration on any
+  supported platform, and an origin that is not local is out of scope with the certificates it
+  would require.
 - **A second Hub window.** Two windows over one root would allocate ports against one state file
   and write into one routes directory; cross-process coordination is not opened here, as CR2
   already stated for the state file.
