@@ -11,6 +11,7 @@ imports it and the Hub must not import an App.
 
 import asyncio
 import logging
+import os
 import shutil
 import sys
 from collections.abc import Sequence
@@ -34,9 +35,38 @@ class InstallFailed(Exception):
         self.output = output
 
 
+class AppNameInvalid(Exception):
+    """An App name does not address a directory inside this Hub's environments."""
+
+    def __init__(self, app_name: str) -> None:
+        super().__init__(f"App name {app_name!r} is not one path segment")
+        self.app_name = app_name
+
+
 def environment(root: Path, app_name: str, /) -> Path:
-    """Where this Hub keeps one App's environment."""
-    return root / "envs" / app_name
+    """Where this Hub keeps one App's environment.
+
+    The name is refused unless the join names a direct child of the environments
+    directory. A Tool input is already constrained to one segment; this is the
+    guarantee, because a Tool input is not the only caller and the result reaches
+    `shutil.rmtree`.
+
+    The comparison is lexical rather than resolved: `normpath` collapses `..`
+    and discards the root for an absolute name on the platform where those mean
+    traversal. What it deliberately does not do is follow a symlink under
+    `envs`, which is not this gate's subject -- the subject is the name -- and
+    which `shutil.rmtree` refuses of its own accord.
+
+    Naming the child is required as well as reaching it, so a name that
+    normalizes onto a sibling is refused rather than aliased: `x/../y` and `y`
+    would otherwise be two names for one environment. That holds of names, not
+    of the file system: a symlink inside `envs` still aliases.
+    """
+    envs = root / "envs"
+    candidate = Path(os.path.normpath(envs / app_name))
+    if candidate.parent != envs or candidate.name != app_name:
+        raise AppNameInvalid(app_name)
+    return candidate
 
 
 def interpreter(env: Path, /) -> Path:

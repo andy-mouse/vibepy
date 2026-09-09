@@ -22,7 +22,7 @@ from mcp.shared.exceptions import MCPError
 from pydantic import BaseModel
 
 from vibepy_core.adapters.mcp.projection import to_mcp_tool
-from vibepy_core.app.composition import Lifespan, tool_registry_for, tool_runtime_for
+from vibepy_core.app.composition import Lifespan, tool_runtime_for
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import (
     ToolInputValidationError,
@@ -72,15 +72,16 @@ def build_mcp_server[DepsT, ConfigT: BaseModel](
 ) -> Server[ToolRuntime[DepsT]]:
     """Build the MCP projection of one App's Tools.
 
-    The registry this enumerates for discovery, and the server's name and version,
-    are read from the declaration. The ToolRuntime a call goes through is read
-    from the request context, which carries whatever the lifespan yielded.
+    Discovery, and the server's name and version, are read from the declaration.
+    ADR-027: a channel enumerates what an App declares from the declaration, so
+    this adapter builds no registry of its own and the one a call resolves in is
+    the only one a running App holds. The ToolRuntime that call goes through is
+    read from the request context, which carries whatever the lifespan yielded.
 
     The SDK enters that lifespan inside ``run()``. Over stdio the client launches
     one process per server, so that window is the process. See
     `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
     """
-    registry = tool_registry_for(definition)
 
     @asynccontextmanager
     async def server_lifespan(
@@ -94,7 +95,7 @@ def build_mcp_server[DepsT, ConfigT: BaseModel](
         params: types.PaginatedRequestParams | None,
     ) -> types.ListToolsResult:
         return types.ListToolsResult(
-            tools=[to_mcp_tool(declared) for declared in registry.definitions()]
+            tools=[to_mcp_tool(tool.definition) for tool in definition.tools]
         )
 
     async def call_tool(

@@ -1,24 +1,27 @@
 """The Web channel adapter's contract.
 
-Every test requests NiceGUI's ``user`` fixture, including the ones that never
-open a page: the fixture is what resets NiceGUI's process-global route table
-around each test.
+Every test isolates NiceGUI's process-global route table, most by requesting
+the ``user`` fixture — including the ones that never open a page. The two that
+expect a render to fail drive ``user_simulation`` instead, which is what that
+fixture is built on and which performs the same reset: the fixture also fails a
+test on any ERROR log, and a render that raises logs one.
 """
-
-import ast
-from pathlib import Path
 
 import pytest
 from nicegui import app, ui
-from nicegui.testing import User
+from nicegui.testing import User, user_simulation  # pyright: ignore[reportUnknownVariableType]
 from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, TODO_CONFIG, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
-from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
-from vibepy_core.page import Page, PageContext, PageDefinition
+from vibepy_core.errors import (
+    PageRouteConflictError,
+    PageRouteInvalidError,
+    ToolNotFoundError,
+)
+from vibepy_core.page import Page, PageContext, PageDefinition, PageHandler
 
 APP_ID = "test-app"
 
@@ -136,30 +139,52 @@ async def test_page_interaction_invokes_a_tool(user: User) -> None:
         await user.should_see("todo: write the spec")
 
 
-def _imported_module_names(source: str) -> list[str]:
-    names: list[str] = []
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Import):
-            names.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            names.append(node.module)
-    return names
+class HandlersOwnError(Exception):
+    """An exception an App's own Page handler raises."""
 
 
-def test_the_core_packages_do_not_import_nicegui() -> None:
-    package = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
-    modules = (
-        sorted((package / "tool").glob("*.py"))
-        + sorted((package / "page").glob("*.py"))
-        + sorted((package / "app").glob("*.py"))
+def boom_definition(handler: PageHandler) -> AppDefinition[None, NoConfig]:
+    return web_definition(
+        [
+            Page(
+                definition=PageDefinition(name="boom", route="/boom", title="Boom"),
+                handler=handler,
+            )
+        ]
     )
-    assert modules != []
 
-    offenders = [
-        module.name
-        for module in modules
-        for name in _imported_module_names(module.read_text(encoding="utf-8"))
-        if name == "nicegui" or name.startswith("nicegui.")
-    ]
 
-    assert offenders == []
+async def test_a_framework_error_raised_in_a_render_is_not_translated() -> None:
+    """`errors.md`: the Web channel translates nothing.
+
+    These two drive `user_simulation` rather than the `user` fixture: that
+    fixture fails a test on any ERROR log and a render that raises logs one.
+    `user_simulation` is the context manager the fixture is built on and is
+    what `nicegui.testing` exports, so this is the library's own entry point.
+    """
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.invoke("absent", {})
+
+    definition = boom_definition(handler)
+
+    async with user_simulation() as user:
+        async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+            register_pages(definition, pages)
+
+            with pytest.raises(ToolNotFoundError):
+                await user.open("/boom")
+
+
+async def test_an_app_exception_raised_in_a_render_is_not_translated() -> None:
+    async def handler(_ctx: PageContext) -> None:
+        raise HandlersOwnError("the app's own failure")
+
+    definition = boom_definition(handler)
+
+    async with user_simulation() as user:
+        async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+            register_pages(definition, pages)
+
+            with pytest.raises(HandlersOwnError):
+                await user.open("/boom")

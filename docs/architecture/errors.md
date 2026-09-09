@@ -20,12 +20,15 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `tool.not_found` | caller | `ToolNotFoundError` |
 | `tool.input_invalid` | caller | `ToolInputValidationError` |
 | `tool.output_invalid` | execution | `ToolOutputValidationError` |
+| `tool.name_conflict` | declaration | `ToolNameConflictError` |
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
+| `page.name_conflict` | declaration | `PageNameConflictError` |
 | `config.invalid` | caller | `AppConfigInvalidError` |
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
+| `package.app_not_declared` | caller | `AppNotDeclaredError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.

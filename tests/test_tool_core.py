@@ -1,7 +1,7 @@
 from dataclasses import FrozenInstanceError
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, computed_field
 
 from vibepy_core.errors import (
     ToolInputValidationError,
@@ -275,37 +275,23 @@ async def test_each_invocation_receives_its_own_invocation_id() -> None:
     assert first.invocation_id != second.invocation_id
 
 
-def test_registry_enumerates_the_declarations_it_registered() -> None:
+def test_registering_a_name_twice_replaces_the_earlier_tool() -> None:
+    """The registry's own contract, which no framework path reaches: ADR-027 has
+    a window refuse a declaration carrying one name twice."""
     registry: ToolRegistry[TodoStore] = ToolRegistry()
     registry.register(create_todo_tool())
-    registry.register(list_todos_tool())
-
-    definitions = registry.definitions()
-
-    assert [definition.name for definition in definitions] == ["create_todo", "list_todos"]
-    assert definitions[0].input_model is CreateTodoInput
-    assert definitions[0].output_model is Todo
-
-
-def test_registering_a_name_twice_replaces_its_declaration() -> None:
-    registry: ToolRegistry[TodoStore] = ToolRegistry()
-    registry.register(create_todo_tool())
-    registry.register(
-        Tool(
-            definition=ToolDefinition(
-                name="create_todo",
-                description="Replaced",
-                input_model=CreateTodoInput,
-                output_model=Todo,
-            ),
-            handler=create_todo,
-        )
+    replacement = Tool(
+        definition=ToolDefinition(
+            name="create_todo",
+            description="Replaced",
+            input_model=CreateTodoInput,
+            output_model=Todo,
+        ),
+        handler=create_todo,
     )
+    registry.register(replacement)
 
-    definitions = registry.definitions()
-
-    assert len(definitions) == 1
-    assert definitions[0].description == "Replaced"
+    assert registry.resolve("create_todo") is replacement
 
 
 async def test_the_handler_receives_the_runtime_dependencies() -> None:
@@ -315,3 +301,37 @@ async def test_the_handler_receives_the_runtime_dependencies() -> None:
     await runtime.invoke("create_todo", {"title": "buy milk"})
 
     assert [todo.title for todo in store.list()] == ["buy milk"]
+
+
+class Sized(BaseModel):
+    """A model whose serialized shape is not its validated shape."""
+
+    width: int = Field(serialization_alias="widthPx")
+
+    @computed_field
+    @property
+    def doubled(self) -> int:
+        return self.width * 2
+
+
+def test_a_declaration_answers_with_the_schema_its_input_is_validated_against() -> None:
+    definition = ToolDefinition(
+        name="measure", description="d", input_model=Sized, output_model=Sized
+    )
+
+    properties = definition.input_schema()["properties"]
+
+    assert isinstance(properties, dict)
+    assert set(properties) == {"width"}
+
+
+def test_a_declaration_answers_with_the_schema_its_output_is_serialized_to() -> None:
+    """ADR-007: the published schema and the returned value cannot diverge."""
+    definition = ToolDefinition(
+        name="measure", description="d", input_model=Sized, output_model=Sized
+    )
+
+    properties = definition.output_schema()["properties"]
+
+    assert isinstance(properties, dict)
+    assert set(properties) == set(Sized(width=2).model_dump(by_alias=True, mode="json"))

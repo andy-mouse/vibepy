@@ -100,20 +100,6 @@ def test_registering_a_name_twice_replaces_the_earlier_page() -> None:
     registry.register(replacement)
 
     assert registry.resolve("todos") is replacement
-    assert registry.definitions() == (replacement.definition,)
-
-
-def test_definitions_enumerates_every_registered_page() -> None:
-    registry = PageRegistry()
-    todos = Page(definition=todos_definition(), handler=noop_handler)
-    archive = Page(
-        definition=PageDefinition(name="archive", route="/archive", title="Archive"),
-        handler=noop_handler,
-    )
-    registry.register(todos)
-    registry.register(archive)
-
-    assert registry.definitions() == (todos.definition, archive.definition)
 
 
 class CreateTodoInput(BaseModel):

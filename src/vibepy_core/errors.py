@@ -83,6 +83,19 @@ class ToolOutputValidationError(VibepyError):
         return {"tool_name": self.tool_name}
 
 
+class ToolNameConflictError(VibepyError):
+    """Two Tools declared the same name."""
+
+    code = "tool.name_conflict"
+
+    def __init__(self, tool_name: str) -> None:
+        super().__init__(f"Two Tools declare the name {tool_name!r}")
+        self.tool_name = tool_name
+
+    def details(self) -> Mapping[str, str]:
+        return {"tool_name": self.tool_name}
+
+
 class PageNotFoundError(VibepyError):
     """No Page is registered under the requested name."""
 
@@ -128,6 +141,27 @@ class PageRouteConflictError(VibepyError):
             "route": self.route,
             "page_name": self.page_name,
             "conflicting_page_name": self.conflicting_page_name,
+        }
+
+
+class PageNameConflictError(VibepyError):
+    """Two Pages declared the same name."""
+
+    code = "page.name_conflict"
+
+    def __init__(self, page_name: str, route: str, conflicting_route: str) -> None:
+        super().__init__(
+            f"Pages at {route!r} and {conflicting_route!r} both declare the name {page_name!r}"
+        )
+        self.page_name = page_name
+        self.route = route
+        self.conflicting_route = conflicting_route
+
+    def details(self) -> Mapping[str, str]:
+        return {
+            "page_name": self.page_name,
+            "route": self.route,
+            "conflicting_route": self.conflicting_route,
         }
 
 
@@ -177,16 +211,32 @@ class AppEntrypointInvalidError(VibepyError):
         return {"app_name": self.app_name, "reference": self.reference, "found": self.found}
 
 
+class AppNotDeclaredError(VibepyError):
+    """No App of that name is declared in this environment."""
+
+    code = "package.app_not_declared"
+
+    def __init__(self, app_name: str) -> None:
+        super().__init__(f"No App named {app_name!r} is declared in this environment")
+        self.app_name = app_name
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name}
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
     ToolOutputValidationError.code: ErrorCategory.EXECUTION,
+    ToolNameConflictError.code: ErrorCategory.DECLARATION,
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,
+    PageNameConflictError.code: ErrorCategory.DECLARATION,
     AppConfigInvalidError.code: ErrorCategory.CALLER,
     AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
+    AppNotDeclaredError.code: ErrorCategory.CALLER,
 }
 
 
@@ -209,14 +259,23 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
 
     Normalizing is not wrapping. The exception itself still propagates untouched;
     this is called only where a channel must render an answer.
+
+    A code this table does not map is described rather than classified, whatever
+    raised it. `VibepyError` is exported, so an App may subclass it, and its
+    `code` is an unassigned ClassVar on the base itself. The catalogue test is
+    what guarantees no framework exception takes that path.
     """
     if isinstance(error, VibepyError):
-        return ErrorInfo(
-            code=error.code,
-            category=_CATEGORIES[error.code],
-            message=str(error),
-            details=error.details(),
-        )
+        code: object = getattr(error, "code", None)
+        if isinstance(code, str):
+            category = _CATEGORIES.get(code)
+            if category is not None:
+                return ErrorInfo(
+                    code=code,
+                    category=category,
+                    message=str(error),
+                    details=error.details(),
+                )
     return ErrorInfo(
         code=UNHANDLED_CODE,
         category=ErrorCategory.EXECUTION,

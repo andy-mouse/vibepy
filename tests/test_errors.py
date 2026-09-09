@@ -6,27 +6,49 @@ a milestone that adds an error must not be able to skip the rule by not editing
 this file.
 """
 
+import importlib
+import pkgutil
 from collections.abc import Iterator, Mapping
 from dataclasses import FrozenInstanceError
 
 import pytest
 
+import vibepy_core
 from vibepy_core.errors import (
     UNHANDLED_CODE,
     AppConfigInvalidError,
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
+    AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
+    PageNameConflictError,
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
     ToolInputValidationError,
+    ToolNameConflictError,
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
     to_error_info,
 )
+
+_CORE = vibepy_core.__name__
+"""The package a framework exception is defined somewhere inside."""
+
+
+def _import_every_core_module() -> None:
+    """Make every framework exception exist before the catalogue walks for them.
+
+    `__subclasses__()` sees only classes whose module has been imported, so the
+    catalogue's reach is import coverage rather than a name filter. I1 was a
+    framework exception in a module this file never imported: filtering alone
+    would leave that shape of defect invisible, because the class would not yet
+    exist.
+    """
+    for found in pkgutil.walk_packages(vibepy_core.__path__, f"{_CORE}."):
+        importlib.import_module(found.name)
 
 
 def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
@@ -36,7 +58,20 @@ def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
 
 
 def _framework_errors() -> list[type[VibepyError]]:
-    return sorted(_descendants(VibepyError), key=lambda error: error.__name__)
+    """Every exception the framework itself defines, wherever it defines it.
+
+    Filtered by package rather than by module. The base is exported, so an App
+    may subclass it and a test may too, and such a subclass is not the
+    framework's to catalogue -- `errors.md` says it is described, not
+    classified. Filtering by `errors.py` alone would hide a framework exception
+    declared in another core module, which is the shape of the defect this
+    catalogue exists to catch.
+    """
+    _import_every_core_module()
+    return sorted(
+        (error for error in _descendants(VibepyError) if error.__module__.startswith(f"{_CORE}.")),
+        key=lambda error: error.__name__,
+    )
 
 
 # One constructed instance per framework exception, with the details its message
@@ -101,6 +136,24 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
             "found": "AppDefinition",
         },
     ),
+    (
+        ToolNameConflictError("create_todo"),
+        "tool.name_conflict",
+        ErrorCategory.DECLARATION,
+        {"tool_name": "create_todo"},
+    ),
+    (
+        PageNameConflictError("todos", "/todos", "/todo-list"),
+        "page.name_conflict",
+        ErrorCategory.DECLARATION,
+        {"page_name": "todos", "route": "/todos", "conflicting_route": "/todo-list"},
+    ),
+    (
+        AppNotDeclaredError("absent"),
+        "package.app_not_declared",
+        ErrorCategory.CALLER,
+        {"app_name": "absent"},
+    ),
 ]
 
 
@@ -147,6 +200,48 @@ def test_every_value_the_message_interpolates_is_in_details(error: VibepyError) 
     message = str(error)
     for value in to_error_info(error).details.values():
         assert value in message
+
+
+def test_the_bare_base_is_described_rather_than_classified() -> None:
+    info = to_error_info(VibepyError("boom"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
+    assert info.message == "boom"
+    assert info.details == {}
+
+
+def test_an_app_subclass_of_the_public_base_is_described() -> None:
+    """The public base is an extension point for catching, not for classifying.
+
+    `docs/architecture/errors.md`: an exception raised by an App's own code is
+    described, not classified.
+    """
+
+    class AppOwnError(VibepyError):
+        code = "app.something_specific"
+
+        def details(self) -> Mapping[str, str]:
+            return {"where": "the app"}
+
+    info = to_error_info(AppOwnError("no good"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
+    assert info.message == "no good"
+    assert info.details == {}
+
+
+def test_an_exception_carrying_a_framework_code_it_does_not_own_is_described() -> None:
+    """Classification reads the framework's own hierarchy, not any `code` attribute."""
+
+    class Impostor(Exception):
+        code = "tool.not_found"
+
+    info = to_error_info(Impostor("pretending"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
 
 
 def test_an_exception_the_framework_did_not_define_is_execution() -> None:

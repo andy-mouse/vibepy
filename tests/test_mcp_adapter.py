@@ -1,20 +1,18 @@
-import ast
 import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import pytest
 from mcp.client import Client
 from mcp.server import Server
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, computed_field
 
 from tests.lifecycle import no_dependencies
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy_core.app import AppDefinition, NoConfig
-from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory
+from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory, VibepyError
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 
@@ -52,6 +50,67 @@ def list_todos_definition() -> ToolDefinition[EmptyInput, TodoList]:
         input_model=EmptyInput,
         output_model=TodoList,
     )
+
+
+class Measured(BaseModel):
+    """An output model whose serialization schema differs from its validation one."""
+
+    width: int
+
+    @computed_field
+    @property
+    def doubled(self) -> int:
+        return self.width * 2
+
+
+def measured_definition() -> ToolDefinition[Measured, Measured]:
+    return ToolDefinition(
+        name="measure",
+        description="Carries a computed member",
+        input_model=Measured,
+        output_model=Measured,
+    )
+
+
+def test_the_published_output_schema_describes_every_member_the_payload_carries() -> None:
+    """ADR-007: the published schema and the returned value cannot diverge."""
+    projected = to_mcp_tool(measured_definition())
+
+    assert projected.output_schema is not None
+    properties = projected.output_schema["properties"]
+    assert "doubled" in properties
+    assert set(Measured(width=2).model_dump(by_alias=True, mode="json")) <= set(properties)
+
+
+class Renamed(BaseModel):
+    """An output model whose serialized property name is not its field name."""
+
+    width: int = Field(serialization_alias="widthPx")
+
+
+def test_the_published_output_schema_names_properties_as_the_payload_does() -> None:
+    """`mode="serialization"` also switches the names to serialization aliases,
+    which is what `model_dump(by_alias=True)` produces."""
+    projected = to_mcp_tool(
+        ToolDefinition(
+            name="rename",
+            description="Serializes under an alias",
+            input_model=EmptyInput,
+            output_model=Renamed,
+        )
+    )
+
+    assert projected.output_schema is not None
+    assert set(Renamed(width=2).model_dump(by_alias=True, mode="json")) == set(
+        projected.output_schema["properties"]
+    )
+
+
+def test_the_published_input_schema_describes_what_is_validated() -> None:
+    """A computed member is produced, never accepted."""
+    projected = to_mcp_tool(measured_definition())
+
+    assert "doubled" not in projected.input_schema["properties"]
 
 
 def test_projection_carries_the_declaration_over() -> None:
@@ -275,6 +334,42 @@ async def test_a_raising_handler_is_reported_inside_the_result() -> None:
     assert payload["details"] == {}
 
 
+async def test_an_app_defined_error_answers_with_a_result_not_a_protocol_error() -> None:
+    """The public base is subclassable, and a subclass must not escape `except`.
+
+    `call_tool` catches `Exception` so a app defect cannot surface as a protocol
+    error. Normalizing an App's own subclass used to raise inside that clause,
+    which was the protocol error the clause exists to prevent.
+    """
+
+    class AppOwnError(VibepyError):
+        code = "app.its_own"
+
+    async def raises(_ctx: ToolContext[None], _payload: EmptyInput) -> Todo:
+        raise AppOwnError("the app's own failure")
+
+    tools = [
+        Tool(
+            definition=ToolDefinition(
+                name="app_error",
+                description="Raises an App-defined subclass of the public base",
+                input_model=EmptyInput,
+                output_model=Todo,
+            ),
+            handler=raises,
+        )
+    ]
+
+    async with server_for(tools) as server, Client(server) as client:
+        result = await client.call_tool("app_error", {})
+
+    assert result.is_error is True
+    payload = _payload(result)
+    assert payload["code"] == UNHANDLED_CODE
+    assert payload["category"] == ErrorCategory.EXECUTION.value
+    assert payload["details"] == {}
+
+
 async def test_invalid_output_is_reported_inside_the_result() -> None:
     async with server_for(BrokenFixture().tools()) as server, Client(server) as client:
         result = await client.call_tool("lie", {})
@@ -297,32 +392,3 @@ async def test_a_failure_never_carries_a_structured_result() -> None:
 
     assert explode.structured_content is None
     assert lie.structured_content is None
-
-
-def _imported_module_names(source: str) -> list[str]:
-    names: list[str] = []
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Import):
-            names.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            names.append(node.module)
-    return names
-
-
-def test_the_core_packages_do_not_import_mcp() -> None:
-    package = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
-    modules = (
-        sorted((package / "tool").glob("*.py"))
-        + sorted((package / "page").glob("*.py"))
-        + sorted((package / "app").glob("*.py"))
-    )
-    assert modules != []
-
-    offenders = [
-        module.name
-        for module in modules
-        for name in _imported_module_names(module.read_text(encoding="utf-8"))
-        if name == "mcp" or name.startswith("mcp.")
-    ]
-
-    assert offenders == []

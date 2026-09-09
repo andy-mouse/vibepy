@@ -131,8 +131,9 @@ semantics, and resolution is consumed by PageRuntime.
 
 Registering a name twice replaces the earlier registration.
 
-The registry also enumerates its declarations, because a Web channel adapter projects every
-PageDefinition into a route.
+A declaration carrying one name twice never reaches the registry: the window refuses it
+where it builds the registry, because `name` is what the framework addresses a Page by while a
+route is the Web channel adapter's.
 
 Resolving a name that was never registered raises `PageNotFoundError`.
 

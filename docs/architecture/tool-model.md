@@ -44,6 +44,16 @@ Suggested responsibilities:
 - input model
 - output model
 
+It also answers with its own JSON Schemas, so every surface that publishes them publishes the
+same ones: `input_schema()` is the input model's validation schema, because an argument mapping
+is validated against it, and `output_schema()` is the output model's serialization schema,
+because a channel sends `model_dump(by_alias=True, mode="json")`. A computed member or a
+serialization alias therefore appears in the output schema and in the payload, and in neither
+the input schema nor the arguments a caller may send. Two surfaces publish these — the Agent
+channel's projection and a package's self-description — and the rule lives here rather than at
+each of them, so one cannot describe a model the other does not. See
+`docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
+
 Future metadata may include:
 
 - query / command kind
@@ -85,11 +95,13 @@ handler.
 Maps a Tool name to the Tool registered under it. Storage only; it implements no
 invocation semantics.
 
-One dictionary suffices: a Tool carries both its declaration and its bound callable.
-ToolRuntime resolves a Tool by name, and `definitions()` enumerates
-`tool.definition` in registration order, which is what a channel needs for discovery.
+One dictionary suffices, and resolution is all a channel asks of it: a channel enumerates what
+an App declares from the declaration, so a registry answers a name and nothing else. See
+`docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md`.
 
-Registering a name twice replaces the earlier Tool, declaration included.
+Registering a name twice replaces the earlier Tool, declaration included. A declaration carrying
+one name twice never reaches the registry: the window refuses it where it builds one, because
+enumeration and resolution no longer read the same object.
 
 ### ToolRuntime
 

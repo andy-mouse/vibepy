@@ -64,7 +64,8 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     assert "<html" in body.lower()
 
 
-def test_an_unknown_app_name_fails_with_a_message() -> None:
+def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
+    """`packaging.md`: a failure writes the framework's code and message."""
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "absent", "--port", str(free_port())],
         input=b"{}",
@@ -72,8 +73,11 @@ def test_an_unknown_app_name_fails_with_a_message() -> None:
         check=False,
         env=child_environment(),
     )
+
     assert finished.returncode == 1
-    assert "absent" in finished.stderr.decode()
+    written = json.loads(finished.stderr.decode())
+    assert written["code"] == "package.app_not_declared"
+    assert "absent" in written["message"]
 
 
 def test_a_window_that_will_not_open_stops_the_server() -> None:
