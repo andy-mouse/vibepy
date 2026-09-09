@@ -7,15 +7,19 @@ around each test.
 
 import pytest
 from nicegui import app, ui
-from nicegui.testing import User
+from nicegui.testing import User, user_simulation  # pyright: ignore[reportUnknownVariableType]
 from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, TODO_CONFIG, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
-from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
-from vibepy_core.page import Page, PageContext, PageDefinition
+from vibepy_core.errors import (
+    PageRouteConflictError,
+    PageRouteInvalidError,
+    ToolNotFoundError,
+)
+from vibepy_core.page import Page, PageContext, PageDefinition, PageHandler
 
 APP_ID = "test-app"
 
@@ -131,3 +135,54 @@ async def test_page_interaction_invokes_a_tool(user: User) -> None:
         user.find("title").type("write the spec")
         user.find("Add").click()
         await user.should_see("todo: write the spec")
+
+
+class HandlersOwnError(Exception):
+    """An exception an App's own Page handler raises."""
+
+
+def boom_definition(handler: PageHandler) -> AppDefinition[None, NoConfig]:
+    return web_definition(
+        [
+            Page(
+                definition=PageDefinition(name="boom", route="/boom", title="Boom"),
+                handler=handler,
+            )
+        ]
+    )
+
+
+async def test_a_framework_error_raised_in_a_render_is_not_translated() -> None:
+    """`errors.md`: the Web channel translates nothing.
+
+    These two drive `user_simulation` rather than the `user` fixture: that
+    fixture fails a test on any ERROR log and a render that raises logs one.
+    `user_simulation` is the context manager the fixture is built on and is
+    what `nicegui.testing` exports, so this is the library's own entry point.
+    """
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.invoke("absent", {})
+
+    definition = boom_definition(handler)
+
+    async with user_simulation() as user:
+        async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+            register_pages(definition, pages)
+
+            with pytest.raises(ToolNotFoundError):
+                await user.open("/boom")
+
+
+async def test_an_app_exception_raised_in_a_render_is_not_translated() -> None:
+    async def handler(_ctx: PageContext) -> None:
+        raise HandlersOwnError("the app's own failure")
+
+    definition = boom_definition(handler)
+
+    async with user_simulation() as user:
+        async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+            register_pages(definition, pages)
+
+            with pytest.raises(HandlersOwnError):
+                await user.open("/boom")
