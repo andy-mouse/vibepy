@@ -234,10 +234,12 @@ existing test passes untouched. What CR1 adds:
 One public name is removed and one behaviour changes.
 
 `PageRegistry.definitions()` is exported from the package root, and AGENTS.md keeps the public
-API backward compatible and deprecates before removing. Removing it without a deprecation period
-is authorized by the acceptance criterion itself, which offers `gone` as one of its two branches
-and is the owner's. It has no caller in this repository and no published version of this package
-has ever existed, so there is nothing to deprecate it for.
+API backward compatible and deprecates before removing. That rule protects a consumer of a
+working contract, and this method has neither. ADR-012's amendment records that `register_pages`
+has always enumerated the declaration and never took a `PageRegistry`, so the method's own
+docstring — that a Web channel adapter projects these into routes — was never true. Deprecating
+a false statement for a release cycle preserves nothing, and the acceptance criterion offers
+`gone` as one of its two branches.
 
 The behaviour change can break an App: one declaring two Pages under one name used to serve and
 now fails to open its window. That App was serving one Page from two routes, so the failure
