@@ -8,6 +8,8 @@ one without importing it.
 import logging
 from collections.abc import Sequence
 
+from packaging.utils import canonicalize_name
+
 from vibepy_core.app.package import discover_apps
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
@@ -56,19 +58,33 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
     held = (await read_state(deps.root)).config
     for env in await environments(deps.root):
         facts = await read_facts(env)
-        metadata = facts.purelib if facts and facts.purelib else await purelib(env)
+        if facts is None or facts.purelib is None:
+            rows[env.name] = AppRow(
+                app_name=env.name,
+                state="installed",
+                diagnostic=Diagnostic(
+                    code="hub.facts_unreadable",
+                    category=ErrorCategory.EXECUTION,
+                    message=f"{env} holds no readable record of what was installed",
+                    details={"app_name": env.name},
+                ),
+            )
+            continue
+        metadata = facts.purelib
         declared = discover_apps(path=[metadata])
-        wanted = facts.declared_name if facts else env.name
-        present = any(ref.app_name == wanted for ref in declared)
+        wanted = facts.declared_name
+        present = any(
+            ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
+        )
         port = deps.processes.running(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
-            name=facts.name if facts else None,
-            version=facts.version if facts else None,
+            name=facts.name,
+            version=facts.version,
             state="running" if port is not None else "installed",
             url=f"http://127.0.0.1:{port}" if port is not None else None,
-            configured=bool(facts and is_configured(facts, held.get(env.name, {}))),
-            has_pages=bool(facts and facts.has_pages),
+            configured=is_configured(facts, held.get(env.name, {})),
+            has_pages=facts.has_pages,
             diagnostic=None
             if present
             else Diagnostic(
@@ -112,9 +128,12 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             ),
         )
     metadata = await purelib(env)
-    declared = discover_apps(path=[metadata])
-    found = next(iter(described), None)
-    if found is None or not declared:
+    mine = [
+        facts
+        for facts in described
+        if str(canonicalize_name(facts.distribution)) == payload.app_name
+    ]
+    if not mine:
         await remove_environment(env)
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
@@ -125,7 +144,21 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"folder": str(folder)},
             ),
         )
-    facts = found.model_copy(update={"purelib": metadata, "declared_name": declared[0].app_name})
+    if len(mine) > 1:
+        await remove_environment(env)
+        return Installation(
+            app=AppRow(app_name=payload.app_name, state="available"),
+            diagnostic=Diagnostic(
+                code="hub.multiple_apps_declared",
+                category=ErrorCategory.DECLARATION,
+                message=f"{payload.app_name!r} declares more than one App",
+                details={
+                    "app_name": payload.app_name,
+                    "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
+                },
+            ),
+        )
+    facts = mine[0].model_copy(update={"purelib": metadata})
     await write_facts(env, facts)
     return Installation(
         app=AppRow(

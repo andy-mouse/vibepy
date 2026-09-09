@@ -74,6 +74,8 @@ class AppFacts(BaseModel):
     purelib: Path | None = None
     declared_name: str = ""
     """The name the App declares itself under, which a folder's need not match."""
+    distribution: str = ""
+    """The distribution that declared this App, which is what the Hub files it under."""
 
 
 _SEPARATORS = frozenset("/\\:\x00")

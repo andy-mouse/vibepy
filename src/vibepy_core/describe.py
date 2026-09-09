@@ -17,9 +17,22 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> int:
-    """Write one JSON object per declared App to standard output."""
+    """Write one JSON object per declared App to standard output.
+
+    Each object carries the identity of the declaration it describes, so a
+    reader that also enumerates the environment joins the two on a name rather
+    than on a position.
+    """
     try:
-        described = [asdict(describe_app(ref)) for ref in discover_apps()]
+        described = [
+            {
+                "app_name": ref.app_name,
+                "distribution": ref.distribution,
+                "distribution_version": ref.distribution_version,
+                **asdict(describe_app(ref)),
+            }
+            for ref in discover_apps()
+        ]
     except VibepyError as error:
         info = to_error_info(error)
         sys.stderr.write(json.dumps({"code": info.code, "message": info.message}) + "\n")

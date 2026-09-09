@@ -116,6 +116,8 @@ async def install(*, folder: Path, env: Path) -> None:
 class _Described(BaseModel):
     """One entry of what `vibepy_core.describe` writes, as the Hub reads it."""
 
+    app_name: str
+    distribution: str
     app_id: str
     name: str
     version: str
@@ -140,6 +142,8 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
             version=entry.version,
             config_schema=entry.config_schema,
             has_pages=bool(entry.pages),
+            declared_name=entry.app_name,
+            distribution=entry.distribution,
         )
         for entry in described
     )

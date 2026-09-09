@@ -10,7 +10,7 @@ from tests_support import EXAMPLES, hub, write_project
 from vibepy_core.errors import ToolInputValidationError
 from vibepy_hub.internals import AppNameInvalid, read_facts
 from vibepy_hub.internals import environment as hub_environment
-from vibepy_hub.models import AppListing, AppName, Installation, RunningApp
+from vibepy_hub.models import AppFacts, AppListing, AppName, Installation, RunningApp
 
 
 def environment(root: Path, app_name: str, /) -> Path:
@@ -224,3 +224,41 @@ async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path) -> None
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["installed"]
     assert a_python_lives_in(environment(root, "vibepy-todo"))
+
+
+async def test_a_distribution_declaring_two_apps_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """One environment holds one App, so two declarations are reported rather
+    than one of them silently dropped."""
+    root = tmp_path / "hub"
+
+    async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
+        return (
+            AppFacts(
+                app_id="todo-app",
+                name="Todo",
+                version="0.0.0",
+                declared_name="todo-app",
+                distribution="vibepy-todo",
+            ),
+            AppFacts(
+                app_id="second-app",
+                name="Second",
+                version="0.0.0",
+                declared_name="second",
+                distribution="vibepy-todo",
+            ),
+        )
+
+    monkeypatch.setattr("vibepy_hub.tools.installation.describe", describes_two)
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+
+    assert isinstance(answered, Installation)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.multiple_apps_declared"
+    assert "second" in answered.diagnostic.details["declared"]
+    assert not environment(root, "vibepy-todo").exists()

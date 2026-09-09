@@ -82,6 +82,10 @@ Run with an App environment's own interpreter, it writes a JSON array to standar
 object per App declared in that environment. A failure writes the framework's code and message
 to standard error and exits 1.
 
+Each object carries the `app_name`, `distribution` and `distribution_version` of the declaration
+it describes, beside the description itself. A host that also enumerates the environment joins
+the two answers on identity rather than on position.
+
 This is how a Host reads an App it must not import. The Host runs the command with the App
 environment's interpreter and parses the result; the import happens on the far side of a process
 boundary, where the App's dependencies belong.
