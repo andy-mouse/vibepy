@@ -26,8 +26,8 @@ from vibepy_hub.internals import (
     read_facts,
     read_state,
     remove_environment,
+    update_state,
     write_facts,
-    write_state,
 )
 from vibepy_hub.models import (
     AppListing,
@@ -160,16 +160,16 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
     await remove_environment(environment(deps.root, payload.app_name))
-    state = await read_state(deps.root)
-    await write_state(
-        deps.root,
-        HubState(
+
+    def forget(state: HubState) -> HubState:
+        return HubState(
             sources=state.sources,
             config={
                 name: values for name, values in state.config.items() if name != payload.app_name
             },
-        ),
-    )
+        )
+
+    await update_state(deps, forget)
     return await list_apps(ctx, Empty())
 
 

@@ -9,9 +9,8 @@ from vibepy_hub.internals import (
     HubState,
     installed_facts,
     masked,
-    read_state,
     secret_fields,
-    write_state,
+    update_state,
 )
 from vibepy_hub.models import ConfigureRequest, Diagnostic, HeldConfig
 
@@ -39,12 +38,18 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
             ),
         )
     secrets = secret_fields(facts.config_schema)
-    state = await read_state(deps.root)
-    kept = {**state.config.get(payload.app_name, {}), **payload.values}
-    await write_state(
-        deps.root,
-        HubState(sources=state.sources, config={**state.config, payload.app_name: kept}),
-    )
+
+    def hold(state: HubState) -> HubState:
+        return HubState(
+            sources=state.sources,
+            config={
+                **state.config,
+                payload.app_name: {**state.config.get(payload.app_name, {}), **payload.values},
+            },
+        )
+
+    changed = await update_state(deps, hold)
+    kept = changed.config[payload.app_name]
     return HeldConfig(
         app_name=payload.app_name,
         values=masked(kept, secrets),

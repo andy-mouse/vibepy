@@ -24,7 +24,7 @@ from vibepy_hub.internals.installer import (
 )
 from vibepy_hub.internals.processes import Processes, StartFailed
 from vibepy_hub.internals.projects import Candidate, candidates, readable
-from vibepy_hub.internals.state import HubState, read_state, write_state
+from vibepy_hub.internals.state import HubState, read_state, update_state, write_state
 
 __all__ = [
     "AppNameInvalid",
@@ -49,6 +49,7 @@ __all__ = [
     "readable",
     "remove_environment",
     "secret_fields",
+    "update_state",
     "write_facts",
     "write_state",
 ]

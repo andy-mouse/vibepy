@@ -10,7 +10,7 @@ from vibepy_hub.internals import (
     candidates,
     read_state,
     readable,
-    write_state,
+    update_state,
 )
 from vibepy_hub.models import CandidateRow, Diagnostic, SourceListing, SourcePath
 
@@ -48,23 +48,25 @@ async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath
             ),
         )
     if payload.path not in state.sources:
-        await write_state(
-            deps.root, HubState(sources=[*state.sources, payload.path], config=state.config)
-        )
+
+        def offer(held: HubState) -> HubState:
+            return HubState(sources=[*held.sources, payload.path], config=held.config)
+
+        await update_state(deps, offer)
     return await _listing(deps)
 
 
 async def remove_package_source(ctx: ToolContext[HubDeps], payload: SourcePath) -> SourceListing:
     """Stop offering the Apps in a local folder."""
     deps = ctx.dependencies
-    state = await read_state(deps.root)
-    await write_state(
-        deps.root,
-        HubState(
-            sources=[path for path in state.sources if path != payload.path],
-            config=state.config,
-        ),
-    )
+
+    def withdraw(held: HubState) -> HubState:
+        return HubState(
+            sources=[path for path in held.sources if path != payload.path],
+            config=held.config,
+        )
+
+    await update_state(deps, withdraw)
     return await _listing(deps)
 
 

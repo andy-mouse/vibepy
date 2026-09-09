@@ -1,6 +1,7 @@
 """What one Hub window owns, as one value its Tools reach through ToolContext."""
 
-from dataclasses import dataclass
+import asyncio
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from vibepy_hub.internals.processes import Processes
@@ -12,3 +13,4 @@ class HubDeps:
 
     root: Path
     processes: Processes
+    state_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
