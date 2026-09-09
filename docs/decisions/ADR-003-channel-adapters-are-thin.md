@@ -1,6 +1,10 @@
 # ADR-003: NiceGUI and MCP are thin channel adapters
 
-Status: Accepted
+Status: Deprecated
+
+This record states no decision between alternatives: it has no Context, and what it asserts is
+held by ADR-001 and ADR-002 as decisions and by `docs/architecture/adapters.md` as current
+truth. It is kept because ADR-020 cites it.
 
 ## Decision
 

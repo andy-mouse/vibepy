@@ -87,7 +87,7 @@ serialization it introduces itself. It cannot create request concurrency that it
 technology does not offer, and it does not make a app's domain state safe under overlap.
 
 A channel adapter reduces a request to a single `await` on a runtime, so it adds no
-serialization of its own. See `docs/decisions/ADR-003-channel-adapters-are-thin.md`.
+serialization of its own. See `docs/architecture/adapters.md`.
 
 ### What the channel technologies do
 

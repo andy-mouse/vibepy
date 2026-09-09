@@ -29,7 +29,7 @@ It receives the App's validated configuration and nothing else. What precedes
 the ``yield`` runs as the window opens and what follows runs as it closes.
 Acquisition and release cannot be declared apart, which is what lets a channel
 release a resource whose type it does not know. See
-`docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
+`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 """
 
 

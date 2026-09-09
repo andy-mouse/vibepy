@@ -1,6 +1,11 @@
 # ADR-014: A Tool carries its own bound callable
 
-Status: Accepted
+Status: Deprecated
+
+This record weighs two implementations of one mechanism rather than recording a decision that
+is hard to reverse or that constrains later ones. What survives it — a Tool binds its handler at
+construction, is generic only in the dependency type, and exposes no handler — is held by
+`docs/architecture/tool-model.md`.
 
 Supersedes: ADR-011
 

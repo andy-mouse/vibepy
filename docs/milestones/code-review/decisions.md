@@ -94,11 +94,27 @@ with each, because the remedy differs:
 | wrong when written | ADR-012, whose Decision gives `register_pages` a signature it has never had | corrected in place, per D12 |
 | Nygard format incomplete | ADR-003, 004, 005, 006 — no Context section, so none states the alternative it rejected | Context supplied |
 | the decision actually changed | ADR-006, which still names the `AppRuntime` that ADR-020 deleted, and which `docs/architecture/lifecycle.md` still cites as live | superseded |
-| how, not why | ADR-011, 014, 016, 021 — internal mechanisms, cheap to reverse, no contract outside their module | what is still true is promoted into the document that owns it, then the record is deleted. There is no "why" to lose: these recorded mechanics |
+| how, not why | ADR-003, 014, 016. ADR-021 was in this list on a partial reading and is not: removing `lifespan` from `AppDefinition` changes every App's public shape, and ADR-023 rests on it | marked `Deprecated`, bodies untouched, each pointing at the document that owns what survives it |
 | decided but never recorded | the direct `fastapi`/`uvicorn` dependency with an ASGI-lifespan Web window, `python -m vibepy.serve` as a second command, and the Hub's `Diagnostic`/`hub.*` vocabulary | written, if they still pass the bar |
 
 The last row matters as much as the others. The repository's problem was never that it recorded
 too much; it is that it recorded the wrong altitude and then left real decisions unrecorded.
+
+Deletion was proposed and then withdrawn. Every authority behind the bar calls the log
+append-only — Microsoft states it in those words — so deleting records would break the rule in
+the act of applying it, and ADR-020's body cites ADR-003, which deletion would leave pointing at
+nothing. `Deprecated` is in Nygard's original status set and in the MADR template, and it leaves
+the same fifteen live records while keeping the history and the citation intact.
+
+Nothing needed promoting. `adapters.md` already carried ADR-003's decision sentence for sentence,
+and `tool-model.md` and `page-model.md` already carried what ADR-014 and ADR-016 assert — which
+is why those records failed the bar in the first place.
+
+A test replaces the index that would otherwise list which records are live. An index restates
+twenty-six statuses that each record already declares, which is the defect this review found
+elsewhere; `tests/test_decisions.py` asserts the rule instead, and found on its first run that
+`lifecycle.md` and `composition.py` were both citing ADR-018, superseded by ADR-020 — a live
+document resting on a withdrawn decision that none of the seven reviewers reported.
 
 This runs before the new ADR is written, not after. A record added to a set that does not meet
 the bar is not held to it either. Two consequences follow and are part of A0's scope: promoting

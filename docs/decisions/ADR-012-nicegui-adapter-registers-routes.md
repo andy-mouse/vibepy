@@ -16,9 +16,10 @@ collision is reported.
 
 ## Decision
 
-Registering routes is separated from running a server. register_pages projects a PageRegistry
-onto NiceGUI routes and returns; the framework starts no Web server and holds no server
-object.
+Registering routes is separated from running a server. `register_pages` reads an
+AppDefinition's declared Pages and projects each onto a NiceGUI route, rendering through the
+PageRuntime the caller's window yielded; it returns, and the framework starts no Web server and
+holds no server object.
 
 The adapter validates route format and uniqueness before any route is registered, because
 NiceGUI reports no collision of its own.
@@ -27,7 +28,9 @@ NiceGUI reports no collision of its own.
 
 - the Web channel is exercised in-process through `nicegui.testing.user_simulation`, with no
   server and no browser
-- the runtime lifecycle adds a call to `ui.run()` at startup, not a rewrite of this adapter
+- running the routes is somebody else's step, not a rewrite of this adapter. ADR-020 removed the
+  runtime lifecycle this record expected to add one; `build_web_app` returns an ASGI application
+  whose lifespan is the window, and `python -m vibepy.serve` runs it
 - two Pages declaring one route fail loudly at registration rather than one disappearing
   silently
 - registration is process-global, so one process serves one App's Pages

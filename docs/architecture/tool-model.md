@@ -78,7 +78,7 @@ A ToolDefinition paired with the handler that implements it, bound at constructi
 one uniform callable. The class is generic only in the dependency type; its `__init__` is
 generic in the declared models, so `Tool(definition=..., handler=...)` reads as a
 declaration and an AppDefinition can hold a sequence of Tools. A Tool does not expose its
-handler. See `docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
+handler.
 
 ### ToolRegistry
 
@@ -104,8 +104,7 @@ and the application-scoped resource the channel's window acquired.
 
 Steps that need the declared models belong to the Tool, not to the runtime: input
 validation, the handler call and output validation happen together inside the closure a
-Tool builds over its handler. See
-`docs/decisions/ADR-014-a-tool-carries-its-bound-callable.md`.
+Tool builds over its handler.
 
 Business logic does not belong in ToolRuntime.
 
