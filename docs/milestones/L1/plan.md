@@ -646,12 +646,18 @@ reference is one of the two corrections an `Accepted` record takes.
 - [ ] **Step 4: Prove no document names a path or command that no longer exists**
 
 ```bash
-grep -rn 'vibepy\.serve\|vibepy\.describe\|src/vibepy\b\|hub/src\|samples/' docs/ \
-  --include='*.md' | grep -v 'docs/milestones/code-review'
+grep -rn 'vibepy\.serve\|vibepy\.describe\|src/vibepy\b\|vibepy/\|hub/src\|samples/' docs/ \
+  | grep -v 'docs/milestones/'
 ```
 
-Expected: no output. The `code-review` folder is excluded because it is a record of what was
-found at `05d6027` and is not brought up to date.
+Expected: only `docs/decisions/ADR-023` and `ADR-026`, which name the old commands in their own
+prose and are left alone: an `Accepted` record is an append-only statement as of its date
+(Microsoft, *Maintain an architecture decision record*: "The ADR serves as an append-only log.
+Don't go back and edit accepted records"), and current truth is read from `docs/architecture/`.
+No `.md` filter, because `docs/hub-ui-mockup.html` names a command too, and `vibepy/` in the
+pattern because `errors.md` names a module path in that form. `docs/milestones/` is excluded:
+`code-review/` records what was found at `05d6027`, and this stage's own folder describes the
+move it is making.
 
 - [ ] **Step 5: Run the suite**
 

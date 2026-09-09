@@ -5,12 +5,12 @@ install:
 	uv run pre-commit install
 
 lint:
-	uv run ruff check src tests packages examples
-	uv run ruff format --check src tests packages examples
+	uv run ruff check .
+	uv run ruff format --check .
 
 format:
-	uv run ruff format src tests packages examples
-	uv run ruff check --fix src tests packages examples
+	uv run ruff format .
+	uv run ruff check --fix .
 
 typecheck:
 	uv run pyright

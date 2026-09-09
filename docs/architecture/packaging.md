@@ -108,14 +108,19 @@ import belongs on the App's side of a process boundary.
 
 ## What an environment holds
 
-An App's environment holds `vibepy-core`, the extras for the channels that App offers, and the
-App. `vibepy-core` itself declares no channel: `vibepy-core[web]` carries the Web technology and
-`vibepy-core[agent]` carries MCP, so an App declaring no Pages installs no Web technology. See
+An App's environment holds `vibepy-core`, the extras that App declares, and the App.
+`vibepy-core` itself declares no channel: `vibepy-core[web]` carries the Web technology this
+framework serves Pages with and `vibepy-core[agent]` carries MCP. See
 `docs/decisions/ADR-025-the-framework-implements-channel-neutrality-and-delegates-the-rest.md`.
 
-What a channel's SDK requires of itself is that SDK's own declaration and is not narrowed here:
-MCP requires uvicorn, so an environment offering the Agent channel holds uvicorn whether or not
-it offers the Web one.
+An App that declares no Pages therefore needs no `[web]`, and an App that declares `[agent]`
+alone holds neither NiceGUI nor FastAPI. It does not hold *nothing* of the web: what a channel's
+SDK requires of itself is that SDK's own declaration and is not narrowed here, and MCP requires
+starlette and uvicorn.
+
+What an App declares is what it offers rather than what it imports today. The Hub declares
+`[web]` because it is consumed through a Page (`docs/roadmap.md` M11), and declaring a channel
+before its Pages exist is a statement about the App, not a guarantee about its imports.
 
 ## The isolation invariant
 

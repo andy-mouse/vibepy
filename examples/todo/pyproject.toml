@@ -3,7 +3,10 @@ name = "vibepy-todo"
 version = "0.1.0"
 description = "The Todo sample App from docs/roadmap.md"
 requires-python = ">=3.12"
-dependencies = ["vibepy-core[web,agent]"]
+dependencies = [
+    "vibepy-core[web,agent]",
+    "nicegui>=3.16",
+]
 
 [project.entry-points."vibepy.apps"]
 todo-app = "todo_app.entry:APP"

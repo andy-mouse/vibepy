@@ -51,7 +51,7 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(tmp_path: Pa
 async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None:
     """A folder's name is not a declaration.
 
-    `samples/todo` declares itself as `todo-app`, so the Hub files it under the
+    `examples/todo` declares itself as `todo-app`, so the Hub files it under the
     name it was asked for and runs it under the name its environment answers to.
     """
     root = tmp_path / "hub"

@@ -42,14 +42,15 @@ def sync(package: str, environment: Path, /) -> None:
     """Install one workspace member's own dependencies into one environment."""
     env = dict(os.environ)
     env["UV_PROJECT_ENVIRONMENT"] = str(environment)
-    subprocess.run(
+    installing = subprocess.run(
         ["uv", "sync", "--package", package, "--no-dev", "--frozen"],
         cwd=REPO_ROOT,
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
     )
+    assert installing.returncode == 0, installing.stderr
 
 
 def test_an_agent_only_apps_environment_holds_no_web_technology(tmp_path: Path) -> None:

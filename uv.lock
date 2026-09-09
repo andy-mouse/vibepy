@@ -1793,11 +1793,15 @@ name = "vibepy-todo"
 version = "0.1.0"
 source = { editable = "examples/todo" }
 dependencies = [
+    { name = "nicegui" },
     { name = "vibepy-core", extra = ["agent", "web"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vibepy-core", extras = ["web", "agent"], editable = "." }]
+requires-dist = [
+    { name = "nicegui", specifier = ">=3.16" },
+    { name = "vibepy-core", extras = ["web", "agent"], editable = "." },
+]
 
 [[package]]
 name = "virtualenv"

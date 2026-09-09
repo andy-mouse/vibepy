@@ -12,19 +12,20 @@ identically after.
 
 - `make lint typecheck test` passes with the same 152 tests and the same results
 - an environment holding `vibepy-notes` contains no NiceGUI, FastAPI or uvicorn
-
-The uvicorn half of that criterion cannot be met, and the reason is not this stage's to fix. The
-MCP SDK requires uvicorn of itself — `uvicorn>=0.31.1; sys_platform != 'emscripten'` in `mcp`
-2.1.1's metadata — so any environment holding MCP holds uvicorn, and `[agent]` must hold MCP.
-What the criterion is about is met: an Agent-only App's environment holds no Web technology,
-NiceGUI and FastAPI both being absent. A project declares what it imports and constrains
-versions; pip states the boundary in its own words, that a constraints file "only control[s]
-which version of a requirement is installed, not whether it is installed or not"
-(<https://pip.pypa.io/en/stable/user_guide/#constraints-files>). Removing uvicorn would mean
-reaching into another project's dependencies, and the place to change what MCP requires is MCP.
-`docs/milestones/code-review-roadmap.md` is the owner's and is not edited.
 - CI runs what the Makefile runs, so `packages/vibepy-hub` and the examples are covered there
 - no file under the framework's `src/` changes except its imports and the paths in its docstrings
+
+The second criterion cannot be met in the uvicorn half, and the reason is not this stage's to
+fix. The MCP SDK requires uvicorn of itself — `uvicorn>=0.31.1; sys_platform != 'emscripten'` in
+`mcp` 2.1.1's metadata — so any environment holding MCP holds uvicorn, and `[agent]` must hold
+MCP. What the criterion is about is met: an Agent-only App's environment holds neither NiceGUI
+nor FastAPI. A project declares what it imports and constrains versions; pip states the boundary
+in its own words, that a constraints file "only control[s] which version of a requirement is
+installed, not whether it is installed or not"
+(<https://pip.pypa.io/en/stable/user_guide/#constraints-files>). Removing uvicorn would mean
+reaching into another project's dependencies, and the place to change what MCP requires is MCP.
+The owner was asked and chose to read the criterion by its intent;
+`docs/milestones/code-review-roadmap.md` is the owner's and is not edited.
 
 The last criterion has one exception, and it is the whole of it: `serve.py` passes
 `prog="vibepy.serve"` to `argparse`, which is neither an import nor a docstring, and a usage line
@@ -133,8 +134,8 @@ three the framework imports itself, in `adapters/nicegui/` and `serve.py` — an
 
 | Distribution | Declares | Why |
 | --- | --- | --- |
-| `vibepy-hub` | `vibepy-core[web]` | the Hub opens Web channels and is consumed through one. ADR-024 says a Hub UI consumes its Tools *as any Page consumes Tools*; ADR-017 says Hub status and stop describe the Web channel and the Agent channel is available whether or not the Hub runs; `app-model.md:88-90` puts the Hub on the opening side of a Web channel and the MCP client on the Agent side. `docs/roadmap.md` M11 builds that UI in NiceGUI. No document exposes the Hub itself on the Agent channel |
-| `vibepy-todo` | `vibepy-core[web,agent]` | it declares Tools *and* Pages, so it offers both channels, and `tests/test_dual_channel.py` runs this one declaration through an MCP client and a NiceGUI user to prove it |
+| `vibepy-hub` | `vibepy-core[web]` | the Hub opens Web channels and is consumed through one. What an App declares is the channel it offers rather than what it imports today, so the Hub declares `[web]` while M11's Pages are still ahead of it. ADR-024 says a Hub UI consumes its Tools *as any Page consumes Tools*; ADR-017 says Hub status and stop describe the Web channel and the Agent channel is available whether or not the Hub runs; `app-model.md:88-90` puts the Hub on the opening side of a Web channel and the MCP client on the Agent side. `docs/roadmap.md` M11 builds that UI in NiceGUI. No document exposes the Hub itself on the Agent channel |
+| `vibepy-todo` | `vibepy-core[web,agent]`, and `nicegui` | it declares Tools *and* Pages, so it offers both channels, and `tests/test_dual_channel.py` runs this one declaration through an MCP client and a NiceGUI user to prove it. Its Page builds its own markup, so it imports `nicegui` itself and declares it rather than resting on the extra |
 | `vibepy-notes` | `vibepy-core[agent]` | being the App with no Web channel is why it exists: "a second sample `vibepy-notes` declares Tools and no Pages — the App that has no Web channel for a Hub to start" (be56a96). This is what makes it Agent-only in its dependency tree rather than only in its declaration |
 
 The dev group declares `vibepy-core[web,agent]` and `nicegui[testing]`, because the suite
