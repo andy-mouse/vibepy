@@ -1,20 +1,44 @@
 """What the Hub's Tools take and return.
 
 A diagnostic is plain fields because an output model is revalidated, so no
-exception instance and no live object can travel in one. See
-`docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
+exception instance and no live object can travel in one. It carries a category
+because a caller reads that to learn whether a different call could succeed. See
+`docs/decisions/ADR-007-framework-guarantees-tool-output.md` and
+`docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
+
+The Hub's own codes, until CR3 gives the Hub a document to carry them:
+
+| Code | Category |
+| --- | --- |
+| `hub.candidate_absent` | caller |
+| `hub.candidate_ambiguous` | caller |
+| `hub.install_failed` | execution |
+| `hub.no_app_declared` | declaration |
+| `hub.multiple_apps_declared` | declaration |
+| `hub.declaration_missing` | declaration |
+| `hub.facts_unreadable` | execution |
+| `hub.source_unreadable` | caller |
+| `hub.not_installed` | caller |
+| `hub.no_web_channel` | caller |
+| `hub.already_running` | caller |
+| `hub.not_running` | caller |
+| `hub.start_failed` | execution |
 """
 
 from pathlib import Path
 from typing import Annotated
 
+from packaging.utils import canonicalize_name
 from pydantic import AfterValidator, BaseModel
+
+from vibepy_core.errors import ErrorCategory
 
 
 class Diagnostic(BaseModel):
     """An expected, actionable failure, in the form a channel can render."""
 
     code: str
+    category: ErrorCategory
     message: str
     details: dict[str, str] = {}
 
@@ -29,7 +53,7 @@ class SourcePath(BaseModel):
 
 class CandidateRow(BaseModel):
     folder: Path
-    name: str | None
+    name: str
     version: str | None
     declares_app: bool
 
@@ -49,8 +73,16 @@ class AppFacts(BaseModel):
     config_schema: dict[str, object] = {}
     has_pages: bool = False
     purelib: Path | None = None
-    declared_name: str = ""
+    declared_name: str
     """The name the App declares itself under, which a folder's need not match."""
+    distribution: str
+    """The distribution that declared this App, which is what the Hub files it under.
+
+    Required, with `declared_name`, because `write_facts` is the only writer and
+    always states both. A record without them is one this Hub did not write, and
+    saying so as `hub.facts_unreadable` is truer than reporting the App it
+    describes as no longer declared.
+    """
 
 
 _SEPARATORS = frozenset("/\\:\x00")
@@ -63,10 +95,15 @@ def _one_segment(value: str) -> str:
     model-controlled string that reaches the file system. Refusing it here is
     what makes the channel answer `tool.input_invalid` rather than the Hub grow
     a diagnostic of its own.
+
+    What survives the gate is canonicalized, because an App is addressed by its
+    distribution name and the specification compares two of those by
+    normalizing them. The gate runs first: normalization does not remove a
+    separator.
     """
     if value in {"", ".", ".."} or _SEPARATORS & set(value):
         raise ValueError("an App name is one path segment")
-    return value
+    return str(canonicalize_name(value))
 
 
 AppNameField = Annotated[str, AfterValidator(_one_segment)]
@@ -101,6 +138,7 @@ class AppRow(BaseModel):
 
 class AppListing(BaseModel):
     apps: list[AppRow]
+    diagnostic: Diagnostic | None = None
 
 
 class Installation(BaseModel):
@@ -113,21 +151,21 @@ class ConfigureRequest(BaseModel):
     values: dict[str, object] = {}
 
 
-SET = "set"
-"""What a stored secret reads as once it has one. Never the value itself."""
-
-
 class HeldConfig(BaseModel):
     """What the Hub holds for one App.
 
-    A secret's value is stored but never handed back: `values` reports it as
-    `set`, the way `SecretStr` reports itself as masked. `secret_fields` names
-    which fields those are.
+    A secret's value is stored and handed back to no channel, so `values`
+    carries only the fields that are not secrets. `secret_fields` names the
+    fields an App declared as secret and `secrets_set` names those that have a
+    value -- which is what `docs/architecture/lifecycle.md` requires reported,
+    said where a client cannot mistake it for a value. A client keeps a held
+    secret by omitting the field.
     """
 
     app_name: str
     values: dict[str, object]
     secret_fields: list[str]
+    secrets_set: list[str]
     diagnostic: Diagnostic | None = None
 
 

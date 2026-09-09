@@ -359,9 +359,19 @@ would not run, or a process that died without reporting.
 - **joined by identity** — an environment holding two distributions, each declaring one App,
   yields facts whose `declared_name` belongs to the App installed and not to whichever sorted
   first. A distribution declaring two Apps answers `hub.multiple_apps_declared`.
-- **off the loop** — the ordering assertion `runtime.md` permits: a slow Hub Tool is started as
-  a task and a light one is awaited, and the light one answers while the slow one is still
-  pending. No elapsed time is asserted. On today's code the light call cannot answer first.
+- **off the loop** — held by the two static guards below and by no behavioural test.
+
+  This section originally specified an ordering assertion: a slow Hub Tool started as a task, a
+  light one awaited, and the light one answering first. That was written on a premise that is
+  false. `install_app` awaits a `uv` subprocess almost immediately and releases the loop there,
+  so the light call answers during that wait whether or not the handler's own filesystem work
+  blocks — the test passes on the unfixed code. A witness task counting loop iterations across
+  `list_apps` fails the same way: the reads that were blocking are surrounded by awaits that
+  are not, and those alone keep the loop running. Both were written and both were discarded.
+  Discriminating on the public surface would need enough installed environments for the
+  blocking section to dominate, which makes the assertion a threshold over a timing-shaped
+  number — the kind `runtime.md` refuses. The guards are what can fail when the defect returns,
+  and each has a test that it can fail.
 - **owned from birth** — a start cancelled while it waits for the child leaves no live child,
   and a child that dies before reading its stdin answers `hub.start_failed` rather than raising
   `BrokenPipeError` out of the Tool. The cancellation test drives `Processes` directly: no public
@@ -374,9 +384,13 @@ would not run, or a process that died without reporting.
   own is started, and the answer carries `app.unhandled`, category `execution`, and the
   exception's message. This is the criterion's general case, and it is what makes the fix a fix
   rather than a special case for one code.
-- **the loop stays clear** — an import of a blocking module from a Hub Tool module fails
-  `make lint`, and a blocking method called on a value there fails `make test`. Both are asserted
-  against a file written for the purpose, so the guards are known to fire.
+- **the loop stays clear** — three guards, because a blocking call arrives by three routes. An
+  import of a blocking module from a Hub Tool module fails `make lint`. A module a handler may
+  not reach at all fails `make test`: the import surface of `tools/` is an allowlist, not a list
+  of blocking names to keep adding to, which is how `discover_apps` — a directory scan behind a
+  name that says nothing about blocking — reached the loop past the first two guards. A blocking
+  method called on a value there fails `make test`. Each is asserted against source written for
+  the purpose, so each is known to fire.
 - **one failure model** — every `Diagnostic` a Hub Tool can answer with carries a category, and
   a test walks the Hub's Tools' output models to assert the field is not optional.
 - **state survives** — two overlapping `configure_app` calls for two Apps both survive, so no

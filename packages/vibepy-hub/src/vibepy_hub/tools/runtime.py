@@ -1,9 +1,12 @@
 """Opening and closing an installed App's Web channel."""
 
+import logging
 from collections.abc import Sequence
 
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
+    AlreadyStarted,
     HubDeps,
     StartFailed,
     environment,
@@ -13,35 +16,48 @@ from vibepy_hub.internals import (
 )
 from vibepy_hub.models import AppName, Diagnostic, RunningApp, StartRequest
 
+logger = logging.getLogger(__name__)
 
-def _refusal(app_name: str, code: str, message: str, /) -> RunningApp:
+
+def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCategory) -> RunningApp:
     """An App that will not start or stop, and why."""
     return RunningApp(
         app_name=app_name,
         state="installed",
-        diagnostic=Diagnostic(code=code, message=message, details={"app_name": app_name}),
+        diagnostic=Diagnostic(
+            code=code, category=category, message=message, details={"app_name": app_name}
+        ),
     )
+
+
+def _category(reported: str, /) -> ErrorCategory:
+    """The category a child named, or execution when it named one we do not know."""
+    try:
+        return ErrorCategory(reported)
+    except ValueError:
+        logger.debug("a child reported an unknown category: %s", reported)
+        return ErrorCategory.EXECUTION
 
 
 async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> RunningApp:
     """Open one installed App's Web channel on a port of its own."""
     deps = ctx.dependencies
-    facts = installed_facts(deps.root, payload.app_name)
+    facts = await installed_facts(deps.root, payload.app_name)
     if facts is None:
         return _refusal(
-            payload.app_name, "hub.not_installed", f"{payload.app_name!r} is not installed"
+            payload.app_name,
+            "hub.not_installed",
+            f"{payload.app_name!r} is not installed",
+            category=ErrorCategory.CALLER,
         )
     if not facts.has_pages:
         return _refusal(
             payload.app_name,
             "hub.no_web_channel",
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
+            category=ErrorCategory.CALLER,
         )
-    if deps.processes.running(payload.app_name) is not None:
-        return _refusal(
-            payload.app_name, "hub.already_running", f"{payload.app_name!r} is already running"
-        )
-    held = read_state(deps.root).config.get(payload.app_name, {})
+    held = (await read_state(deps.root)).config.get(payload.app_name, {})
     try:
         port = await deps.processes.start(
             app_name=facts.declared_name,
@@ -49,8 +65,35 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             config={**held, **payload.secrets},
             known_as=payload.app_name,
         )
+    except AlreadyStarted:
+        # One name holds one child, and `Processes` is the one place that
+        # decides it: a check made here would not survive this handler's own
+        # awaits, and two places deciding one fact is how they come to disagree.
+        return _refusal(
+            payload.app_name,
+            "hub.already_running",
+            f"{payload.app_name!r} is already running",
+            category=ErrorCategory.CALLER,
+        )
     except StartFailed as failure:
-        return _refusal(payload.app_name, "hub.start_failed", str(failure))
+        reported = failure.reported
+        if reported is None:
+            return _refusal(
+                payload.app_name,
+                "hub.start_failed",
+                str(failure),
+                category=ErrorCategory.EXECUTION,
+            )
+        return RunningApp(
+            app_name=payload.app_name,
+            state="installed",
+            diagnostic=Diagnostic(
+                code=reported.code,
+                category=_category(reported.category),
+                message=reported.message,
+                details={"app_name": payload.app_name, **reported.details},
+            ),
+        )
     return RunningApp(app_name=payload.app_name, url=f"http://127.0.0.1:{port}", state="running")
 
 
@@ -58,7 +101,10 @@ async def stop_app(ctx: ToolContext[HubDeps], payload: AppName) -> RunningApp:
     """Stop an App this window started."""
     if not await ctx.dependencies.processes.stop(payload.app_name):
         return _refusal(
-            payload.app_name, "hub.not_running", f"{payload.app_name!r} is not running here"
+            payload.app_name,
+            "hub.not_running",
+            f"{payload.app_name!r} is not running here",
+            category=ErrorCategory.CALLER,
         )
     return RunningApp(app_name=payload.app_name, state="installed")
 

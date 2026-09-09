@@ -9,7 +9,7 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
 from pydantic import BaseModel, Field, TypeAdapter, computed_field
 
-from tests.lifecycle import no_dependencies
+from lifecycle import no_dependencies
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy_core.app import AppDefinition, NoConfig
 from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory, VibepyError

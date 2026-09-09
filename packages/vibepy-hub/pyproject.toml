@@ -6,6 +6,7 @@ requires-python = ">=3.12"
 dependencies = [
     "vibepy-core[web]",
     "pydantic>=2.9",
+    "packaging>=24.0",
 ]
 
 [project.entry-points."vibepy.apps"]

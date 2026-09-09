@@ -1767,12 +1767,14 @@ name = "vibepy-hub"
 version = "0.1.0"
 source = { editable = "packages/vibepy-hub" }
 dependencies = [
+    { name = "packaging" },
     { name = "pydantic" },
     { name = "vibepy-core", extra = ["web"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "packaging", specifier = ">=24.0" },
     { name = "pydantic", specifier = ">=2.9" },
     { name = "vibepy-core", extras = ["web"], editable = "." },
 ]

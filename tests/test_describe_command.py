@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
-from tests.test_app_package import write_distribution
+from test_app_package import write_distribution
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -40,6 +40,9 @@ class DescribedConfig(TypedDict):
 class Described(TypedDict):
     """The JSON shape `vibepy_core.describe` writes, as a test reads it."""
 
+    app_name: str
+    distribution: str
+    distribution_version: str
     app_id: str
     name: str
     version: str
@@ -66,7 +69,7 @@ def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) 
     assert result.returncode == 0, result.stderr
     todo = described_app(result, "todo-app")
     assert todo["version"] == "0.0.0"
-    assert sorted(todo["config_schema"]["properties"]) == ["db_path"]
+    assert sorted(todo["config_schema"]["properties"]) == ["db_key", "db_path"]
     assert [tool["name"] for tool in todo["tools"]] == ["create_todo", "list_todos"]
     assert [page["route"] for page in todo["pages"]] == ["/todos"]
     assert described_app(result, "notes-app")["pages"] == []
@@ -100,3 +103,15 @@ def test_an_unloadable_declaration_fails_with_the_framework_code(tmp_path: Path)
 
     assert result.returncode == 1
     assert "package.entrypoint_unloadable" in result.stderr
+
+
+def test_a_description_says_which_declaration_it_describes(tmp_path: Path) -> None:
+    """A reader joins two answers about one environment on identity, so the
+    command reports the identity of what it described."""
+    result = run_describe(tmp_path)
+
+    assert result.returncode == 0, result.stderr
+    described = described_app(result, "todo-app")
+    assert described["app_name"] == "todo-app"
+    assert described["distribution"] == "vibepy-todo"
+    assert described["distribution_version"] == "0.1.0"

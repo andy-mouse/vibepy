@@ -52,6 +52,8 @@ Acceptance:
 - CI runs what the Makefile runs, so `hub` and the examples are covered there
 - no file under `src/` changes except its imports and the paths in its docstrings
 
+Merged.
+
 ## CR1 - Framework core defects
 
 Fix the defects in the framework itself and the guards that would have caught them.
@@ -70,6 +72,8 @@ Acceptance:
 - `PageRegistry.definitions()` and the Agent channel's second `ToolRegistry` are gone, or used
 - an import of an MCP or NiceGUI type anywhere in the core packages, `vibepy/__init__.py`
   included, fails a test
+
+Merged.
 
 ## CR2 - Hub defects
 
@@ -119,6 +123,8 @@ Acceptance:
   surfaces are supported, and where a design artifact such as `hub-ui-mockup.html` belongs
 
 ## Order
+
+CR2 — next.
 
 A0 before L1: the record of what the framework adopts is what justifies splitting the core's
 dependencies. L1 before CR1: a pure move must not share a diff with defect fixes, and it is what

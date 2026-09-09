@@ -82,6 +82,10 @@ Run with an App environment's own interpreter, it writes a JSON array to standar
 object per App declared in that environment. A failure writes the framework's code and message
 to standard error and exits 1.
 
+Each object carries the `app_name`, `distribution` and `distribution_version` of the declaration
+it describes, beside the description itself. A host that also enumerates the environment joins
+the two answers on identity rather than on position.
+
 This is how a Host reads an App it must not import. The Host runs the command with the App
 environment's interpreter and parses the result; the import happens on the far side of a process
 boundary, where the App's dependencies belong.
@@ -102,6 +106,11 @@ that cannot open means: a server that sees `lifespan.startup.failed` logs the me
 (<https://asgi.readthedocs.io/en/latest/specs/lifespan.html>). An App whose configuration its
 window refuses therefore has no server, rather than a server answering for an App that never
 opened.
+
+The command writes one JSON object of `code`, `category`, `message` and `details` to standard
+error for every failure it reports, and a window that will not open reports itself the same way,
+so this process's standard error carries one such object for any failure of starting. See
+`docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
 Both commands exist for one reason. Reading a declaration and running one both import, and an
 import belongs on the App's side of a process boundary.

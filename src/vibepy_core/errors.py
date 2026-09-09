@@ -224,6 +224,15 @@ class AppNotDeclaredError(VibepyError):
         return {"app_name": self.app_name}
 
 
+class ServeConfigInvalidError(VibepyError):
+    """Standard input did not carry one JSON object of configuration."""
+
+    code = "serve.config_invalid"
+
+    def __init__(self) -> None:
+        super().__init__("Configuration on standard input is not a JSON object")
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -237,6 +246,7 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
     AppNotDeclaredError.code: ErrorCategory.CALLER,
+    ServeConfigInvalidError.code: ErrorCategory.CALLER,
 }
 
 

@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy_hub.models import SET, AppFacts
+from vibepy_hub.models import AppFacts
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +43,14 @@ def secret_fields(schema: Mapping[str, object], /) -> tuple[str, ...]:
     return tuple(name for name, field in described.properties.items() if field.format == "password")
 
 
-def masked(values: Mapping[str, object], secrets: Sequence[str], /) -> dict[str, object]:
-    """The held values, with a stored secret reported as set rather than given."""
-    return {
-        name: (SET if name in secrets and value not in (None, "") else value)
-        for name, value in values.items()
-    }
+def held_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> tuple[str, ...]:
+    """The declared secrets this App has a value for."""
+    return tuple(name for name in secrets if values.get(name) not in (None, ""))
+
+
+def without_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> dict[str, object]:
+    """The held values a channel may see: every field that is not a secret."""
+    return {name: value for name, value in values.items() if name not in secrets}
 
 
 def is_configured(facts: AppFacts, held: Mapping[str, object], /) -> bool:

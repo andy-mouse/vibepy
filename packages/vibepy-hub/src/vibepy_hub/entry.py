@@ -4,6 +4,7 @@ The Hub is a platform-tier App. It is built with the framework and depends on it
 and the framework never depends on the Hub.
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -35,8 +36,8 @@ async def hub_lifespan(config: HubConfig) -> AsyncGenerator[HubDeps]:
     Acquisition is bound to release, so a window that closes leaves no child
     behind. See `docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
     """
-    config.root.mkdir(parents=True, exist_ok=True)
-    processes = Processes()
+    await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
+    processes = Processes(logs=config.root / "logs")
     try:
         yield HubDeps(root=config.root, processes=processes)
     finally:

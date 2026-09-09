@@ -1,8 +1,8 @@
 # CR2 - Hub defects implementation plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development
-> (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use
-> checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` to implement
+> this plan task-by-task in this session — the owner chose inline execution over
+> subagent-driven. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give the Hub one name per App and make every failure path it owns statable, so no
 failure or resource loses its guarantees at a boundary.
@@ -19,7 +19,8 @@ environments, pytest with `asyncio_mode = auto`, ruff + pyright strict.
 ## Global Constraints
 
 - The spec is `docs/milestones/CR2/spec.md`. Its acceptance criteria are the tests.
-- Cut the branch `cr2-hub-defects` from `main` before Task 1. Do not push.
+- The branch `cr2-hub-defects` is already cut from `main` and is where this work happens. Do not
+  push, and do not merge before Task 12's review rounds have run.
 - `make lint typecheck test` must pass at the end of every task. 189 tests pass at the start.
 - Blocking calls inside async code are wrapped in `asyncio.to_thread`.
 - `Any` and `cast` are not acceptable in the public API. Filesystem paths are `pathlib.Path`.
@@ -2494,7 +2495,26 @@ git add docs/milestones/code-review-roadmap.md
 git commit -m "Record that L1 and CR1 are behind us"
 ```
 
-- [ ] **Step 5: Hand off**
+- [ ] **Step 5: Ask for a code review**
 
-Use `superpowers:finishing-a-development-branch`. The branch merges into `main` with `--no-ff`
-and is then deleted; nothing is pushed until the milestone is merged.
+Use `superpowers:requesting-code-review` over the whole branch, against
+`docs/milestones/CR2/spec.md`. Act on what it finds with
+`superpowers:receiving-code-review`: verify each point before implementing it, and say so when a
+point is wrong rather than implementing it to be agreeable. A defect is not fixed while what
+produced it remains.
+
+- [ ] **Step 6: Cross-check the review**
+
+Run a second, independent pass that does not read the first one's findings, and reconcile the
+two. What it is for: the first review reads the branch as written, and a cross-check reads it
+against what the stage was for — every acceptance criterion in the spec, the three records
+ADR-028, ADR-029 and ADR-030, and the two shapes this stage exists to remove (a name that is not
+one name, and a failure that loses its guarantees at a boundary). Disagreements between the two
+passes are adjudicated in writing, as `code-review/findings.md` adjudicated A1.
+
+- [ ] **Step 7: Integrate**
+
+Only once both rounds are answered: use `superpowers:finishing-a-development-branch`. The branch
+merges into `main` with `--no-ff` and is then deleted, then what is still true is promoted out of
+`docs/milestones/CR2/` and the folder is deleted. Nothing is pushed until the milestone is
+merged.

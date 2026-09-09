@@ -13,8 +13,10 @@ technology's own startup hook carries no such meaning: its documentation says
 when the hook runs and nothing about a hook that raises.
 """
 
+import json
+import logging
 from collections.abc import AsyncGenerator, Mapping
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from nicegui import ui
@@ -23,6 +25,9 @@ from pydantic import BaseModel
 from vibepy_core.adapters.nicegui.web import register_pages
 from vibepy_core.app.composition import Lifespan, page_runtime_for
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.errors import to_error_info
+
+logger = logging.getLogger(__name__)
 
 
 def build_web_app[DepsT, ConfigT: BaseModel](
@@ -42,10 +47,40 @@ def build_web_app[DepsT, ConfigT: BaseModel](
 
     @asynccontextmanager
     async def window(_served: FastAPI) -> AsyncGenerator[None]:
-        async with page_runtime_for(definition, lifespan, config=config) as pages:
-            register_pages(definition, pages)
+        async with AsyncExitStack() as opening:
+            try:
+                pages = await opening.enter_async_context(
+                    page_runtime_for(definition, lifespan, config=config)
+                )
+                register_pages(definition, pages)
+            except Exception as failure:
+                _report(failure)
+                raise
             yield
 
     served = FastAPI(lifespan=window)
     ui.run_with(served)  # pyright: ignore[reportUnknownMemberType]
     return served
+
+
+def _report(failure: Exception, /) -> None:
+    """Describe a window that will not open, where its host can read it.
+
+    ASGI's answer for a window that fails is that the server logs the message
+    and exits, which is legible to a person and not to a caller. So the window
+    describes itself in the framework's own shape first. Nothing is translated
+    and nothing is swallowed: the exception propagates as raised, and this is a
+    log record beside it. See
+    `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
+    """
+    info = to_error_info(failure)
+    logger.error(
+        json.dumps(
+            {
+                "code": info.code,
+                "category": info.category,
+                "message": info.message,
+                "details": dict(info.details),
+            }
+        )
+    )

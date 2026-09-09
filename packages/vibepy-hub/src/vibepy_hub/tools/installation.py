@@ -6,26 +6,31 @@ one without importing it.
 """
 
 import logging
-import shutil
 from collections.abc import Sequence
-from pathlib import Path
 
-from vibepy_core.app.package import discover_apps
+from packaging.utils import canonicalize_name
+
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
+    Candidate,
     HubDeps,
     HubState,
     InstallFailed,
     candidates,
+    declarations,
     describe,
     environment,
+    environments,
     install,
     is_configured,
     purelib,
     read_facts,
     read_state,
+    readable,
+    remove_environment,
+    update_state,
     write_facts,
-    write_state,
 )
 from vibepy_hub.models import (
     AppListing,
@@ -39,41 +44,70 @@ from vibepy_hub.models import (
 logger = logging.getLogger(__name__)
 
 
-def _candidate_folder(deps: HubDeps, app_name: str, /) -> Path | None:
-    """The registered folder that offers this App, by project or folder name."""
-    for source in read_state(deps.root).sources:
-        for row in candidates(source):
-            if app_name in {row.name, row.folder.name}:
-                return row.folder
-    return None
+async def _offering(deps: HubDeps, app_name: str, /) -> tuple[Candidate, ...]:
+    """Every registered folder that offers this App, by its distribution name.
+
+    More than one is not a preference to resolve. One name addresses one App,
+    and letting registration order decide which folder a name means would put
+    back the ambiguity this Hub addresses Apps by a canonical name to remove.
+    """
+    found: list[Candidate] = []
+    for source in (await read_state(deps.root)).sources:
+        found.extend(row for row in await candidates(source) if row.name == app_name)
+    return tuple(found)
+
+
+def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
+    """Two folders claiming one name, named so a caller can withdraw one."""
+    return Diagnostic(
+        code="hub.candidate_ambiguous",
+        category=ErrorCategory.CALLER,
+        message=f"more than one registered source offers {app_name!r}",
+        details={
+            "app_name": app_name,
+            "folders": ", ".join(sorted(str(row.folder) for row in offered)),
+        },
+    )
 
 
 async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
     """One row per environment this Hub created, read without importing."""
-    envs = deps.root / "envs"
     rows: dict[str, AppRow] = {}
-    if not envs.is_dir():
-        return rows
-    held = read_state(deps.root).config
-    for env in sorted(path for path in envs.iterdir() if path.is_dir()):
-        facts = read_facts(env)
-        metadata = facts.purelib if facts and facts.purelib else await purelib(env)
-        declared = discover_apps(path=[metadata])
-        wanted = facts.declared_name if facts else env.name
-        present = any(ref.app_name == wanted for ref in declared)
+    held = (await read_state(deps.root)).config
+    for env in await environments(deps.root):
+        facts = await read_facts(env)
+        if facts is None or facts.purelib is None:
+            rows[env.name] = AppRow(
+                app_name=env.name,
+                state="installed",
+                diagnostic=Diagnostic(
+                    code="hub.facts_unreadable",
+                    category=ErrorCategory.EXECUTION,
+                    message=f"{env} holds no readable record of what was installed",
+                    details={"app_name": env.name},
+                ),
+            )
+            continue
+        metadata = facts.purelib
+        declared = await declarations(metadata)
+        wanted = facts.declared_name
+        present = any(
+            ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
+        )
         port = deps.processes.running(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
-            name=facts.name if facts else None,
-            version=facts.version if facts else None,
+            name=facts.name,
+            version=facts.version,
             state="running" if port is not None else "installed",
             url=f"http://127.0.0.1:{port}" if port is not None else None,
-            configured=bool(facts and is_configured(facts, held.get(env.name, {}))),
-            has_pages=bool(facts and facts.has_pages),
+            configured=is_configured(facts, held.get(env.name, {})),
+            has_pages=facts.has_pages,
             diagnostic=None
             if present
             else Diagnostic(
                 code="hub.declaration_missing",
+                category=ErrorCategory.DECLARATION,
                 message=f"{env} no longer declares {wanted!r}",
                 details={"app_name": env.name, "declared_name": wanted},
             ),
@@ -84,45 +118,70 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
 async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installation:
     """Install one offered App into an environment of its own."""
     deps = ctx.dependencies
-    folder = _candidate_folder(deps, payload.app_name)
-    if folder is None:
+    offered = await _offering(deps, payload.app_name)
+    if len(offered) != 1:
+        # Neither none nor two is one App to install, and a caller answers the
+        # two differently: register a source, or withdraw one.
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.candidate_absent",
+                category=ErrorCategory.CALLER,
                 message=f"No registered source offers {payload.app_name!r}",
                 details={"app_name": payload.app_name},
-            ),
+            )
+            if not offered
+            else _ambiguous(payload.app_name, offered),
         )
+    folder = offered[0].folder
     env = environment(deps.root, payload.app_name)
     try:
         await install(folder=folder, env=env)
         described = await describe(env)
+        metadata = await purelib(env)
+        mine = [
+            facts
+            for facts in described
+            if str(canonicalize_name(facts.distribution)) == payload.app_name
+        ]
+        if not mine:
+            await remove_environment(env)
+            return Installation(
+                app=AppRow(app_name=payload.app_name, state="available"),
+                diagnostic=Diagnostic(
+                    code="hub.no_app_declared",
+                    category=ErrorCategory.DECLARATION,
+                    message=f"{folder} installs no App",
+                    details={"folder": str(folder)},
+                ),
+            )
+        if len(mine) > 1:
+            await remove_environment(env)
+            return Installation(
+                app=AppRow(app_name=payload.app_name, state="available"),
+                diagnostic=Diagnostic(
+                    code="hub.multiple_apps_declared",
+                    category=ErrorCategory.DECLARATION,
+                    message=f"{payload.app_name!r} declares more than one App",
+                    details={
+                        "app_name": payload.app_name,
+                        "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
+                    },
+                ),
+            )
+        facts = mine[0].model_copy(update={"purelib": metadata})
+        await write_facts(env, facts)
     except InstallFailed as failure:
-        shutil.rmtree(env, ignore_errors=True)
+        await remove_environment(env)
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.install_failed",
+                category=ErrorCategory.EXECUTION,
                 message=str(failure),
                 details={"step": failure.step, "output": failure.output},
             ),
         )
-    metadata = await purelib(env)
-    declared = discover_apps(path=[metadata])
-    found = next(iter(described), None)
-    if found is None or not declared:
-        shutil.rmtree(env, ignore_errors=True)
-        return Installation(
-            app=AppRow(app_name=payload.app_name, state="available"),
-            diagnostic=Diagnostic(
-                code="hub.no_app_declared",
-                message=f"{folder} installs no App",
-                details={"folder": str(folder)},
-            ),
-        )
-    facts = found.model_copy(update={"purelib": metadata, "declared_name": declared[0].app_name})
-    write_facts(env, facts)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
@@ -138,35 +197,53 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     """Every App this Hub can act on, installed or merely offered."""
     deps = ctx.dependencies
     rows = await _installed(deps)
-    for source in read_state(deps.root).sources:
-        for row in candidates(source):
-            app_name = row.folder.name
-            if app_name in rows:
+    offered: dict[str, list[Candidate]] = {}
+    unreadable: list[str] = []
+    for source in (await read_state(deps.root)).sources:
+        if not await readable(source):
+            unreadable.append(str(source))
+            continue
+        for row in await candidates(source):
+            offered.setdefault(row.name, []).append(row)
+            if row.name in rows:
                 continue
-            rows[app_name] = AppRow(
-                app_name=app_name,
+            rows[row.name] = AppRow(
+                app_name=row.name,
                 name=row.name,
                 version=row.version,
                 state="available",
             )
-    return AppListing(apps=[rows[name] for name in sorted(rows)])
+    for name, claiming in offered.items():
+        if len(claiming) > 1 and rows[name].state == "available":
+            rows[name] = rows[name].model_copy(update={"diagnostic": _ambiguous(name, claiming)})
+    return AppListing(
+        apps=[rows[name] for name in sorted(rows)],
+        diagnostic=None
+        if not unreadable
+        else Diagnostic(
+            code="hub.source_unreadable",
+            category=ErrorCategory.CALLER,
+            message="a registered source could not be read",
+            details={"paths": ", ".join(unreadable)},
+        ),
+    )
 
 
 async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     """Delete an App's environment, leaving the data it wrote elsewhere."""
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
-    shutil.rmtree(environment(deps.root, payload.app_name), ignore_errors=True)
-    state = read_state(deps.root)
-    write_state(
-        deps.root,
-        HubState(
+    await remove_environment(environment(deps.root, payload.app_name))
+
+    def forget(state: HubState) -> HubState:
+        return HubState(
             sources=state.sources,
             config={
                 name: values for name, values in state.config.items() if name != payload.app_name
             },
-        ),
-    )
+        )
+
+    await update_state(deps, forget)
     return await list_apps(ctx, Empty())
 
 

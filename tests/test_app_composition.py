@@ -10,7 +10,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 import pytest
 from pydantic import BaseModel
 
-from tests.lifecycle import no_dependencies
+from lifecycle import no_dependencies
 from vibepy_core.app import (
     AppDefinition,
     Lifespan,

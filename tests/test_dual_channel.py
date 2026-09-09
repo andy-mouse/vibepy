@@ -15,23 +15,24 @@ Tool is hidden from a channel is M14.
 """
 
 import json
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from mcp.client import Client
 from mcp.types import TextContent
 from nicegui.testing import User
 
-from todo_app.entry import TODO_APP, TODO_CONFIG, TodoConfig, TodoList, TodoStore
+from todo_app.entry import TODO_APP, TodoConfig, TodoList, TodoStore
 from vibepy_core.adapters.mcp import build_mcp_server
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import Lifespan, page_runtime_for
 
 
-def one_store() -> Lifespan[TodoStore, TodoConfig]:
+def one_store(config: Mapping[str, object], /) -> Lifespan[TodoStore, TodoConfig]:
     """One resource composed into both channels, so a private backend shows."""
-
-    store = TodoStore(TodoConfig.model_validate(TODO_CONFIG).db_path)
+    described = TodoConfig.model_validate(config)
+    store = TodoStore(described.db_path, described.db_key)
 
     @asynccontextmanager
     async def lifespan(_config: TodoConfig) -> AsyncGenerator[TodoStore]:
@@ -49,13 +50,14 @@ def titles(result: object) -> list[str]:
     return [todo.title for todo in TodoList.model_validate(result).todos]
 
 
-async def test_both_channels_reach_one_backend(user: User) -> None:
-    lifespan = one_store()
+async def test_both_channels_reach_one_backend(user: User, tmp_path: Path) -> None:
+    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}
+    lifespan = one_store(config)
 
-    async with page_runtime_for(TODO_APP, lifespan, config=TODO_CONFIG) as pages:
+    async with page_runtime_for(TODO_APP, lifespan, config=config) as pages:
         register_pages(TODO_APP, pages)
 
-        async with Client(build_mcp_server(TODO_APP, lifespan, config=TODO_CONFIG)) as agent:
+        async with Client(build_mcp_server(TODO_APP, lifespan, config=config)) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")

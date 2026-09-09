@@ -6,6 +6,9 @@ child is this window's resource, released when the window closes, and status
 answers for what this window started — the same reading
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` gives the Agent
 channel's processes.
+
+A child is owned from the moment it exists, so nothing between the spawn and the
+first answer can leave one this window cannot release.
 """
 
 import asyncio
@@ -14,7 +17,10 @@ import logging
 import os
 import socket
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
+
+from pydantic import BaseModel, TypeAdapter, ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -50,12 +56,77 @@ READY_TIMEOUT = 30.0
 READY_INTERVAL = 0.1
 
 
+class _Failure(BaseModel):
+    """One JSON object a child wrote about its own failure.
+
+    `code` is required, because that is what distinguishes a reported failure
+    from any other line the child's standard error carries.
+    """
+
+    code: str
+    category: str = "execution"
+    message: str = ""
+    details: dict[str, str] = {}
+
+
+_FAILURE = TypeAdapter(_Failure)
+
+
+@dataclass(frozen=True)
+class ChildFailure:
+    """What a child said about its own failure, in the framework's shape."""
+
+    code: str
+    category: str
+    message: str
+    details: dict[str, str]
+
+
 class StartFailed(Exception):
     """A started App never answered. Carries what the child did."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, reported: ChildFailure | None = None) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.reported = reported
+
+
+class AlreadyStarted(StartFailed):
+    """This window already holds a child under that name.
+
+    A `StartFailed`, because it is a start that did not happen, and its own type
+    because a caller answers it differently: nothing is wrong with the App, and
+    the App it names is the one already there.
+    """
+
+
+LOG_TAIL = 4000
+"""How much of a child's standard error a failed start reads back."""
+
+
+def _log_path(logs: Path, known_as: str, /) -> Path:
+    logs.mkdir(parents=True, exist_ok=True)
+    return logs / f"{known_as}.log"
+
+
+def _reported(path: Path, /) -> ChildFailure | None:
+    """The failure a child described, read from the last object it wrote."""
+    try:
+        written = path.read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
+    except OSError:
+        return None
+    for line in reversed(written.splitlines()):
+        try:
+            parsed = _FAILURE.validate_json(line)
+        except ValidationError:
+            continue
+        return ChildFailure(
+            code=parsed.code,
+            category=parsed.category,
+            message=parsed.message,
+            details=parsed.details,
+        )
+    return None
 
 
 def child_environment() -> dict[str, str]:
@@ -75,22 +146,75 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
+@dataclass
+class _Child:
+    """One started App: the process, its port, and whether it has answered."""
+
+    process: asyncio.subprocess.Process
+    port: int
+    answering: bool = False
+
+
 class Processes:
     """One window's running Apps."""
 
-    def __init__(self) -> None:
-        self._running: dict[str, tuple[asyncio.subprocess.Process, int]] = {}
+    def __init__(self, *, logs: Path) -> None:
+        self._running: dict[str, _Child | None] = {}
+        self._logs = logs
+
+    def _forget_if_gone(self, app_name: str, /) -> None:
+        """Drop a name whose child has exited.
+
+        A child that left is not this window's to hold, and forgetting it here
+        rather than in each caller is what keeps one name addressing one live
+        child: an App that crashed can be started again.
+        """
+        child = self._running.get(app_name)
+        if child is not None and child.process.returncode is not None:
+            del self._running[app_name]
+
+    def _held(self, app_name: str, /) -> _Child | None:
+        """The child filed under a name, once there is one to hold."""
+        self._forget_if_gone(app_name)
+        return self._running.get(app_name)
 
     def running(self, app_name: str, /) -> int | None:
-        """The port an App is serving on, or nothing when it is not running."""
-        found = self._running.get(app_name)
-        if found is None:
+        """The port an App is serving on, or nothing when it is not serving."""
+        child = self._held(app_name)
+        if child is None:
             return None
-        process, port = found
-        if process.returncode is not None:
-            del self._running[app_name]
-            return None
-        return port
+        return child.port if child.answering else None
+
+    def taken(self, app_name: str, /) -> bool:
+        """Whether this window has claimed a name.
+
+        A name is claimed from before the spawn until its child leaves, so this
+        is wider than `running`, which reports a port and therefore nothing for
+        a child that has not answered yet. The claim is the key's presence: the
+        entry holds nothing until there is a child to put in it.
+        """
+        self._forget_if_gone(app_name)
+        return app_name in self._running
+
+    def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
+        """The child this window holds for an App, serving or not yet serving.
+
+        `running` answers with a port and therefore only for a child that has
+        answered. Ownership begins earlier, and a caller that must not start a
+        second child under one name -- or a test that must see the first --
+        asks this.
+        """
+        child = self._held(app_name)
+        return None if child is None else child.process
+
+    async def _release(self, known_as: str, /) -> None:
+        """Give up a claimed name, killing and reaping its child if it got one."""
+        child = self._running.pop(known_as, None)
+        if child is None:
+            return
+        if child.process.returncode is None:
+            child.process.kill()
+        await child.process.wait()
 
     async def _wait_until_answering(
         self, process: asyncio.subprocess.Process, port: int, /
@@ -149,41 +273,71 @@ class Processes:
         environment answers to; `known_as` is what this Hub filed it under. The
         two need not match, because a folder's name is not a declaration.
 
+        One name holds one child. The name is claimed with nothing awaited
+        between the test and the claim, which is what makes it hold: the loop
+        cannot reach a second caller in between. The entry holds nothing until
+        the child exists.
+
         Standard input carries the configuration so that a secret reaches the
         child without a file, an environment variable or an argument vector.
+
+        The child's standard error goes to a file of its own, which is what a
+        process supervisor does (<http://supervisord.org/configuration.html>). A
+        pipe would have to be drained for as long as the child lives, because a
+        child that fills the buffer blocks.
         """
+        if self.taken(known_as):
+            raise AlreadyStarted(f"{known_as!r} is already started here")
+        self._running[known_as] = None
         port = free_port()
-        process = await asyncio.create_subprocess_exec(
-            str(interpreter),
-            "-m",
-            "vibepy_core.serve",
-            app_name,
-            "--port",
-            str(port),
-            stdin=asyncio.subprocess.PIPE,
-            env=child_environment(),
-        )
-        if process.stdin is not None:
-            process.stdin.write(json.dumps(dict(config)).encode())
-            await process.stdin.drain()
-            process.stdin.close()
+        path = await asyncio.to_thread(_log_path, self._logs, known_as)
+        handle = await asyncio.to_thread(path.open, "wb")
         try:
+            process = await asyncio.create_subprocess_exec(
+                str(interpreter),
+                "-m",
+                "vibepy_core.serve",
+                app_name,
+                "--port",
+                str(port),
+                stdin=asyncio.subprocess.PIPE,
+                stderr=handle,
+                env=child_environment(),
+            )
+        finally:
+            await asyncio.to_thread(handle.close)
+        child = _Child(process=process, port=port)
+        self._running[known_as] = child
+        try:
+            if process.stdin is not None:
+                process.stdin.write(json.dumps(dict(config)).encode())
+                await process.stdin.drain()
+                process.stdin.close()
             await self._wait_until_answering(process, port)
-        except StartFailed:
-            if process.returncode is None:
-                process.kill()
-                await process.wait()
+        except OSError as broken:
+            await self._release(known_as)
+            raise StartFailed(
+                f"the App did not take its configuration: {broken}",
+                reported=await asyncio.to_thread(_reported, path),
+            ) from broken
+        except StartFailed as failure:
+            await self._release(known_as)
+            raise StartFailed(
+                failure.reason, reported=await asyncio.to_thread(_reported, path)
+            ) from failure
+        except BaseException:
+            await self._release(known_as)
             raise
-        self._running[known_as] = (process, port)
+        child.answering = True
         logger.info("started %s on port %d", known_as, port)
         return port
 
     async def stop(self, app_name: str, /) -> bool:
         """Terminate one App, then kill it if it does not leave."""
-        found = self._running.pop(app_name, None)
-        if found is None:
+        child = self._running.pop(app_name, None)
+        if child is None:
             return False
-        process, _ = found
+        process = child.process
         if process.returncode is not None:
             return True
         process.terminate()
