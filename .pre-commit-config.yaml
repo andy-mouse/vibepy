@@ -4,9 +4,9 @@ repos:
     hooks:
       - id: ruff-check
         args: [--fix]
-        files: ^(src|tests)/
+        files: ^(src|tests|packages|examples)/
       - id: ruff-format
-        files: ^(src|tests)/
+        files: ^(src|tests|packages|examples)/
 
   - repo: local
     hooks:
