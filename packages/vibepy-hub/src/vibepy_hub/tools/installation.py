@@ -10,7 +10,6 @@ from collections.abc import Sequence
 
 from packaging.utils import canonicalize_name
 
-from vibepy_core.app.package import discover_apps
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
@@ -19,6 +18,7 @@ from vibepy_hub.internals import (
     HubState,
     InstallFailed,
     candidates,
+    declarations,
     describe,
     environment,
     environments,
@@ -72,7 +72,7 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
             )
             continue
         metadata = facts.purelib
-        declared = discover_apps(path=[metadata])
+        declared = await declarations(metadata)
         wanted = facts.declared_name
         present = any(
             ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared

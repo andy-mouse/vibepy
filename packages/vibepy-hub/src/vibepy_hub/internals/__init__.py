@@ -16,6 +16,7 @@ from vibepy_hub.internals.deps import HubDeps
 from vibepy_hub.internals.installer import (
     AppNameInvalid,
     InstallFailed,
+    declarations,
     describe,
     environment,
     environments,
@@ -27,11 +28,12 @@ from vibepy_hub.internals.installer import (
     remove_environment,
     write_facts,
 )
-from vibepy_hub.internals.processes import Processes, StartFailed
+from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
 from vibepy_hub.internals.projects import Candidate, candidates, readable
 from vibepy_hub.internals.state import HubState, read_state, update_state, write_state
 
 __all__ = [
+    "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
     "HubDeps",
@@ -40,6 +42,7 @@ __all__ = [
     "Processes",
     "StartFailed",
     "candidates",
+    "declarations",
     "describe",
     "environment",
     "environments",

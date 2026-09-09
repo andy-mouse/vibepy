@@ -169,3 +169,35 @@ async def test_starting_a_running_app_says_it_is_already_running(tmp_path: Path)
     assert isinstance(again, RunningApp)
     assert again.diagnostic is not None
     assert again.diagnostic.code == "hub.already_running"
+
+
+async def test_two_overlapping_starts_answer_once(tmp_path: Path) -> None:
+    """`hub.already_running` covers a child that is still starting.
+
+    Two callers reaching `start_app` at once is what the Hub is built for:
+    ToolRuntime permits concurrent invocations and does not serialize them.
+    """
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        payload: dict[str, object] = {"app_name": "vibepy-todo", "secrets": {}}
+        first, second = await asyncio.gather(
+            tools.invoke("start_app", payload), tools.invoke("start_app", payload)
+        )
+
+    assert isinstance(first, RunningApp)
+    assert isinstance(second, RunningApp)
+    answered = [first, second]
+    assert [one.url is not None for one in answered].count(True) == 1
+    refused = next(one for one in answered if one.url is None)
+    assert refused.diagnostic is not None
+    assert refused.diagnostic.code == "hub.already_running"

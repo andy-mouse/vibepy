@@ -54,5 +54,6 @@ candidate.
 - the Hub's own UI is unaffected: it keys rows by identity and displays the App's declared name
   and version
 - the folder name was rejected. It is the accidental choice the review complains about, and it is
-  not metadata at all. The declared name was rejected too: it is only readable after installation,
-  which would leave a folder with no visible declaration unaddressable
+  not metadata at all. The entry-point name was rejected too: a build back-end may add one, so it
+  is not statically reliable, and reading it requires installing first — which would leave a
+  folder with no visible declaration unaddressable. The declared name is display, not identity

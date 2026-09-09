@@ -124,10 +124,12 @@ Acceptance:
 
 ## Order
 
+CR2 — next.
+
 A0 before L1: the record of what the framework adopts is what justifies splitting the core's
 dependencies. L1 before CR1: a pure move must not share a diff with defect fixes, and it is what
 puts `hub` and the examples under CI at all. CR1 before CR2: CR2's judgements about error
-propagation rest on the hierarchy CR1 repairs. CR2 — next. R1 after CR2: the failure paths in those files
+propagation rest on the hierarchy CR1 repairs. R1 after CR2: the failure paths in those files
 are sound first. CR3 last, because every stage before it changes what is true — each stage still
 corrects the documents its own changes invalidate, and CR3 takes only the debt that predates
 this work.

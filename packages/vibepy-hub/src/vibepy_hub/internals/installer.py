@@ -19,6 +19,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
+from vibepy_core.app.package import AppRef, discover_apps
 from vibepy_hub.models import AppFacts
 
 logger = logging.getLogger(__name__)
@@ -188,6 +189,15 @@ async def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
 async def remove_environment(env: Path, /) -> None:
     """Delete one App's environment, if it is there."""
     await asyncio.to_thread(shutil.rmtree, env, ignore_errors=True)
+
+
+async def declarations(purelib: Path, /) -> tuple[AppRef, ...]:
+    """What one environment declares, read from its metadata.
+
+    `discover_apps` scans a `site-packages` directory, so it blocks for as long
+    as that directory takes to read. A Tool handler asks this instead.
+    """
+    return await asyncio.to_thread(discover_apps, path=[purelib])
 
 
 async def environments(root: Path, /) -> tuple[Path, ...]:

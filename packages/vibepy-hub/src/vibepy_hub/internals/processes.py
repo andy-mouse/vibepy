@@ -91,6 +91,15 @@ class StartFailed(Exception):
         self.reported = reported
 
 
+class AlreadyStarted(StartFailed):
+    """This window already holds a child under that name.
+
+    A `StartFailed`, because it is a start that did not happen, and its own type
+    because a caller answers it differently: nothing is wrong with the App, and
+    the App it names is the one already there.
+    """
+
+
 LOG_TAIL = 4000
 """How much of a child's standard error a failed start reads back."""
 
@@ -151,26 +160,50 @@ class Processes:
 
     def __init__(self, *, logs: Path) -> None:
         self._running: dict[str, _Child] = {}
+        self._starting: set[str] = set()
         self._logs = logs
 
-    def running(self, app_name: str, /) -> int | None:
-        """The port an App is serving on, or nothing when it is not serving."""
+    def _held(self, app_name: str, /) -> _Child | None:
+        """The child filed under a name, forgetting one that has exited.
+
+        A child that left is not this window's to hold, and forgetting it here
+        rather than in each caller is what keeps one name addressing one live
+        child: an App that crashed can be started again.
+        """
         child = self._running.get(app_name)
         if child is None:
             return None
         if child.process.returncode is not None:
             del self._running[app_name]
             return None
+        return child
+
+    def running(self, app_name: str, /) -> int | None:
+        """The port an App is serving on, or nothing when it is not serving."""
+        child = self._held(app_name)
+        if child is None:
+            return None
         return child.port if child.answering else None
+
+    def taken(self, app_name: str, /) -> bool:
+        """Whether this window already holds a child under a name.
+
+        True from before the spawn until the child leaves, which is wider than
+        `running`: that reports a port, and therefore nothing, for a child that
+        has not answered yet. A caller deciding whether to start reads this, so
+        two callers racing cannot both spawn under one name.
+        """
+        return app_name in self._starting or self._held(app_name) is not None
 
     def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
         """The child this window holds for an App, serving or not yet serving.
 
         `running` answers with a port and therefore only for a child that has
-        answered. Ownership begins earlier, and a caller that must release a
-        child -- or a test that must see one -- asks this.
+        answered. Ownership begins earlier, and a caller that must not start a
+        second child under one name -- or a test that must see the first --
+        asks this.
         """
-        child = self._running.get(app_name)
+        child = self._held(app_name)
         return None if child is None else child.process
 
     async def _release(self, known_as: str, /) -> None:
@@ -239,6 +272,10 @@ class Processes:
         environment answers to; `known_as` is what this Hub filed it under. The
         two need not match, because a folder's name is not a declaration.
 
+        One name holds one child. The name is claimed with nothing awaited in
+        between, which is what makes the claim hold: the loop cannot run the
+        second caller until the first has taken it.
+
         Standard input carries the configuration so that a secret reaches the
         child without a file, an environment variable or an argument vector.
 
@@ -247,6 +284,24 @@ class Processes:
         pipe would have to be drained for as long as the child lives, because a
         child that fills the buffer blocks.
         """
+        if self.taken(known_as):
+            raise AlreadyStarted(f"{known_as!r} is already started here")
+        self._starting.add(known_as)
+        try:
+            return await self._start(
+                app_name=app_name, interpreter=interpreter, config=config, known_as=known_as
+            )
+        finally:
+            self._starting.discard(known_as)
+
+    async def _start(
+        self,
+        *,
+        app_name: str,
+        interpreter: Path,
+        config: Mapping[str, object],
+        known_as: str,
+    ) -> int:
         port = free_port()
         path = await asyncio.to_thread(_log_path, self._logs, known_as)
         handle = await asyncio.to_thread(path.open, "wb")

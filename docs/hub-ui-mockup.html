@@ -877,23 +877,42 @@
 
       function saveConfig(app) {
         const panel = list.querySelector(`[data-config-for="${app.id}"]`);
+        const held = app.secretsSet || [];
         const entered = {};
+        // A secret's value is not in `values` and is not sent back: an empty
+        // secret field means "keep what is held", which is what the Hub reads
+        // an omitted field as. Anything else would let the screen overwrite a
+        // stored secret with a blank.
         panel.querySelectorAll('[data-field]').forEach(input => {
           const name = input.dataset.field;
-          const existing = (app.values && app.values[name]) || '';
-          entered[name] = input.value.trim() || existing;
+          const typed = input.value.trim();
+          const isSecret = declaredConfig(app.id).some(
+            field => field.name === name && field.type === 'secret'
+          );
+          if (isSecret) {
+            if (typed) entered[name] = typed;
+            return;
+          }
+          entered[name] = typed || (app.values && app.values[name]) || '';
         });
         // The same rule the framework applies before it opens a window: every
         // required field the App declared must have a value, and every failing
-        // field is named at once.
+        // field is named at once. A held secret has one already.
         const missing = declaredConfig(app.id)
-          .filter(field => field.required && !entered[field.name])
+          .filter(field => field.required && !entered[field.name] && !held.includes(field.name))
           .map(field => field.name);
         if (missing.length) {
           configErrors.set(app.id, missing);
           render();
           return;
         }
+        app.secretsSet = declaredConfig(app.id)
+          .filter(field => field.type === 'secret')
+          .map(field => field.name)
+          .filter(name => entered[name] || held.includes(name));
+        declaredConfig(app.id)
+          .filter(field => field.type === 'secret')
+          .forEach(field => delete entered[field.name]);
         app.values = entered;
         configErrors.delete(app.id);
         openConfigFor = null;

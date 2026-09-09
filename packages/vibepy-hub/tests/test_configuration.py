@@ -8,7 +8,7 @@ import pytest
 
 from tests_support import EXAMPLES, hub
 from vibepy_hub.internals.state import STATE_FILE
-from vibepy_hub.models import AppListing, HeldConfig
+from vibepy_hub.models import AppListing, HeldConfig, RunningApp
 
 TOKEN = "s3cret-token-value"
 
@@ -75,21 +75,33 @@ async def held_notes_secret(root: Path) -> HeldConfig:
 
 
 async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> None:
-    """A second window over the same root reads the App's held secret with
-    nobody present to supply it."""
+    """A second window over the same root starts the App with nobody present.
+
+    Todo declares `db_key` as a secret and its window refuses to open without
+    one, so a start that supplies no secret and answers anyway is the whole
+    claim: the value came from what the first window held.
+    """
     root = tmp_path / "hub"
 
-    await held_notes_secret(root)
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        held = await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "held"},
+            },
+        )
+        assert isinstance(held, HeldConfig)
+        assert held.secrets_set == ["db_key"]
 
     async with hub(root) as tools:
-        held = await tools.invoke("configure_app", {"app_name": "vibepy-notes", "values": {}})
-        listed = await tools.invoke("list_apps", {})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
-    assert isinstance(held, HeldConfig)
-    assert held.secret_fields == ["api_token"]
-    assert held.secrets_set == ["api_token"]
-    assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [True]
+    assert isinstance(started, RunningApp)
+    assert started.diagnostic is None
+    assert started.url is not None
 
 
 async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:

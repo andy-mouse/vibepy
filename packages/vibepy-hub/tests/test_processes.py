@@ -14,10 +14,30 @@ import pytest
 from vibepy_hub.internals import interpreter
 from vibepy_hub.internals.processes import Processes, StartFailed
 
+OWNED_TIMEOUT = 30.0
+"""How long a child may take to exist before the test calls it a failure."""
+
+
+async def _owned_once_it_exists(
+    processes: Processes, app_name: str, /
+) -> asyncio.subprocess.Process:
+    """The child, as soon as this window owns one. Waits on the fact, not a clock."""
+    async with asyncio.timeout(OWNED_TIMEOUT):
+        while True:
+            owned = processes.owned(app_name)
+            if owned is not None:
+                return owned
+            await asyncio.sleep(0.01)
+
 
 async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
     """`todo-app` is declared in this interpreter's own environment and takes a
-    moment to answer, so the cancellation lands while the child is starting."""
+    moment to answer, so the cancellation lands while the child is starting.
+
+    The wait is on ownership rather than a sleep: a sleep long enough to be safe
+    on a slow machine is long enough for the child to answer on a fast one, and
+    then there is nothing left to cancel.
+    """
     processes = Processes(logs=tmp_path / "logs")
     starting = asyncio.create_task(
         processes.start(
@@ -27,9 +47,7 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
             known_as="todo-app",
         )
     )
-    await asyncio.sleep(0.2)
-    owned = processes.owned("todo-app")
-    assert owned is not None, "the child was not owned while it was starting"
+    owned = await _owned_once_it_exists(processes, "todo-app")
 
     starting.cancel()
     with pytest.raises(asyncio.CancelledError):
@@ -63,3 +81,29 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
 
     assert processes.running("gone") is None
     await processes.aclose()
+
+
+async def test_two_overlapping_starts_leave_no_child_behind(tmp_path: Path) -> None:
+    """Ownership is per name, so the second start finds the name taken.
+
+    `running` cannot answer this: it reports a port, and therefore nothing, for
+    a child that exists but has not answered yet. Two callers racing through
+    that gap used to spawn two children and file one, leaving the other owned by
+    nobody and beyond `aclose`.
+    """
+    processes = Processes(logs=tmp_path / "logs")
+    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+
+    async def start() -> int:
+        return await processes.start(
+            app_name="todo-app",
+            interpreter=Path(sys.executable),
+            config=config,
+            known_as="todo-app",
+        )
+
+    answered = await asyncio.gather(start(), start(), return_exceptions=True)
+
+    assert [isinstance(one, StartFailed) for one in answered].count(True) == 1
+    await processes.aclose()
+    assert processes.owned("todo-app") is None

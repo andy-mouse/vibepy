@@ -47,12 +47,19 @@ async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath
                 details={"path": str(payload.path)},
             ),
         )
-    if payload.path not in state.sources:
 
-        def offer(held: HubState) -> HubState:
-            return HubState(sources=[*held.sources, payload.path], config=held.config)
+    def offer(held: HubState) -> HubState:
+        """The decision belongs inside the change, not before it.
 
-        await update_state(deps, offer)
+        A membership test made against a state read earlier is a check whose
+        answer a second caller can invalidate, which is the shape
+        `update_state` exists to remove.
+        """
+        if payload.path in held.sources:
+            return held
+        return HubState(sources=[*held.sources, payload.path], config=held.config)
+
+    await update_state(deps, offer)
     return await _listing(deps)
 
 

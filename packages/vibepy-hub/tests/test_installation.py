@@ -337,3 +337,47 @@ async def test_an_environment_that_no_longer_declares_its_app_says_so(tmp_path: 
     rows = {row.app_name: row for row in listed.apps}
     assert rows["vibepy-todo"].diagnostic is not None
     assert rows["vibepy-todo"].diagnostic.code == "hub.declaration_missing"
+
+
+async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The join is on identity, so position cannot decide it.
+
+    An environment holds the App's own distribution and whatever that
+    distribution depends on, and a dependency may declare an App of its own.
+    Here one sorts first and is not the one installed.
+    """
+    root = tmp_path / "hub"
+
+    async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
+        return (
+            AppFacts(
+                app_id="aardvark-app",
+                name="Aardvark",
+                version="9.9.9",
+                declared_name="aardvark",
+                distribution="vibepy-aardvark",
+            ),
+            AppFacts(
+                app_id="todo-app",
+                name="Todo",
+                version="0.0.0",
+                declared_name="todo-app",
+                distribution="vibepy-todo",
+            ),
+        )
+
+    monkeypatch.setattr("vibepy_hub.tools.installation.describe", describes_two)
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        facts = await read_facts(environment(root, "vibepy-todo"))
+
+    assert isinstance(installed, Installation)
+    assert installed.diagnostic is None
+    assert installed.app.name == "Todo"
+    assert facts is not None
+    assert facts.declared_name == "todo-app"
+    assert facts.distribution == "vibepy-todo"

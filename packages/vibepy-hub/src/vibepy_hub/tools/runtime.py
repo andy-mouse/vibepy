@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
+    AlreadyStarted,
     HubDeps,
     StartFailed,
     environment,
@@ -56,7 +57,10 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
             category=ErrorCategory.CALLER,
         )
-    if deps.processes.running(payload.app_name) is not None:
+    if deps.processes.taken(payload.app_name):
+        # The same refusal is made again by `Processes` -- this one answers
+        # without an install's worth of work, and that one closes the gap this
+        # handler's own awaits leave open.
         return _refusal(
             payload.app_name,
             "hub.already_running",
@@ -70,6 +74,13 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             interpreter=interpreter(environment(deps.root, payload.app_name)),
             config={**held, **payload.secrets},
             known_as=payload.app_name,
+        )
+    except AlreadyStarted:
+        return _refusal(
+            payload.app_name,
+            "hub.already_running",
+            f"{payload.app_name!r} is already running",
+            category=ErrorCategory.CALLER,
         )
     except StartFailed as failure:
         reported = failure.reported

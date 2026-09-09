@@ -72,10 +72,16 @@ class AppFacts(BaseModel):
     config_schema: dict[str, object] = {}
     has_pages: bool = False
     purelib: Path | None = None
-    declared_name: str = ""
+    declared_name: str
     """The name the App declares itself under, which a folder's need not match."""
-    distribution: str = ""
-    """The distribution that declared this App, which is what the Hub files it under."""
+    distribution: str
+    """The distribution that declared this App, which is what the Hub files it under.
+
+    Required, with `declared_name`, because `write_facts` is the only writer and
+    always states both. A record without them is one this Hub did not write, and
+    saying so as `hub.facts_unreadable` is truer than reporting the App it
+    describes as no longer declared.
+    """
 
 
 _SEPARATORS = frozenset("/\\:\x00")

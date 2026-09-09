@@ -9,6 +9,7 @@ an App that must agree across its channels.
 import asyncio
 import hashlib
 import hmac
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -80,14 +81,29 @@ class TodoStore:
     def __init__(self, db_path: Path, db_key: SecretStr) -> None:
         self.db_path = db_path
         self._key = db_key.get_secret_value().encode()
+        self._writing = threading.Lock()
 
     def create(self, title: str) -> Todo:
-        todos = self.list_all()
-        todo = Todo(id=len(todos) + 1, title=title, done=False)
-        self._write([*todos, todo])
+        """Add one todo, with no other write in between.
+
+        Reading, appending and storing is a read-modify-write, and two Tool
+        calls may overlap: the runtime permits concurrent invocations, and each
+        handler runs this in a thread of its own. Without the lock the second
+        write is made from a list read before the first, so one todo is lost and
+        an id is used twice. The lock is a thread lock because what it guards
+        runs in a thread.
+        """
+        with self._writing:
+            todos = self._read()
+            todo = Todo(id=len(todos) + 1, title=title, done=False)
+            self._write([*todos, todo])
         return todo
 
     def list_all(self) -> list[Todo]:
+        with self._writing:
+            return self._read()
+
+    def _read(self) -> list[Todo]:
         if not self.db_path.is_file():
             return []
         stored = _Stored.model_validate_json(self.db_path.read_text(encoding="utf-8"))
