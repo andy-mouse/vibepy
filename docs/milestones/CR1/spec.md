@@ -4,10 +4,11 @@ CR1 is not a `docs/roadmap.md` milestone. Its scope and its place in the sequenc
 `docs/milestones/code-review-roadmap.md`, and the findings it acts on are C1, I1, I5, I6, I14,
 I15, I20 and D1 in `docs/milestones/code-review/findings.md`.
 
-Seven defects in the framework and the Hub, plus the guards that would have caught them. Each
-one is a failure to apply a decision this repository has already recorded, so CR1 takes no new
-decision: it applies ADR-007, ADR-012, ADR-019 and `docs/architecture/errors.md` where the code
-departed from them.
+Seven defects in the framework and the Hub, plus the guards that would have caught them. Six are
+a failure to apply a decision this repository has already recorded — ADR-007, ADR-012, ADR-019
+and `docs/architecture/errors.md` — and CR1 applies each where the code departed from it. The
+seventh could not be fixed at its cause without reversing a consequence still stated as current
+truth, so CR1 takes one new decision, ADR-027.
 
 ## Acceptance criteria
 
@@ -39,7 +40,7 @@ departed from them.
 | `register_pages` takes an `AppDefinition` and enumerates `definition.pages`, never a `PageRegistry` | `docs/decisions/ADR-012`, amendment; `docs/architecture/adapters.md` |
 | two Pages declaring one route fail loudly at registration rather than one disappearing silently | `docs/decisions/ADR-012` |
 | `route` and `title` are validated where routes are registered; `name` is the identifier the framework addresses a Page by | `docs/architecture/page-model.md` |
-| `ToolRegistry.definitions()` enumerates declarations in registration order, which is what a channel needs for discovery, and a channel does not receive them through a second path beside the registry | `docs/architecture/tool-model.md`, `adapters.md`. The reasoning is `ADR-011`'s, which `ADR-014` kept unchanged; both records are retired, so the architecture documents are what state it |
+| the contract CR1 entered against: a channel adapter projected declarations for discovery through a `ToolRegistry` rather than through a second path beside it. `ADR-027` reverses it, and no document states it now | `docs/decisions/ADR-011`, the record whose consequence it was; `ADR-027` for why it no longer holds |
 | registering a name twice replaces the earlier registration | `docs/architecture/tool-model.md`, `page-model.md` |
 | validation is the framework's to own | `docs/architecture.md`, Framework ownership |
 | every Hub Tool is exposed on the Agent channel, so a Tool input is a model-controlled string | `docs/decisions/ADR-024` |
@@ -89,9 +90,9 @@ core Page model — are true by reading and untested. The AST guards that exist 
 `page/` and `app/`, skipping `__init__.py`, `errors.py` and `describe.py`, and the package root
 is where an SDK import would reach every consumer.
 
-## Decisions recorded separately
+## Decisions
 
-None. Every change applies a record that already exists:
+One is recorded, in ADR-027. Every other change applies a record that already exists:
 
 - the new exception and the new code apply ADR-019's rule that an added exception declares a
   code and maps a category. Adding one under the rule is not a decision between alternatives.
@@ -100,9 +101,6 @@ None. Every change applies a record that already exists:
 - the serialization schema applies ADR-007's first consequence.
 - the Hub's name constraint is a defect fix inside one module. What an App is addressed by is
   CR2's, and a record belongs there if anywhere.
-
-Two readings are settled here rather than in a record, because each follows from a document
-rather than from a choice:
 
 ADR-027 is written, because the sixth criterion cannot be met without taking a decision. The
 criterion is that `PageRegistry.definitions()` and the Agent channel's second `ToolRegistry` are
@@ -141,7 +139,7 @@ record rests on:
 
 ## Public API
 
-Three additions and one deletion. Nothing is renamed and no signature changes.
+Five additions and two deletions. Nothing is renamed and no signature changes.
 
 | Change | Kind |
 | --- | --- |
@@ -211,15 +209,25 @@ I9's, and CR2 unifies it; CR1 adds one type and no new `Diagnostic` code.
 
 ## Testing
 
-The suite is 153 tests. One goes with the method it covers:
-`test_definitions_enumerates_every_registered_page` is deleted, and
-`test_registering_a_name_twice_replaces_the_earlier_page` keeps its `resolve` assertion and loses
-its `definitions()` one, because `page-model.md`'s replacement contract is unchanged. Every other
-existing test passes untouched. What CR1 adds:
+`make test` collects 153 tests where CR1 begins and 191 where it ends. Two go with the method
+each covers: `test_definitions_enumerates_every_registered_page` and
+`test_registry_enumerates_the_declarations_it_registered`. The two that assert a registry replaces
+on re-registration keep their `resolve` assertion and lose their `definitions()` one, because that
+replacement is still each registry's own contract. Every other existing test passes untouched.
+What CR1 adds:
 
 - **C1** — `remove_app` with `../../victim` and with an absolute name leaves the target
-  directory in place and reports `tool.input_invalid`; `environment()` refuses both directly.
-  The test creates a real directory outside the root and asserts it survives.
+  directory in place and reports `tool.input_invalid`. The test creates a real directory outside
+  the root, and an environments directory inside it, because without one the operating system
+  cannot traverse `..` through it and the deletion fails for the wrong reason.
+
+  `environment()` is also tested directly, and it is a Hub internal. AGENTS.md has tests verify
+  public contracts rather than internals; this is the one place CR1 departs from that, because
+  the acceptance criterion names the file and because the reason for a second gate is that a
+  Tool input is not the only caller — reaching it only through a Tool would leave the sink
+  unverified. Each gate is tested for what it alone guarantees: `environment()` for what this
+  platform reads as leaving the root, the input field for a character set that is a separator on
+  either platform.
 - **I15** — `to_error_info(VibepyError("x"))` and `to_error_info(<App subclass with its own
   code>)` both describe rather than raise, and both report `app.unhandled` / `execution`. One
   test drives it through the MCP adapter, because the escaping `KeyError` is what made the
@@ -241,11 +249,13 @@ existing test passes untouched. What CR1 adds:
   `packaging.md` documents as the command that opens the Web channel — and it also imports
   `vibepy_core` in a subprocess and asserts neither `mcp` nor `nicegui` is in `sys.modules`,
   which catches a leak reached through an import rather than written in the file.
-  `test_app_isolation.py` already uses the subprocess technique.
+  `test_app_isolation.py` already uses the subprocess technique. A fourth test asserts the
+  scan's own coverage, derived from `__all__`: every module a publicly exported name is defined
+  in must be scanned, so narrowing the scan fails without pinning any internal path.
 
 ## Compatibility
 
-One public name is removed and one behaviour changes.
+Two public names are removed and two behaviours change.
 
 `PageRegistry.definitions()` is exported from the package root, and AGENTS.md keeps the public
 API backward compatible and deprecates before removing. That rule protects a consumer of a
@@ -255,9 +265,14 @@ docstring — that a Web channel adapter projects these into routes — was neve
 a false statement for a release cycle preserves nothing, and the acceptance criterion offers
 `gone` as one of its two branches.
 
-The behaviour change can break an App: one declaring two Pages under one name used to serve and
-now fails to open its window. That App was serving one Page from two routes, so the failure
-replaces a defect rather than a working configuration.
+`ToolRegistry.definitions()` is the second removal, and the argument above does not cover it: it
+had a caller, and `tool-model.md` described it accurately. ADR-027 carries why a deprecation
+cycle was available and not taken.
+
+Both behaviour changes can break an App, and each replaces a defect rather than a working
+configuration. An App declaring two Pages under one name used to serve, and was serving one Page
+from two routes; one declaring two Tools under one name used to serve, and was publishing a Tool
+that resolved to another. Both now fail to open a window.
 
 The MCP output schema changes shape for any output model whose serialization schema differs from
 its validation schema. No such model exists in this repository, and a client reading the schema
@@ -276,8 +291,6 @@ Only what CR1 makes false:
 - `page-model.md` — the paragraph stating that the registry enumerates its declarations because
   a Web channel adapter projects them is deleted, which is what ADR-012's amendment already
   recorded; a sentence says where a name conflict is refused.
-- `tool-model.md`, `adapters.md` — unchanged. Both describe the Agent channel's enumeration as
-  it stays.
 
 No existing record changes. ADR-012's decision is unaffected: CR1 adds the check its consequence
 describes to a second field. ADR-027 is new, and supersedes nothing — the consequence it reverses

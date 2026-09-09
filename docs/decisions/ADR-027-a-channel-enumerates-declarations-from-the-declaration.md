@@ -4,6 +4,10 @@ Status: Accepted
 
 ## Context
 
+ADR-011 is superseded by ADR-014, and ADR-014 is deprecated with what survives it held by
+`docs/architecture/tool-model.md`. Neither is read for current truth; they are read here because
+the reasoning this record reverses is theirs.
+
 ADR-011 decided that `ToolRegistry` stores each declaration and that
 `ToolRegistry.definitions()` enumerates them, and its consequence was that "channel adapters
 project declarations for discovery without receiving them through a second path beside the
@@ -42,8 +46,7 @@ Tools and answer both with one.
 
 - one answer to where a channel reads a declaration, and it is the same answer for both channels
   and for self-description
-- a running App holds one `ToolRegistry`, and the list an agent is shown cannot be a different
-  object from the map its call resolves in
+- a running App holds one `ToolRegistry`
 - a name declared twice is a failure at registration rather than a Tool that disappears, as it
   already is for a Page
 - registering a name twice no longer replaces the earlier registration through the framework's
@@ -53,3 +56,8 @@ Tools and answer both with one.
   was publishing a Tool that resolved to another, which is the failure this replaces
 - what a channel needs from a registry narrows to resolution, so a later channel asks it for
   nothing else
+- `ToolRegistry.definitions()` is removed rather than deprecated, and it had a caller. A
+  deprecation cycle was available and was not taken: nothing has ever been published from this
+  repository, and a method whose only purpose was the reading this record reverses is one a later
+  channel would reach for again. That makes it a compatibility event, taken on the same ground
+  ADR-025 took its own — while there is no installation to break

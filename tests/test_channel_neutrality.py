@@ -18,6 +18,8 @@ from pathlib import Path
 
 import pytest
 
+import vibepy_core
+
 CORE = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
 CHANNEL_SDKS = ("mcp", "nicegui")
 CHANNEL_COMPONENTS = frozenset({"adapters", "serve.py"})
@@ -42,20 +44,29 @@ def imported_module_names(source: str) -> list[str]:
     return names
 
 
-def test_the_scan_reaches_the_package_root_and_the_error_model() -> None:
-    """A guard is worth what it covers, so what it covers is asserted too."""
-    covered = {module.relative_to(CORE).as_posix() for module in core_modules()}
+def test_the_scan_reaches_every_module_the_public_api_is_defined_in() -> None:
+    """A guard is worth what it covers, so what it covers is asserted too.
 
-    assert {
-        "__init__.py",
-        "errors.py",
-        "describe.py",
-        "tool/model.py",
-        "page/model.py",
-        "app/model.py",
-    } <= covered
-    assert "serve.py" not in covered
-    assert not any(name.startswith("adapters/") for name in covered)
+    Derived from `__all__` rather than from a list of paths: what must not leak
+    is what a consumer imports, and an internal rename then cannot narrow the
+    scan without also changing the public surface.
+    """
+    scanned = {
+        f"{CORE.name}.{module.relative_to(CORE).with_suffix('').as_posix().replace('/', '.')}"
+        for module in core_modules()
+    }
+    scanned |= {CORE.name}
+
+    exported = {
+        getattr(vibepy_core, name).__module__
+        for name in vibepy_core.__all__
+        if hasattr(getattr(vibepy_core, name), "__module__")
+    }
+
+    assert exported
+    assert exported <= scanned
+    assert f"{CORE.name}.serve" not in scanned
+    assert not any(name.startswith(f"{CORE.name}.adapters") for name in scanned)
 
 
 @pytest.mark.parametrize("sdk", CHANNEL_SDKS)

@@ -521,7 +521,9 @@ window opens, so no route is left behind."
 
 ### Task 4: `PageRegistry.definitions()` is deleted (I5)
 
-The method has no caller, and ADR-012's amendment records that `register_pages` has always enumerated the declaration and never took a `PageRegistry` — so the docstring promising that a Web channel adapter projects these into routes was never true. The Agent channel is not touched: `ToolRegistry.definitions()` has a caller and `tool-model.md`, `adapters.md` and ADR-011's consequence, kept unchanged by ADR-014, all describe that enumeration as it stays.
+The method has no caller, and ADR-012's amendment records that `register_pages` has always enumerated the declaration and never took a `PageRegistry` — so the docstring promising that a Web channel adapter projects these into routes was never true.
+
+**Partly superseded by ADR-027, taken after this plan was written.** This task said the Agent channel is not touched, because `ToolRegistry.definitions()` had a caller and the architecture documents described that enumeration as staying. That answered the criterion's `used` branch and left the cause in place: the adapter built a lookup table to enumerate a list it already held. ADR-027 has both channels enumerate the declaration, so `ToolRegistry.definitions()` is deleted too and `tool_registry_for` refuses a duplicate Tool name. Do this task as written — it is still the Page half — and read `docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md` for the Tool half, which no task below covers.
 
 **Files:**
 - Modify: `src/vibepy_core/page/registry.py:26-32` (delete the method), `:3-4` (drop the now-unused import)
@@ -588,9 +590,8 @@ always enumerated the declaration and never took a PageRegistry, so the
 method's docstring — that a Web channel adapter projects these into routes —
 was false on arrival. page-model.md carried the same claim and loses it.
 
-The Agent channel is untouched. ToolRegistry.definitions() has a caller, and
-ADR-011's consequence that a channel does not receive declarations through a
-second path beside the registry is kept unchanged by ADR-014."
+The Agent channel is untouched by this commit. ADR-027, taken later, brings it
+to the same shape."
 ```
 
 ---
@@ -1123,7 +1124,7 @@ For each bullet in `docs/milestones/CR1/spec.md`, name the test that proves it a
 | every framework exception derives from the base and the catalogue sees it | `test_every_framework_error_is_covered_here`, unedited except for its `CASES` row |
 | two Pages declaring one name fail at registration | `test_two_pages_declaring_one_name_do_not_open_a_window` |
 | the published schema is the one the payload is serialized against | `test_the_published_output_schema_describes_every_member_the_payload_carries` |
-| `PageRegistry.definitions()` and the second `ToolRegistry` are gone or used | the method is deleted in Task 4; `ToolRegistry.definitions()` is used by `list_tools`, which `adapters.md:33` documents |
+| `PageRegistry.definitions()` and the second `ToolRegistry` are gone or used | both methods are deleted and a running App holds one `ToolRegistry`, per ADR-027; `test_two_tools_declaring_one_name_do_not_open_a_window` covers what enumerating the declaration made necessary |
 | an MCP or NiceGUI import anywhere in the core fails a test | `test_no_core_module_imports_a_channel_sdk`, `test_importing_the_core_loads_no_channel_sdk` |
 
 - [ ] **Confirm the documents changed only where CR1 made them false**

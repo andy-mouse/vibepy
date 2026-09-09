@@ -51,16 +51,16 @@ def environment(root: Path, app_name: str, /) -> Path:
     guarantee, because a Tool input is not the only caller and the result reaches
     `shutil.rmtree`.
 
-    The comparison is lexical rather than resolved, so it reads no file system:
-    `normpath` collapses `..` and discards the root for an absolute name on the
-    platform where those mean traversal, while an async caller pays no syscall
-    for it. What it deliberately does not do is follow a symlink under `envs`,
-    which is not this gate's subject -- the subject is the name -- and which
-    `shutil.rmtree` refuses of its own accord.
+    The comparison is lexical rather than resolved: `normpath` collapses `..`
+    and discards the root for an absolute name on the platform where those mean
+    traversal. What it deliberately does not do is follow a symlink under
+    `envs`, which is not this gate's subject -- the subject is the name -- and
+    which `shutil.rmtree` refuses of its own accord.
 
     Naming the child is required as well as reaching it, so a name that
     normalizes onto a sibling is refused rather than aliased: `x/../y` and `y`
-    would otherwise be two names for one environment.
+    would otherwise be two names for one environment. That holds of names, not
+    of the file system: a symlink inside `envs` still aliases.
     """
     envs = root / "envs"
     candidate = Path(os.path.normpath(envs / app_name))
