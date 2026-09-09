@@ -25,7 +25,7 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
     out through a channel.
     """
     deps = ctx.dependencies
-    facts = installed_facts(deps.root, payload.app_name)
+    facts = await installed_facts(deps.root, payload.app_name)
     if facts is None:
         return HeldConfig(
             app_name=payload.app_name,
@@ -39,9 +39,9 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
             ),
         )
     secrets = secret_fields(facts.config_schema)
-    state = read_state(deps.root)
+    state = await read_state(deps.root)
     kept = {**state.config.get(payload.app_name, {}), **payload.values}
-    write_state(
+    await write_state(
         deps.root,
         HubState(sources=state.sources, config={**state.config, payload.app_name: kept}),
     )

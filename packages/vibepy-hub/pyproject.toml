@@ -21,3 +21,18 @@ packages = ["src/vibepy_hub"]
 
 [tool.uv.sources]
 vibepy-core = { workspace = true }
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"shutil".msg = "A Tool handler does not touch the file system. vibepy_hub.internals does, behind asyncio.to_thread."
+"tomllib".msg = "A Tool handler does not read a file. vibepy_hub.internals does, behind asyncio.to_thread."
+"pathlib".msg = "A Tool handler does not reach the file system. vibepy_hub.internals does, behind asyncio.to_thread."
+"subprocess".msg = "A Tool handler does not start a process. vibepy_hub.internals does."
+"os".msg = "A Tool handler does not call the operating system. vibepy_hub.internals does."
+
+[tool.ruff.lint.per-file-ignores]
+# The ban is on the Tool handlers and nowhere else: internals is where this
+# work belongs, and a test arranges it.
+"!src/vibepy_hub/tools/**" = ["TID251"]

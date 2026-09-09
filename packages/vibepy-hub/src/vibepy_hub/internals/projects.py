@@ -5,6 +5,7 @@ reading is a hint rather than a verdict: a folder with no visible declaration is
 still offered, and installing it is what decides.
 """
 
+import asyncio
 import logging
 import tomllib
 from dataclasses import dataclass
@@ -69,8 +70,12 @@ def _described(project: Path, /) -> _Project | None:
         return None
 
 
-def candidates(source: Path, /) -> tuple[Candidate, ...]:
+async def candidates(source: Path, /) -> tuple[Candidate, ...]:
     """Every immediate subfolder of a source that carries a usable project file."""
+    return await asyncio.to_thread(_candidates, source)
+
+
+def _candidates(source: Path, /) -> tuple[Candidate, ...]:
     found: list[Candidate] = []
     for folder in sorted(path for path in source.iterdir() if path.is_dir()):
         project = folder / "pyproject.toml"
@@ -88,3 +93,8 @@ def candidates(source: Path, /) -> tuple[Candidate, ...]:
             )
         )
     return tuple(found)
+
+
+async def readable(source: Path, /) -> bool:
+    """Whether a registered source is still there to be read."""
+    return await asyncio.to_thread(Path.is_dir, source)

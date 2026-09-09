@@ -69,10 +69,10 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
             {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
         )
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        facts = await read_facts(environment(root, "vibepy-todo"))
 
     assert isinstance(started, RunningApp)
     assert started.diagnostic is None
-    facts = read_facts(environment(root, "vibepy-todo"))
     assert facts is not None
     assert facts.declared_name == "todo-app"
 

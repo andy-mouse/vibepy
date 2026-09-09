@@ -29,7 +29,7 @@ def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCatego
 async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> RunningApp:
     """Open one installed App's Web channel on a port of its own."""
     deps = ctx.dependencies
-    facts = installed_facts(deps.root, payload.app_name)
+    facts = await installed_facts(deps.root, payload.app_name)
     if facts is None:
         return _refusal(
             payload.app_name,
@@ -51,7 +51,7 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             f"{payload.app_name!r} is already running",
             category=ErrorCategory.CALLER,
         )
-    held = read_state(deps.root).config.get(payload.app_name, {})
+    held = (await read_state(deps.root)).config.get(payload.app_name, {})
     try:
         port = await deps.processes.start(
             app_name=facts.declared_name,

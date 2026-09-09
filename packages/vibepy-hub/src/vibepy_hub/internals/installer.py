@@ -145,8 +145,12 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
     )
 
 
-def read_facts(env: Path, /) -> AppFacts | None:
+async def read_facts(env: Path, /) -> AppFacts | None:
     """What an installation learned when it was installed, or nothing."""
+    return await asyncio.to_thread(_read_facts, env)
+
+
+def _read_facts(env: Path, /) -> AppFacts | None:
     path = env / FACTS_FILE
     if not path.is_file():
         return None
@@ -157,17 +161,38 @@ def read_facts(env: Path, /) -> AppFacts | None:
         return None
 
 
-def write_facts(env: Path, facts: AppFacts, /) -> None:
+async def write_facts(env: Path, facts: AppFacts, /) -> None:
     """Keep what an App declared beside the environment that holds it.
 
     The file lives inside the environment it describes and disappears with it, so
     removing an App leaves no record behind. It is not a second truth about what
     is installed: `discover_apps` still answers that.
     """
+    await asyncio.to_thread(_write_facts, env, facts)
+
+
+def _write_facts(env: Path, facts: AppFacts, /) -> None:
     (env / FACTS_FILE).write_text(facts.model_dump_json(indent=1), encoding="utf-8")
 
 
-def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
+async def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
     """What one installed App declared, or nothing when it is not installed."""
     env = environment(root, app_name)
-    return read_facts(env) if env.is_dir() else None
+    return await read_facts(env) if await asyncio.to_thread(Path.is_dir, env) else None
+
+
+async def remove_environment(env: Path, /) -> None:
+    """Delete one App's environment, if it is there."""
+    await asyncio.to_thread(shutil.rmtree, env, ignore_errors=True)
+
+
+async def environments(root: Path, /) -> tuple[Path, ...]:
+    """Every environment this Hub created, in a stable order."""
+    return await asyncio.to_thread(_environments, root)
+
+
+def _environments(root: Path, /) -> tuple[Path, ...]:
+    envs = root / "envs"
+    if not envs.is_dir():
+        return ()
+    return tuple(sorted(path for path in envs.iterdir() if path.is_dir()))

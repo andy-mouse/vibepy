@@ -13,15 +13,17 @@ from vibepy_hub.internals.installer import (
     InstallFailed,
     describe,
     environment,
+    environments,
     install,
     installed_facts,
     interpreter,
     purelib,
     read_facts,
+    remove_environment,
     write_facts,
 )
 from vibepy_hub.internals.processes import Processes, StartFailed
-from vibepy_hub.internals.projects import Candidate, candidates
+from vibepy_hub.internals.projects import Candidate, candidates, readable
 from vibepy_hub.internals.state import HubState, read_state, write_state
 
 __all__ = [
@@ -35,6 +37,7 @@ __all__ = [
     "candidates",
     "describe",
     "environment",
+    "environments",
     "install",
     "installed_facts",
     "interpreter",
@@ -43,6 +46,8 @@ __all__ = [
     "purelib",
     "read_facts",
     "read_state",
+    "readable",
+    "remove_environment",
     "secret_fields",
     "write_facts",
     "write_state",
