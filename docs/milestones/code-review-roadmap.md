@@ -11,7 +11,9 @@ against the code before it reached this file.
 
 Each stage's acceptance criteria below name what to fix. Why a finding was judged the way it was
 — what was reproduced, what was read, what was reported and rejected — is in
-`code-review/findings.md`, and the seven reports it was distilled from are in `code-review/`.
+`code-review/findings.md`, and the seven reports it was distilled from are in
+`code-review/reviews/`. The principles the owner stated and the decisions taken about how to act
+on the review are in `code-review/decisions.md`.
 
 Delete this file when CR3 merges.
 
