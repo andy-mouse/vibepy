@@ -75,12 +75,21 @@ async def held_notes_secret(root: Path) -> HeldConfig:
 
 
 async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> None:
+    """A second window over the same root reads the App's held secret with
+    nobody present to supply it."""
     root = tmp_path / "hub"
 
-    held = await held_notes_secret(root)
+    await held_notes_secret(root)
 
+    async with hub(root) as tools:
+        held = await tools.invoke("configure_app", {"app_name": "vibepy-notes", "values": {}})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(held, HeldConfig)
     assert held.secret_fields == ["api_token"]
-    assert TOKEN in (root / STATE_FILE).read_text(encoding="utf-8")
+    assert held.secrets_set == ["api_token"]
+    assert isinstance(listed, AppListing)
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [True]
 
 
 async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:

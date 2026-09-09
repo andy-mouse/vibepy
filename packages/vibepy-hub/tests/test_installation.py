@@ -1,12 +1,15 @@
 """Installing an App gives it an environment of its own."""
 
+import asyncio
+import shutil
 import sys
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from tests_support import EXAMPLES, hub, write_project
+from todo_app.entry import TodoStore
 from vibepy_core.errors import ToolInputValidationError
 from vibepy_hub.internals import AppNameInvalid, InstallFailed, read_facts
 from vibepy_hub.internals import environment as hub_environment
@@ -83,13 +86,22 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
 async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
     tmp_path: Path,
 ) -> None:
+    """The data is written by the App's own store, at the path it was configured
+    with, so the assertion means something: it is real, and it lies outside the
+    environment `remove_app` deletes."""
     root = tmp_path / "hub"
-    data = tmp_path / "todo.db"
-    data.write_text("a todo", encoding="utf-8")
+    data = tmp_path / "todo.json"
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {"app_name": "vibepy-todo", "values": {"db_path": str(data), "db_key": "k"}},
+        )
+        await asyncio.to_thread(TodoStore(data, SecretStr("k")).create, "keep me")
+        assert data.is_file()
+
         await tools.invoke("remove_app", {"app_name": "vibepy-todo"})
         listed = await tools.invoke("list_apps", {})
 
@@ -97,6 +109,7 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
     assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
     assert not environment(root, "vibepy-todo").exists()
     assert data.is_file()
+    assert [todo.title for todo in TodoStore(data, SecretStr("k")).list_all()] == ["keep me"]
 
 
 async def test_an_app_no_source_offers_is_a_diagnostic(tmp_path: Path) -> None:
@@ -303,3 +316,24 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     rows = {row.app_name: row for row in listed.apps}
     assert rows["vibepy-todo"].diagnostic is not None
     assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"
+
+
+async def test_an_environment_that_no_longer_declares_its_app_says_so(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        assert isinstance(installed, Installation)
+
+        facts = await read_facts(environment(root, "vibepy-todo"))
+        assert facts is not None and facts.purelib is not None
+        for info in facts.purelib.glob("vibepy_todo-*.dist-info"):
+            shutil.rmtree(info)
+
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(listed, AppListing)
+    rows = {row.app_name: row for row in listed.apps}
+    assert rows["vibepy-todo"].diagnostic is not None
+    assert rows["vibepy-todo"].diagnostic.code == "hub.declaration_missing"

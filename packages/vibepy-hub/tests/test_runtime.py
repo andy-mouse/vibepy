@@ -122,3 +122,50 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     assert started.diagnostic.code == "config.invalid"
     assert started.diagnostic.category == ErrorCategory.CALLER
     assert "db_path" in started.diagnostic.details["fields"]
+
+
+async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path) -> None:
+    """`start_app`'s `secrets` is merged over what the Hub holds, and the App's
+    window validates the result: without the secret it refuses to open."""
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.json")}},
+        )
+        refused = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {"db_key": "supplied"}}
+        )
+
+    assert isinstance(refused, RunningApp)
+    assert refused.diagnostic is not None
+    assert refused.diagnostic.code == "config.invalid"
+    assert "db_key" in refused.diagnostic.details["fields"]
+    assert isinstance(started, RunningApp)
+    assert started.diagnostic is None
+    assert started.url is not None
+
+
+async def test_starting_a_running_app_says_it_is_already_running(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        again = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+
+    assert isinstance(again, RunningApp)
+    assert again.diagnostic is not None
+    assert again.diagnostic.code == "hub.already_running"

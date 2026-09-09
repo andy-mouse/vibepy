@@ -25,7 +25,18 @@ def test_discovery_does_not_import_the_app_it_finds(tmp_path: Path) -> None:
 
 
 def test_a_description_is_obtained_without_this_process_loading_the_app(tmp_path: Path) -> None:
+    """Describing imports, and the import happens on the far side of a process
+    boundary. What proves it is that this process imported nothing.
+
+    The claim is a delta rather than the absence of `todo_app` from
+    `sys.modules`: the sample is a development dependency of this workspace and
+    sibling tests import it, so its absence would say more about test order than
+    about this command.
+    """
+    before = set(sys.modules)
+
     result = run_describe(tmp_path)
 
     assert result.returncode == 0, result.stderr
     assert described_app(result, "todo-app")["name"] == "Todo"
+    assert set(sys.modules) == before
