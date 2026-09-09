@@ -25,9 +25,10 @@ v3.7.12 as a fetched binary, pytest with `asyncio_mode = auto`, ruff + pyright s
 - `Any` and `cast` are not acceptable in the public API. Filesystem paths are `pathlib.Path`.
 - Optional and configuration parameters are keyword-only.
 - Standard `logging` only, `getLogger(__name__)` per module. No `print`.
-- Tests verify public contracts. One departure is permitted and is named in Task 4: two existing
-  tests read an App's own port from `internals.read_state`, because the change itself is that no
-  public surface publishes it any more.
+- Tests verify public contracts. This stage adds no departure. `packages/vibepy-hub/tests/
+  test_processes.py` is the departure CR2 already stated and remains the only one; Task 5 moves
+  two assertions into it because they were always claims about `Processes` rather than about a
+  Tool.
 - Traefik is required, never skipped. `make install` fetches it.
 - Run tests with `uv run pytest`. The Hub's tests live in `packages/vibepy-hub/tests/`.
 - Do not touch `docs/roadmap.md`.
@@ -890,8 +891,8 @@ git commit -m "Have the Hub write the proxy's configuration without owning the p
 - Modify: `packages/vibepy-hub/src/vibepy_hub/internals/processes.py:137-150` (`free_port`),
   `:152-160` (`_Child`), `:171-178` (`running`), `:242-300` (`start`)
 - Modify: `packages/vibepy-hub/src/vibepy_hub/tools/runtime.py:42-110`
-- Modify: `packages/vibepy-hub/tests/test_runtime.py`
-- Modify: `packages/vibepy-hub/tests/test_processes.py`
+- Modify: `packages/vibepy-hub/tests/test_processes.py` (two assertions move in)
+- Modify: `packages/vibepy-hub/tests/test_runtime.py` (one test moves out)
 - Test: `packages/vibepy-hub/tests/test_addresses.py`
 
 **Interfaces:**
@@ -1048,57 +1049,103 @@ The `hub.not_installed` check that reads `facts` stays where it is; the port che
 the second half of the same fact and is reached only for an App whose facts exist but whose port
 predates this stage.
 
-- [ ] **Step 5: Bring the existing tests to the new contract**
+- [ ] **Step 5: Put the process-ownership claims where their subject lives**
 
-In `packages/vibepy-hub/tests/test_processes.py`, every `start(...)` call gains
-`port=free_port()`, imported from `tests_support`.
+Two assertions in `test_runtime.py` reach the child's own port by slicing it out of `started.url`.
+That was always a claim about `Processes` — that a window releases what it started, and that a
+refused second start leaves no second child — asserted from a file whose subject is the Hub's
+Tools. The address change is what exposes it. They move to
+`packages/vibepy-hub/tests/test_processes.py`, which CR2 already named as the one place a fact
+invisible to every Tool is asserted, and where the test chooses the port itself and so needs to
+read nothing.
 
-In `packages/vibepy-hub/tests/test_runtime.py`:
+In `packages/vibepy-hub/tests/test_processes.py`, add `free_port` to the `tests_support` import,
+give every existing `start(...)` call a `port=free_port()`, and change the two
+`assert processes.running(...) is None` lines to `is False`. Then append:
+
+```python
+async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
+    """`aclose` is what `entry.py` promises: a window leaves no child behind."""
+    processes = Processes(logs=tmp_path / "logs")
+    port = free_port()
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config={"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+        known_as="todo-app",
+        port=port,
+    )
+    assert processes.running("todo-app") is True
+
+    await processes.aclose()
+
+    assert processes.running("todo-app") is False
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", port)
+
+
+async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Path) -> None:
+    """One name holds one child, and the start that was refused started nothing."""
+    processes = Processes(logs=tmp_path / "logs")
+    first, second = free_port(), free_port()
+    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config=config,
+        known_as="todo-app",
+        port=first,
+    )
+    with pytest.raises(AlreadyStarted):
+        await processes.start(
+            app_name="todo-app",
+            interpreter=Path(sys.executable),
+            config=config,
+            known_as="todo-app",
+            port=second,
+        )
+
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", second)
+    await processes.aclose()
+```
+
+Add `AlreadyStarted` to the `vibepy_hub.internals.processes` import.
+
+In `packages/vibepy-hub/tests/test_runtime.py`, the same three tests keep their own subjects and
+stop reaching for a port:
 
 - `test_an_installed_app_starts_answers_and_stops`: delete the
   `assert await http_status(f"{started.url}/todos") == 200` line and the `http_status` import.
-  Reaching the App through its address is Task 6's subject, and this test's subject is the
-  lifecycle. Assert instead that the row's URL matches while it runs:
-  the existing `assert [row.url ...] == [started.url]` already does it.
+  Reaching an App through its address is `test_proxy.py`'s subject; this test's subject is the
+  lifecycle, and `assert [row.url ...] == [started.url]` already states it.
 - `test_an_app_whose_window_rejects_its_configuration_does_not_start`: `started.url` is no longer
   `None`, because the App is installed. Replace `assert started.url is None` with
   `assert started.state == "installed"`.
-- `test_two_overlapping_starts_answer_once`: the two answers can no longer be told apart by
-  `url`. Replace the three lines that partition them with:
+- `test_two_overlapping_starts_answer_once`: the two answers are told apart by their diagnostic
+  rather than by a url. Replace the block from `assert [one.url is not None ...]` to the end of
+  the test with:
 
 ```python
     assert [one.diagnostic is None for one in answered].count(True) == 1
     refused = next(one for one in answered if one.diagnostic is not None)
     assert refused.diagnostic is not None
     assert refused.diagnostic.code == "hub.already_running"
-
-    # And the second start left nothing running behind the first: a child this
-    # window did not file is one it could not close. The App's own port is read
-    # from state because no public answer publishes it any more -- the stated
-    # departure from testing through public contracts.
-    port = (await read_state(root)).ports["vibepy-todo"]
-    with pytest.raises(OSError):
-        await asyncio.open_connection("127.0.0.1", port)
 ```
 
-  and drop the trailing `started = next(...)` lines. Add `from vibepy_hub.internals import
-  read_state` to the imports, and move the `async with hub(root) as tools:` block's `root` into
-  scope for the assertion — the block already binds it.
-- `test_closing_the_window_leaves_no_child_behind`: same substitution. Replace the two closing
-  lines with:
+  The comment and the assertions about the second child move with them into
+  `test_processes.py`, above.
+- `test_closing_the_window_leaves_no_child_behind`: delete it. Its claim is now
+  `test_closing_a_window_releases_every_child`, asserted where `Processes` is the subject; leaving
+  a copy here would be one fact in two files.
 
-```python
-    port = (await read_state(root)).ports["vibepy-todo"]
-    with pytest.raises(OSError):
-        await asyncio.open_connection("127.0.0.1", port)
-```
-
-  and delete the now-unused `url = started.url` and `assert url is not None`.
+Remove the now-unused `pytest` and `asyncio` imports from `test_runtime.py` only if nothing else
+in the file uses them — `asyncio.gather` in the overlapping-starts test still does.
 
 - [ ] **Step 6: Run the suite**
 
 Run: `make lint typecheck test`
-Expected: 241 tests pass. `free_port` no longer exists in `vibepy_hub`; the helper of the same
+Expected: 242 tests pass. `free_port` no longer exists in `vibepy_hub`; the helper of the same
 name in `tests/test_serve_command.py` and `tests_support.py` is a test choosing a port for a
 server it runs itself, and stays.
 
@@ -1121,7 +1168,8 @@ The acceptance criterion, as written.
 
 **Interfaces:**
 - Consumes: everything from Tasks 1 to 5.
-- Produces: `tests_support.http_status(url: str, /, *, host: str | None = None) -> int`.
+- Produces: `tests_support.http_status(url: str, /, *, host: str | None = None) -> int` and
+  `tests_support.write_servable_app(folder: Path, *, name: str, package: str) -> None`.
 
 - [ ] **Step 1: Let a request carry a host it does not resolve**
 
@@ -1151,90 +1199,157 @@ def _status(url: str, host: str | None, /) -> int:
 
 Every existing caller passes the url alone and is unaffected.
 
-- [ ] **Step 2: Write the failing test**
+- [ ] **Step 2: Give the tests an App of their own to install**
 
-Append to `packages/vibepy-hub/tests/test_proxy.py`, extending its imports with
-`import shutil` and `from tests_support import EXAMPLES, http_status, hub`:
+This repository ships one App with a Web channel and does so deliberately: `examples/notes` is
+Agent-only, which is what makes L1's extras split provable. An example is a product surface, so a
+test that needs a second servable App builds a fixture rather than borrowing or copying one.
+
+Append to `packages/vibepy-hub/tests/tests_support.py`:
 
 ```python
-def second_distribution(folder: Path) -> None:
-    """A second distribution of the Todo App, so there are two addresses.
+def write_servable_app(folder: Path, *, name: str, package: str) -> None:
+    """A minimal installable App with one Page, written for a test to install.
 
-    A copy rather than a new App: what is under test is two hostnames reaching
-    two children through one configuration, and copying the App this repository
-    already ships keeps the test about the proxy. The copy leaves the uv
-    workspace, so the two sources it resolves through the workspace are rewritten
-    to the paths they resolve to.
+    A fixture, not an example: `examples/` is a product surface with one Web App
+    on purpose, and a test that copied it would depend on whatever that example
+    happens to declare. This states exactly what it needs -- one Page, one Tool,
+    no configuration -- so a test using it asserts about the Hub rather than
+    about Todo.
+
+    The distribution is written outside the uv workspace, so it names the core by
+    path. That is the only thing this fixture knows about the repository layout.
     """
-    shutil.copytree(EXAMPLES / "todo", folder)
-    project = folder / "pyproject.toml"
-    project.write_text(
-        project.read_text(encoding="utf-8")
-        .replace('name = "vibepy-todo"', 'name = "vibepy-todo-two"', 1)
-        .replace("vibepy-core = { workspace = true }", f'vibepy-core = {{ path = "{REPO.as_posix()}" }}', 1),
+    source = folder / "src" / package
+    source.mkdir(parents=True)
+    (source / "__init__.py").write_text("", encoding="utf-8")
+    (folder / "pyproject.toml").write_text(
+        f'[project]\nname = "{name}"\nversion = "0.0.0"\n'
+        'requires-python = ">=3.12"\n'
+        'dependencies = ["vibepy-core[web]", "nicegui>=3.16"]\n'
+        f'\n[project.entry-points."vibepy.apps"]\n{package} = "{package}.entry:APP"\n'
+        "\n[build-system]\n"
+        'requires = ["hatchling"]\nbuild-backend = "hatchling.build"\n'
+        f'\n[tool.hatch.build.targets.wheel]\npackages = ["src/{package}"]\n'
+        f'\n[tool.uv.sources]\nvibepy-core = {{ path = "{REPO.as_posix()}" }}\n',
         encoding="utf-8",
     )
+    (source / "entry.py").write_text(
+        '"""A servable App with nothing in it but a Page and the Tool it reaches."""\n\n'
+        "from collections.abc import AsyncGenerator\n"
+        "from contextlib import asynccontextmanager\n\n"
+        "from nicegui import ui\n"
+        "from pydantic import BaseModel\n\n"
+        "from vibepy_core.app import AppDefinition, AppEntrypoint\n"
+        "from vibepy_core.page import Page, PageContext, PageDefinition\n"
+        "from vibepy_core.tool import Tool, ToolContext, ToolDefinition\n\n\n"
+        "class NoConfig(BaseModel):\n"
+        '    """This App requires nothing of its host."""\n\n\n'
+        "class Greeting(BaseModel):\n"
+        "    said: str\n\n\n"
+        "@asynccontextmanager\n"
+        "async def lifespan(_config: NoConfig) -> AsyncGenerator[None]:\n"
+        "    yield None\n\n\n"
+        "async def greet(_ctx: ToolContext[None], _payload: NoConfig) -> Greeting:\n"
+        f'    return Greeting(said="{package}")\n\n\n'
+        "async def home(ctx: PageContext) -> None:\n"
+        '    said = Greeting.model_validate(await ctx.tools.invoke("greet", {}))\n'
+        "    ui.label(said.said)\n\n\n"
+        "DEFINITION: AppDefinition[None, NoConfig] = AppDefinition(\n"
+        f'    app_id="{package}",\n'
+        f'    name="{package}",\n'
+        '    version="0.0.0",\n'
+        "    config=NoConfig,\n"
+        "    tools=[\n"
+        "        Tool(\n"
+        "            definition=ToolDefinition(\n"
+        '                name="greet",\n'
+        '                description="Say this App\'s name",\n'
+        "                input_model=NoConfig,\n"
+        "                output_model=Greeting,\n"
+        "            ),\n"
+        "            handler=greet,\n"
+        "        )\n"
+        "    ],\n"
+        "    pages=[\n"
+        "        Page(\n"
+        '            definition=PageDefinition(name="home", route="/home", title="Home"),\n'
+        "            handler=home,\n"
+        "        )\n"
+        "    ],\n"
+        ")\n\n"
+        "APP: AppEntrypoint[None, NoConfig] = AppEntrypoint(\n"
+        "    definition=DEFINITION, lifespan=lifespan\n"
+        ")\n",
+        encoding="utf-8",
+    )
+```
 
+- [ ] **Step 3: Write the failing test**
 
+Append to `packages/vibepy-hub/tests/test_proxy.py`, extending its imports with
+`from tests_support import EXAMPLES, http_status, hub, write_servable_app` and
+`from vibepy_hub.models import RunningApp`:
+
+```python
 async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> None:
     """The acceptance criterion: one configuration, two Apps, at once.
 
-    The configuration is read before either App exists and is not written again.
+    The configuration is read before either App exists and compared after both
+    are running: what changes as Apps arrive is the routing files beside it, not
+    this.
     """
     proxy_port = free_port()
     root = tmp_path / "hub"
-    second = tmp_path / "sources" / "todo-two"
-    second_distribution(second)
+    sources = tmp_path / "sources"
+    write_servable_app(sources / "second", name="vibepy-second", package="second_app")
 
     async with hub(root, proxy_port=proxy_port) as tools:
         config = root / "traefik.yml"
         written = config.read_text(encoding="utf-8")
 
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("register_package_source", {"path": str(tmp_path / "sources")})
-        for name in ("vibepy-todo", "vibepy-todo-two"):
-            await tools.invoke("install_app", {"app_name": name})
-            await tools.invoke(
-                "configure_app",
-                {
-                    "app_name": name,
-                    "values": {"db_path": str(tmp_path / f"{name}.json"), "db_key": "k"},
-                },
-            )
+        await tools.invoke("register_package_source", {"path": str(sources)})
+
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
+
+        for name in ("vibepy-todo", "vibepy-second"):
             started = await tools.invoke("start_app", {"app_name": name, "secrets": {}})
             assert isinstance(started, RunningApp)
             assert started.diagnostic is None
 
         async with traefik(config, port=proxy_port):
-            first = await http_status(
+            todo = await http_status(
                 f"http://127.0.0.1:{proxy_port}/todos", host="vibepy-todo.localhost"
             )
-            second_status = await http_status(
-                f"http://127.0.0.1:{proxy_port}/todos", host="vibepy-todo-two.localhost"
+            second = await http_status(
+                f"http://127.0.0.1:{proxy_port}/home", host="vibepy-second.localhost"
             )
 
         assert config.read_text(encoding="utf-8") == written
 
-    assert (first, second_status) == (200, 200)
+    assert (todo, second) == (200, 200)
 ```
 
-Add `REPO` and `RunningApp` to the file's imports: `from tests_support import REPO, ...` and
-`from vibepy_hub.models import RunningApp`.
+- [ ] **Step 3b: Run the test**
 
-- [ ] **Step 3: Run test to verify it fails**
-
-Run: `uv run pytest packages/vibepy-hub/tests/test_proxy.py::test_two_apps_are_served_through_one_configuration -v`
-Expected: FAIL on the first run only if something is missing. This test exercises finished work,
-so a failure here is a defect in Tasks 2 to 5 rather than a step to implement — read it, do not
-paper over it.
-
-If the second install fails while resolving `vibepy-core`, print the diagnostic the Installation
-carries: `hub.install_failed` names the step and the output, which says what uv could not resolve.
+Run: `uv run pytest packages/vibepy-hub/tests/test_proxy.py -v`
+Expected: PASS, two tests. This test exercises finished work, so a failure is a defect in Tasks 2
+to 5 rather than a step to implement — read it rather than working around it. A failed install
+answers with `hub.install_failed`, whose details name the step and uv's own output.
 
 - [ ] **Step 4: Run the suite and commit**
 
 Run: `make lint typecheck test`
-Expected: 242 tests pass.
+Expected: 243 tests pass.
 
 ```bash
 git add packages/vibepy-hub/tests
@@ -1301,7 +1416,7 @@ form the earlier stages use, and change the `## Order` section's first line from
 - [ ] **Step 4: Run the suite and commit**
 
 Run: `make lint typecheck test`
-Expected: 242 tests pass.
+Expected: 243 tests pass.
 
 ```bash
 git add docs packages/vibepy-hub/src/vibepy_hub/models.py
@@ -1312,7 +1427,7 @@ git commit -m "Record that the proxy is Traefik and the Hub does not own it (ADR
 
 ## When the plan is done
 
-- `make lint typecheck test` passes, 242 tests.
+- `make lint typecheck test` passes, 243 tests.
 - Review the branch, then cross-check it against what R1 was for: two Apps through one static
   configuration, `RunningApp` answering with an address, `free_port` gone, and nothing added to
   either example App because of how it is served — `git diff main -- examples/` is empty.
