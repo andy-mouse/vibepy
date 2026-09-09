@@ -9,6 +9,7 @@ through its ToolContext and nothing else does.
 from vibepy_hub.internals.configuration import is_configured, masked, secret_fields
 from vibepy_hub.internals.deps import HubDeps
 from vibepy_hub.internals.installer import (
+    AppNameInvalid,
     InstallFailed,
     describe,
     environment,
@@ -24,6 +25,7 @@ from vibepy_hub.internals.projects import Candidate, candidates
 from vibepy_hub.internals.state import HubState, read_state, write_state
 
 __all__ = [
+    "AppNameInvalid",
     "Candidate",
     "HubDeps",
     "HubState",

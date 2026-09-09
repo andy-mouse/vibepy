@@ -34,9 +34,28 @@ class InstallFailed(Exception):
         self.output = output
 
 
+class AppNameInvalid(Exception):
+    """An App name does not address a directory inside this Hub's environments."""
+
+    def __init__(self, app_name: str) -> None:
+        super().__init__(f"App name {app_name!r} is not one path segment")
+        self.app_name = app_name
+
+
 def environment(root: Path, app_name: str, /) -> Path:
-    """Where this Hub keeps one App's environment."""
-    return root / "envs" / app_name
+    """Where this Hub keeps one App's environment.
+
+    The name is refused unless the join resolves to a direct child of the
+    environments directory. A Tool input is already constrained to one segment;
+    this is the guarantee, because a Tool input is not the only caller and the
+    result reaches `shutil.rmtree`. Comparing resolved parents is correct on
+    both platforms without enumerating separators a second time.
+    """
+    envs = root / "envs"
+    candidate = envs / app_name
+    if candidate.resolve().parent != envs.resolve():
+        raise AppNameInvalid(app_name)
+    return candidate
 
 
 def interpreter(env: Path, /) -> Path:

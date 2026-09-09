@@ -4,9 +4,13 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from tests_support import EXAMPLES, hub, write_project
-from vibepy_hub.models import AppListing, Installation, RunningApp
+from vibepy_core.errors import ToolInputValidationError
+from vibepy_hub.internals import AppNameInvalid
+from vibepy_hub.internals import environment as hub_environment
+from vibepy_hub.models import AppListing, AppName, Installation, RunningApp
 
 
 def environment(root: Path, app_name: str, /) -> Path:
@@ -127,3 +131,53 @@ async def test_an_uninstallable_folder_is_a_diagnostic(
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.install_failed"
     assert "uv" in answered.diagnostic.message
+
+
+async def test_a_traversing_app_name_deletes_nothing(tmp_path: Path) -> None:
+    """ADR-024 exposes every Hub Tool on the Agent channel, so this is a
+    model-controlled string reaching shutil.rmtree."""
+    root = tmp_path / "hub" / "deep"
+    (root / "envs" / "todo").mkdir(parents=True)
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (victim / "keep.txt").write_text("keep", encoding="utf-8")
+
+    async with hub(root) as tools:
+        with pytest.raises(ToolInputValidationError):
+            await tools.invoke("remove_app", {"app_name": "../../../victim"})
+
+    assert (victim / "keep.txt").is_file()
+
+
+async def test_an_absolute_app_name_is_refused(tmp_path: Path) -> None:
+    victim = tmp_path / "victim"
+    victim.mkdir()
+
+    async with hub(tmp_path / "hub") as tools:
+        with pytest.raises(ToolInputValidationError):
+            await tools.invoke("remove_app", {"app_name": str(victim)})
+
+    assert victim.is_dir()
+
+
+@pytest.mark.parametrize("name", ["../../victim", "..", ".", "", "a/b"])
+def test_environment_refuses_a_name_that_does_not_resolve_inside(tmp_path: Path, name: str) -> None:
+    """The sink's guarantee: whatever this platform reads as leaving the root."""
+    with pytest.raises(AppNameInvalid):
+        hub_environment(tmp_path, name)
+
+
+@pytest.mark.parametrize("name", ["../../victim", "..", ".", "", "a/b", "a\\b", "C:x"])
+def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
+    """The boundary's constraint, which is platform-independent.
+
+    A backslash and a colon are legal in a POSIX filename and are separators on
+    Windows, so the field refuses them on both rather than only where the Hub
+    happens to run.
+    """
+    with pytest.raises(ValidationError):
+        AppName(app_name=name)
+
+
+def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:
+    assert hub_environment(tmp_path, "todo") == tmp_path / "envs" / "todo"

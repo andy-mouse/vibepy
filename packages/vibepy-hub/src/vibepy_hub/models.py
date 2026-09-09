@@ -6,8 +6,9 @@ exception instance and no live object can travel in one. See
 """
 
 from pathlib import Path
+from typing import Annotated
 
-from pydantic import BaseModel
+from pydantic import AfterValidator, BaseModel
 
 
 class Diagnostic(BaseModel):
@@ -52,8 +53,33 @@ class AppFacts(BaseModel):
     """The name the App declares itself under, which a folder's need not match."""
 
 
+_SEPARATORS = frozenset("/\\:\x00")
+
+
+def _one_segment(value: str) -> str:
+    """An App name addresses one environment and cannot address its neighbours.
+
+    Every Hub Tool is on the Agent channel (ADR-024), so an App name is a
+    model-controlled string that reaches the file system. Refusing it here is
+    what makes the channel answer `tool.input_invalid` rather than the Hub grow
+    a diagnostic of its own.
+    """
+    if value in {"", ".", ".."} or _SEPARATORS & set(value):
+        raise ValueError("an App name is one path segment")
+    return value
+
+
+AppNameField = Annotated[str, AfterValidator(_one_segment)]
+"""The name a Tool takes for an App. Every Tool input carrying one uses it.
+
+An output model keeps a plain `str`: an output model is revalidated, so
+constraining one would turn an environment directory this Hub did not create
+into a Tool failure rather than a row.
+"""
+
+
 class AppName(BaseModel):
-    app_name: str
+    app_name: AppNameField
 
 
 class AppRow(BaseModel):
@@ -83,7 +109,7 @@ class Installation(BaseModel):
 
 
 class ConfigureRequest(BaseModel):
-    app_name: str
+    app_name: AppNameField
     values: dict[str, object] = {}
 
 
@@ -108,7 +134,7 @@ class HeldConfig(BaseModel):
 class StartRequest(BaseModel):
     """An App to start, with the secret values its declaration requires."""
 
-    app_name: str
+    app_name: AppNameField
     secrets: dict[str, object] = {}
 
 
