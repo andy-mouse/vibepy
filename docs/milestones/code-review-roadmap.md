@@ -7,8 +7,11 @@ plan go to `docs/milestones/<stage>/`, and a stage does not start before the pre
 
 The review ran as seven agents, each holding one area as its judgment responsibility while
 reading anywhere, plus one tracing the two call paths end to end. Every finding was re-verified
-against the code before it reached this file. The raw reports are in the history of commit
-`6c3bdf3`.
+against the code before it reached this file.
+
+Each stage's acceptance criteria below name what to fix. Why a finding was judged the way it was
+— what was reproduced, what was read, what was reported and rejected — is in
+`code-review/findings.md`, and the seven reports it was distilled from are in `code-review/`.
 
 Delete this file when CR3 merges.
 
