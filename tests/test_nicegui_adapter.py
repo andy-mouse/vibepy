@@ -15,10 +15,10 @@ from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, TODO_CONFIG, todo_lifespan
-from vibepy.adapters.nicegui import register_pages
-from vibepy.app import AppDefinition, NoConfig, page_runtime_for
-from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
-from vibepy.page import Page, PageContext, PageDefinition
+from vibepy_core.adapters.nicegui import register_pages
+from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
+from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
+from vibepy_core.page import Page, PageContext, PageDefinition
 
 APP_ID = "test-app"
 
@@ -147,7 +147,7 @@ def _imported_module_names(source: str) -> list[str]:
 
 
 def test_the_core_packages_do_not_import_nicegui() -> None:
-    package = Path(__file__).resolve().parent.parent / "src" / "vibepy"
+    package = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
     modules = (
         sorted((package / "tool").glob("*.py"))
         + sorted((package / "page").glob("*.py"))

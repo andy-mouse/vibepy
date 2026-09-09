@@ -75,7 +75,7 @@ type parameter and every schema is typed as the JSON it becomes there.
 ## The self-description command
 
 ```text
-python -m vibepy.describe
+python -m vibepy_core.describe
 ```
 
 Run with an App environment's own interpreter, it writes a JSON array to standard output — one
@@ -89,7 +89,7 @@ boundary, where the App's dependencies belong.
 ## Running a channel
 
 ```text
-python -m vibepy.serve <app-name> --port <n>
+python -m vibepy_core.serve <app-name> --port <n>
 ```
 
 Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
@@ -106,6 +106,22 @@ opened.
 Both commands exist for one reason. Reading a declaration and running one both import, and an
 import belongs on the App's side of a process boundary.
 
+## What an environment holds
+
+An App's environment holds `vibepy-core`, the extras that App declares, and the App.
+`vibepy-core` itself declares no channel: `vibepy-core[web]` carries the Web technology this
+framework serves Pages with and `vibepy-core[agent]` carries MCP. See
+`docs/decisions/ADR-025-the-framework-implements-channel-neutrality-and-delegates-the-rest.md`.
+
+An App that declares no Pages therefore needs no `[web]`, and an App that declares `[agent]`
+alone holds neither NiceGUI nor FastAPI. It does not hold *nothing* of the web: what a channel's
+SDK requires of itself is that SDK's own declaration and is not narrowed here, and MCP requires
+starlette and uvicorn.
+
+What an App declares is what it offers rather than what it imports today. The Hub declares
+`[web]` because it is consumed through a Page (`docs/roadmap.md` M11), and declaring a channel
+before its Pages exist is a statement about the App, not a guarantee about its imports.
+
 ## The isolation invariant
 
 Three statements, and they are not guaranteed in the same place.
@@ -113,7 +129,7 @@ Three statements, and they are not guaranteed in the same place.
 | Statement | Enforced by |
 | --- | --- |
 | the Host never imports an App | the framework: no published operation imports an App into its caller, and `tests/test_app_isolation.py` proves discovery leaves `sys.modules` untouched |
-| loading happens in the App's own interpreter | the framework: `describe_app` is reached across a process boundary through `python -m vibepy.describe` |
+| loading happens in the App's own interpreter | the framework: `describe_app` is reached across a process boundary through `python -m vibepy_core.describe` |
 | an App is installed into an environment of its own | the installation model. The Hub creates one environment per App and installs into it; Python packaging cannot enforce it |
 
 The third is a contract, not a guarantee, and the difference is stated rather than blurred:

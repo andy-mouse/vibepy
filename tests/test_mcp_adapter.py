@@ -12,10 +12,10 @@ from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
 from pydantic import BaseModel, TypeAdapter
 
 from tests.lifecycle import no_dependencies
-from vibepy.adapters.mcp import build_mcp_server, to_mcp_tool
-from vibepy.app import AppDefinition, NoConfig
-from vibepy.errors import UNHANDLED_CODE, ErrorCategory
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
+from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
+from vibepy_core.app import AppDefinition, NoConfig
+from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 
 class CreateTodoInput(BaseModel):
@@ -310,7 +310,7 @@ def _imported_module_names(source: str) -> list[str]:
 
 
 def test_the_core_packages_do_not_import_mcp() -> None:
-    package = Path(__file__).resolve().parent.parent / "src" / "vibepy"
+    package = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
     modules = (
         sorted((package / "tool").glob("*.py"))
         + sorted((package / "page").glob("*.py"))

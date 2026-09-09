@@ -23,9 +23,9 @@ from mcp.types import TextContent
 from nicegui.testing import User
 
 from todo_app.entry import TODO_APP, TODO_CONFIG, TodoConfig, TodoList, TodoStore
-from vibepy.adapters.mcp import build_mcp_server
-from vibepy.adapters.nicegui import register_pages
-from vibepy.app import Lifespan, page_runtime_for
+from vibepy_core.adapters.mcp import build_mcp_server
+from vibepy_core.adapters.nicegui import register_pages
+from vibepy_core.app import Lifespan, page_runtime_for
 
 
 def one_store() -> Lifespan[TodoStore, TodoConfig]:

@@ -1,28 +1,35 @@
 [project]
-name = "vibepy-framework"
+name = "vibepy-core"
 version = "0.0.0"
 description = "Agent-native application framework exposing Tools through Web and Agent channels"
 requires-python = ">=3.12"
 dependencies = [
-    "fastapi>=0.115",
-    "mcp>=2.1",
-    "nicegui>=3.16",
     "pydantic>=2.9",
+]
+
+[project.optional-dependencies]
+web = [
+    "fastapi>=0.115",
+    "nicegui>=3.16",
     "uvicorn>=0.34",
+]
+agent = [
+    "mcp>=2.1",
 ]
 
 [tool.uv.workspace]
-members = ["hub", "samples/*"]
+members = ["packages/*", "examples/*"]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vibepy"]
+packages = ["src/vibepy_core"]
 
 [dependency-groups]
 dev = [
+    "vibepy-core[web,agent]",
     "vibepy-hub",
     "vibepy-todo",
     "vibepy-notes",
@@ -41,18 +48,28 @@ vibepy-notes = { workspace = true }
 
 [tool.ruff]
 line-length = 100
-src = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
+# ruff formats the Python blocks in Markdown as well, and a block in
+# `docs/architecture/` is an excerpt of a contract written to be read rather
+# than code to be styled. Scope belongs here rather than in each runner's file
+# list: the hook runs `ruff format --force-exclude`, so this wins over the
+# files pre-commit passes it. The pattern is relative to the project root, so
+# it names this `docs` and not a `docs` a member might carry.
+extend-exclude = ["docs/**"]
+# Where a first-party import resolves from, which is not the same list as what
+# ruff checks: the scope is the whole tree less what `extend-exclude` names.
+# Globs are supported, so a member added later needs no edit here.
+src = ["src", "tests", "packages/*/src", "packages/*/tests", "examples/*/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
 
 [tool.pyright]
-include = ["src", "tests", "hub/src", "hub/tests", "samples/todo/src", "samples/notes/src"]
+include = ["src", "tests", "packages", "examples"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "hub/tests"]
+testpaths = ["tests", "packages"]
 asyncio_mode = "auto"
 # NiceGUI's user fixture runs a main file unless this is empty. Pages are
 # registered by the tests themselves, so there is no main file to run.

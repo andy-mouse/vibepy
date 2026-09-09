@@ -1,6 +1,6 @@
 """The sample Apps are distributions, discoverable without importing them."""
 
-from vibepy.app.package import discover_apps
+from vibepy_core.app.package import discover_apps
 
 
 def test_the_todo_distribution_declares_its_app() -> None:

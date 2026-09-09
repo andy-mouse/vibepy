@@ -1,8 +1,8 @@
-import vibepy
+import vibepy_core
 
 
 def test_public_api_is_exported_from_the_package_root() -> None:
-    assert vibepy.__all__ == [
+    assert vibepy_core.__all__ == [
         "APP_GROUP",
         "AppConfigInvalidError",
         "AppDefinition",
@@ -46,5 +46,5 @@ def test_public_api_is_exported_from_the_package_root() -> None:
 
 
 def test_every_exported_name_is_reachable() -> None:
-    for name in vibepy.__all__:
-        assert hasattr(vibepy, name)
+    for name in vibepy_core.__all__:
+        assert hasattr(vibepy_core, name)

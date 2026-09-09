@@ -21,7 +21,8 @@ jobs:
 
       - run: uv sync
 
-      - run: uv run ruff check src tests
-      - run: uv run ruff format --check src tests
-      - run: uv run pyright
-      - run: uv run pytest
+      # The Windows runner image carries no GNU make; macOS does.
+      - if: runner.os == 'Windows'
+        run: choco install make --no-progress
+
+      - run: make lint typecheck test

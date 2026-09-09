@@ -77,7 +77,7 @@ registered as the window opens and left when it closes, and a window that refuse
 the application's startup rather than leaving a server answering for nothing.
 
 The adapter registers routes and starts no server; building the application it hands back is not
-running one. `vibepy.serve` owns the process and runs it. See
+running one. `vibepy_core.serve` owns the process and runs it. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
 The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.

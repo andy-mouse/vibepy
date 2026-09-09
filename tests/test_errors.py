@@ -11,7 +11,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from vibepy.errors import (
+from vibepy_core.errors import (
     UNHANDLED_CODE,
     AppConfigInvalidError,
     AppEntrypointInvalidError,

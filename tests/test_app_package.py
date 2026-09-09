@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 from todo_app.entry import APP
-from vibepy.app import AppRef, describe_app, discover_apps
-from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
+from vibepy_core.app import AppRef, describe_app, discover_apps
+from vibepy_core.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
 
 
 def write_distribution(

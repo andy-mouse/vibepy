@@ -13,7 +13,7 @@ message, which is for a human and is not a contract.
 
 A code is stable. The same code always means the same failure, two different failures never
 share one, and a retired code is never reused. A milestone that adds an exception declares its
-code on the class and maps its category in `vibepy/errors.py`.
+code on the class and maps its category in `vibepy_core/errors.py`.
 
 | Code | Category | Exception |
 | --- | --- | --- |

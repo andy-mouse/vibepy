@@ -4,14 +4,14 @@ from dataclasses import FrozenInstanceError, fields
 import pytest
 from pydantic import BaseModel
 
-from vibepy.errors import (
+from vibepy_core.errors import (
     PageNotFoundError,
     ToolInputValidationError,
     ToolNotFoundError,
     VibepyError,
 )
-from vibepy.page import Page, PageContext, PageDefinition, PageRegistry, PageRuntime
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
+from vibepy_core.page import Page, PageContext, PageDefinition, PageRegistry, PageRuntime
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
 
 
 class RecordingInvoker:

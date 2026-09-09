@@ -30,11 +30,11 @@ from nicegui import ui
 from nicegui.testing import User
 from pydantic import BaseModel
 
-from vibepy.adapters.mcp import build_mcp_server
-from vibepy.adapters.nicegui import register_pages
-from vibepy.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
-from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
+from vibepy_core.adapters.mcp import build_mcp_server
+from vibepy_core.adapters.nicegui import register_pages
+from vibepy_core.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
+from vibepy_core.page import Page, PageContext, PageDefinition
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 PARTIES = 2
 DEADLOCK_TIMEOUT_SECONDS = 5
