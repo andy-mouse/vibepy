@@ -27,6 +27,7 @@ from vibepy_hub.internals import (
     purelib,
     read_facts,
     read_state,
+    readable,
     remove_environment,
     update_state,
     write_facts,
@@ -116,6 +117,39 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
     try:
         await install(folder=folder, env=env)
         described = await describe(env)
+        metadata = await purelib(env)
+        mine = [
+            facts
+            for facts in described
+            if str(canonicalize_name(facts.distribution)) == payload.app_name
+        ]
+        if not mine:
+            await remove_environment(env)
+            return Installation(
+                app=AppRow(app_name=payload.app_name, state="available"),
+                diagnostic=Diagnostic(
+                    code="hub.no_app_declared",
+                    category=ErrorCategory.DECLARATION,
+                    message=f"{folder} installs no App",
+                    details={"folder": str(folder)},
+                ),
+            )
+        if len(mine) > 1:
+            await remove_environment(env)
+            return Installation(
+                app=AppRow(app_name=payload.app_name, state="available"),
+                diagnostic=Diagnostic(
+                    code="hub.multiple_apps_declared",
+                    category=ErrorCategory.DECLARATION,
+                    message=f"{payload.app_name!r} declares more than one App",
+                    details={
+                        "app_name": payload.app_name,
+                        "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
+                    },
+                ),
+            )
+        facts = mine[0].model_copy(update={"purelib": metadata})
+        await write_facts(env, facts)
     except InstallFailed as failure:
         await remove_environment(env)
         return Installation(
@@ -127,39 +161,6 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"step": failure.step, "output": failure.output},
             ),
         )
-    metadata = await purelib(env)
-    mine = [
-        facts
-        for facts in described
-        if str(canonicalize_name(facts.distribution)) == payload.app_name
-    ]
-    if not mine:
-        await remove_environment(env)
-        return Installation(
-            app=AppRow(app_name=payload.app_name, state="available"),
-            diagnostic=Diagnostic(
-                code="hub.no_app_declared",
-                category=ErrorCategory.DECLARATION,
-                message=f"{folder} installs no App",
-                details={"folder": str(folder)},
-            ),
-        )
-    if len(mine) > 1:
-        await remove_environment(env)
-        return Installation(
-            app=AppRow(app_name=payload.app_name, state="available"),
-            diagnostic=Diagnostic(
-                code="hub.multiple_apps_declared",
-                category=ErrorCategory.DECLARATION,
-                message=f"{payload.app_name!r} declares more than one App",
-                details={
-                    "app_name": payload.app_name,
-                    "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
-                },
-            ),
-        )
-    facts = mine[0].model_copy(update={"purelib": metadata})
-    await write_facts(env, facts)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
@@ -175,7 +176,11 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     """Every App this Hub can act on, installed or merely offered."""
     deps = ctx.dependencies
     rows = await _installed(deps)
+    unreadable: list[str] = []
     for source in (await read_state(deps.root)).sources:
+        if not await readable(source):
+            unreadable.append(str(source))
+            continue
         for row in await candidates(source):
             if row.name in rows:
                 continue
@@ -185,7 +190,17 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
                 version=row.version,
                 state="available",
             )
-    return AppListing(apps=[rows[name] for name in sorted(rows)])
+    return AppListing(
+        apps=[rows[name] for name in sorted(rows)],
+        diagnostic=None
+        if not unreadable
+        else Diagnostic(
+            code="hub.source_unreadable",
+            category=ErrorCategory.CALLER,
+            message="a registered source could not be read",
+            details={"paths": ", ".join(unreadable)},
+        ),
+    )
 
 
 async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:

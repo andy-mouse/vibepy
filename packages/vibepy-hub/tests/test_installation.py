@@ -8,7 +8,7 @@ from pydantic import ValidationError
 
 from tests_support import EXAMPLES, hub, write_project
 from vibepy_core.errors import ToolInputValidationError
-from vibepy_hub.internals import AppNameInvalid, read_facts
+from vibepy_hub.internals import AppNameInvalid, InstallFailed, read_facts
 from vibepy_hub.internals import environment as hub_environment
 from vibepy_hub.models import AppFacts, AppListing, AppName, Installation, RunningApp
 
@@ -262,3 +262,41 @@ async def test_a_distribution_declaring_two_apps_is_refused(
     assert answered.diagnostic.code == "hub.multiple_apps_declared"
     assert "second" in answered.diagnostic.details["declared"]
     assert not environment(root, "vibepy-todo").exists()
+
+
+async def test_a_failed_description_leaves_no_environment_behind(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`purelib` and `describe` run in the App's interpreter, and a failure
+    there is a diagnostic like every other failure here."""
+    root = tmp_path / "hub"
+
+    async def refuse(env: Path, /) -> Path:
+        raise InstallFailed("purelib", "the interpreter did not answer")
+
+    monkeypatch.setattr("vibepy_hub.tools.installation.purelib", refuse)
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(answered, Installation)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.install_failed"
+    assert not environment(root, "vibepy-todo").exists()
+    assert isinstance(listed, AppListing)
+    assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
+
+
+async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+    (root / "envs" / "vibepy-todo").mkdir(parents=True)
+
+    async with hub(root) as tools:
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(listed, AppListing)
+    rows = {row.app_name: row for row in listed.apps}
+    assert rows["vibepy-todo"].diagnostic is not None
+    assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"

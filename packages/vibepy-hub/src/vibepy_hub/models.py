@@ -131,6 +131,7 @@ class AppRow(BaseModel):
 
 class AppListing(BaseModel):
     apps: list[AppRow]
+    diagnostic: Diagnostic | None = None
 
 
 class Installation(BaseModel):

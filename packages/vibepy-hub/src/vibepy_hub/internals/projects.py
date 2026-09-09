@@ -76,8 +76,13 @@ async def candidates(source: Path, /) -> tuple[Candidate, ...]:
 
 
 def _candidates(source: Path, /) -> tuple[Candidate, ...]:
+    try:
+        folders = sorted(path for path in source.iterdir() if path.is_dir())
+    except OSError:
+        logger.info("unreadable source at %s", source)
+        return ()
     found: list[Candidate] = []
-    for folder in sorted(path for path in source.iterdir() if path.is_dir()):
+    for folder in folders:
         project = folder / "pyproject.toml"
         if not project.is_file():
             continue

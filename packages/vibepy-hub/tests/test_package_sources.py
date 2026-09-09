@@ -1,9 +1,10 @@
 """Registering a folder is what makes its Apps installable."""
 
+import shutil
 from pathlib import Path
 
 from tests_support import hub, write_project
-from vibepy_hub.models import SourceListing
+from vibepy_hub.models import AppListing, SourceListing
 
 
 async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None:
@@ -87,3 +88,26 @@ async def test_a_folder_whose_project_declares_no_name_offers_nothing(tmp_path: 
 
     assert isinstance(listed, SourceListing)
     assert listed.candidates == []
+
+
+async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "packages"
+    write_project(source / "demo", name="demo", declares=True)
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(source)})
+
+    shutil.rmtree(source)
+
+    async with hub(root) as tools:
+        listed = await tools.invoke("list_apps", {})
+        withdrawn = await tools.invoke("remove_package_source", {"path": str(source)})
+
+    assert isinstance(listed, AppListing)
+    assert listed.diagnostic is not None
+    assert listed.diagnostic.code == "hub.source_unreadable"
+    assert isinstance(withdrawn, SourceListing)
+    assert withdrawn.sources == []
