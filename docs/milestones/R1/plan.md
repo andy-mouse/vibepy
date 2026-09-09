@@ -59,9 +59,22 @@ the Hub wrote: one document must not have two writers at the end of the stage.
 **Interfaces:**
 - Consumes: nothing.
 - Produces: `tests_support.TRAEFIK: Path`, `tests_support.free_port() -> int`,
-  `tests_support.traefik(config: Path, *, port: int)` — an async context manager yielding once
-  the proxy answers on `port`, and `tests_support.first_frame(port: int, *, host: str, path:
-  str) -> bytes` — the first WebSocket frame a server sends through the proxy.
+  `tests_support.traefik(config: Path, *, port: int, host: str, path: str)` — an async context
+  manager yielding once a request for `host` and `path` is answered `200` through the proxy, and
+  `tests_support.first_frame(port: int, *, host: str, path: str) -> bytes` — the first WebSocket
+  frame a server sends through the proxy.
+
+Readiness is that whole fact rather than an open socket. Traefik opens its entry points before
+it has read its routing configuration, so a request in between is answered `404` by a proxy that
+is working correctly, and an App answers `404` for a path it does not serve, so a non-`404` does
+not separate the two from outside either.
+
+Traefik offers nothing better, by its own account: `/ping` answers 200 before the dynamic
+configuration is loaded, and the request for an endpoint that does not is open and unassigned
+(<https://github.com/traefik/traefik/issues/10458>). Its API reports which routers are loaded but
+must be enabled, and the documentation says enabling it is not recommended because it exposes
+every configuration element — and from Task 6 the configuration under test is the one the Hub
+writes, so enabling it would shape a product's output for a test.
 
 - [ ] **Step 1: Write the fetch script**
 
@@ -1387,17 +1400,39 @@ async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> 
             assert isinstance(started, RunningApp)
             assert started.diagnostic is None
 
-        async with traefik(config, port=proxy_port):
-            todo = await http_status(
-                f"http://127.0.0.1:{proxy_port}/todos", host="vibepy-todo.localhost"
-            )
-            second = await http_status(
-                f"http://127.0.0.1:{proxy_port}/home", host="vibepy-second.localhost"
-            )
+        async with traefik(
+            config, port=proxy_port, host="vibepy-todo.localhost", path="/todos"
+        ):
+            todo = await served_body(proxy_port, host="vibepy-todo.localhost", path="/todos")
+            second = await served_body(proxy_port, host="vibepy-second.localhost", path="/home")
 
         assert config.read_text(encoding="utf-8") == written
 
-    assert (todo, second) == (200, 200)
+    # Each host reached its own App. Two statuses would not say that: two
+    # requests answered by one App are also two 200s, and the criterion is that
+    # both Apps are served, not that both requests succeeded.
+    assert "todos" in todo.lower()
+    assert "second-app" in second
+```
+
+`served_body` is `http_status`'s sibling in `tests_support.py`, added here because a status code
+cannot tell two Apps apart:
+
+```python
+async def served_body(port: int, *, host: str, path: str) -> str:
+    """What the App behind this hostname answers with.
+
+    The `Host` header is sent and never resolved: that is what the proxy routes
+    on, and it keeps the test independent of whether the platform's resolver
+    knows `.localhost` -- RFC 6761 makes it a SHOULD, and browsers rather than
+    system resolvers are what implement it.
+    """
+    return await asyncio.to_thread(_body, f"http://127.0.0.1:{port}{path}", host)
+
+
+def _body(url: str, host: str, /) -> str:
+    with urlopen(Request(url, headers={"Host": host}), timeout=30) as answer:
+        return answer.read().decode(errors="replace")
 ```
 
 - [ ] **Step 3b: Run the test**

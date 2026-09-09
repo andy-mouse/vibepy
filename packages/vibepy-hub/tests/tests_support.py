@@ -38,14 +38,21 @@ def free_port() -> int:
 async def traefik(config: Path, *, port: int, host: str, path: str) -> AsyncGenerator[None]:
     """Traefik running against one configuration file, until it serves `path`.
 
-    Waiting for the entry point to accept a connection is not enough: Traefik
-    opens its entry points before it has read its routing configuration, and a
-    request arriving in between is answered `404` by a proxy that is working
-    correctly. Nor is a non-`404` enough, because an App may answer `404` for a
-    path it does not serve, and the two are indistinguishable from out here.
+    Traefik publishes no readiness signal, and this is its own position rather
+    than something unfound: `/ping` "is expected to answer 200 OK before all
+    dynamic configuration is loaded", and the request for an endpoint that does
+    not is open and unassigned
+    (<https://github.com/traefik/traefik/issues/10458>). Its API does answer
+    which routers are loaded, but must be enabled, and the documentation says
+    enabling it "is not recommended" because it exposes every configuration
+    element -- and the configuration this runs against is the one the Hub
+    writes, so enabling it would mean shaping a product's output for a test.
 
-    So readiness is the whole fact the test depends on: a request this test will
-    actually make is answered by the App the route names.
+    So readiness is the whole fact the test depends on, asked of the thing
+    itself: a request this test will actually make, answered by the App the
+    route names. An open socket does not say it, because the entry point opens
+    first; a non-`404` does not either, because an App answers `404` for a path
+    it does not serve.
     """
     if not TRAEFIK.exists():
         raise AssertionError(f"{TRAEFIK} is missing; run `make install`")
