@@ -141,8 +141,6 @@ This classification is useful for permissions, confirmations, audit, caching, an
 
 ## Channel neutrality
 
-Tool behavior must not branch on channel-specific business rules.
-
 Avoid patterns such as:
 
 ```python

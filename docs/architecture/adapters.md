@@ -30,8 +30,6 @@ Framework ToolDefinition -> MCP projection
 
 Never make MCP decorators or MCP SDK types the source of truth for framework Tools.
 
-MCP-specific types must not leak into the core Tool package.
-
 `build_mcp_server(definition, lifespan)` reads the registry it enumerates, and the server's name
 and version, from the declaration. The ToolRuntime a call goes through is read from the SDK's
 request context, which carries whatever the lifespan yielded, so the adapter holds no running
@@ -83,8 +81,6 @@ running one. `vibepy.serve` owns the process and runs it. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
 The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
-
-NiceGUI-specific types must not leak into the core Page model unless required at the app's UI implementation boundary.
 
 ## Future adapters
 
