@@ -113,11 +113,12 @@ the Tool that would fix it — raise `FileNotFoundError`. `hub.source_unreadable
 for this.
 
 **I19 — an output type that is unsafe as an input type.** A held secret reads back as the literal
-string `set`, and there is no read-only configuration Tool, so the natural round trip writes
-`set` over the real secret. The Hub deliberately does not validate, so the corruption surfaces
-later as a failed start. The Hub's mockup performs exactly this round trip
-(`docs/hub-ui-mockup.html:876-878` sends the stored value when an untouched secret's input is
-left blank, and the stored value is `set`).
+string `set` **in the field a value goes in**, and there is no read-only configuration Tool, so
+the natural round trip writes `set` over the real secret. The Hub deliberately does not validate,
+so the corruption surfaces later as a failed start. The Hub's mockup performs exactly this round
+trip (`docs/hub-ui-mockup.html:876-878` sends the stored value when an untouched secret's input
+is left blank, and the stored value is `set`). The cause is not that the sentinel is accepted; it
+is that a sentinel occupies a value's place at all.
 
 **I21, I22 — tests that assert less than their names claim.** "leaves its data" checks a file
 that lies outside the tree `remove_app` deletes, and which `TodoStore` never writes. "so a
@@ -201,8 +202,9 @@ Applied records, not decisions:
    with a diagnostic; an environment that cannot be interrogated becomes a row with a diagnostic
    rather than an exception out of `list_apps`; an unreadable source yields
    `hub.source_unreadable`.
-9. **The masked sentinel is refused.** `configure_app` answers with a diagnostic when a declared
-   secret field's incoming value is the masked form.
+9. **No sentinel occupies a value's place.** `values` carries the fields that are not declared
+   secrets; which secrets are held is said beside it rather than inside it. `SET` is deleted, so
+   the round trip cannot carry a mask back and there is nothing to refuse.
 10. **The Todo example.** Its store writes its todos to the path it declares and stamps the
     file with an `hmac` digest keyed by the secret it declares, refusing a file whose stamp does
     not match under `compare_digest`. The secret it declares is therefore a secret it uses, and
@@ -217,7 +219,9 @@ Applied records, not decisions:
 | `AppListing.diagnostic` | added |
 | `hub.multiple_apps_declared`, category `declaration` | added |
 | `hub.facts_unreadable`, category `execution` | added |
-| `hub.secret_masked_value`, category `caller` | added |
+| `HeldConfig.secrets_set`, the declared secrets that have a value | added |
+| `HeldConfig.values` carries no declared secret field | changed |
+| `SET`, and `masked()` with it | deleted |
 | a category on each of the eight existing `hub.*` codes | added |
 | `ServeConfigInvalidError`, code `serve.config_invalid`, category `caller` | added |
 | the `describe` command's objects carry `app_name`, `distribution` and `distribution_version` | added |
@@ -268,6 +272,12 @@ it, so a parent that will not drain for the life of the child must not hand it o
 is an accepted value for a subprocess's `stderr`, so no mechanism is written here. The file is
 truncated at each start, and the Hub reads its tail when a start fails.
 
+**What says a secret is held.** `HeldConfig.values` is what a client edits and sends back, so
+nothing that is not a value belongs in it. `secret_fields` says which fields are secrets and
+`secrets_set` says which of those have a value, which is `lifecycle.md`'s "it reports such a
+field as set" said in a place a client cannot mistake for a value. A client that wants to keep a
+held secret omits the field, which `configure_app` already merges over.
+
 **The state lock.** In `HubDeps`, which is what a window owns, because that is where
 `app-model.md` puts application-scoped state. It serializes the Hub's own state file and nothing
 else, which is the domain row of `runtime.md`'s concurrency table and not a lock ToolRuntime
@@ -287,7 +297,7 @@ as data inside its own output model, provided it carries the same `code`, `categ
 and `details` an `ErrorInfo` carries. The framework's table stays the framework's; an App's codes
 are the App's.
 
-The Hub's own thirteen codes and their categories are tabled in `vibepy_hub/models.py`'s module
+The Hub's own twelve codes and their categories are tabled in `vibepy_hub/models.py`'s module
 docstring, beside the `Diagnostic` they belong to. The Hub has no architecture document to carry
 them — that is I13, and CR3 gives the Hub a document and promotes this table into it.
 
@@ -304,7 +314,6 @@ them — that is I13, and CR3 gives the Hub a document and promotes this table i
 | `hub.no_web_channel` | caller |
 | `hub.already_running` | caller |
 | `hub.not_running` | caller |
-| `hub.secret_masked_value` | caller |
 | `hub.start_failed` | execution |
 
 `hub.source_unreadable` is `caller` in both places it is answered: removing the source and
@@ -346,8 +355,8 @@ describe.
   with a diagnostic; a registered source that has been removed makes `list_apps` answer rows
   plus `hub.source_unreadable` rather than raising; an environment whose facts are unreadable is
   a row carrying `hub.facts_unreadable`.
-- **the sentinel** — configuring a secret field with the masked value answers
-  `hub.secret_masked_value` and leaves the stored secret intact.
+- **no sentinel** — a held secret is absent from `values` and named in `secrets_set`, and a
+  round trip that sends `values` back unchanged leaves the stored secret intact.
 - **`hub.already_running`** — starting a running App answers it. **`hub.declaration_missing`** —
   an environment whose App declaration has been removed lists with it.
 - **the vacuous three** — "leaves its data" writes through the App's own Tool and asserts the
@@ -397,9 +406,9 @@ two more of the rules an App obeys.
 
 - **R1's ports and addresses.** `free_port`, `RunningApp.url` and the proxy are R1's, and the
   identity this stage settles is what R1 keys a stable port by.
-- **A read-only configuration Tool.** I19 is answered by refusing the sentinel, which is what
-  the owner chose; a Tool that reads held configuration without writing it is new public surface
-  no criterion asks for.
+- **A read-only configuration Tool.** I19 is answered by removing the sentinel, so the output
+  type is safe as the input type without one; a Tool that reads held configuration without
+  writing it is new public surface no criterion asks for.
 - **`AppRow.state` as a typed union** (axis 4, F9), the version stated twice in the Todo sample
   (F12), the entry-point group restated in the Hub (F13), `uv venv` pinning no interpreter
   (F14), no timeout on installation subprocesses (F15), `remove_app` calling a Tool handler
@@ -409,6 +418,6 @@ two more of the rules an App obeys.
 - **Every CR3 finding**, including the Hub having no architecture document, `authoring.md`, and
   the two import surfaces.
 - **Cross-process locking of the Hub's state.** One window is what a lock in `HubDeps` covers.
-- **The mockup's own save handler**, which sends the masked sentinel back for an untouched
-  secret. The Hub refuses it after this stage; the screen that stops sending it is M11's, and
-  `docs/hub-ui-mockup.html` is a design artifact whose home is Q4's open question.
+- **A cross-window race on the Hub's state**, and the shape of the mockup's save handler beyond
+  the field it reads: the sentinel it sent back no longer exists, so the destructive path is gone
+  at its cause, and how M11's screen renders "held" is M11's.

@@ -111,7 +111,6 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 | `hub.no_web_channel` | caller |
 | `hub.already_running` | caller |
 | `hub.not_running` | caller |
-| `hub.secret_masked_value` | caller |
 | `hub.start_failed` | execution |
 """
 
@@ -1690,99 +1689,141 @@ git commit -m "Carry a refused configuration across the process boundary"
 
 ---
 
-### Task 9: The masked sentinel is refused
+### Task 9: No sentinel occupies a value's place
 
 **Files:**
+- Modify: `packages/vibepy-hub/src/vibepy_hub/models.py` (`HeldConfig`, delete `SET`)
+- Modify: `packages/vibepy-hub/src/vibepy_hub/internals/configuration.py`
+  (delete `masked`, add `held_secrets`)
 - Modify: `packages/vibepy-hub/src/vibepy_hub/tools/configuration.py`
+- Modify: `docs/hub-ui-mockup.html` (the secret input's placeholder)
 - Test: `packages/vibepy-hub/tests/test_configuration.py`
 
 **Interfaces:**
-- Consumes: `update_state` (Task 4), `Diagnostic` with a category (Task 1).
-- Produces: `hub.secret_masked_value`.
+- Consumes: `update_state` (Task 4).
+- Produces: `HeldConfig(app_name, values, secret_fields, secrets_set, diagnostic)` where `values`
+  carries no declared secret field; `held_secrets(values, secrets) -> tuple[str, ...]`.
 
 - [ ] **Step 1: Write the failing test**
 
 ```python
-async def test_sending_a_masked_secret_back_is_refused(tmp_path: Path) -> None:
-    """`HeldConfig` reports a secret as set, and `set` is not a value.
+async def test_a_held_secret_is_absent_from_the_values_it_could_be_sent_back_in(
+    tmp_path: Path,
+) -> None:
+    """The output type must be safe as the input type.
 
-    The natural round trip — read the form, edit one field, send it back — would
-    otherwise write the mask over the secret, and nothing would notice until a
-    start failed.
+    A secret has no value in `values`, so the natural round trip — read the
+    form, edit one field, send it back — cannot carry anything over the stored
+    secret. What is held is said beside the values, not inside them.
     """
     root = tmp_path / "hub"
 
+    held = await held_notes_secret(root)
+
+    assert held.values == {"api_base_url": "https://notes.internal"}
+    assert held.secret_fields == ["api_token"]
+    assert held.secrets_set == ["api_token"]
+
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
-        await tools.invoke(
-            "configure_app",
-            {
-                "app_name": "vibepy-notes",
-                "values": {"api_base_url": "https://notes.internal", "api_token": TOKEN},
-            },
-        )
-        answered = await tools.invoke(
-            "configure_app",
-            {
-                "app_name": "vibepy-notes",
-                "values": {"api_base_url": "https://elsewhere", "api_token": "set"},
-            },
+        again = await tools.invoke(
+            "configure_app", {"app_name": "vibepy-notes", "values": held.values}
         )
 
-    assert isinstance(answered, HeldConfig)
-    assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.secret_masked_value"
-    assert "api_token" in answered.diagnostic.details["fields"]
+    assert isinstance(again, HeldConfig)
+    assert again.diagnostic is None
+    assert again.secrets_set == ["api_token"]
     assert TOKEN in (root / STATE_FILE).read_text(encoding="utf-8")
-    assert answered.values["api_base_url"] == "https://notes.internal"
 ```
+
+`test_a_held_secret_is_never_handed_back` keeps its subject and loses the sentinel from its
+expectation: `held.values == {"api_base_url": "https://notes.internal"}`.
 
 - [ ] **Step 2: Run it to verify it fails**
 
-Run: `uv run pytest packages/vibepy-hub/tests/test_configuration.py -v -k masked`
-Expected: FAIL — the call succeeds and the token is gone from the state file.
+Run: `uv run pytest packages/vibepy-hub/tests/test_configuration.py -v`
+Expected: FAIL — `values` still carries `"api_token": "set"`, `secrets_set` does not exist, and
+sending those values back writes `"set"` over the token.
 
-- [ ] **Step 3: Refuse it before anything is written**
+- [ ] **Step 3: Say it beside the values**
 
-In `configure_app`, after `secrets` is read from the schema and before the state is changed:
+In `models.py`, `SET` is deleted and `HeldConfig` says which secrets are held rather than
+putting a stand-in where a value goes:
 
 ```python
-    masked_back = sorted(
-        name for name in payload.values if name in secrets and payload.values[name] == SET
-    )
-    if masked_back:
-        state = await read_state(deps.root)
-        kept = state.config.get(payload.app_name, {})
-        return HeldConfig(
-            app_name=payload.app_name,
-            values=masked(kept, secrets),
-            secret_fields=list(secrets),
-            diagnostic=Diagnostic(
-                code="hub.secret_masked_value",
-                category=ErrorCategory.CALLER,
-                message=f"{SET!r} is how a held secret is reported, not a value it can take",
-                details={"app_name": payload.app_name, "fields": ", ".join(masked_back)},
-            ),
-        )
+class HeldConfig(BaseModel):
+    """What the Hub holds for one App.
+
+    A secret's value is stored and handed back to no channel, so `values`
+    carries only the fields that are not secrets. `secret_fields` names the
+    fields an App declared as secret and `secrets_set` names those that have a
+    value — which is what `docs/architecture/lifecycle.md` requires reported,
+    said where a client cannot mistake it for a value. A client keeps a held
+    secret by omitting the field.
+    """
+
+    app_name: str
+    values: dict[str, object]
+    secret_fields: list[str]
+    secrets_set: list[str]
+    diagnostic: Diagnostic | None = None
 ```
 
-Nothing partial is written: the whole call is refused, so a client that sent one real edit
-alongside the mask resends the edit. The docstring gains a line saying so.
+In `internals/configuration.py`, `masked` goes and the question it was answering is asked
+directly:
 
-- [ ] **Step 4: Run the tests**
+```python
+def held_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> tuple[str, ...]:
+    """The declared secrets this App has a value for."""
+    return tuple(
+        name for name in secrets if values.get(name) not in (None, "")
+    )
+
+
+def without_secrets(
+    values: Mapping[str, object], secrets: Sequence[str], /
+) -> dict[str, object]:
+    """The held values a channel may see: every field that is not a secret."""
+    return {name: value for name, value in values.items() if name not in secrets}
+```
+
+- [ ] **Step 4: Answer with both**
+
+`configure_app` returns `values=without_secrets(kept, secrets)` and
+`secrets_set=list(held_secrets(kept, secrets))`, and its docstring says that a value's place
+holds only values. The `hub.not_installed` branch answers `secrets_set=[]`. Nothing refuses a
+sentinel, because none exists to send.
+
+- [ ] **Step 5: Let the mockup read what is held**
+
+`docs/hub-ui-mockup.html` renders a secret's placeholder from the stored value. It now reads the
+list instead, so the screen never holds a sentinel either:
+
+```javascript
+          const isSecret = field.type === 'secret';
+          const value = isSecret ? '' : stored;
+          const placeholder = isSecret && (app.secretsSet || []).includes(field.name)
+            ? '•••••••• (set)'
+            : '';
+```
+
+and the Customer Desk installation's `values` loses `api_token: 'set'`, gaining
+`secretsSet: ['api_token']` beside it. The save handler's
+`entered[name] = input.value.trim() || existing` then cannot send a mask back, because `existing`
+for a secret is no longer a string the Hub would store.
+
+- [ ] **Step 6: Run the tests**
 
 Run: `uv run pytest packages/vibepy-hub -v`
 Expected: PASS.
 
-- [ ] **Step 5: Verify and commit**
+- [ ] **Step 7: Verify and commit**
 
 Run: `make lint typecheck test`
 Expected: PASS.
 
 ```bash
-git add packages/vibepy-hub
-git commit -m "Refuse the mask a held secret is reported as"
+git add packages/vibepy-hub docs/hub-ui-mockup.html
+git commit -m "Keep a stand-in out of the place a value goes"
 ```
 
 ---
