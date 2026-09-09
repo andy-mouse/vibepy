@@ -3,6 +3,7 @@
 install:
 	uv sync
 	uv run pre-commit install
+	uv run python scripts/fetch_traefik.py
 
 lint:
 	uv run ruff check .
