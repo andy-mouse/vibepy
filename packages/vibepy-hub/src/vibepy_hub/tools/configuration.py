@@ -7,10 +7,11 @@ from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
     HubState,
+    held_secrets,
     installed_facts,
-    masked,
     secret_fields,
     update_state,
+    without_secrets,
 )
 from vibepy_hub.models import ConfigureRequest, Diagnostic, HeldConfig
 
@@ -22,6 +23,10 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
     as it opens and raises `config.invalid`. What it does do is keep a secret's
     value out of every answer it gives, so a value written once is not read back
     out through a channel.
+
+    A value's place holds only values. A held secret is named beside them, so
+    the answer this gives is safe to send back as a request: omitting a secret
+    keeps it, and nothing this returns can overwrite one.
     """
     deps = ctx.dependencies
     facts = await installed_facts(deps.root, payload.app_name)
@@ -30,6 +35,7 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
             app_name=payload.app_name,
             values={},
             secret_fields=[],
+            secrets_set=[],
             diagnostic=Diagnostic(
                 code="hub.not_installed",
                 category=ErrorCategory.CALLER,
@@ -52,8 +58,9 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
     kept = changed.config[payload.app_name]
     return HeldConfig(
         app_name=payload.app_name,
-        values=masked(kept, secrets),
+        values=without_secrets(kept, secrets),
         secret_fields=list(secrets),
+        secrets_set=list(held_secrets(kept, secrets)),
     )
 
 

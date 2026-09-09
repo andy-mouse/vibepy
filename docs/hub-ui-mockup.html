@@ -624,7 +624,8 @@
           name: 'Customer Desk',
           version: '1.4.0',
           state: 'running',
-          values: { api_base_url: 'https://desk.internal', api_token: 'set' }
+          values: { api_base_url: 'https://desk.internal' },
+          secretsSet: ['api_token']
         }],
         ['expense-review', {
           id: 'expense-review',
@@ -749,7 +750,9 @@
           const stored = (app.values && app.values[field.name]) || '';
           const isSecret = field.type === 'secret';
           const value = isSecret ? '' : stored;
-          const placeholder = isSecret && stored ? '•••••••• (set)' : '';
+          const placeholder = isSecret && (app.secretsSet || []).includes(field.name)
+            ? '•••••••• (set)'
+            : '';
           return `<div class="hub-field ${invalid.includes(field.name) ? 'is-invalid' : ''}">
             <label for="field-${app.id}-${field.name}">
               <span class="hub-field-name">${escape(field.name)}</span>

@@ -6,7 +6,12 @@ child process and storing state are not Tools. A Tool handler reaches them
 through its ToolContext and nothing else does.
 """
 
-from vibepy_hub.internals.configuration import is_configured, masked, secret_fields
+from vibepy_hub.internals.configuration import (
+    held_secrets,
+    is_configured,
+    secret_fields,
+    without_secrets,
+)
 from vibepy_hub.internals.deps import HubDeps
 from vibepy_hub.internals.installer import (
     AppNameInvalid,
@@ -38,11 +43,11 @@ __all__ = [
     "describe",
     "environment",
     "environments",
+    "held_secrets",
     "install",
     "installed_facts",
     "interpreter",
     "is_configured",
-    "masked",
     "purelib",
     "read_facts",
     "read_state",
@@ -50,6 +55,7 @@ __all__ = [
     "remove_environment",
     "secret_fields",
     "update_state",
+    "without_secrets",
     "write_facts",
     "write_state",
 ]

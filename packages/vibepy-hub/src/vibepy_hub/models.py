@@ -144,21 +144,21 @@ class ConfigureRequest(BaseModel):
     values: dict[str, object] = {}
 
 
-SET = "set"
-"""What a stored secret reads as once it has one. Never the value itself."""
-
-
 class HeldConfig(BaseModel):
     """What the Hub holds for one App.
 
-    A secret's value is stored but never handed back: `values` reports it as
-    `set`, the way `SecretStr` reports itself as masked. `secret_fields` names
-    which fields those are.
+    A secret's value is stored and handed back to no channel, so `values`
+    carries only the fields that are not secrets. `secret_fields` names the
+    fields an App declared as secret and `secrets_set` names those that have a
+    value -- which is what `docs/architecture/lifecycle.md` requires reported,
+    said where a client cannot mistake it for a value. A client keeps a held
+    secret by omitting the field.
     """
 
     app_name: str
     values: dict[str, object]
     secret_fields: list[str]
+    secrets_set: list[str]
     diagnostic: Diagnostic | None = None
 
 

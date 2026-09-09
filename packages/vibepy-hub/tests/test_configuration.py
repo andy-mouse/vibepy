@@ -84,7 +84,35 @@ async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
 
     held = await held_notes_secret(root)
 
-    assert held.values == {"api_base_url": "https://notes.internal", "api_token": "set"}
+    assert held.values == {"api_base_url": "https://notes.internal"}
+
+
+async def test_a_held_secret_is_absent_from_the_values_it_could_be_sent_back_in(
+    tmp_path: Path,
+) -> None:
+    """The output type must be safe as the input type.
+
+    A secret has no value in `values`, so the natural round trip -- read the
+    form, edit one field, send it back -- cannot carry anything over the stored
+    secret. What is held is said beside the values, not inside them.
+    """
+    root = tmp_path / "hub"
+
+    held = await held_notes_secret(root)
+
+    assert held.values == {"api_base_url": "https://notes.internal"}
+    assert held.secret_fields == ["api_token"]
+    assert held.secrets_set == ["api_token"]
+
+    async with hub(root) as tools:
+        again = await tools.invoke(
+            "configure_app", {"app_name": "vibepy-notes", "values": held.values}
+        )
+
+    assert isinstance(again, HeldConfig)
+    assert again.diagnostic is None
+    assert again.secrets_set == ["api_token"]
+    assert TOKEN in (root / STATE_FILE).read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
