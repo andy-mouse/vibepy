@@ -9,7 +9,7 @@ from mcp.client import Client
 from mcp.server import Server
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
-from pydantic import BaseModel, TypeAdapter
+from pydantic import BaseModel, TypeAdapter, computed_field
 
 from tests.lifecycle import no_dependencies
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
@@ -52,6 +52,43 @@ def list_todos_definition() -> ToolDefinition[EmptyInput, TodoList]:
         input_model=EmptyInput,
         output_model=TodoList,
     )
+
+
+class Measured(BaseModel):
+    """An output model whose serialization schema differs from its validation one."""
+
+    width: int
+
+    @computed_field
+    @property
+    def doubled(self) -> int:
+        return self.width * 2
+
+
+def measured_definition() -> ToolDefinition[Measured, Measured]:
+    return ToolDefinition(
+        name="measure",
+        description="Carries a computed member",
+        input_model=Measured,
+        output_model=Measured,
+    )
+
+
+def test_the_published_output_schema_describes_every_member_the_payload_carries() -> None:
+    """ADR-007: the published schema and the returned value cannot diverge."""
+    projected = to_mcp_tool(measured_definition())
+
+    assert projected.output_schema is not None
+    properties = projected.output_schema["properties"]
+    assert "doubled" in properties
+    assert set(Measured(width=2).model_dump(by_alias=True, mode="json")) <= set(properties)
+
+
+def test_the_published_input_schema_describes_what_is_validated() -> None:
+    """A computed member is produced, never accepted."""
+    projected = to_mcp_tool(measured_definition())
+
+    assert "doubled" not in projected.input_schema["properties"]
 
 
 def test_projection_carries_the_declaration_over() -> None:
