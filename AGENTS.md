@@ -83,4 +83,5 @@ One role per document. The same fact is not stated in two places.
 - Within that line, record only what is difficult to reverse or constrains later decisions. An internal mechanism with no contract outside its module is neither.
 - An ADR says why a decision was taken, not how it was implemented. A record that reads as a design guide is not one.
 - A fact another surface owns is cited, not restated.
+- A live record's Decision must still be true; one whose Decision has become false is superseded. Context and Consequences are statements as of the record's own date and are not maintained.
 - On integration, promote what is still true out of the milestone folder, then delete the folder.

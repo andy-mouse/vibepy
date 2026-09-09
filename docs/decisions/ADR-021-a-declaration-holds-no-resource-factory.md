@@ -15,7 +15,7 @@ declares learns nothing from it, and a reader that wants to know what resource i
 nothing either, because `DepsT` is a type the app chose and the framework only carries.
 
 The field was introduced because `AppRuntime` needed somewhere to find a resource, and the
-definition was the only object it held. ADR-021 removes that runtime, so the reason is gone.
+definition was the only object it held. ADR-020 removes that runtime, so the reason is gone.
 
 Composition is a known place, and it is not the declaration. Seemann's rule is that only
 applications should have Composition Roots, and that libraries and frameworks should not

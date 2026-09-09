@@ -28,9 +28,7 @@ NiceGUI reports no collision of its own.
 
 - the Web channel is exercised in-process through `nicegui.testing.user_simulation`, with no
   server and no browser
-- running the routes is somebody else's step, not a rewrite of this adapter. ADR-020 removed the
-  runtime lifecycle this record expected to add one; `build_web_app` returns an ASGI application
-  whose lifespan is the window, and `python -m vibepy.serve` runs it
+- the runtime lifecycle adds a call to `ui.run()` at startup, not a rewrite of this adapter
 - two Pages declaring one route fail loudly at registration rather than one disappearing
   silently
 - registration is process-global, so one process serves one App's Pages
