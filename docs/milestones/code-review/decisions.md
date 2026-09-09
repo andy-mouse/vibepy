@@ -92,7 +92,7 @@ with each, because the remedy differs:
 | Defect | Records | Remedy |
 | --- | --- | --- |
 | wrong when written | ADR-012, whose Decision gives `register_pages` a signature it has never had | corrected in place, per D12 |
-| Nygard format incomplete | ADR-003, 004, 005, 006 — no Context section, so none states the alternative it rejected | Context supplied |
+| states no rejected alternative | ADR-005 has no Context section. ADR-001 and ADR-002 have one that states the requirement instead, which is the same defect with a heading over it — and half of ADR-002's Decision is a sentence ADR-001 already carries as a consequence | Context supplied: the channel-first Tool model ADR-001 rejects, and the Web-side service layer ADR-002 rejects |
 | the decision actually changed | ADR-006, which still names the `AppRuntime` that ADR-020 deleted, and which `docs/architecture/lifecycle.md` still cites as live | superseded |
 | how, not why | ADR-003, 014, 016. ADR-021 was in this list on a partial reading and is not: removing `lifespan` from `AppDefinition` changes every App's public shape, and ADR-023 rests on it | marked `Deprecated`, bodies untouched, each pointing at the document that owns what survives it |
 | decided but never recorded | the direct `fastapi`/`uvicorn` dependency with an ASGI-lifespan Web window, `python -m vibepy.serve` as a second command, and the Hub's `Diagnostic`/`hub.*` vocabulary | written, if they still pass the bar |
@@ -105,6 +105,11 @@ append-only — Microsoft states it in those words — so deleting records would
 the act of applying it, and ADR-020's body cites ADR-003, which deletion would leave pointing at
 nothing. `Deprecated` is in Nygard's original status set and in the MADR template, and it leaves
 the same fifteen live records while keeping the history and the citation intact.
+
+The first pass exempted ADR-001 and ADR-002 for being foundational, which is not one of the
+tests. Re-reading them against the same bar that retired ADR-003 found the same defect, and they
+were repaired rather than exempted. A bar applied to the records that are easy to retire and not
+to the ones that are hard is not a bar.
 
 Nothing needed promoting. `adapters.md` already carried ADR-003's decision sentence for sentence,
 and `tool-model.md` and `page-model.md` already carried what ADR-014 and ADR-016 assert — which
