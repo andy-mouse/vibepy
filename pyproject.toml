@@ -84,7 +84,7 @@ pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
 [tool.pytest.ini_options]
-testpaths = ["tests", "packages", "examples"]
+testpaths = ["tests", "packages"]
 asyncio_mode = "auto"
 # NiceGUI's user fixture runs a main file unless this is empty. Pages are
 # registered by the tests themselves, so there is no main file to run.
