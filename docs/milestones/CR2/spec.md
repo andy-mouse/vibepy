@@ -385,6 +385,9 @@ Only what CR2 makes false, plus the two records:
   own expected failures.
 - `vibepy_hub/models.py` — the Hub's code and category table, until CR3 gives the Hub a
   document.
+- `docs/hub-ui-mockup.html` — the key its rows join on becomes the distribution name, and the
+  Todo entry declares the secret the sample now declares. Its own premise, that the
+  self-description command reports an identity, is what Scope 2 makes true.
 - `docs/milestones/code-review-roadmap.md` — L1 and CR1 are marked merged, which they are.
 
 No existing record changes. ADR-024 is unaffected: the Hub stays an App, and CR2 makes it obey

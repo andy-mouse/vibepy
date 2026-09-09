@@ -445,7 +445,17 @@ subject — a folder's name is not a declaration — and asserts that the App fi
 Run: `uv run pytest packages/vibepy-hub -v`
 Expected: PASS.
 
-- [ ] **Step 9: Write ADR-028**
+- [ ] **Step 9: Correct the key the mockup joins on**
+
+`docs/hub-ui-mockup.html` keys every row on `id` — `declaredConfig`, `visibleApps` and
+`installations` all join on it — and its values are short declared names. The key a Hub Tool
+answers to is the distribution name, so the mockup's ids become distribution names, or M11 is
+built on a key the Hub does not have: `'todo'` becomes `'vibepy-todo'` in `sourceApps`, and
+`'customer-desk'`, `'expense-review'` and `'field-notes'` gain the distribution spelling their
+own `name` implies. Nothing else in the file changes: it displays `app.name` and `app.version`,
+which are unaffected.
+
+- [ ] **Step 10: Write ADR-028**
 
 Nygard format, `Status: Accepted`. Context: the four name spaces, and what each name can answer
 before installation and after it — `[project].name` is required and static and dist-info carries
@@ -460,13 +470,13 @@ no visible declaration unaddressable. Consequences: a user installs `vibepy-todo
 declared name; R1 keys a stable port by this name; `AppFacts.declared_name` remains, because the
 name `vibepy_core.serve` is addressed by is the declared one.
 
-- [ ] **Step 10: Verify and commit**
+- [ ] **Step 11: Verify and commit**
 
 Run: `make lint typecheck test`
 Expected: PASS.
 
 ```bash
-git add packages/vibepy-hub uv.lock docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md
+git add packages/vibepy-hub uv.lock docs/hub-ui-mockup.html docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md
 git commit -m "Address an App by its distribution name (ADR-028)"
 ```
 
