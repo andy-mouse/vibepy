@@ -61,6 +61,9 @@ statable once there is one name to state it about.
 | a child that fills a pipe's buffer blocks, which is why a parent that does not drain one does not use one | Python, *subprocess* (<https://docs.python.org/3/library/subprocess.html#subprocess.Popen.communicate>) |
 | a process supervisor puts one program's standard error in a file of its own | supervisord, *Configuration* (<http://supervisord.org/configuration.html>) |
 | a keyed digest over stored bytes is `hmac` with `compare_digest`, not a scheme of ours | Python, *hmac* (<https://docs.python.org/3/library/hmac.html>) |
+| ruff resolves the closest configuration file in the directory hierarchy for every file, and `extend` inherits from a parent | Ruff, *Configuration* (<https://docs.astral.sh/ruff/configuration/>) |
+| `ASYNC240` flags a blocking `pathlib` call in an async function only where the receiver's type is known in that file; it does not follow a type across modules | verified against `ruff 0.16.6` at `05d6027`'s successor: the probe in `/tmp` was flagged, `tools/installation.py`'s `envs.iterdir()` was not |
+| `uvicorn.run` takes `log_config` as a `dictConfig` dictionary | uvicorn, *Logging* (<https://github.com/kludex/uvicorn/blob/main/docs/concepts/logging.md>) |
 | a duplicate name fails at registration rather than disappearing silently | `docs/decisions/ADR-012`, `ADR-027` |
 | filesystem paths are `pathlib.Path`, the public API is a product, and tests verify public contracts | `AGENTS.md` |
 
@@ -164,13 +167,25 @@ This record is a gap A0 named and did not close. `code-review/decisions.md` list
 such a decision is written; no record in `docs/decisions/` mentions `Diagnostic`. CR3's criterion
 that the unrecorded decisions are recorded therefore carries one fewer item.
 
+**ADR-030 — a window reports its own failure at the process boundary.** ADR-026 makes the Web
+window the ASGI lifespan, and ASGI's answer for a window that will not open is that the server
+logs the message and exits. That is legible to a person reading a terminal and not to the Hub,
+which is a first-class caller in this repository: it received an exit status where the framework
+had a code and a category. The alternatives were to validate configuration in the command before
+the server sees it — which fixes one failure and leaves every other window failure prose — and
+to read the server's own internals for what went wrong, which is not a mechanism uvicorn
+documents. The decision is that the window reports the normalized failure through `logging` as it
+fails and re-raises, and that whoever owns the process routes that record where its caller can
+read it. ADR-026 is untouched: the window is still the lifespan and the process still exits
+non-zero.
+
 Applied records, not decisions:
 
 - one name for one addressable thing is ADR-016's principle at the Hub's own seam.
 - wrapping blocking calls is `runtime.md`'s rule and AGENTS.md's convention.
 - owning a child from birth is ADR-018's acquisition bound to release.
-- reporting `config.invalid` with its fields is ADR-022's contract, carried across a boundary
-  ADR-026 already says exits non-zero.
+- reporting `config.invalid` with its fields is ADR-022's contract, and ADR-030 is what carries
+  it — and every other window failure — across the boundary ADR-026 says exits non-zero.
 - refusing the masked sentinel as a value is ADR-012's "fails loudly rather than disappearing
   silently" applied to a field.
 
@@ -184,17 +199,24 @@ Applied records, not decisions:
 2. **Joined by identity.** `python -m vibepy_core.describe` reports the declared name and the
    distribution beside each description, and the Hub joins on them. A distribution declaring
    more than one App is refused with a diagnostic rather than truncated.
-3. **Off the loop.** Every filesystem, subprocess and metadata call moves behind an `async`
-   function in `internals/`, which wraps its synchronous body in `asyncio.to_thread`. No Hub
-   handler and no lifespan calls one directly.
+3. **Off the loop, and kept off it.** Every filesystem, subprocess and metadata call moves
+   behind an `async` function in `internals/`, which wraps its synchronous body in
+   `asyncio.to_thread`. No Hub handler and no lifespan calls one directly, and two mechanisms
+   between them leave no way back: the Hub's own ruff configuration refuses an import of a
+   blocking module from `tools/`, and one guard refuses a blocking method called on a value
+   there. Both are needed and neither is redundant — an import ban cannot see
+   `payload.path.is_dir()`, whose type is declared in another module, and that is the shape the
+   defect took at `tools/packages.py:31`.
 4. **Owned from birth.** A child enters the window's ownership immediately after it exists, and
    everything after the spawn is guarded so that any exception — `CancelledError` included —
    kills and reaps it. A stdin failure becomes `StartFailed`.
-5. **A failure that survives the boundary.** The `serve` command validates configuration against
-   the declaration before it hands the application to the server, and writes one JSON object of
-   `code`, `category`, `message` and `details` to standard error for every failure it reports. A
-   child's standard error goes to a file the Hub owns, and a failed start answers with the code
-   the child reported.
+5. **A failure that survives the boundary — every window failure, not one of them.** The Web
+   window reports its own failure in the framework's shape as it fails, and then fails the
+   startup exactly as ADR-026 says. The command that owns the process routes that report to
+   standard error; a child's standard error goes to a file the Hub owns; and a failed start
+   answers with the code the child reported. Nothing is validated twice and nothing is
+   pre-empted: a configuration the window refuses, a lifespan that raises, and a route the
+   adapter rejects all cross with a code, a category and details.
 6. **One failure model.** `Diagnostic` carries a category. Every `hub.*` code declares one.
 7. **State that survives.** One `asyncio.Lock` in `HubDeps` guards read-modify-write, and the
    file is written to a temporary neighbour and moved into place.
@@ -224,6 +246,7 @@ Applied records, not decisions:
 | `SET`, and `masked()` with it | deleted |
 | a category on each of the eight existing `hub.*` codes | added |
 | `ServeConfigInvalidError`, code `serve.config_invalid`, category `caller` | added |
+| a window's failure is logged as one JSON object of `code`, `category`, `message` and `details` before it fails the startup | added |
 | the `describe` command's objects carry `app_name`, `distribution` and `distribution_version` | added |
 | the name every Hub Tool takes for an App is now the canonical distribution name | changed |
 | `packaging` becomes a dependency of `vibepy-hub` | added |
@@ -319,10 +342,11 @@ them — that is I13, and CR3 gives the Hub a document and promotes this table i
 `hub.source_unreadable` is `caller` in both places it is answered: removing the source and
 calling again succeeds, which is what `errors.md` defines the category by.
 
-A start that failed because the App refused its configuration answers with `config.invalid`,
-category `caller`, and the failing fields in `details` — the child's own code, carried through,
-rather than the Hub's. `hub.start_failed` remains for a child that failed for a reason it did not
-describe.
+A start that failed inside the App's window answers with that window's own code — 
+`config.invalid` and its failing fields for a refused configuration, and whatever the failure
+was for anything else — carried through rather than replaced by the Hub's.
+`hub.start_failed` remains for a child that never opened a window at all: an interpreter that
+would not run, or a process that died without reporting.
 
 ## Testing
 
@@ -346,6 +370,13 @@ describe.
 - **config.invalid across the boundary** — the Todo App is configured with its path and started
   without its secret; the answer carries `config.invalid`, category `caller`, and names the
   missing field. Started with the secret in `start_app`'s `secrets`, it runs.
+- **any window failure across the boundary** — an App whose lifespan raises an exception of its
+  own is started, and the answer carries `app.unhandled`, category `execution`, and the
+  exception's message. This is the criterion's general case, and it is what makes the fix a fix
+  rather than a special case for one code.
+- **the loop stays clear** — an import of a blocking module from a Hub Tool module fails
+  `make lint`, and a blocking method called on a value there fails `make test`. Both are asserted
+  against a file written for the purpose, so the guards are known to fire.
 - **one failure model** — every `Diagnostic` a Hub Tool can answer with carries a category, and
   a test walks the Hub's Tools' output models to assert the field is not optional.
 - **state survives** — two overlapping `configure_app` calls for two Apps both survive, so no
@@ -386,12 +417,13 @@ configure it are updated with it.
 
 Only what CR2 makes false, plus the two records:
 
-- `docs/decisions/ADR-028` and `ADR-029`, new.
+- `docs/decisions/ADR-028`, `ADR-029` and `ADR-030`, new.
 - `docs/architecture/packaging.md` — the `describe` command's objects carry the identity of what
   they describe; the `serve` command reports every failure as one JSON object of code, category,
   message and details.
-- `docs/architecture/errors.md` — one row in the table, and what ADR-029 decides about an App's
-  own expected failures.
+- `docs/architecture/errors.md` — one row in the table, what ADR-029 decides about an App's own
+  expected failures, and what ADR-030 decides about a window's failure crossing a process
+  boundary.
 - `vibepy_hub/models.py` — the Hub's code and category table, until CR3 gives the Hub a
   document.
 - `docs/hub-ui-mockup.html` — the key its rows join on becomes the distribution name, and the
@@ -415,6 +447,9 @@ two more of the rules an App obeys.
   directly (F16), `installed_facts` conflating two answers (F17), and `AppFacts.purelib` holding
   an absolute path (F18). The coordinator did not promote these to `findings.md`, and this stage
   implements its acceptance criteria and no more.
+- **The Agent channel's own window.** It has the same boundary and no command to cross it: no
+  package declares one, which is I4 and CR3's. There is nothing to fix here until that command
+  exists, and ADR-017 gives that process to the client rather than to the Hub.
 - **Every CR3 finding**, including the Hub having no architecture document, `authoring.md`, and
   the two import surfaces.
 - **Cross-process locking of the Hub's state.** One window is what a lock in `HubDeps` covers.

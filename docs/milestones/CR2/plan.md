@@ -481,14 +481,16 @@ git commit -m "Address an App by its distribution name (ADR-028)"
 
 ---
 
-### Task 3: The Hub's work leaves the loop
+### Task 3: The Hub's work leaves the loop, and cannot come back
 
 **Files:**
 - Modify: `packages/vibepy-hub/src/vibepy_hub/internals/state.py`,
   `internals/projects.py`, `internals/installer.py`, `internals/__init__.py`
 - Modify: `packages/vibepy-hub/src/vibepy_hub/tools/*.py`,
   `packages/vibepy-hub/src/vibepy_hub/entry.py:38`
-- Test: `packages/vibepy-hub/tests/test_concurrency.py` (create)
+- Modify: `packages/vibepy-hub/pyproject.toml` (the Hub's own ruff configuration)
+- Test: `packages/vibepy-hub/tests/test_concurrency.py` (create),
+  `packages/vibepy-hub/tests/test_no_blocking_handlers.py` (create)
 
 **Interfaces:**
 - Consumes: `candidates`, `read_state`, `write_state`, `read_facts`, `write_facts`,
@@ -607,14 +609,118 @@ In `entry.py`:
 Run: `uv run pytest packages/vibepy-hub -v`
 Expected: PASS, the new test included.
 
-- [ ] **Step 6: Verify and commit**
+- [ ] **Step 6: Refuse the import that would put it back**
+
+ruff resolves the closest configuration for every file and `extend` inherits the rest, so the
+Hub carries the ban that applies to the Hub. In `packages/vibepy-hub/pyproject.toml`:
+
+```toml
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"shutil".msg = "A Tool handler does not touch the file system. vibepy_hub.internals does, behind asyncio.to_thread."
+"tomllib".msg = "A Tool handler does not read a file. vibepy_hub.internals does, behind asyncio.to_thread."
+"pathlib".msg = "A Tool handler does not reach the file system. vibepy_hub.internals does, behind asyncio.to_thread."
+"subprocess".msg = "A Tool handler does not start a process. vibepy_hub.internals does."
+"os".msg = "A Tool handler does not call the operating system. vibepy_hub.internals does."
+
+[tool.ruff.lint.per-file-ignores]
+# The ban is on the Tool handlers and nowhere else: internals is where this
+# work belongs, and a test arranges it.
+"!src/vibepy_hub/tools/**" = ["TID251"]
+```
+
+Check that it fires and that it is not vacuous:
+
+```bash
+uv run ruff check packages/vibepy-hub/src/vibepy_hub/tools/
+printf 'import shutil\n' >> packages/vibepy-hub/src/vibepy_hub/tools/runtime.py
+uv run ruff check packages/vibepy-hub/src/vibepy_hub/tools/runtime.py   # must report TID251
+git checkout packages/vibepy-hub/src/vibepy_hub/tools/runtime.py
+```
+
+- [ ] **Step 7: Refuse the call the import ban cannot see**
+
+`ASYNC240` reads a receiver's type only where that type is known in the same file, so
+`payload.path.is_dir()` — the shape the defect took at `tools/packages.py:31` — is invisible to
+it and to the import ban alike. One guard covers that shape:
+
+```python
+"""A Hub Tool handler does no blocking work, and cannot start doing it again.
+
+`docs/architecture/runtime.md` puts blocking calls behind `asyncio.to_thread`,
+and the Hub's own ruff configuration refuses an import of a blocking module
+from `tools/`. What neither reaches is a blocking method called on a value whose
+type is declared elsewhere, which is what this asserts.
+"""
+
+import ast
+from pathlib import Path
+
+import pytest
+
+BLOCKING = frozenset(
+    {
+        "chmod",
+        "exists",
+        "glob",
+        "is_dir",
+        "is_file",
+        "iterdir",
+        "mkdir",
+        "open",
+        "read_bytes",
+        "read_text",
+        "rmdir",
+        "rmtree",
+        "stat",
+        "unlink",
+        "write_bytes",
+        "write_text",
+    }
+)
+
+TOOLS = Path(__file__).resolve().parents[1] / "src" / "vibepy_hub" / "tools"
+
+
+def blocking_calls(source: str, /) -> list[str]:
+    """Every blocking call this module makes, by the name it calls."""
+    found: list[str] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(node, ast.Call):
+            continue
+        called = node.func
+        name = (
+            called.attr
+            if isinstance(called, ast.Attribute)
+            else called.id
+            if isinstance(called, ast.Name)
+            else ""
+        )
+        if name in BLOCKING:
+            found.append(name)
+    return found
+
+
+@pytest.mark.parametrize("module", sorted(TOOLS.glob("*.py")), ids=lambda path: path.name)
+def test_a_tool_module_makes_no_blocking_call(module: Path) -> None:
+    assert blocking_calls(module.read_text(encoding="utf-8")) == []
+
+
+def test_the_guard_sees_a_blocking_call() -> None:
+    """A guard that cannot fail is not a guard."""
+    assert blocking_calls("async def h(p):\n    return p.is_dir()\n") == ["is_dir"]
+```
+
+- [ ] **Step 8: Verify and commit**
 
 Run: `make lint typecheck test`
 Expected: PASS.
 
 ```bash
 git add packages/vibepy-hub
-git commit -m "Take the Hub's filesystem work off the event loop"
+git commit -m "Take the Hub's filesystem work off the event loop, and keep it off"
 ```
 
 ---
@@ -1392,37 +1498,37 @@ git commit -m "Own a started child from the moment it exists"
 
 ---
 
-### Task 8: A refusal that survives the process boundary
+### Task 8: Every window failure survives the process boundary
 
 **Files:**
-- Modify: `src/vibepy_core/app/composition.py:81-94` (rename `_validated`)
+- Modify: `src/vibepy_core/adapters/nicegui/application.py:43-47`
 - Modify: `src/vibepy_core/errors.py`, `src/vibepy_core/__init__.py`
 - Modify: `src/vibepy_core/serve.py:78-109`
+- Create: `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`
 - Modify: `docs/architecture/errors.md`, `docs/architecture/packaging.md`
 - Modify: `packages/vibepy-hub/src/vibepy_hub/internals/processes.py`,
   `packages/vibepy-hub/src/vibepy_hub/tools/runtime.py`
 - Test: `tests/test_serve_command.py`, `packages/vibepy-hub/tests/test_runtime.py`
 
 **Interfaces:**
-- Consumes: `_Child` and `Processes(logs=...)` (Task 7).
-- Produces: `validated_config(definition, raw)` in `vibepy_core.app.composition`;
-  `ServeConfigInvalidError`; `StartFailed(reason, *, reported: ChildFailure | None = None)`.
+- Consumes: `_Child`, `Processes(logs=...)` and `owned` (Task 7).
+- Produces: `ServeConfigInvalidError`; `StartFailed(reason, *, reported: ChildFailure | None = None)`;
+  a window logs one JSON object of `code`, `category`, `message` and `details` as it fails.
 
 - [ ] **Step 1: Write the failing tests**
 
-In `tests/test_serve_command.py`, `test_a_window_that_will_not_open_stops_the_server` is the
-test the finding names — it accepts either a code or a traceback. It keeps its subject and now
-asserts the shape:
+In `tests/test_serve_command.py`, the test the finding names keeps its subject and now asserts
+the shape:
 
 ```python
 def test_a_window_that_will_not_open_stops_the_server() -> None:
     """A refused configuration is a server that does not serve, and it says so
-    in the shape every other failure of this command uses.
+    in the shape every other framework failure uses.
 
     The App's window is the served application's lifespan, and ASGI defines that
     a server seeing `lifespan.startup.failed` logs the message and exits. What
-    makes the refusal legible to whatever started the process is the command
-    reporting it before it hands the application over.
+    makes the refusal legible to whatever started the process is the window
+    reporting it as it fails.
     """
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
@@ -1432,11 +1538,33 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
         env=child_environment(),
     )
 
-    assert finished.returncode == 1
-    written = json.loads(finished.stderr.decode().strip().splitlines()[-1])
-    assert written["code"] == "config.invalid"
-    assert written["category"] == "caller"
-    assert "db_path" in written["details"]["fields"]
+    assert finished.returncode != 0
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "config.invalid"
+    assert reported["category"] == "caller"
+    assert "db_path" in reported["details"]["fields"]
+
+
+def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) -> None:
+    """The general case, not one code: any failure of opening crosses with a
+    code. The Hub App requires a root it can create, and a path under a file is
+    not one, so its lifespan raises where its configuration was valid.
+    """
+    blocking = tmp_path / "afile"
+    blocking.write_text("not a directory", encoding="utf-8")
+
+    finished = subprocess.run(
+        [sys.executable, "-m", "vibepy_core.serve", "hub", "--port", str(free_port())],
+        input=json.dumps({"root": str(blocking / "root")}).encode(),
+        capture_output=True,
+        check=False,
+        env=child_environment(),
+    )
+
+    assert finished.returncode != 0
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "app.unhandled"
+    assert reported["category"] == "execution"
 
 
 def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> None:
@@ -1449,13 +1577,29 @@ def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> No
     )
 
     assert finished.returncode == 1
-    written = json.loads(finished.stderr.decode().strip().splitlines()[-1])
-    assert written["code"] == "serve.config_invalid"
-    assert written["category"] == "caller"
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "serve.config_invalid"
+    assert reported["category"] == "caller"
 ```
 
-`test_an_unknown_app_name_fails_with_the_framework_code` keeps passing: it reads `code` and
-`message`, and both stay.
+with the reader those three share, which is the Hub's reader in miniature:
+
+```python
+def _reported(stderr: bytes, /) -> Reported:
+    """The last failure the child described, out of everything it wrote."""
+    for line in reversed(stderr.decode(errors="replace").splitlines()):
+        try:
+            parsed: object = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict) and "code" in parsed:
+            return cast(Reported, parsed)
+    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+```
+
+`Reported` is a `TypedDict` of `code`, `category`, `message` and `details: dict[str, str]`, so no
+`cast` of a bare `Any` is needed — the one `cast` here is over a parsed JSON object in a test,
+not in the public API.
 
 In `packages/vibepy-hub/tests/test_runtime.py`, replace
 `test_an_app_whose_window_rejects_its_configuration_does_not_start`'s assertion:
@@ -1472,29 +1616,105 @@ In `packages/vibepy-hub/tests/test_runtime.py`, replace
 - [ ] **Step 2: Run them to verify they fail**
 
 Run: `uv run pytest tests/test_serve_command.py packages/vibepy-hub/tests/test_runtime.py -v`
-Expected: FAIL — the command writes a traceback, and the Hub answers `hub.start_failed`.
+Expected: FAIL — the child writes a traceback, `_reported` finds no object, and the Hub answers
+`hub.start_failed`.
 
-- [ ] **Step 3: Make the validation reachable from the command**
+- [ ] **Step 3: Have the window report as it fails**
 
-In `composition.py`, rename `_validated` to `validated_config` and update its two callers. It
-stays out of `vibepy_core/__init__.py`, so the package root's public surface is unchanged:
+In `application.py`, the opening is what reports: everything before the `yield` is guarded, the
+exception propagates untouched, and the process still fails its startup exactly as ADR-026 says.
 
 ```python
-def validated_config[DepsT, ConfigT: BaseModel](
-    definition: AppDefinition[DepsT, ConfigT], raw: Mapping[str, object], /
-) -> ConfigT:
-    """Validate raw configuration against what the App declared.
+logger = logging.getLogger(__name__)
 
-    Raised before a lifespan is entered, so a window that cannot run acquires
-    nothing. The command that opens a channel calls this before it hands the
-    application to a server, so a refusal is reported with its code rather than
-    only with an exit status.
+
+def build_web_app[DepsT, ConfigT: BaseModel](...) -> FastAPI:
+    @asynccontextmanager
+    async def window(_served: FastAPI) -> AsyncGenerator[None]:
+        async with AsyncExitStack() as opening:
+            try:
+                pages = await opening.enter_async_context(
+                    page_runtime_for(definition, lifespan, config=config)
+                )
+                register_pages(definition, pages)
+            except Exception as failure:
+                _report(failure)
+                raise
+            yield
+
+
+def _report(failure: Exception, /) -> None:
+    """Describe a window that will not open, where its host can read it.
+
+    ASGI's answer for a window that fails is that the server logs the message
+    and exits, which is legible to a person and not to a caller. So the window
+    describes itself in the framework's own shape first. Nothing is translated
+    and nothing is swallowed: the exception propagates as raised, and this is a
+    log record beside it. See
+    `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
     """
+    info = to_error_info(failure)
+    logger.error(
+        json.dumps(
+            {
+                "code": info.code,
+                "category": info.category,
+                "message": info.message,
+                "details": dict(info.details),
+            }
+        )
+    )
 ```
 
-- [ ] **Step 4: Give the command's own code an exception**
+- [ ] **Step 4: Route the report where a caller reads it**
 
-In `errors.py`, beside the other `package.`/`config.` failures:
+The command owns the process, so it says where a record goes. `log_config` is uvicorn's
+documented parameter and takes a `dictConfig` dictionary; the framework's records are formatted
+as the message alone, so each is one JSON object on one line:
+
+```python
+_LOG_CONFIG: dict[str, object] = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "reported": {"format": "%(message)s"},
+        "server": {"format": "%(levelname)s: %(message)s"},
+    },
+    "handlers": {
+        "reported": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "reported",
+        },
+        "server": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "server",
+        },
+    },
+    "loggers": {
+        "vibepy_core": {"handlers": ["reported"], "level": "ERROR", "propagate": False},
+        "uvicorn": {"handlers": ["server"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["server"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["server"], "level": "WARNING", "propagate": False},
+    },
+}
+"""How this process writes what it and its App report.
+
+A framework record is written as its message alone, because a window's report is
+one JSON object and a reader of this process's standard error parses it as such.
+"""
+```
+
+and `_serve` passes it:
+
+```python
+    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=_LOG_CONFIG)
+```
+
+- [ ] **Step 5: Give the command's own code an exception**
+
+In `errors.py`, beside the other `package.` failures:
 
 ```python
 class ServeConfigInvalidError(VibepyError):
@@ -1506,17 +1726,20 @@ class ServeConfigInvalidError(VibepyError):
         super().__init__("Configuration on standard input is not a JSON object")
 ```
 
-Map it `ErrorCategory.CALLER` in `_CATEGORIES` and export it from `vibepy_core/__init__.py`. Add
-its row to `errors.md`'s table. CR1 recorded this string as CR2's: it was a published code with
-no class behind it.
+Map it `ErrorCategory.CALLER` in `_CATEGORIES`, export it from `vibepy_core/__init__.py`, and add
+its row to `errors.md`'s table. CR1 recorded this string as CR2's: a published code with no class
+behind it.
 
-- [ ] **Step 5: Report every failure the same way**
+- [ ] **Step 6: Report the command's own failures the same way**
 
-In `serve.py`, one writer, and configuration validated before the server is handed anything:
+`serve.py` writes every failure it reports through one writer, so the three it already reported
+and the new one share the shape the window uses. The command does **not** validate the
+configuration: the window does that, which is where ADR-022 puts it, and Step 3 is what makes
+that refusal legible.
 
 ```python
-def _report(error: VibepyError, /) -> None:
-    """Write one failure where whatever started this process can read it."""
+def _reported(error: VibepyError, /) -> None:
+    """Write one failure of the command where whatever started it can read it."""
     info = to_error_info(error)
     sys.stderr.write(
         json.dumps(
@@ -1535,28 +1758,27 @@ def _report(error: VibepyError, /) -> None:
     try:
         config: Mapping[str, object] = _CONFIG.validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
-        _report(ServeConfigInvalidError())
+        _reported(ServeConfigInvalidError())
         logger.debug("configuration on standard input was unreadable", exc_info=invalid)
         return 1
     try:
         entrypoint = _entrypoint(str(parsed.app_name))
-        validated_config(entrypoint.definition, config)
     except (
         AppNotDeclaredError,
         AppEntrypointUnloadableError,
         AppEntrypointInvalidError,
-        AppConfigInvalidError,
     ) as error:
-        _report(error)
+        _reported(error)
         return 1
     _serve(entrypoint, config, int(parsed.port))
     return 0
 ```
 
-The validated model is discarded: the window validates again as it opens, which is where
-ADR-022 puts it. This call is what makes the refusal legible, not what enforces it.
+The module docstring's paragraph about which failures write JSON gains the window's: a window
+that will not open reports itself and the server exits, so this command's standard error carries
+one object for any failure of starting.
 
-- [ ] **Step 6: Keep the child's stderr where the Hub can read it**
+- [ ] **Step 7: Keep the child's stderr where the Hub can read it**
 
 In `processes.py`, a started App's standard error goes to a file of its own, which is what a
 process supervisor does — supervisord gives each program its own `stderr_logfile`. A pipe would
@@ -1583,7 +1805,7 @@ class StartFailed(Exception):
 
 
 LOG_TAIL = 4000
-"""How much of a child's standard error a failed start carries back."""
+"""How much of a child's standard error a failed start reads back."""
 
 
 def _log_path(logs: Path, known_as: str, /) -> Path:
@@ -1599,7 +1821,7 @@ def _reported(path: Path, /) -> ChildFailure | None:
         return None
     for line in reversed(written.splitlines()):
         try:
-            parsed = json.loads(line)
+            parsed: object = json.loads(line)
         except json.JSONDecodeError:
             continue
         if isinstance(parsed, dict) and isinstance(parsed.get("code"), str):
@@ -1612,21 +1834,27 @@ def _reported(path: Path, /) -> ChildFailure | None:
     return None
 ```
 
-`start` opens the file in a thread, hands it to the child, closes it when the child is released,
-and a `StartFailed` raised after the child has exited carries what `_reported` found:
+`start` opens the file in a thread, hands it to the child, closes its own handle once the child
+holds it, and a `StartFailed` carries what the child described:
 
 ```python
         path = await asyncio.to_thread(_log_path, self._logs, known_as)
         handle = await asyncio.to_thread(path.open, "wb")
         try:
             process = await asyncio.create_subprocess_exec(
-                ..., stderr=handle, env=child_environment()
+                str(interpreter),
+                "-m",
+                "vibepy_core.serve",
+                app_name,
+                "--port",
+                str(port),
+                stdin=asyncio.subprocess.PIPE,
+                stderr=handle,
+                env=child_environment(),
             )
         finally:
             await asyncio.to_thread(handle.close)
 ```
-
-and in the failure paths:
 
 ```python
         except StartFailed as failure:
@@ -1636,7 +1864,7 @@ and in the failure paths:
             ) from failure
 ```
 
-- [ ] **Step 7: Answer with the code the child reported**
+- [ ] **Step 8: Answer with the code the child reported**
 
 In `tools/runtime.py`:
 
@@ -1655,36 +1883,62 @@ In `tools/runtime.py`:
             state="installed",
             diagnostic=Diagnostic(
                 code=reported.code,
-                category=ErrorCategory(reported.category),
+                category=_category(reported.category),
                 message=reported.message,
                 details={"app_name": payload.app_name, **reported.details},
             ),
         )
 ```
 
-A category the enum does not know falls back to `ErrorCategory.EXECUTION`; wrap the conversion in
-`try/except ValueError` and log the value at debug.
+```python
+def _category(reported: str, /) -> ErrorCategory:
+    """The category a child named, or execution when it named one we do not know."""
+    try:
+        return ErrorCategory(reported)
+    except ValueError:
+        logger.debug("a child reported an unknown category: %s", reported)
+        return ErrorCategory.EXECUTION
+```
 
-- [ ] **Step 8: Run the tests**
+- [ ] **Step 9: Run the tests**
 
 Run: `uv run pytest -v`
 Expected: PASS.
 
-- [ ] **Step 9: Say it in packaging.md**
+- [ ] **Step 10: Write ADR-030**
 
-In *Running a channel*, add that the command validates the configuration against the declaration
-before it hands the application to a server, and writes one JSON object of `code`, `category`,
-`message` and `details` to standard error for every failure it reports; the window still
-validates as it opens, which is where ADR-022 puts it.
+Nygard format, `Status: Accepted`. Context: ADR-026 makes the Web window the ASGI lifespan, and
+ASGI's answer for a window that will not open is that the server logs the message and exits —
+legible to a person reading a terminal, not to the Hub, which reads an exit status where the
+framework had a code and a category. Rejected alternatives: validating the configuration in the
+command before the server sees it, which fixes one code and leaves every other window failure as
+prose; and reading the server's own state for what went wrong, which uvicorn does not document.
+Decision: a window reports the normalized failure of its own opening through `logging` and
+re-raises; whoever owns the process routes that record where its caller reads it. Consequences:
+any failure of opening — a refused configuration, a lifespan that raises, a declaration the
+adapter rejects — crosses a process boundary with a code, a category and details; the exception
+is still propagated unchanged, so `errors.md`'s "the Web channel translates nothing" is intact,
+because a report beside a failure is not a translation of an answer; a host that embeds
+`build_web_app` in its own application sees one `ERROR` record it can route or silence; ADR-026 is
+untouched.
 
-- [ ] **Step 10: Verify and commit**
+- [ ] **Step 11: Say it in the documents**
+
+`errors.md`: a window reports its own failure of opening in the `ErrorInfo` shape before it fails
+the startup, and this is a record beside the exception rather than a translation of it — cite
+ADR-030. `packaging.md`, under *Running a channel*: the command writes one JSON object of `code`,
+`category`, `message` and `details` for every failure it reports, and a window that will not open
+reports itself the same way, so this process's standard error carries one object for any failure
+of starting.
+
+- [ ] **Step 12: Verify and commit**
 
 Run: `make lint typecheck test`
 Expected: PASS.
 
 ```bash
 git add src docs packages/vibepy-hub tests
-git commit -m "Carry a refused configuration across the process boundary"
+git commit -m "Have a window report its own failure across the process boundary (ADR-030)"
 ```
 
 ---
