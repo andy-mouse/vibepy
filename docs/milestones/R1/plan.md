@@ -1330,6 +1330,14 @@ members = ["packages/*", "examples/*", "fixtures/*"]
 It is deliberately absent from `[dependency-groups].dev`: a member nothing depends on is
 resolvable without being installed into this repository's own environment.
 
+Checking an installable fixture distribution into the repository is the established practice —
+pip's `tests/data/packages/` holds dozens of purpose-built ones its suite installs
+(<https://github.com/pypa/pip/tree/main/tests/data/packages>). The placement here departs from
+pip's, which keeps them under the tests tree, and the departure is deliberate: a distribution in
+this repository resolves the core through the workspace, and a fixture that resolved it by a
+relative path instead would be installed by a path no example is installed by. When an install
+fails, that difference is the first thing anyone would have to rule out.
+
 In `tests_support.py`, name where it lives, beside `EXAMPLES`:
 
 ```python
