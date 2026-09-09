@@ -131,7 +131,7 @@ semantics, and resolution is consumed by PageRuntime.
 
 Registering a name twice replaces the earlier registration.
 
-A declaration carrying one name twice never reaches it: the window refuses such a declaration
+A declaration carrying one name twice never reaches the registry: the window refuses it
 where it builds the registry, because `name` is what the framework addresses a Page by while a
 route is the Web channel adapter's.
 

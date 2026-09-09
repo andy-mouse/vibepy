@@ -78,12 +78,13 @@ def _serve(
 def main(argv: Sequence[str], /) -> int:
     """Read configuration from standard input and serve one App.
 
-    Exits 1 for a failure of the command itself — an App this environment does
-    not declare, a declaration that will not load, configuration that is not a
-    JSON object — writing the framework's code and message as one JSON object to
-    standard error, which is what `docs/architecture/packaging.md` says a command
-    does. A window the App refuses to open fails the server's startup, and the
-    server's own exit code says so.
+    Exits 1 for a failure of the command itself: an App this environment does
+    not declare, a declaration that will not load, or configuration that is not
+    a JSON object. Each writes one JSON object of `code` and `message` to
+    standard error. The first two carry a framework code; the third's is written
+    here and belongs to no exception, which is a defect a later stage owns. A
+    window the App refuses to open fails the server's startup, and the server's
+    own exit code says so.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")

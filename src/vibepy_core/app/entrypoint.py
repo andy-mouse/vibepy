@@ -58,7 +58,11 @@ class AppEntrypoint[DepsT, ConfigT: BaseModel]:
     lifespan: Lifespan[DepsT, ConfigT]
 
     def describe(self) -> AppDescription:
-        """Project the declarations. Reads no configuration and enters no lifespan."""
+        """Project the declarations. Reads no configuration and enters no lifespan.
+
+        A Tool's schemas are the declaration's own, so this surface and the
+        Agent channel cannot describe one model two ways.
+        """
         return AppDescription(
             app_id=self.definition.app_id,
             name=self.definition.name,
@@ -68,8 +72,8 @@ class AppEntrypoint[DepsT, ConfigT: BaseModel]:
                 ToolDescription(
                     name=tool.definition.name,
                     description=tool.definition.description,
-                    input_schema=tool.definition.input_model.model_json_schema(),
-                    output_schema=tool.definition.output_model.model_json_schema(),
+                    input_schema=tool.definition.input_schema(),
+                    output_schema=tool.definition.output_schema(),
                 )
                 for tool in self.definition.tools
             ),

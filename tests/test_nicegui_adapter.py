@@ -1,8 +1,10 @@
 """The Web channel adapter's contract.
 
-Every test requests NiceGUI's ``user`` fixture, including the ones that never
-open a page: the fixture is what resets NiceGUI's process-global route table
-around each test.
+Every test isolates NiceGUI's process-global route table, most by requesting
+the ``user`` fixture — including the ones that never open a page. The two that
+expect a render to fail drive ``user_simulation`` instead, which is what that
+fixture is built on and which performs the same reset: the fixture also fails a
+test on any ERROR log, and a render that raises logs one.
 """
 
 import pytest

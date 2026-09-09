@@ -74,7 +74,8 @@ def test_importing_the_core_loads_no_channel_sdk() -> None:
     """What a static scan cannot see: an SDK reached through another import."""
     probe = (
         "import json, sys; import vibepy_core; "
-        "print(json.dumps(sorted({module.split('.')[0] for module in sys.modules} "
+        "sys.stdout.write(json.dumps(sorted("
+        "{module.split('.')[0] for module in sys.modules} "
         f"& set({list(CHANNEL_SDKS)!r}))))"
     )
     finished = subprocess.run(

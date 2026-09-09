@@ -32,14 +32,14 @@ departed from them.
 | a milestone that adds an exception declares a code and maps a category, and a test that walks every subclass enforces both | `docs/decisions/ADR-019` |
 | `app.unhandled` belongs to no exception class; an exception raised by an App's own code is described, not classified | `docs/architecture/errors.md` |
 | `caller` means the call itself was wrong and a different call may succeed | `docs/architecture/errors.md` |
-| a command's failure writes the framework's code and message to standard error and exits 1 | `docs/architecture/packaging.md` |
+| the self-description command's failure writes the framework's code and message to standard error and exits 1. `packaging.md` states this of `describe` only; `serve` reports the same way, which is the shape CR1 gives it | `docs/architecture/packaging.md` |
 | the published output schema and the returned value cannot diverge silently | `docs/decisions/ADR-007` |
 | structured results must conform to the declared output schema | MCP specification, *Server / Tools* (<https://modelcontextprotocol.io/specification/2025-06-18/server/tools>) |
 | a validation schema and a serialization schema are separate JSON Schemas of one model | Pydantic, *JSON Schema* (<https://docs.pydantic.dev/latest/concepts/json_schema/>) |
 | `register_pages` takes an `AppDefinition` and enumerates `definition.pages`, never a `PageRegistry` | `docs/decisions/ADR-012`, amendment; `docs/architecture/adapters.md` |
 | two Pages declaring one route fail loudly at registration rather than one disappearing silently | `docs/decisions/ADR-012` |
 | `route` and `title` are validated where routes are registered; `name` is the identifier the framework addresses a Page by | `docs/architecture/page-model.md` |
-| `ToolRegistry.definitions()` enumerates declarations in registration order, which is what a channel needs for discovery, and a channel does not receive them through a second path beside the registry | `docs/decisions/ADR-011`, kept unchanged by `ADR-014`; `docs/architecture/tool-model.md` |
+| `ToolRegistry.definitions()` enumerates declarations in registration order, which is what a channel needs for discovery, and a channel does not receive them through a second path beside the registry | `docs/architecture/tool-model.md`, `adapters.md`. The reasoning is `ADR-011`'s, which `ADR-014` kept unchanged; both records are retired, so the architecture documents are what state it |
 | registering a name twice replaces the earlier registration | `docs/architecture/tool-model.md`, `page-model.md` |
 | validation is the framework's to own | `docs/architecture.md`, Framework ownership |
 | every Hub Tool is exposed on the Agent channel, so a Tool input is a model-controlled string | `docs/decisions/ADR-024` |
@@ -124,7 +124,8 @@ rather than from a choice:
 3. `AppNotDeclared` becomes a framework exception in `errors.py`, with a code and a category,
    and `serve` reports it the way it reports every other failure.
 4. A duplicate Page name is refused where declarations become a registry.
-5. The Agent channel publishes the serialization schema of an output model.
+5. A declaration answers with its own JSON Schemas, and both publishing surfaces ask it,
+   so the output schema a channel publishes is the one its payload is serialized against.
 6. `PageRegistry.definitions()` is deleted.
 7. One guard covers both channel SDKs across every core module, statically and at import time.
 
@@ -137,6 +138,7 @@ Three additions and one deletion. Nothing is renamed and no signature changes.
 | `AppNotDeclaredError` in `vibepy_core.errors`, exported from the package root | added |
 | code `package.app_not_declared`, category `caller` | added |
 | `PageNameConflictError`, code `page.name_conflict`, category `declaration` | added |
+| `ToolDefinition.input_schema()` and `output_schema()` | added |
 | `PageRegistry.definitions()` | deleted |
 
 `AppNotDeclared` moves out of `serve.py` and gains the `Error` suffix every other framework

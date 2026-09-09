@@ -189,13 +189,17 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
     assert log == ["earlier acquired", "attempted", "earlier released"]
 
 
-def two_pages_named(name: str, routes: tuple[str, str]) -> AppDefinition[None, NoConfig]:
-    """One App declaring two Pages under one name, on two routes."""
+async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
+    """A name is what the framework addresses a Page by, so it refuses the pair.
+
+    Refused where a declaration becomes a registry, which is before the window
+    opens and therefore before any route can exist.
+    """
 
     async def render(_ctx: PageContext) -> None:
         return None
 
-    return AppDefinition(
+    definition: AppDefinition[None, NoConfig] = AppDefinition(
         app_id="collides",
         name="Collides",
         version="0.0.0",
@@ -203,21 +207,15 @@ def two_pages_named(name: str, routes: tuple[str, str]) -> AppDefinition[None, N
         tools=[],
         pages=[
             Page(
-                definition=PageDefinition(name=name, route=route, title=route),
+                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
                 handler=render,
-            )
-            for route in routes
+            ),
+            Page(
+                definition=PageDefinition(name="todos", route="/todo-list", title="List"),
+                handler=render,
+            ),
         ],
     )
-
-
-async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
-    """A name is what the framework addresses a Page by, so it refuses the pair.
-
-    Refused where a declaration becomes a registry, which is before the window
-    opens and therefore before any route can exist.
-    """
-    definition = two_pages_named("todos", ("/todos", "/todo-list"))
 
     with pytest.raises(PageNameConflictError) as error:
         async with page_runtime_for(definition, no_dependencies, config={}):

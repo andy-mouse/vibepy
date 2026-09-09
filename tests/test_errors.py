@@ -6,12 +6,14 @@ a milestone that adds an error must not be able to skip the rule by not editing
 this file.
 """
 
+import importlib
+import pkgutil
 from collections.abc import Iterator, Mapping
 from dataclasses import FrozenInstanceError
 
 import pytest
 
-from vibepy_core import errors
+import vibepy_core
 from vibepy_core.errors import (
     UNHANDLED_CODE,
     AppConfigInvalidError,
@@ -31,6 +33,22 @@ from vibepy_core.errors import (
     to_error_info,
 )
 
+_CORE = vibepy_core.__name__
+"""The package a framework exception is defined somewhere inside."""
+
+
+def _import_every_core_module() -> None:
+    """Make every framework exception exist before the catalogue walks for them.
+
+    `__subclasses__()` sees only classes whose module has been imported, so the
+    catalogue's reach is import coverage rather than a name filter. I1 was a
+    framework exception in a module this file never imported: filtering alone
+    would leave that shape of defect invisible, because the class would not yet
+    exist.
+    """
+    for found in pkgutil.walk_packages(vibepy_core.__path__, f"{_CORE}."):
+        importlib.import_module(found.name)
+
 
 def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
     for subclass in cls.__subclasses__():
@@ -39,14 +57,18 @@ def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
 
 
 def _framework_errors() -> list[type[VibepyError]]:
-    """Every exception the framework itself defines.
+    """Every exception the framework itself defines, wherever it defines it.
 
-    Filtered by module because the base is exported: an App may subclass it, and
-    an App's exception is not the framework's to catalogue. `errors.md` says such
-    an exception is described, not classified.
+    Filtered by package rather than by module. The base is exported, so an App
+    may subclass it and a test may too, and such a subclass is not the
+    framework's to catalogue -- `errors.md` says it is described, not
+    classified. Filtering by `errors.py` alone would hide a framework exception
+    declared in another core module, which is the shape of the defect this
+    catalogue exists to catch.
     """
+    _import_every_core_module()
     return sorted(
-        (error for error in _descendants(VibepyError) if error.__module__ == errors.__name__),
+        (error for error in _descendants(VibepyError) if error.__module__.startswith(f"{_CORE}.")),
         key=lambda error: error.__name__,
     )
 

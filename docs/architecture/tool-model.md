@@ -44,6 +44,16 @@ Suggested responsibilities:
 - input model
 - output model
 
+It also answers with its own JSON Schemas, so every surface that publishes them publishes the
+same ones: `input_schema()` is the input model's validation schema, because an argument mapping
+is validated against it, and `output_schema()` is the output model's serialization schema,
+because a channel sends `model_dump(by_alias=True, mode="json")`. A computed member or a
+serialization alias therefore appears in the output schema and in the payload, and in neither
+the input schema nor the arguments a caller may send. Two surfaces publish these — the Agent
+channel's projection and a package's self-description — and the rule lives here rather than at
+each of them, so one cannot describe a model the other does not. See
+`docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
+
 Future metadata may include:
 
 - query / command kind

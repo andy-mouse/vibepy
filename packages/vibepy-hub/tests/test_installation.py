@@ -160,7 +160,7 @@ async def test_an_absolute_app_name_is_refused(tmp_path: Path) -> None:
     assert victim.is_dir()
 
 
-@pytest.mark.parametrize("name", ["../../victim", "..", ".", "", "a/b"])
+@pytest.mark.parametrize("name", ["../../victim", "..", ".", "", "a/b", "x/../y"])
 def test_environment_refuses_a_name_that_does_not_resolve_inside(tmp_path: Path, name: str) -> None:
     """The sink's guarantee: whatever this platform reads as leaving the root."""
     with pytest.raises(AppNameInvalid):

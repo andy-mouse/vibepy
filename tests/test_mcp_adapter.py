@@ -7,7 +7,7 @@ from mcp.client import Client
 from mcp.server import Server
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
-from pydantic import BaseModel, TypeAdapter, computed_field
+from pydantic import BaseModel, Field, TypeAdapter, computed_field
 
 from tests.lifecycle import no_dependencies
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
@@ -80,6 +80,30 @@ def test_the_published_output_schema_describes_every_member_the_payload_carries(
     properties = projected.output_schema["properties"]
     assert "doubled" in properties
     assert set(Measured(width=2).model_dump(by_alias=True, mode="json")) <= set(properties)
+
+
+class Renamed(BaseModel):
+    """An output model whose serialized property name is not its field name."""
+
+    width: int = Field(serialization_alias="widthPx")
+
+
+def test_the_published_output_schema_names_properties_as_the_payload_does() -> None:
+    """`mode="serialization"` also switches the names to serialization aliases,
+    which is what `model_dump(by_alias=True)` produces."""
+    projected = to_mcp_tool(
+        ToolDefinition(
+            name="rename",
+            description="Serializes under an alias",
+            input_model=EmptyInput,
+            output_model=Renamed,
+        )
+    )
+
+    assert projected.output_schema is not None
+    assert set(Renamed(width=2).model_dump(by_alias=True, mode="json")) == set(
+        projected.output_schema["properties"]
+    )
 
 
 def test_the_published_input_schema_describes_what_is_validated() -> None:

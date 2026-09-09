@@ -13,16 +13,15 @@ from vibepy_core.tool.model import ToolDefinition
 def to_mcp_tool(definition: ToolDefinition[BaseModel, BaseModel]) -> types.Tool:
     """Project one declaration. Only fields with a source in ToolDefinition are set.
 
-    The output schema is the model's serialization schema, because the payload a
-    channel sends is a serialization dump: ADR-007 requires that the published
-    schema and the returned value cannot diverge, and the MCP specification
-    requires a structured result to conform to the schema declared here. The
-    input schema stays the validation schema, because an argument mapping is
-    validated against it.
+    The schemas are the declaration's own, so this adapter cannot publish a
+    schema the other publishing surface does not. The MCP specification requires
+    a structured result to conform to the schema declared here, which is what
+    makes the output schema's mode the declaration's business rather than this
+    adapter's.
     """
     return types.Tool(
         name=definition.name,
         description=definition.description,
-        input_schema=definition.input_model.model_json_schema(),
-        output_schema=definition.output_model.model_json_schema(mode="serialization"),
+        input_schema=definition.input_schema(),
+        output_schema=definition.output_schema(),
     )

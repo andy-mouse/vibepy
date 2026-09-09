@@ -252,15 +252,16 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
     what guarantees no framework exception takes that path.
     """
     if isinstance(error, VibepyError):
-        code = getattr(error, "code", None)
-        category = _CATEGORIES.get(code) if isinstance(code, str) else None
-        if code is not None and category is not None:
-            return ErrorInfo(
-                code=code,
-                category=category,
-                message=str(error),
-                details=error.details(),
-            )
+        code: object = getattr(error, "code", None)
+        if isinstance(code, str):
+            category = _CATEGORIES.get(code)
+            if category is not None:
+                return ErrorInfo(
+                    code=code,
+                    category=category,
+                    message=str(error),
+                    details=error.details(),
+                )
     return ErrorInfo(
         code=UNHANDLED_CODE,
         category=ErrorCategory.EXECUTION,
