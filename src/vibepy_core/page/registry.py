@@ -1,7 +1,7 @@
 """Storage of Pages under their names."""
 
 from vibepy_core.errors import PageNotFoundError
-from vibepy_core.page.model import Page, PageDefinition
+from vibepy_core.page.model import Page
 
 
 class PageRegistry:
@@ -22,11 +22,3 @@ class PageRegistry:
         if page is None:
             raise PageNotFoundError(name)
         return page
-
-    def definitions(self) -> tuple[PageDefinition, ...]:
-        """Every registered declaration, in registration order.
-
-        A Web channel adapter projects these into routes, which is enumeration
-        rather than lookup.
-        """
-        return tuple(page.definition for page in self._pages.values())
