@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import SAMPLES, hub
+from tests_support import EXAMPLES, hub
 from vibepy_hub.internals.state import STATE_FILE
 from vibepy_hub.models import AppListing, HeldConfig
 
@@ -17,7 +17,7 @@ async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         held = await tools.invoke(
             "configure_app",
@@ -37,7 +37,7 @@ async def test_an_app_missing_a_required_value_is_not_configured(tmp_path: Path)
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         listed = await tools.invoke("list_apps", {})
 
@@ -57,7 +57,7 @@ async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path
 async def held_notes_secret(root: Path) -> HeldConfig:
     """Notes declares a secret, so configuring it exercises the secret path."""
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "notes"})
         held = await tools.invoke(
             "configure_app",

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import SAMPLES, hub, write_project
+from tests_support import EXAMPLES, hub, write_project
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
@@ -23,7 +23,7 @@ async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Pat
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         installed = await tools.invoke("install_app", {"app_name": "todo"})
 
     assert isinstance(installed, Installation)
@@ -38,7 +38,7 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(tmp_path: Pa
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         listed = await tools.invoke("list_apps", {})
 
@@ -57,7 +57,7 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         await tools.invoke(
             "configure_app",
@@ -77,7 +77,7 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
     data.write_text("a todo", encoding="utf-8")
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         await tools.invoke("remove_app", {"app_name": "todo"})
         listed = await tools.invoke("list_apps", {})
@@ -120,7 +120,7 @@ async def test_an_uninstallable_folder_is_a_diagnostic(
     monkeypatch.setenv("PATH", str(empty))
 
     async with hub(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         answered = await tools.invoke("install_app", {"app_name": "todo"})
 
     assert isinstance(answered, Installation)

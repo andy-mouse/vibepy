@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import SAMPLES, http_status, hub
+from tests_support import EXAMPLES, http_status, hub
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
@@ -19,7 +19,7 @@ async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         await tools.invoke(
             "configure_app",
@@ -55,7 +55,7 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
     tmp_path: Path,
 ) -> None:
     async with hub(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         installed = await tools.invoke("install_app", {"app_name": "notes"})
         answered = await tools.invoke("start_app", {"app_name": "notes", "secrets": {}})
 
@@ -79,7 +79,7 @@ async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         await tools.invoke(
             "configure_app",
@@ -105,7 +105,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(SAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         await tools.invoke("install_app", {"app_name": "todo"})
         started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
 

@@ -10,8 +10,8 @@ from vibepy_core.tool import ToolRuntime
 from vibepy_hub.entry import APP, HUB_APP
 from vibepy_hub.internals import HubDeps
 
-REPO = Path(__file__).resolve().parents[2]
-SAMPLES = REPO / "samples"
+REPO = Path(__file__).resolve().parents[3]
+EXAMPLES = REPO / "examples"
 
 
 def hub(root: Path, /) -> AbstractAsyncContextManager[ToolRuntime[HubDeps]]:

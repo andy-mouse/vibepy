@@ -1748,15 +1748,15 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.14" },
-    { name = "vibepy-hub", editable = "hub" },
-    { name = "vibepy-notes", editable = "samples/notes" },
-    { name = "vibepy-todo", editable = "samples/todo" },
+    { name = "vibepy-hub", editable = "packages/vibepy-hub" },
+    { name = "vibepy-notes", editable = "examples/notes" },
+    { name = "vibepy-todo", editable = "examples/todo" },
 ]
 
 [[package]]
 name = "vibepy-hub"
 version = "0.1.0"
-source = { editable = "hub" }
+source = { editable = "packages/vibepy-hub" }
 dependencies = [
     { name = "pydantic" },
     { name = "vibepy-core" },
@@ -1771,7 +1771,7 @@ requires-dist = [
 [[package]]
 name = "vibepy-notes"
 version = "0.1.0"
-source = { editable = "samples/notes" }
+source = { editable = "examples/notes" }
 dependencies = [
     { name = "vibepy-core" },
 ]
@@ -1782,7 +1782,7 @@ requires-dist = [{ name = "vibepy-core", editable = "." }]
 [[package]]
 name = "vibepy-todo"
 version = "0.1.0"
-source = { editable = "samples/todo" }
+source = { editable = "examples/todo" }
 dependencies = [
     { name = "vibepy-core" },
 ]
