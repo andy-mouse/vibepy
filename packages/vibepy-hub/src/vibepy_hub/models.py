@@ -27,6 +27,7 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 from pathlib import Path
 from typing import Annotated
 
+from packaging.utils import canonicalize_name
 from pydantic import AfterValidator, BaseModel
 
 from vibepy_core.errors import ErrorCategory
@@ -51,7 +52,7 @@ class SourcePath(BaseModel):
 
 class CandidateRow(BaseModel):
     folder: Path
-    name: str | None
+    name: str
     version: str | None
     declares_app: bool
 
@@ -85,10 +86,15 @@ def _one_segment(value: str) -> str:
     model-controlled string that reaches the file system. Refusing it here is
     what makes the channel answer `tool.input_invalid` rather than the Hub grow
     a diagnostic of its own.
+
+    What survives the gate is canonicalized, because an App is addressed by its
+    distribution name and the specification compares two of those by
+    normalizing them. The gate runs first: normalization does not remove a
+    separator.
     """
     if value in {"", ".", ".."} or _SEPARATORS & set(value):
         raise ValueError("an App name is one path segment")
-    return value
+    return str(canonicalize_name(value))
 
 
 AppNameField = Annotated[str, AfterValidator(_one_segment)]

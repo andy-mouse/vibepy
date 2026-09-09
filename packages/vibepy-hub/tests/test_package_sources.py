@@ -72,3 +72,18 @@ async def test_a_removed_folder_offers_nothing_and_a_kept_one_outlives_the_windo
     assert isinstance(removed, SourceListing)
     assert removed.sources == []
     assert removed.candidates == []
+
+
+async def test_a_folder_whose_project_declares_no_name_offers_nothing(tmp_path: Path) -> None:
+    """`name` is required and static, so a project file without one is not a project."""
+    source = tmp_path / "packages"
+    (source / "nameless").mkdir(parents=True)
+    (source / "nameless" / "pyproject.toml").write_text(
+        '[project]\nversion = "1.0.0"\n', encoding="utf-8"
+    )
+
+    async with hub(tmp_path / "hub") as tools:
+        listed = await tools.invoke("register_package_source", {"path": str(source)})
+
+    assert isinstance(listed, SourceListing)
+    assert listed.candidates == []

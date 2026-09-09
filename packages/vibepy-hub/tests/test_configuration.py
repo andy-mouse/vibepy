@@ -18,10 +18,10 @@ async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         held = await tools.invoke(
             "configure_app",
-            {"app_name": "todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
         )
         listed = await tools.invoke("list_apps", {})
 
@@ -30,7 +30,7 @@ async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
     assert held.values == {"db_path": str(tmp_path / "todo.db")}
     assert held.secret_fields == []
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "todo"] == [True]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-todo"] == [True]
 
 
 async def test_an_app_missing_a_required_value_is_not_configured(tmp_path: Path) -> None:
@@ -38,16 +38,16 @@ async def test_an_app_missing_a_required_value_is_not_configured(tmp_path: Path)
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "todo"] == [False]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-todo"] == [False]
 
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub") as tools:
-        answered = await tools.invoke("configure_app", {"app_name": "todo", "values": {}})
+        answered = await tools.invoke("configure_app", {"app_name": "vibepy-todo", "values": {}})
 
     assert isinstance(answered, HeldConfig)
     assert answered.diagnostic is not None
@@ -58,11 +58,11 @@ async def held_notes_secret(root: Path) -> HeldConfig:
     """Notes declares a secret, so configuring it exercises the secret path."""
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "notes"})
+        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
         held = await tools.invoke(
             "configure_app",
             {
-                "app_name": "notes",
+                "app_name": "vibepy-notes",
                 "values": {"api_base_url": "https://notes.internal", "api_token": TOKEN},
             },
         )

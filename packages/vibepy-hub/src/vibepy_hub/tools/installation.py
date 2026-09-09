@@ -8,12 +8,12 @@ one without importing it.
 import logging
 import shutil
 from collections.abc import Sequence
-from pathlib import Path
 
 from vibepy_core.app.package import discover_apps
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
+    Candidate,
     HubDeps,
     HubState,
     InstallFailed,
@@ -40,12 +40,12 @@ from vibepy_hub.models import (
 logger = logging.getLogger(__name__)
 
 
-def _candidate_folder(deps: HubDeps, app_name: str, /) -> Path | None:
-    """The registered folder that offers this App, by project or folder name."""
+def _candidate(deps: HubDeps, app_name: str, /) -> Candidate | None:
+    """The registered folder that offers this App, by its distribution name."""
     for source in read_state(deps.root).sources:
         for row in candidates(source):
-            if app_name in {row.name, row.folder.name}:
-                return row.folder
+            if row.name == app_name:
+                return row
     return None
 
 
@@ -86,8 +86,8 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
 async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installation:
     """Install one offered App into an environment of its own."""
     deps = ctx.dependencies
-    folder = _candidate_folder(deps, payload.app_name)
-    if folder is None:
+    offered = _candidate(deps, payload.app_name)
+    if offered is None:
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
@@ -97,6 +97,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"app_name": payload.app_name},
             ),
         )
+    folder = offered.folder
     env = environment(deps.root, payload.app_name)
     try:
         await install(folder=folder, env=env)
@@ -145,11 +146,10 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     rows = await _installed(deps)
     for source in read_state(deps.root).sources:
         for row in candidates(source):
-            app_name = row.folder.name
-            if app_name in rows:
+            if row.name in rows:
                 continue
-            rows[app_name] = AppRow(
-                app_name=app_name,
+            rows[row.name] = AppRow(
+                app_name=row.name,
                 name=row.name,
                 version=row.version,
                 state="available",

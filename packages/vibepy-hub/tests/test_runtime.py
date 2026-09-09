@@ -20,31 +20,31 @@ async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
-            {"app_name": "todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
         )
-        started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         assert isinstance(started, RunningApp)
         assert started.diagnostic is None
         assert started.url is not None
 
         listed = await tools.invoke("list_apps", {})
         assert isinstance(listed, AppListing)
-        assert [row.url for row in listed.apps if row.app_name == "todo"] == [started.url]
-        assert [row.state for row in listed.apps if row.app_name == "todo"] == ["running"]
+        assert [row.url for row in listed.apps if row.app_name == "vibepy-todo"] == [started.url]
+        assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["running"]
 
         assert await http_status(f"{started.url}/todos") == 200
 
-        stopped = await tools.invoke("stop_app", {"app_name": "todo"})
+        stopped = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
         assert isinstance(stopped, RunningApp)
         assert stopped.state == "installed"
 
 
 async def test_starting_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub") as tools:
-        answered = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+        answered = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
@@ -56,8 +56,8 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
 ) -> None:
     async with hub(tmp_path / "hub") as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        installed = await tools.invoke("install_app", {"app_name": "notes"})
-        answered = await tools.invoke("start_app", {"app_name": "notes", "secrets": {}})
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+        answered = await tools.invoke("start_app", {"app_name": "vibepy-notes", "secrets": {}})
 
     assert isinstance(installed, Installation)
     assert installed.app.has_pages is False
@@ -68,7 +68,7 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
 
 async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub") as tools:
-        answered = await tools.invoke("stop_app", {"app_name": "todo"})
+        answered = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
@@ -80,12 +80,12 @@ async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
-            {"app_name": "todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
         )
-        started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         assert isinstance(started, RunningApp)
         url = started.url
     assert url is not None
@@ -106,8 +106,8 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "todo"})
-        started = await tools.invoke("start_app", {"app_name": "todo", "secrets": {}})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
     assert isinstance(started, RunningApp)
     assert started.url is None
