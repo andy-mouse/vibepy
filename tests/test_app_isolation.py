@@ -3,8 +3,8 @@
 import sys
 from pathlib import Path
 
-from tests.test_app_package import write_distribution, write_module
-from tests.test_describe_command import described_app, run_describe
+from test_app_package import write_distribution, write_module
+from test_describe_command import described_app, run_describe
 from vibepy_core.app import discover_apps
 
 

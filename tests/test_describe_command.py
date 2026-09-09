@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
-from tests.test_app_package import write_distribution
+from test_app_package import write_distribution
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

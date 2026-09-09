@@ -14,7 +14,7 @@ from nicegui import app, ui
 from nicegui.testing import User, user_simulation  # pyright: ignore[reportUnknownVariableType]
 from starlette.routing import Route
 
-from tests.lifecycle import no_dependencies
+from lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for

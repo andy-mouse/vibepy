@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, Field, JsonValue, computed_field
 
-from tests.lifecycle import no_dependencies
+from lifecycle import no_dependencies
 from todo_app.entry import APP
 from vibepy_core.app import AppDefinition, AppEntrypoint, NoConfig
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition

@@ -1,29 +1,33 @@
 """A Hub Tool handler does no blocking work, and cannot start doing it again.
 
 `docs/architecture/runtime.md` puts blocking calls behind `asyncio.to_thread`.
-Three guards, because one blocking call can arrive by three routes and no single
-mechanism sees all three:
+Two guards, because a blocking call arrives two ways:
 
-- an *import* of a blocking module -- ruff's `banned-api`, checked here so that
-  a rule that stops matching is noticed;
-- a blocking function reached through a module that is not itself named for
-  blocking, as `discover_apps` is -- closed by what a Tool module may import at
-  all, rather than by naming each such function as it is discovered;
-- a blocking *method* called on a value whose type is declared elsewhere, which
-  is the shape the original defect took and which no import rule can see.
+- through an *import*, whether of a blocking module or of one that merely holds
+  a blocking function, as `vibepy_core.app.package` holds `discover_apps`. Both
+  are closed by what a Tool module may import at all. A denylist cannot do this:
+  it stops the modules someone thought to name, and `discover_apps` is what
+  arrives when nobody thought to name one.
+- through a blocking *method* called on a value whose type is declared
+  elsewhere, which is the shape the original defect took and which no import
+  rule can see.
 
 Each guard has a test that it can fail. A guard that cannot fail is not a guard.
+
+`import-linter` is the ecosystem's tool for import contracts and does not
+express this one: its contracts are `forbidden` (a denylist), `protected` (an
+allowlist of importers, which is the other direction), `independence`, `layers`
+and `acyclic_siblings`
+(<https://import-linter.readthedocs.io/en/v2.7/contract_types.html>). None says
+"this module imports only these".
 """
 
 import ast
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
 TOOLS = Path(__file__).resolve().parents[1] / "src" / "vibepy_hub" / "tools"
-REPO = TOOLS.parents[3]
 
 ALLOWED_IMPORTS = frozenset(
     {
@@ -111,38 +115,6 @@ def blocking_calls(source: str, /) -> list[str]:
     return found
 
 
-def ruff_codes(pretend_to_be: Path, /) -> set[str]:
-    """Every rule ruff reports for one blocking import at that path.
-
-    `--stdin-filename` is how ruff is told which configuration and which
-    per-file rules apply to text it reads
-    (<https://docs.astral.sh/ruff/configuration/>), so this asks the real
-    configuration about a path under `tools/` without writing a file there.
-    """
-    finished = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "ruff",
-            "check",
-            "--no-cache",
-            "--output-format",
-            "concise",
-            "--stdin-filename",
-            str(pretend_to_be),
-            "-",
-        ],
-        input="import shutil\n\nshutil.rmtree\n",
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=REPO,
-    )
-    return {
-        word for line in finished.stdout.splitlines() for word in line.split() if word.isupper()
-    }
-
-
 @pytest.mark.parametrize("module", sorted(TOOLS.glob("*.py")), ids=lambda path: path.name)
 def test_a_tool_module_imports_only_what_a_handler_may_reach(module: Path) -> None:
     assert unreachable(module.read_text(encoding="utf-8")) == set()
@@ -151,11 +123,6 @@ def test_a_tool_module_imports_only_what_a_handler_may_reach(module: Path) -> No
 @pytest.mark.parametrize("module", sorted(TOOLS.glob("*.py")), ids=lambda path: path.name)
 def test_a_tool_module_makes_no_blocking_call(module: Path) -> None:
     assert blocking_calls(module.read_text(encoding="utf-8")) == []
-
-
-def test_the_import_ban_fires_for_a_tool_module() -> None:
-    assert "TID251" in ruff_codes(TOOLS / "_probe.py")
-    assert "TID251" not in ruff_codes(TOOLS.parent / "internals" / "_probe.py")
 
 
 def test_the_import_surface_sees_a_module_a_handler_may_not_reach() -> None:
