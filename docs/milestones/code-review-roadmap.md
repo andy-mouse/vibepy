@@ -52,6 +52,8 @@ Acceptance:
 - CI runs what the Makefile runs, so `hub` and the examples are covered there
 - no file under `src/` changes except its imports and the paths in its docstrings
 
+Merged.
+
 ## CR1 - Framework core defects
 
 Fix the defects in the framework itself and the guards that would have caught them.
@@ -70,6 +72,8 @@ Acceptance:
 - `PageRegistry.definitions()` and the Agent channel's second `ToolRegistry` are gone, or used
 - an import of an MCP or NiceGUI type anywhere in the core packages, `vibepy/__init__.py`
   included, fails a test
+
+Merged.
 
 ## CR2 - Hub defects
 
@@ -123,7 +127,7 @@ Acceptance:
 A0 before L1: the record of what the framework adopts is what justifies splitting the core's
 dependencies. L1 before CR1: a pure move must not share a diff with defect fixes, and it is what
 puts `hub` and the examples under CI at all. CR1 before CR2: CR2's judgements about error
-propagation rest on the hierarchy CR1 repairs. R1 after CR2: the failure paths in those files
+propagation rest on the hierarchy CR1 repairs. CR2 — next. R1 after CR2: the failure paths in those files
 are sound first. CR3 last, because every stage before it changes what is true — each stage still
 corrects the documents its own changes invalidate, and CR3 takes only the debt that predates
 this work.
