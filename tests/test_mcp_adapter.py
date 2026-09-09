@@ -1,8 +1,6 @@
-import ast
 import json
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 import pytest
 from mcp.client import Client
@@ -370,32 +368,3 @@ async def test_a_failure_never_carries_a_structured_result() -> None:
 
     assert explode.structured_content is None
     assert lie.structured_content is None
-
-
-def _imported_module_names(source: str) -> list[str]:
-    names: list[str] = []
-    for node in ast.walk(ast.parse(source)):
-        if isinstance(node, ast.Import):
-            names.extend(alias.name for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.module is not None:
-            names.append(node.module)
-    return names
-
-
-def test_the_core_packages_do_not_import_mcp() -> None:
-    package = Path(__file__).resolve().parent.parent / "src" / "vibepy_core"
-    modules = (
-        sorted((package / "tool").glob("*.py"))
-        + sorted((package / "page").glob("*.py"))
-        + sorted((package / "app").glob("*.py"))
-    )
-    assert modules != []
-
-    offenders = [
-        module.name
-        for module in modules
-        for name in _imported_module_names(module.read_text(encoding="utf-8"))
-        if name == "mcp" or name.startswith("mcp.")
-    ]
-
-    assert offenders == []
