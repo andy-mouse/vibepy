@@ -8,7 +8,7 @@ resolution-markers = [
 
 [manifest]
 members = [
-    "vibepy-framework",
+    "vibepy-core",
     "vibepy-hub",
     "vibepy-notes",
     "vibepy-todo",
@@ -1707,7 +1707,7 @@ wheels = [
 ]
 
 [[package]]
-name = "vibepy-framework"
+name = "vibepy-core"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
@@ -1759,13 +1759,13 @@ version = "0.1.0"
 source = { editable = "hub" }
 dependencies = [
     { name = "pydantic" },
-    { name = "vibepy-framework" },
+    { name = "vibepy-core" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
-    { name = "vibepy-framework", editable = "." },
+    { name = "vibepy-core", editable = "." },
 ]
 
 [[package]]
@@ -1773,22 +1773,22 @@ name = "vibepy-notes"
 version = "0.1.0"
 source = { editable = "samples/notes" }
 dependencies = [
-    { name = "vibepy-framework" },
+    { name = "vibepy-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vibepy-framework", editable = "." }]
+requires-dist = [{ name = "vibepy-core", editable = "." }]
 
 [[package]]
 name = "vibepy-todo"
 version = "0.1.0"
 source = { editable = "samples/todo" }
 dependencies = [
-    { name = "vibepy-framework" },
+    { name = "vibepy-core" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vibepy-framework", editable = "." }]
+requires-dist = [{ name = "vibepy-core", editable = "." }]
 
 [[package]]
 name = "virtualenv"

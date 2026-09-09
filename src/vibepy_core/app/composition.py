@@ -15,12 +15,12 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy.app.model import AppDefinition
-from vibepy.errors import AppConfigInvalidError
-from vibepy.page.registry import PageRegistry
-from vibepy.page.runtime import PageRuntime
-from vibepy.tool.registry import ToolRegistry
-from vibepy.tool.runtime import ToolRuntime
+from vibepy_core.app.model import AppDefinition
+from vibepy_core.errors import AppConfigInvalidError
+from vibepy_core.page.registry import PageRegistry
+from vibepy_core.page.runtime import PageRuntime
+from vibepy_core.tool.registry import ToolRegistry
+from vibepy_core.tool.runtime import ToolRuntime
 
 type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 """A factory returning the app's resource for the life of one window.

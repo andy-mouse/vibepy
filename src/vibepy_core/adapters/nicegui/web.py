@@ -17,9 +17,9 @@ from collections.abc import Awaitable, Callable
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.app.model import AppDefinition
-from vibepy.errors import PageRouteConflictError, PageRouteInvalidError
-from vibepy.page.runtime import PageRuntime
+from vibepy_core.app.model import AppDefinition
+from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
+from vibepy_core.page.runtime import PageRuntime
 
 
 def register_pages[DepsT, ConfigT: BaseModel](

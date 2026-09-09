@@ -2,9 +2,9 @@
 
 from pydantic import BaseModel
 
-from vibepy.errors import ToolNotFoundError
-from vibepy.tool.model import ToolDefinition
-from vibepy.tool.runtime import Tool
+from vibepy_core.errors import ToolNotFoundError
+from vibepy_core.tool.model import ToolDefinition
+from vibepy_core.tool.runtime import Tool
 
 
 class ToolRegistry[DepsT]:

@@ -20,9 +20,9 @@ from fastapi import FastAPI
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.adapters.nicegui.web import register_pages
-from vibepy.app.composition import Lifespan, page_runtime_for
-from vibepy.app.model import AppDefinition
+from vibepy_core.adapters.nicegui.web import register_pages
+from vibepy_core.app.composition import Lifespan, page_runtime_for
+from vibepy_core.app.model import AppDefinition
 
 
 def build_web_app[DepsT, ConfigT: BaseModel](

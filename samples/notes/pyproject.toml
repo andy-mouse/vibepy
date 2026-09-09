@@ -3,7 +3,7 @@ name = "vibepy-notes"
 version = "0.1.0"
 description = "A sample App with Tools and no Pages"
 requires-python = ">=3.12"
-dependencies = ["vibepy-framework"]
+dependencies = ["vibepy-core"]
 
 [project.entry-points."vibepy.apps"]
 notes = "notes_app.entry:APP"
@@ -16,4 +16,4 @@ build-backend = "hatchling.build"
 packages = ["src/notes_app"]
 
 [tool.uv.sources]
-vibepy-framework = { workspace = true }
+vibepy-core = { workspace = true }

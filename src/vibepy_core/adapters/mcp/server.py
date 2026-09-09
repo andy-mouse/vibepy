@@ -21,16 +21,16 @@ from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
 from pydantic import BaseModel
 
-from vibepy.adapters.mcp.projection import to_mcp_tool
-from vibepy.app.composition import Lifespan, tool_registry_for, tool_runtime_for
-from vibepy.app.model import AppDefinition
-from vibepy.errors import (
+from vibepy_core.adapters.mcp.projection import to_mcp_tool
+from vibepy_core.app.composition import Lifespan, tool_registry_for, tool_runtime_for
+from vibepy_core.app.model import AppDefinition
+from vibepy_core.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     to_error_info,
 )
-from vibepy.tool.runtime import ToolRuntime
+from vibepy_core.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
 

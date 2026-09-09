@@ -1,6 +1,6 @@
 """Agent-native application framework."""
 
-from vibepy.app import (
+from vibepy_core.app import (
     APP_GROUP,
     AppDefinition,
     AppDescription,
@@ -15,7 +15,7 @@ from vibepy.app import (
     page_runtime_for,
     tool_runtime_for,
 )
-from vibepy.errors import (
+from vibepy_core.errors import (
     AppConfigInvalidError,
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
@@ -30,7 +30,7 @@ from vibepy.errors import (
     VibepyError,
     to_error_info,
 )
-from vibepy.page import (
+from vibepy_core.page import (
     Page,
     PageContext,
     PageDefinition,
@@ -39,7 +39,14 @@ from vibepy.page import (
     PageRuntime,
     ToolInvoker,
 )
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolHandler, ToolRegistry, ToolRuntime
+from vibepy_core.tool import (
+    Tool,
+    ToolContext,
+    ToolDefinition,
+    ToolHandler,
+    ToolRegistry,
+    ToolRuntime,
+)
 
 __all__ = [
     "APP_GROUP",

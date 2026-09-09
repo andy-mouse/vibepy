@@ -49,7 +49,7 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
     config = json.dumps({"db_path": str(tmp_path / "todo.db")})
     process = subprocess.Popen(
-        [sys.executable, "-m", "vibepy.serve", "todo-app", "--port", str(port)],
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
         stdin=subprocess.PIPE,
         env=child_environment(),
     )
@@ -66,7 +66,7 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
 
 def test_an_unknown_app_name_fails_with_a_message() -> None:
     finished = subprocess.run(
-        [sys.executable, "-m", "vibepy.serve", "absent", "--port", str(free_port())],
+        [sys.executable, "-m", "vibepy_core.serve", "absent", "--port", str(free_port())],
         input=b"{}",
         capture_output=True,
         check=False,
@@ -84,7 +84,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     command ends rather than answering for an App that never opened.
     """
     finished = subprocess.run(
-        [sys.executable, "-m", "vibepy.serve", "todo-app", "--port", str(free_port())],
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
         input=b"{}",
         capture_output=True,
         check=False,

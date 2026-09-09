@@ -3,7 +3,7 @@ name = "vibepy-todo"
 version = "0.1.0"
 description = "The Todo sample App from docs/roadmap.md"
 requires-python = ">=3.12"
-dependencies = ["vibepy-framework"]
+dependencies = ["vibepy-core"]
 
 [project.entry-points."vibepy.apps"]
 todo-app = "todo_app.entry:APP"
@@ -16,4 +16,4 @@ build-backend = "hatchling.build"
 packages = ["src/todo_app"]
 
 [tool.uv.sources]
-vibepy-framework = { workspace = true }
+vibepy-core = { workspace = true }

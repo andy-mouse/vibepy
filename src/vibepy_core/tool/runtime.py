@@ -12,11 +12,11 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy.errors import ToolInputValidationError, ToolOutputValidationError
-from vibepy.tool.model import ToolContext, ToolDefinition, ToolHandler
+from vibepy_core.errors import ToolInputValidationError, ToolOutputValidationError
+from vibepy_core.tool.model import ToolContext, ToolDefinition, ToolHandler
 
 if TYPE_CHECKING:
-    from vibepy.tool.registry import ToolRegistry
+    from vibepy_core.tool.registry import ToolRegistry
 
 type BoundTool[DepsT] = Callable[[ToolContext[DepsT], Mapping[str, object]], Awaitable[BaseModel]]
 

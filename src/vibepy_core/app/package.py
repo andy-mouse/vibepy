@@ -12,8 +12,8 @@ from dataclasses import dataclass
 from importlib.metadata import EntryPoint, distributions
 from pathlib import Path
 
-from vibepy.app.entrypoint import AppDescription, AppEntrypoint
-from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
+from vibepy_core.app.entrypoint import AppDescription, AppEntrypoint
+from vibepy_core.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,7 @@ def describe_app(ref: AppRef, /) -> AppDescription:
     """Load one declared entrypoint and project it.
 
     This imports, so it belongs in the App's own environment. A host that cannot
-    import an App runs it there instead: see `src/vibepy/describe.py`.
+    import an App runs it there instead: see `src/vibepy_core/describe.py`.
     """
     reference = f"{ref.module}:{ref.attr}"
     entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)

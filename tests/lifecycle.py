@@ -3,7 +3,7 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from vibepy.app import NoConfig
+from vibepy_core.app import NoConfig
 
 
 @asynccontextmanager

@@ -13,8 +13,8 @@ from contextlib import asynccontextmanager
 
 from pydantic import BaseModel, SecretStr
 
-from vibepy.app import AppDefinition, AppEntrypoint
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.app import AppDefinition, AppEntrypoint
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
 
 class NotesConfig(BaseModel):

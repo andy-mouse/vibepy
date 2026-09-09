@@ -10,8 +10,8 @@ import shutil
 from collections.abc import Sequence
 from pathlib import Path
 
-from vibepy.app.package import discover_apps
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.app.package import discover_apps
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
     HubState,

@@ -17,7 +17,7 @@ def run_describe(environment_root: Path) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(environment_root), str(REPO_ROOT)])
     return subprocess.run(
-        [sys.executable, "-m", "vibepy.describe"],
+        [sys.executable, "-m", "vibepy_core.describe"],
         capture_output=True,
         text=True,
         env=env,
@@ -38,7 +38,7 @@ class DescribedConfig(TypedDict):
 
 
 class Described(TypedDict):
-    """The JSON shape `vibepy.describe` writes, as a test reads it."""
+    """The JSON shape `vibepy_core.describe` writes, as a test reads it."""
 
     app_id: str
     name: str

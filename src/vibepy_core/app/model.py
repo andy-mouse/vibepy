@@ -5,8 +5,8 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from vibepy.page.model import Page
-from vibepy.tool.runtime import Tool
+from vibepy_core.page.model import Page
+from vibepy_core.tool.runtime import Tool
 
 
 class NoConfig(BaseModel):

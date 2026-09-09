@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
     HubState,

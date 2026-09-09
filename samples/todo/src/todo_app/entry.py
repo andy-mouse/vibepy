@@ -12,9 +12,9 @@ from pathlib import Path
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition, AppEntrypoint
-from vibepy.page import Page, PageContext, PageDefinition
-from vibepy.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.app import AppDefinition, AppEntrypoint
+from vibepy_core.page import Page, PageContext, PageDefinition
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
 APP_ID = "todo-app"
 

@@ -1,6 +1,6 @@
 """Open one App's Web channel, in that App's own environment.
 
-`vibepy.describe` reads a declaration; this runs one. Both are commands rather
+`vibepy_core.describe` reads a declaration; this runs one. Both are commands rather
 than library calls for the same reason: the import belongs on the App's side of a
 process boundary. See `docs/architecture/packaging.md`.
 
@@ -19,10 +19,14 @@ from typing import TypeGuard
 import uvicorn
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from vibepy.adapters.nicegui import build_web_app
-from vibepy.app.entrypoint import AppEntrypoint
-from vibepy.app.package import APP_GROUP, discover_apps
-from vibepy.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError, to_error_info
+from vibepy_core.adapters.nicegui import build_web_app
+from vibepy_core.app.entrypoint import AppEntrypoint
+from vibepy_core.app.package import APP_GROUP, discover_apps
+from vibepy_core.errors import (
+    AppEntrypointInvalidError,
+    AppEntrypointUnloadableError,
+    to_error_info,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +86,7 @@ def main(argv: Sequence[str], /) -> int:
     JSON object. A window the App refuses to open fails the server's startup,
     and the server's own exit code says so.
     """
-    parser = argparse.ArgumentParser(prog="vibepy.serve")
+    parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")
     parser.add_argument("--port", type=int, required=True)
     parsed = parser.parse_args(argv)

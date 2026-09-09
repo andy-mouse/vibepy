@@ -156,7 +156,7 @@ class Processes:
         process = await asyncio.create_subprocess_exec(
             str(interpreter),
             "-m",
-            "vibepy.serve",
+            "vibepy_core.serve",
             app_name,
             "--port",
             str(port),

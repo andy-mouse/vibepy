@@ -3,12 +3,12 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import BaseModel
 
-from vibepy.errors import (
+from vibepy_core.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
 )
-from vibepy.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRegistry, ToolRuntime
 
 
 class CreateTodoInput(BaseModel):

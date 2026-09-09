@@ -11,8 +11,8 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, JsonValue
 
-from vibepy.app.composition import Lifespan
-from vibepy.app.model import AppDefinition
+from vibepy_core.app.composition import Lifespan
+from vibepy_core.app.model import AppDefinition
 
 
 @dataclass(frozen=True)

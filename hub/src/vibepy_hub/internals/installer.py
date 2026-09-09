@@ -84,7 +84,7 @@ async def install(*, folder: Path, env: Path) -> None:
 
 
 class _Described(BaseModel):
-    """One entry of what `vibepy.describe` writes, as the Hub reads it."""
+    """One entry of what `vibepy_core.describe` writes, as the Hub reads it."""
 
     app_id: str
     name: str
@@ -98,11 +98,11 @@ _DESCRIBED = TypeAdapter(list[_Described])
 
 async def describe(env: Path, /) -> tuple[AppFacts, ...]:
     """What the Apps in one environment declare, read in that environment."""
-    written = await _run([str(interpreter(env)), "-m", "vibepy.describe"])
+    written = await _run([str(interpreter(env)), "-m", "vibepy_core.describe"])
     try:
         described = _DESCRIBED.validate_json(written)
     except ValidationError as invalid:
-        raise InstallFailed("vibepy.describe", str(invalid)) from invalid
+        raise InstallFailed("vibepy_core.describe", str(invalid)) from invalid
     return tuple(
         AppFacts(
             app_id=entry.app_id,

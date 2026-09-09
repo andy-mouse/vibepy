@@ -10,8 +10,8 @@ import logging
 import sys
 from dataclasses import asdict
 
-from vibepy.app.package import describe_app, discover_apps
-from vibepy.errors import VibepyError, to_error_info
+from vibepy_core.app.package import describe_app, discover_apps
+from vibepy_core.errors import VibepyError, to_error_info
 
 logger = logging.getLogger(__name__)
 

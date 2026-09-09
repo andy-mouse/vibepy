@@ -7,7 +7,7 @@ from the declaration's Pydantic models and never written by hand.
 from mcp import types
 from pydantic import BaseModel
 
-from vibepy.tool.model import ToolDefinition
+from vibepy_core.tool.model import ToolDefinition
 
 
 def to_mcp_tool(definition: ToolDefinition[BaseModel, BaseModel]) -> types.Tool:

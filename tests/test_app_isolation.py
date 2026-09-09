@@ -5,7 +5,7 @@ from pathlib import Path
 
 from tests.test_app_package import write_distribution, write_module
 from tests.test_describe_command import described_app, run_describe
-from vibepy.app import discover_apps
+from vibepy_core.app import discover_apps
 
 
 def test_discovery_does_not_import_the_app_it_finds(tmp_path: Path) -> None:

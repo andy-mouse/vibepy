@@ -11,7 +11,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from vibepy.app import AppDefinition, AppEntrypoint
+from vibepy_core.app import AppDefinition, AppEntrypoint
 from vibepy_hub.internals import HubDeps, Processes
 from vibepy_hub.tools import HUB_TOOLS
 

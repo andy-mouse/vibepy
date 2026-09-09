@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, SecretStr
 
-from vibepy.app import AppDefinition, NoConfig, tool_runtime_for
-from vibepy.errors import AppConfigInvalidError
+from vibepy_core.app import AppDefinition, NoConfig, tool_runtime_for
+from vibepy_core.errors import AppConfigInvalidError
 
 
 class StoreConfig(BaseModel):

@@ -5,8 +5,8 @@ from contextlib import AbstractAsyncContextManager
 from pathlib import Path
 from urllib.request import urlopen
 
-from vibepy.app.composition import tool_runtime_for
-from vibepy.tool import ToolRuntime
+from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core.tool import ToolRuntime
 from vibepy_hub.entry import APP, HUB_APP
 from vibepy_hub.internals import HubDeps
 

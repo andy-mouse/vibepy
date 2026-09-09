@@ -10,7 +10,7 @@ of its own here.
 
 from collections.abc import Sequence
 
-from vibepy.tool import Tool
+from vibepy_core.tool import Tool
 from vibepy_hub.internals import HubDeps
 from vibepy_hub.tools.configuration import CONFIGURATION_TOOLS, configure_app
 from vibepy_hub.tools.installation import INSTALLATION_TOOLS, install_app, list_apps, remove_app

@@ -4,8 +4,8 @@ A Page reaches a Tool through PageContext and ToolInvoker, so PageRuntime owns
 PageContext creation and hands the Page the canonical invocation path itself.
 """
 
-from vibepy.page.model import PageContext, ToolInvoker
-from vibepy.page.registry import PageRegistry
+from vibepy_core.page.model import PageContext, ToolInvoker
+from vibepy_core.page.registry import PageRegistry
 
 
 class PageRuntime:
