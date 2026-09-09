@@ -1711,10 +1711,16 @@ name = "vibepy-core"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "fastapi" },
-    { name = "mcp" },
-    { name = "nicegui" },
     { name = "pydantic" },
+]
+
+[package.optional-dependencies]
+agent = [
+    { name = "mcp" },
+]
+web = [
+    { name = "fastapi" },
+    { name = "nicegui" },
     { name = "uvicorn" },
 ]
 
@@ -1726,6 +1732,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "ruff" },
+    { name = "vibepy-core", extra = ["agent", "web"] },
     { name = "vibepy-hub" },
     { name = "vibepy-notes" },
     { name = "vibepy-todo" },
@@ -1733,12 +1740,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastapi", specifier = ">=0.115" },
-    { name = "mcp", specifier = ">=2.1" },
-    { name = "nicegui", specifier = ">=3.16" },
+    { name = "fastapi", marker = "extra == 'web'", specifier = ">=0.115" },
+    { name = "mcp", marker = "extra == 'agent'", specifier = ">=2.1" },
+    { name = "nicegui", marker = "extra == 'web'", specifier = ">=3.16" },
     { name = "pydantic", specifier = ">=2.9" },
-    { name = "uvicorn", specifier = ">=0.34" },
+    { name = "uvicorn", marker = "extra == 'web'", specifier = ">=0.34" },
 ]
+provides-extras = ["web", "agent"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1748,6 +1756,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.14" },
+    { name = "vibepy-core", extras = ["web", "agent"] },
     { name = "vibepy-hub", editable = "packages/vibepy-hub" },
     { name = "vibepy-notes", editable = "examples/notes" },
     { name = "vibepy-todo", editable = "examples/todo" },
@@ -1759,13 +1768,13 @@ version = "0.1.0"
 source = { editable = "packages/vibepy-hub" }
 dependencies = [
     { name = "pydantic" },
-    { name = "vibepy-core" },
+    { name = "vibepy-core", extra = ["web"] },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "pydantic", specifier = ">=2.9" },
-    { name = "vibepy-core", editable = "." },
+    { name = "vibepy-core", extras = ["web"], editable = "." },
 ]
 
 [[package]]
@@ -1773,22 +1782,22 @@ name = "vibepy-notes"
 version = "0.1.0"
 source = { editable = "examples/notes" }
 dependencies = [
-    { name = "vibepy-core" },
+    { name = "vibepy-core", extra = ["agent"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vibepy-core", editable = "." }]
+requires-dist = [{ name = "vibepy-core", extras = ["agent"], editable = "." }]
 
 [[package]]
 name = "vibepy-todo"
 version = "0.1.0"
 source = { editable = "examples/todo" }
 dependencies = [
-    { name = "vibepy-core" },
+    { name = "vibepy-core", extra = ["agent", "web"] },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "vibepy-core", editable = "." }]
+requires-dist = [{ name = "vibepy-core", extras = ["web", "agent"], editable = "." }]
 
 [[package]]
 name = "virtualenv"

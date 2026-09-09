@@ -12,6 +12,17 @@ identically after.
 
 - `make lint typecheck test` passes with the same 152 tests and the same results
 - an environment holding `vibepy-notes` contains no NiceGUI, FastAPI or uvicorn
+
+The uvicorn half of that criterion cannot be met, and the reason is not this stage's to fix. The
+MCP SDK requires uvicorn of itself — `uvicorn>=0.31.1; sys_platform != 'emscripten'` in `mcp`
+2.1.1's metadata — so any environment holding MCP holds uvicorn, and `[agent]` must hold MCP.
+What the criterion is about is met: an Agent-only App's environment holds no Web technology,
+NiceGUI and FastAPI both being absent. A project declares what it imports and constrains
+versions; pip states the boundary in its own words, that a constraints file "only control[s]
+which version of a requirement is installed, not whether it is installed or not"
+(<https://pip.pypa.io/en/stable/user_guide/#constraints-files>). Removing uvicorn would mean
+reaching into another project's dependencies, and the place to change what MCP requires is MCP.
+`docs/milestones/code-review-roadmap.md` is the owner's and is not edited.
 - CI runs what the Makefile runs, so `packages/vibepy-hub` and the examples are covered there
 - no file under the framework's `src/` changes except its imports and the paths in its docstrings
 
