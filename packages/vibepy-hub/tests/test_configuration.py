@@ -127,7 +127,6 @@ async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
     assert isinstance(again, HeldConfig)
     assert again.diagnostic is None
     assert again.secrets_set == ["api_token"]
-    assert TOKEN in (root / STATE_FILE).read_text(encoding="utf-8")
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")

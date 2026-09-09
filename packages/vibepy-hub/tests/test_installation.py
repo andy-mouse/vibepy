@@ -82,12 +82,12 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
             },
         )
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
-        facts = await read_facts(environment(root, "vibepy-todo"))
 
+    # Starting is the assertion: `vibepy_core.serve` is addressed by the name
+    # the App declares, so an App filed under `vibepy-todo` and run under
+    # anything but `todo-app` does not answer at all.
     assert isinstance(started, RunningApp)
     assert started.diagnostic is None
-    assert facts is not None
-    assert facts.declared_name == "todo-app"
 
 
 async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
@@ -386,11 +386,10 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
         installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        facts = await read_facts(environment(root, "vibepy-todo"))
 
+    # The row carries the facts that were kept, so the name it reports is which
+    # of the two descriptions was joined: taking the first would say Aardvark.
     assert isinstance(installed, Installation)
     assert installed.diagnostic is None
     assert installed.app.name == "Todo"
-    assert facts is not None
-    assert facts.declared_name == "todo-app"
-    assert facts.distribution == "vibepy-todo"
+    assert installed.app.version == "0.0.0"

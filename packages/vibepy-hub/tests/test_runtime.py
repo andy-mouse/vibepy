@@ -177,7 +177,10 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path) -> None:
     """`hub.already_running` covers a child that is still starting.
 
     Two callers reaching `start_app` at once is what the Hub is built for:
-    ToolRuntime permits concurrent invocations and does not serialize them.
+    ToolRuntime permits concurrent invocations and does not serialize them. The
+    claim is observable here, through Tools, so it needs no reach into
+    `Processes`: one App runs, the other is told so, and the window closes over
+    both.
     """
     root = tmp_path / "hub"
 
@@ -203,3 +206,10 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path) -> None:
     refused = next(one for one in answered if one.url is None)
     assert refused.diagnostic is not None
     assert refused.diagnostic.code == "hub.already_running"
+
+    # And the second start left nothing running behind the first: a child this
+    # window did not file is one it could not close.
+    started = next(one for one in answered if one.url is not None)
+    assert started.url is not None
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", int(started.url.rsplit(":", 1)[1]))

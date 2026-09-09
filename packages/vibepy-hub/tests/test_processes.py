@@ -81,29 +81,3 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
 
     assert processes.running("gone") is None
     await processes.aclose()
-
-
-async def test_two_overlapping_starts_leave_no_child_behind(tmp_path: Path) -> None:
-    """Ownership is per name, so the second start finds the name taken.
-
-    `running` cannot answer this: it reports a port, and therefore nothing, for
-    a child that exists but has not answered yet. Two callers racing through
-    that gap used to spawn two children and file one, leaving the other owned by
-    nobody and beyond `aclose`.
-    """
-    processes = Processes(logs=tmp_path / "logs")
-    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
-
-    async def start() -> int:
-        return await processes.start(
-            app_name="todo-app",
-            interpreter=Path(sys.executable),
-            config=config,
-            known_as="todo-app",
-        )
-
-    answered = await asyncio.gather(start(), start(), return_exceptions=True)
-
-    assert [isinstance(one, StartFailed) for one in answered].count(True) == 1
-    await processes.aclose()
-    assert processes.owned("todo-app") is None
