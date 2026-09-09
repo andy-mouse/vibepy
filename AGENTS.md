@@ -26,6 +26,7 @@ and is not repeated below.
 - Internal helpers, services, policies, and repositories do not need to be Tools.
 - Prefer meaningful business operations over generic data mutation Tools.
 - Prefer explicit implementations over magic or metaprogramming until repetition justifies abstraction.
+- A defect must not be called fixed while what produced it remains.
 
 ## Commands
 
