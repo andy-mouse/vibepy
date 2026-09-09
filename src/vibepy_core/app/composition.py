@@ -16,7 +16,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pydantic import BaseModel, ValidationError
 
 from vibepy_core.app.model import AppDefinition
-from vibepy_core.errors import AppConfigInvalidError
+from vibepy_core.errors import AppConfigInvalidError, PageNameConflictError
 from vibepy_core.page.registry import PageRegistry
 from vibepy_core.page.runtime import PageRuntime
 from vibepy_core.tool.registry import ToolRegistry
@@ -46,9 +46,21 @@ def tool_registry_for[DepsT, ConfigT: BaseModel](
 def page_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> PageRegistry:
-    """Fill a PageRegistry from declarations. Reads no resource."""
+    """Fill a PageRegistry from declarations. Reads no resource.
+
+    A name declared twice is refused rather than replaced. The registry's own
+    contract is that a re-registration replaces, and `page-model.md` places a
+    check by the model that owns the field: a route belongs to the Web channel
+    adapter, and a name is what the framework addresses a Page by.
+    """
     registry = PageRegistry()
+    claimed: dict[str, str] = {}
     for page in definition.pages:
+        declared = page.definition
+        owner = claimed.get(declared.name)
+        if owner is not None:
+            raise PageNameConflictError(declared.name, owner, declared.route)
+        claimed[declared.name] = declared.route
         registry.register(page)
     return registry
 

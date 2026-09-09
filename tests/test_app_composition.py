@@ -10,7 +10,15 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 import pytest
 from pydantic import BaseModel
 
-from vibepy_core.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
+from tests.lifecycle import no_dependencies
+from vibepy_core.app import (
+    AppDefinition,
+    Lifespan,
+    NoConfig,
+    page_runtime_for,
+    tool_runtime_for,
+)
+from vibepy_core.errors import PageNameConflictError
 from vibepy_core.page import Page, PageContext, PageDefinition
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
@@ -179,3 +187,41 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]
+
+
+def two_pages_named(name: str, routes: tuple[str, str]) -> AppDefinition[None, NoConfig]:
+    """One App declaring two Pages under one name, on two routes."""
+
+    async def render(_ctx: PageContext) -> None:
+        return None
+
+    return AppDefinition(
+        app_id="collides",
+        name="Collides",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[],
+        pages=[
+            Page(
+                definition=PageDefinition(name=name, route=route, title=route),
+                handler=render,
+            )
+            for route in routes
+        ],
+    )
+
+
+async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
+    """A name is what the framework addresses a Page by, so it refuses the pair.
+
+    Refused where a declaration becomes a registry, which is before the window
+    opens and therefore before any route can exist.
+    """
+    definition = two_pages_named("todos", ("/todos", "/todo-list"))
+
+    with pytest.raises(PageNameConflictError) as error:
+        async with page_runtime_for(definition, no_dependencies, config={}):
+            raise AssertionError("the window must not open")
+
+    assert error.value.page_name == "todos"
+    assert {error.value.route, error.value.conflicting_route} == {"/todos", "/todo-list"}

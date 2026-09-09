@@ -20,6 +20,7 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
+    PageNameConflictError,
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
@@ -111,6 +112,12 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
             "reference": "todo_app.entry:app",
             "found": "AppDefinition",
         },
+    ),
+    (
+        PageNameConflictError("todos", "/todos", "/todo-list"),
+        "page.name_conflict",
+        ErrorCategory.DECLARATION,
+        {"page_name": "todos", "route": "/todos", "conflicting_route": "/todo-list"},
     ),
     (
         AppNotDeclaredError("absent"),

@@ -23,6 +23,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
+| `page.name_conflict` | declaration | `PageNameConflictError` |
 | `config.invalid` | caller | `AppConfigInvalidError` |
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
