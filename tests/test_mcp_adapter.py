@@ -14,7 +14,7 @@ from pydantic import BaseModel, TypeAdapter
 from tests.lifecycle import no_dependencies
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy_core.app import AppDefinition, NoConfig
-from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory
+from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory, VibepyError
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition, ToolRuntime
 
 
@@ -267,6 +267,42 @@ async def test_invalid_input_is_reported_inside_the_result() -> None:
 async def test_a_raising_handler_is_reported_inside_the_result() -> None:
     async with server_for(BrokenFixture().tools()) as server, Client(server) as client:
         result = await client.call_tool("explode", {})
+
+    assert result.is_error is True
+    payload = _payload(result)
+    assert payload["code"] == UNHANDLED_CODE
+    assert payload["category"] == ErrorCategory.EXECUTION.value
+    assert payload["details"] == {}
+
+
+async def test_an_app_defined_error_answers_with_a_result_not_a_protocol_error() -> None:
+    """The public base is subclassable, and a subclass must not escape `except`.
+
+    `call_tool` catches `Exception` so a app defect cannot surface as a protocol
+    error. Normalizing an App's own subclass used to raise inside that clause,
+    which was the protocol error the clause exists to prevent.
+    """
+
+    class AppOwnError(VibepyError):
+        code = "app.its_own"
+
+    async def raises(_ctx: ToolContext[None], _payload: EmptyInput) -> Todo:
+        raise AppOwnError("the app's own failure")
+
+    tools = [
+        Tool(
+            definition=ToolDefinition(
+                name="app_error",
+                description="Raises an App-defined subclass of the public base",
+                input_model=EmptyInput,
+                output_model=Todo,
+            ),
+            handler=raises,
+        )
+    ]
+
+    async with server_for(tools) as server, Client(server) as client:
+        result = await client.call_tool("app_error", {})
 
     assert result.is_error is True
     payload = _payload(result)

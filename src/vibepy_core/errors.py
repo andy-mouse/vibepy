@@ -209,14 +209,22 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
 
     Normalizing is not wrapping. The exception itself still propagates untouched;
     this is called only where a channel must render an answer.
+
+    A code this table does not map is described rather than classified, whatever
+    raised it. `VibepyError` is exported, so an App may subclass it, and its
+    `code` is an unassigned ClassVar on the base itself. The catalogue test is
+    what guarantees no framework exception takes that path.
     """
     if isinstance(error, VibepyError):
-        return ErrorInfo(
-            code=error.code,
-            category=_CATEGORIES[error.code],
-            message=str(error),
-            details=error.details(),
-        )
+        code = getattr(error, "code", None)
+        category = _CATEGORIES.get(code) if isinstance(code, str) else None
+        if code is not None and category is not None:
+            return ErrorInfo(
+                code=code,
+                category=category,
+                message=str(error),
+                details=error.details(),
+            )
     return ErrorInfo(
         code=UNHANDLED_CODE,
         category=ErrorCategory.EXECUTION,

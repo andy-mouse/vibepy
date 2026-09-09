@@ -11,6 +11,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
+from vibepy_core import errors
 from vibepy_core.errors import (
     UNHANDLED_CODE,
     AppConfigInvalidError,
@@ -36,7 +37,16 @@ def _descendants(cls: type[VibepyError]) -> Iterator[type[VibepyError]]:
 
 
 def _framework_errors() -> list[type[VibepyError]]:
-    return sorted(_descendants(VibepyError), key=lambda error: error.__name__)
+    """Every exception the framework itself defines.
+
+    Filtered by module because the base is exported: an App may subclass it, and
+    an App's exception is not the framework's to catalogue. `errors.md` says such
+    an exception is described, not classified.
+    """
+    return sorted(
+        (error for error in _descendants(VibepyError) if error.__module__ == errors.__name__),
+        key=lambda error: error.__name__,
+    )
 
 
 # One constructed instance per framework exception, with the details its message
@@ -147,6 +157,48 @@ def test_every_value_the_message_interpolates_is_in_details(error: VibepyError) 
     message = str(error)
     for value in to_error_info(error).details.values():
         assert value in message
+
+
+def test_the_bare_base_is_described_rather_than_classified() -> None:
+    info = to_error_info(VibepyError("boom"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
+    assert info.message == "boom"
+    assert info.details == {}
+
+
+def test_an_app_subclass_of_the_public_base_is_described() -> None:
+    """The public base is an extension point for catching, not for classifying.
+
+    `docs/architecture/errors.md`: an exception raised by an App's own code is
+    described, not classified.
+    """
+
+    class AppOwnError(VibepyError):
+        code = "app.something_specific"
+
+        def details(self) -> Mapping[str, str]:
+            return {"where": "the app"}
+
+    info = to_error_info(AppOwnError("no good"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
+    assert info.message == "no good"
+    assert info.details == {}
+
+
+def test_an_exception_carrying_a_framework_code_it_does_not_own_is_described() -> None:
+    """Classification reads the framework's own hierarchy, not any `code` attribute."""
+
+    class Impostor(Exception):
+        code = "tool.not_found"
+
+    info = to_error_info(Impostor("pretending"))
+
+    assert info.code == UNHANDLED_CODE
+    assert info.category is ErrorCategory.EXECUTION
 
 
 def test_an_exception_the_framework_did_not_define_is_execution() -> None:
