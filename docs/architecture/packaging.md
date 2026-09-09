@@ -107,6 +107,11 @@ that cannot open means: a server that sees `lifespan.startup.failed` logs the me
 window refuses therefore has no server, rather than a server answering for an App that never
 opened.
 
+The command writes one JSON object of `code`, `category`, `message` and `details` to standard
+error for every failure it reports, and a window that will not open reports itself the same way,
+so this process's standard error carries one such object for any failure of starting. See
+`docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
+
 Both commands exist for one reason. Reading a declaration and running one both import, and an
 import belongs on the App's side of a process boundary.
 

@@ -26,6 +26,8 @@ from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
+    ServeConfigInvalidError,
+    VibepyError,
     to_error_info,
 )
 
@@ -33,6 +35,56 @@ logger = logging.getLogger(__name__)
 
 _CONFIG = TypeAdapter(dict[str, object])
 """Standard input is one JSON object of configuration, validated as such."""
+
+_LOG_CONFIG: dict[str, object] = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "reported": {"format": "%(message)s"},
+        "server": {"format": "%(levelname)s: %(message)s"},
+    },
+    "handlers": {
+        "reported": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "reported",
+        },
+        "server": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stderr",
+            "formatter": "server",
+        },
+    },
+    "loggers": {
+        "vibepy_core": {"handlers": ["reported"], "level": "ERROR", "propagate": False},
+        "uvicorn": {"handlers": ["server"], "level": "INFO", "propagate": False},
+        "uvicorn.error": {"handlers": ["server"], "level": "INFO", "propagate": False},
+        "uvicorn.access": {"handlers": ["server"], "level": "WARNING", "propagate": False},
+    },
+}
+"""How this process writes what it and its App report.
+
+A framework record is written as its message alone, because a window's report is
+one JSON object and a reader of this process's standard error parses it as such.
+`uvicorn.run` takes this as a `dictConfig` dictionary
+(<https://github.com/kludex/uvicorn/blob/main/docs/concepts/logging.md>).
+"""
+
+
+def _reported(error: VibepyError, /) -> None:
+    """Write one failure of the command where whatever started it can read it."""
+    info = to_error_info(error)
+    sys.stderr.write(
+        json.dumps(
+            {
+                "code": info.code,
+                "category": info.category,
+                "message": info.message,
+                "details": dict(info.details),
+            }
+        )
+        + "\n"
+    )
 
 
 def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:
@@ -72,7 +124,7 @@ def _serve(
     and a window that refuses to open fails the server's startup.
     """
     served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)
-    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning")
+    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=_LOG_CONFIG)
 
 
 def main(argv: Sequence[str], /) -> int:
@@ -80,11 +132,13 @@ def main(argv: Sequence[str], /) -> int:
 
     Exits 1 for a failure of the command itself: an App this environment does
     not declare, a declaration that will not load, or configuration that is not
-    a JSON object. Each writes one JSON object of `code` and `message` to
-    standard error. The first two carry a framework code; the third's is written
-    here and belongs to no exception, which is a defect a later stage owns. A
-    window the App refuses to open fails the server's startup, and the server's
-    own exit code says so.
+    a JSON object. Each writes one JSON object of `code`, `category`, `message`
+    and `details` to standard error, and each carries a framework code.
+
+    A window that will not open reports itself the same way and then fails the
+    server's startup, so this process's standard error carries one such object
+    for any failure of starting. See
+    `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")
@@ -92,8 +146,9 @@ def main(argv: Sequence[str], /) -> int:
     parsed = parser.parse_args(argv)
     try:
         config: Mapping[str, object] = _CONFIG.validate_json(sys.stdin.read() or "{}")
-    except ValidationError:
-        sys.stderr.write('{"code": "serve.config_invalid", "message": "expected a JSON object"}\n')
+    except ValidationError as invalid:
+        _reported(ServeConfigInvalidError())
+        logger.debug("configuration on standard input was unreadable", exc_info=invalid)
         return 1
     try:
         entrypoint = _entrypoint(str(parsed.app_name))
@@ -102,8 +157,7 @@ def main(argv: Sequence[str], /) -> int:
         AppEntrypointUnloadableError,
         AppEntrypointInvalidError,
     ) as error:
-        info = to_error_info(error)
-        sys.stderr.write(json.dumps({"code": info.code, "message": info.message}) + "\n")
+        _reported(error)
         return 1
     _serve(entrypoint, config, int(parsed.port))
     return 0

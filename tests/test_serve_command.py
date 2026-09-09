@@ -7,6 +7,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TypedDict, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -80,12 +81,35 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     assert "absent" in written["message"]
 
 
+class Reported(TypedDict):
+    """One failure a child described, as this test reads it."""
+
+    code: str
+    category: str
+    message: str
+    details: dict[str, str]
+
+
+def _reported(stderr: bytes, /) -> Reported:
+    """The last failure the child described, out of everything it wrote."""
+    for line in reversed(stderr.decode(errors="replace").splitlines()):
+        try:
+            parsed: object = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict) and "code" in parsed:
+            return cast(Reported, parsed)
+    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+
+
 def test_a_window_that_will_not_open_stops_the_server() -> None:
-    """A refused configuration is a server that does not serve.
+    """A refused configuration is a server that does not serve, and it says so
+    in the shape every other framework failure uses.
 
     The App's window is the served application's lifespan, and ASGI defines that
-    a server seeing `lifespan.startup.failed` logs the message and exits. So the
-    command ends rather than answering for an App that never opened.
+    a server seeing `lifespan.startup.failed` logs the message and exits. What
+    makes the refusal legible to whatever started the process is the window
+    reporting it as it fails.
     """
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
@@ -96,5 +120,44 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     )
 
     assert finished.returncode != 0
-    written = finished.stderr.decode()
-    assert "config.invalid" in written or "AppConfigInvalidError" in written
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "config.invalid"
+    assert reported["category"] == "caller"
+    assert "db_path" in reported["details"]["fields"]
+
+
+def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) -> None:
+    """The general case, not one code: any failure of opening crosses with a
+    code. The Hub App requires a root it can create, and a path under a file is
+    not one, so its lifespan raises where its configuration was valid.
+    """
+    blocking = tmp_path / "afile"
+    blocking.write_text("not a directory", encoding="utf-8")
+
+    finished = subprocess.run(
+        [sys.executable, "-m", "vibepy_core.serve", "hub", "--port", str(free_port())],
+        input=json.dumps({"root": str(blocking / "root")}).encode(),
+        capture_output=True,
+        check=False,
+        env=child_environment(),
+    )
+
+    assert finished.returncode != 0
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "app.unhandled"
+    assert reported["category"] == "execution"
+
+
+def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> None:
+    finished = subprocess.run(
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
+        input=b"[]",
+        capture_output=True,
+        check=False,
+        env=child_environment(),
+    )
+
+    assert finished.returncode == 1
+    reported = _reported(finished.stderr)
+    assert reported["code"] == "serve.config_invalid"
+    assert reported["category"] == "caller"

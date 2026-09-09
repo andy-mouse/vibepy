@@ -1,5 +1,6 @@
 """Opening and closing an installed App's Web channel."""
 
+import logging
 from collections.abc import Sequence
 
 from vibepy_core.errors import ErrorCategory
@@ -14,6 +15,8 @@ from vibepy_hub.internals import (
 )
 from vibepy_hub.models import AppName, Diagnostic, RunningApp, StartRequest
 
+logger = logging.getLogger(__name__)
+
 
 def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCategory) -> RunningApp:
     """An App that will not start or stop, and why."""
@@ -24,6 +27,15 @@ def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCatego
             code=code, category=category, message=message, details={"app_name": app_name}
         ),
     )
+
+
+def _category(reported: str, /) -> ErrorCategory:
+    """The category a child named, or execution when it named one we do not know."""
+    try:
+        return ErrorCategory(reported)
+    except ValueError:
+        logger.debug("a child reported an unknown category: %s", reported)
+        return ErrorCategory.EXECUTION
 
 
 async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> RunningApp:
@@ -60,11 +72,23 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             known_as=payload.app_name,
         )
     except StartFailed as failure:
-        return _refusal(
-            payload.app_name,
-            "hub.start_failed",
-            str(failure),
-            category=ErrorCategory.EXECUTION,
+        reported = failure.reported
+        if reported is None:
+            return _refusal(
+                payload.app_name,
+                "hub.start_failed",
+                str(failure),
+                category=ErrorCategory.EXECUTION,
+            )
+        return RunningApp(
+            app_name=payload.app_name,
+            state="installed",
+            diagnostic=Diagnostic(
+                code=reported.code,
+                category=_category(reported.category),
+                message=reported.message,
+                details={"app_name": payload.app_name, **reported.details},
+            ),
         )
     return RunningApp(app_name=payload.app_name, url=f"http://127.0.0.1:{port}", state="running")
 

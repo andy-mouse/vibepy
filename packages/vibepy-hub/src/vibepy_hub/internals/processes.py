@@ -20,6 +20,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
 logger = logging.getLogger(__name__)
 
 DESCRIBES_THIS_PROCESS = frozenset(
@@ -54,12 +56,68 @@ READY_TIMEOUT = 30.0
 READY_INTERVAL = 0.1
 
 
+class _Failure(BaseModel):
+    """One JSON object a child wrote about its own failure.
+
+    `code` is required, because that is what distinguishes a reported failure
+    from any other line the child's standard error carries.
+    """
+
+    code: str
+    category: str = "execution"
+    message: str = ""
+    details: dict[str, str] = {}
+
+
+_FAILURE = TypeAdapter(_Failure)
+
+
+@dataclass(frozen=True)
+class ChildFailure:
+    """What a child said about its own failure, in the framework's shape."""
+
+    code: str
+    category: str
+    message: str
+    details: dict[str, str]
+
+
 class StartFailed(Exception):
     """A started App never answered. Carries what the child did."""
 
-    def __init__(self, reason: str) -> None:
+    def __init__(self, reason: str, *, reported: ChildFailure | None = None) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.reported = reported
+
+
+LOG_TAIL = 4000
+"""How much of a child's standard error a failed start reads back."""
+
+
+def _log_path(logs: Path, known_as: str, /) -> Path:
+    logs.mkdir(parents=True, exist_ok=True)
+    return logs / f"{known_as}.log"
+
+
+def _reported(path: Path, /) -> ChildFailure | None:
+    """The failure a child described, read from the last object it wrote."""
+    try:
+        written = path.read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
+    except OSError:
+        return None
+    for line in reversed(written.splitlines()):
+        try:
+            parsed = _FAILURE.validate_json(line)
+        except ValidationError:
+            continue
+        return ChildFailure(
+            code=parsed.code,
+            category=parsed.category,
+            message=parsed.message,
+            details=parsed.details,
+        )
+    return None
 
 
 def child_environment() -> dict[str, str]:
@@ -183,18 +241,29 @@ class Processes:
 
         Standard input carries the configuration so that a secret reaches the
         child without a file, an environment variable or an argument vector.
+
+        The child's standard error goes to a file of its own, which is what a
+        process supervisor does (<http://supervisord.org/configuration.html>). A
+        pipe would have to be drained for as long as the child lives, because a
+        child that fills the buffer blocks.
         """
         port = free_port()
-        process = await asyncio.create_subprocess_exec(
-            str(interpreter),
-            "-m",
-            "vibepy_core.serve",
-            app_name,
-            "--port",
-            str(port),
-            stdin=asyncio.subprocess.PIPE,
-            env=child_environment(),
-        )
+        path = await asyncio.to_thread(_log_path, self._logs, known_as)
+        handle = await asyncio.to_thread(path.open, "wb")
+        try:
+            process = await asyncio.create_subprocess_exec(
+                str(interpreter),
+                "-m",
+                "vibepy_core.serve",
+                app_name,
+                "--port",
+                str(port),
+                stdin=asyncio.subprocess.PIPE,
+                stderr=handle,
+                env=child_environment(),
+            )
+        finally:
+            await asyncio.to_thread(handle.close)
         child = _Child(process=process, port=port)
         self._running[known_as] = child
         try:
@@ -205,7 +274,15 @@ class Processes:
             await self._wait_until_answering(process, port)
         except OSError as broken:
             await self._release(known_as)
-            raise StartFailed(f"the App did not take its configuration: {broken}") from broken
+            raise StartFailed(
+                f"the App did not take its configuration: {broken}",
+                reported=await asyncio.to_thread(_reported, path),
+            ) from broken
+        except StartFailed as failure:
+            await self._release(known_as)
+            raise StartFailed(
+                failure.reason, reported=await asyncio.to_thread(_reported, path)
+            ) from failure
         except BaseException:
             await self._release(known_as)
             raise

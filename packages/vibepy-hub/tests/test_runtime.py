@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from tests_support import EXAMPLES, http_status, hub
+from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
@@ -112,4 +113,6 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     assert isinstance(started, RunningApp)
     assert started.url is None
     assert started.diagnostic is not None
-    assert started.diagnostic.code == "hub.start_failed"
+    assert started.diagnostic.code == "config.invalid"
+    assert started.diagnostic.category == ErrorCategory.CALLER
+    assert "db_path" in started.diagnostic.details["fields"]

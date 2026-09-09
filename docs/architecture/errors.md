@@ -29,6 +29,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
 | `package.app_not_declared` | caller | `AppNotDeclaredError` |
+| `serve.config_invalid` | caller | `ServeConfigInvalidError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.
@@ -82,6 +83,12 @@ See `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
 The Web channel translates nothing. A framework error or a handler exception raised during a
 render reaches NiceGUI, which renders it. `docs/architecture/adapters.md` gives the reason.
 
+A window that will not open reports its own failure in the `ErrorInfo` shape through `logging`
+before it fails the server's startup. That is a record written beside the exception, not a
+translation of it: the exception propagates as raised. It is what makes a failure of opening
+legible to whatever started the process. See
+`docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
+
 The Agent channel answers every call, so it reports the normalized payload on both of its
 paths: as JSON-RPC `data` for a protocol error, and as a JSON text content block for a result
 marked `isError`. It does not use `structuredContent`, because a Tool declares an output schema
@@ -95,3 +102,4 @@ A client ignores payload members it does not recognize, so a later milestone may
 - `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md`
 - `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`
 - `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`
+- `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`
