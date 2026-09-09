@@ -45,6 +45,10 @@ Nothing in this task touches the Hub. It starts one App with the `serve` command
 hand-written Traefik configuration in front of it, and proves a socket opens and carries a frame
 through it.
 
+The two helpers that write that configuration are scaffolding with an end date. Task 4 teaches
+the Hub to write the same two documents, and Task 6 deletes these and points this test at what
+the Hub wrote: one document must not have two writers at the end of the stage.
+
 **Files:**
 - Create: `scripts/fetch_traefik.py`
 - Modify: `Makefile:3-5`
@@ -1163,13 +1167,17 @@ git commit -m "Hand a started App the port it was allocated, and answer with its
 The acceptance criterion, as written.
 
 **Files:**
-- Modify: `packages/vibepy-hub/tests/test_proxy.py`
+- Create: `fixtures/second-app/pyproject.toml`,
+  `fixtures/second-app/src/second_app/__init__.py`,
+  `fixtures/second-app/src/second_app/entry.py`
+- Modify: `pyproject.toml:20-21` (workspace members)
 - Modify: `packages/vibepy-hub/tests/tests_support.py`
+- Modify: `packages/vibepy-hub/tests/test_proxy.py`
 
 **Interfaces:**
 - Consumes: everything from Tasks 1 to 5.
 - Produces: `tests_support.http_status(url: str, /, *, host: str | None = None) -> int` and
-  `tests_support.write_servable_app(folder: Path, *, name: str, package: str) -> None`.
+  `tests_support.FIXTURES: Path`.
 
 - [ ] **Step 1: Let a request carry a host it does not resolve**
 
@@ -1199,96 +1207,143 @@ def _status(url: str, host: str | None, /) -> int:
 
 Every existing caller passes the url alone and is unaffected.
 
-- [ ] **Step 2: Give the tests an App of their own to install**
+- [ ] **Step 2: Add the App the tests install**
 
 This repository ships one App with a Web channel and does so deliberately: `examples/notes` is
-Agent-only, which is what makes L1's extras split provable. An example is a product surface, so a
-test that needs a second servable App builds a fixture rather than borrowing or copying one.
+Agent-only, which is what makes L1's extras split provable. An example is a product surface, so
+the second servable App is a fixture — checked in as real files, in the same shape every other
+distribution here has, and installed by the same `uv pip install <folder>` the Hub runs for an
+example. It is not under `examples/` and not in the dev dependency group, so it ships with
+nothing and is installed only by the test that asks for it.
 
-Append to `packages/vibepy-hub/tests/tests_support.py`:
+Create `fixtures/second-app/pyproject.toml`:
+
+```toml
+[project]
+name = "vibepy-second"
+version = "0.0.0"
+description = "A servable App the Hub's tests install. Not a sample."
+requires-python = ">=3.12"
+dependencies = [
+    "vibepy-core[web]",
+    "nicegui>=3.16",
+]
+
+[project.entry-points."vibepy.apps"]
+second-app = "second_app.entry:APP"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/second_app"]
+
+[tool.uv.sources]
+vibepy-core = { workspace = true }
+```
+
+Create an empty `fixtures/second-app/src/second_app/__init__.py`, and
+`fixtures/second-app/src/second_app/entry.py`:
 
 ```python
-def write_servable_app(folder: Path, *, name: str, package: str) -> None:
-    """A minimal installable App with one Page, written for a test to install.
+"""A servable App with nothing in it but a Page and the Tool it reaches.
 
-    A fixture, not an example: `examples/` is a product surface with one Web App
-    on purpose, and a test that copied it would depend on whatever that example
-    happens to declare. This states exactly what it needs -- one Page, one Tool,
-    no configuration -- so a test using it asserts about the Hub rather than
-    about Todo.
+A fixture, not a sample. `examples/` holds one App with a Web channel on
+purpose, and a test that needs a second one needs it to be uninteresting: this
+declares no configuration, so a test that installs it asserts about the Hub
+rather than about what this App happens to require.
+"""
 
-    The distribution is written outside the uv workspace, so it names the core by
-    path. That is the only thing this fixture knows about the repository layout.
-    """
-    source = folder / "src" / package
-    source.mkdir(parents=True)
-    (source / "__init__.py").write_text("", encoding="utf-8")
-    (folder / "pyproject.toml").write_text(
-        f'[project]\nname = "{name}"\nversion = "0.0.0"\n'
-        'requires-python = ">=3.12"\n'
-        'dependencies = ["vibepy-core[web]", "nicegui>=3.16"]\n'
-        f'\n[project.entry-points."vibepy.apps"]\n{package} = "{package}.entry:APP"\n'
-        "\n[build-system]\n"
-        'requires = ["hatchling"]\nbuild-backend = "hatchling.build"\n'
-        f'\n[tool.hatch.build.targets.wheel]\npackages = ["src/{package}"]\n'
-        f'\n[tool.uv.sources]\nvibepy-core = {{ path = "{REPO.as_posix()}" }}\n',
-        encoding="utf-8",
-    )
-    (source / "entry.py").write_text(
-        '"""A servable App with nothing in it but a Page and the Tool it reaches."""\n\n'
-        "from collections.abc import AsyncGenerator\n"
-        "from contextlib import asynccontextmanager\n\n"
-        "from nicegui import ui\n"
-        "from pydantic import BaseModel\n\n"
-        "from vibepy_core.app import AppDefinition, AppEntrypoint\n"
-        "from vibepy_core.page import Page, PageContext, PageDefinition\n"
-        "from vibepy_core.tool import Tool, ToolContext, ToolDefinition\n\n\n"
-        "class NoConfig(BaseModel):\n"
-        '    """This App requires nothing of its host."""\n\n\n'
-        "class Greeting(BaseModel):\n"
-        "    said: str\n\n\n"
-        "@asynccontextmanager\n"
-        "async def lifespan(_config: NoConfig) -> AsyncGenerator[None]:\n"
-        "    yield None\n\n\n"
-        "async def greet(_ctx: ToolContext[None], _payload: NoConfig) -> Greeting:\n"
-        f'    return Greeting(said="{package}")\n\n\n'
-        "async def home(ctx: PageContext) -> None:\n"
-        '    said = Greeting.model_validate(await ctx.tools.invoke("greet", {}))\n'
-        "    ui.label(said.said)\n\n\n"
-        "DEFINITION: AppDefinition[None, NoConfig] = AppDefinition(\n"
-        f'    app_id="{package}",\n'
-        f'    name="{package}",\n'
-        '    version="0.0.0",\n'
-        "    config=NoConfig,\n"
-        "    tools=[\n"
-        "        Tool(\n"
-        "            definition=ToolDefinition(\n"
-        '                name="greet",\n'
-        '                description="Say this App\'s name",\n'
-        "                input_model=NoConfig,\n"
-        "                output_model=Greeting,\n"
-        "            ),\n"
-        "            handler=greet,\n"
-        "        )\n"
-        "    ],\n"
-        "    pages=[\n"
-        "        Page(\n"
-        '            definition=PageDefinition(name="home", route="/home", title="Home"),\n'
-        "            handler=home,\n"
-        "        )\n"
-        "    ],\n"
-        ")\n\n"
-        "APP: AppEntrypoint[None, NoConfig] = AppEntrypoint(\n"
-        "    definition=DEFINITION, lifespan=lifespan\n"
-        ")\n",
-        encoding="utf-8",
-    )
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
+from nicegui import ui
+from pydantic import BaseModel
+
+from vibepy_core.app import AppDefinition, AppEntrypoint
+from vibepy_core.page import Page, PageContext, PageDefinition
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
+
+
+class NoConfig(BaseModel):
+    """This App requires nothing of its host."""
+
+
+class Greeting(BaseModel):
+    said: str
+
+
+@asynccontextmanager
+async def second_lifespan(_config: NoConfig) -> AsyncGenerator[None]:
+    """It holds no resource, and says so by yielding None."""
+    yield None
+
+
+async def greet(_ctx: ToolContext[None], _payload: NoConfig) -> Greeting:
+    return Greeting(said="second-app")
+
+
+async def home(ctx: PageContext) -> None:
+    """The Page reaches its domain through a Tool, like any other."""
+    said = Greeting.model_validate(await ctx.tools.invoke("greet", {}))
+    ui.label(said.said)
+
+
+SECOND_APP: AppDefinition[None, NoConfig] = AppDefinition(
+    app_id="second-app",
+    name="Second",
+    version="0.0.0",
+    config=NoConfig,
+    tools=[
+        Tool(
+            definition=ToolDefinition(
+                name="greet",
+                description="Say this App's name",
+                input_model=NoConfig,
+                output_model=Greeting,
+            ),
+            handler=greet,
+        )
+    ],
+    pages=[
+        Page(
+            definition=PageDefinition(name="home", route="/home", title="Home"),
+            handler=home,
+        )
+    ],
+)
+
+APP: AppEntrypoint[None, NoConfig] = AppEntrypoint(
+    definition=SECOND_APP, lifespan=second_lifespan
+)
 ```
+
+In the root `pyproject.toml`, the workspace gains the fixture so that
+`vibepy-core = { workspace = true }` resolves for it exactly as it does for an example:
+
+```toml
+[tool.uv.workspace]
+members = ["packages/*", "examples/*", "fixtures/*"]
+```
+
+It is deliberately absent from `[dependency-groups].dev`: a member nothing depends on is
+resolvable without being installed into this repository's own environment.
+
+In `tests_support.py`, name where it lives, beside `EXAMPLES`:
+
+```python
+FIXTURES = REPO / "fixtures"
+"""Distributions that exist to be installed by a test. Not product surface."""
+```
+
+Run: `uv sync && uv run pytest --collect-only -q | tail -2`
+Expected: the collection is unchanged, and `.venv` holds no `second_app`.
 
 - [ ] **Step 3: Write the failing test**
 
 Append to `packages/vibepy-hub/tests/test_proxy.py`, extending its imports with
-`from tests_support import EXAMPLES, http_status, hub, write_servable_app` and
+`from tests_support import EXAMPLES, FIXTURES, http_status, hub` and
 `from vibepy_hub.models import RunningApp`:
 
 ```python
@@ -1301,15 +1356,13 @@ async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> 
     """
     proxy_port = free_port()
     root = tmp_path / "hub"
-    sources = tmp_path / "sources"
-    write_servable_app(sources / "second", name="vibepy-second", package="second_app")
 
     async with hub(root, proxy_port=proxy_port) as tools:
         config = root / "traefik.yml"
         written = config.read_text(encoding="utf-8")
 
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("register_package_source", {"path": str(sources)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
 
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
@@ -1346,13 +1399,49 @@ Expected: PASS, two tests. This test exercises finished work, so a failure is a 
 to 5 rather than a step to implement — read it rather than working around it. A failed install
 answers with `hub.install_failed`, whose details name the step and uv's own output.
 
-- [ ] **Step 4: Run the suite and commit**
+- [ ] **Step 4: Retire the scaffolding, so one document has one writer**
+
+Task 1's `install_configuration` and `route` wrote by hand what the Hub now writes. Delete both
+from `packages/vibepy-hub/tests/test_proxy.py`, and rewrite the WebSocket test to drive the Hub,
+which is also what makes it prove the thing that matters: that a socket survives *the
+configuration the product generates*, not one a test composed.
+
+```python
+async def test_a_page_s_websocket_survives_the_proxy(tmp_path: Path) -> None:
+    """Traefik's documentation does not say it carries a WebSocket, and a
+    NiceGUI Page does not work without one. This is where that is settled, and
+    it is settled against the configuration the Hub itself wrote."""
+    proxy_port = free_port()
+    root = tmp_path / "hub"
+
+    async with hub(root, proxy_port=proxy_port) as tools:
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-second", "secrets": {}})
+        assert isinstance(started, RunningApp)
+        assert started.diagnostic is None
+
+        async with traefik(root / "traefik.yml", port=proxy_port):
+            frame = await first_frame(
+                proxy_port, host="vibepy-second.localhost", path=SOCKET_IO
+            )
+
+    # An unmasked text frame carrying engine.io's OPEN packet: the upgrade was
+    # carried, and so was what the server sent after it.
+    assert frame[0] == 0x81
+    assert frame[2:4] == b"0{"
+```
+
+The `json`, `sys` and `asyncio` imports the old version needed go with it, unless the file's other
+test still uses them.
+
+- [ ] **Step 5: Run the suite and commit**
 
 Run: `make lint typecheck test`
 Expected: 243 tests pass.
 
 ```bash
-git add packages/vibepy-hub/tests
+git add pyproject.toml fixtures packages/vibepy-hub/tests
 git commit -m "Serve two Apps at once through one proxy configuration"
 ```
 
