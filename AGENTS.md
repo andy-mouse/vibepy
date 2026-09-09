@@ -11,27 +11,18 @@ This repository implements an agent-native application framework where one App e
 - External behaviour comes from official documentation, cited. Training data is not a source.
 - Where no source answers, that is an open decision. Stop and ask; do not invent.
 
-## Core invariants
+## Boundaries
 
-- App is the unit of packaging and declaration; a channel process is the unit of execution.
-- An App declares itself in package metadata. Reading what an environment offers imports nothing, and the framework publishes no operation that imports an App into its caller's process.
-- Tools are the canonical public backend operations of an App.
-- Tools are channel-neutral.
-- Pages consume Tools to implement human workflows.
-- NiceGUI is the Web channel technology used to expose Pages to humans.
-- MCP is the Agent channel technology used to expose Tools to agents.
+What an agent working here must not do. What the framework *is* belongs to `docs/architecture/`,
+and is not repeated below.
+
+- Tools are channel-neutral: a Tool's behaviour must not branch on Web versus Agent.
 - MCP-specific types and behavior must not leak into the core Tool model.
-- NiceGUI-specific types must not leak into the core Page model.
+- NiceGUI-specific types must not leak into the core Page model, unless required at the app's UI implementation boundary.
 - Pages must not bypass Tools for business state changes.
-- Channel adapters invoke Tools through ToolRuntime.
+- Channel adapters invoke Tools through ToolRuntime, never a handler directly.
 - ToolRuntime owns generic invocation semantics, not business logic.
-- A declaration is not a running channel.
-- Runtime lifecycle and package installation lifecycle are different concepts.
-- An App declares what it requires of its host as a type, and a channel validates against that declaration before it acquires anything.
-- Application-scoped state belongs to the channel's running window and reaches a handler only through ToolContext.
-- Page/session state is not application-scoped state.
-- Invocation state belongs to ToolContext.
-- Tool behavior must not branch on Web versus Agent channels.
+- Application-scoped state reaches a handler only through ToolContext, and page/session state is not application-scoped state.
 - Internal helpers, services, policies, and repositories do not need to be Tools.
 - Prefer meaningful business operations over generic data mutation Tools.
 - Prefer explicit implementations over magic or metaprogramming until repetition justifies abstraction.
