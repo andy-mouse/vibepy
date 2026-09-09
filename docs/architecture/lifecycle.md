@@ -61,7 +61,7 @@ step before it — how a Host learns which App a distribution contains and what 
 
 Operations such as install, remove, upgrade, and version migration belong to the package/Hub
 control plane. The Hub also owns the Web channel's window, which it opens by running
-`python -m vibepy.serve` with the App environment's interpreter, and which is what its start,
+`python -m vibepy_core.serve` with the App environment's interpreter, and which is what its start,
 stop and status describe. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` and
 `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
