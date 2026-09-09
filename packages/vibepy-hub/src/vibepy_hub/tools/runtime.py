@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
@@ -14,12 +15,14 @@ from vibepy_hub.internals import (
 from vibepy_hub.models import AppName, Diagnostic, RunningApp, StartRequest
 
 
-def _refusal(app_name: str, code: str, message: str, /) -> RunningApp:
+def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCategory) -> RunningApp:
     """An App that will not start or stop, and why."""
     return RunningApp(
         app_name=app_name,
         state="installed",
-        diagnostic=Diagnostic(code=code, message=message, details={"app_name": app_name}),
+        diagnostic=Diagnostic(
+            code=code, category=category, message=message, details={"app_name": app_name}
+        ),
     )
 
 
@@ -29,17 +32,24 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
     facts = installed_facts(deps.root, payload.app_name)
     if facts is None:
         return _refusal(
-            payload.app_name, "hub.not_installed", f"{payload.app_name!r} is not installed"
+            payload.app_name,
+            "hub.not_installed",
+            f"{payload.app_name!r} is not installed",
+            category=ErrorCategory.CALLER,
         )
     if not facts.has_pages:
         return _refusal(
             payload.app_name,
             "hub.no_web_channel",
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
+            category=ErrorCategory.CALLER,
         )
     if deps.processes.running(payload.app_name) is not None:
         return _refusal(
-            payload.app_name, "hub.already_running", f"{payload.app_name!r} is already running"
+            payload.app_name,
+            "hub.already_running",
+            f"{payload.app_name!r} is already running",
+            category=ErrorCategory.CALLER,
         )
     held = read_state(deps.root).config.get(payload.app_name, {})
     try:
@@ -50,7 +60,12 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             known_as=payload.app_name,
         )
     except StartFailed as failure:
-        return _refusal(payload.app_name, "hub.start_failed", str(failure))
+        return _refusal(
+            payload.app_name,
+            "hub.start_failed",
+            str(failure),
+            category=ErrorCategory.EXECUTION,
+        )
     return RunningApp(app_name=payload.app_name, url=f"http://127.0.0.1:{port}", state="running")
 
 
@@ -58,7 +73,10 @@ async def stop_app(ctx: ToolContext[HubDeps], payload: AppName) -> RunningApp:
     """Stop an App this window started."""
     if not await ctx.dependencies.processes.stop(payload.app_name):
         return _refusal(
-            payload.app_name, "hub.not_running", f"{payload.app_name!r} is not running here"
+            payload.app_name,
+            "hub.not_running",
+            f"{payload.app_name!r} is not running here",
+            category=ErrorCategory.CALLER,
         )
     return RunningApp(app_name=payload.app_name, state="installed")
 

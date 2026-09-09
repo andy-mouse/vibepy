@@ -1,8 +1,27 @@
 """What the Hub's Tools take and return.
 
 A diagnostic is plain fields because an output model is revalidated, so no
-exception instance and no live object can travel in one. See
-`docs/decisions/ADR-007-framework-guarantees-tool-output.md`.
+exception instance and no live object can travel in one. It carries a category
+because a caller reads that to learn whether a different call could succeed. See
+`docs/decisions/ADR-007-framework-guarantees-tool-output.md` and
+`docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
+
+The Hub's own codes, until CR3 gives the Hub a document to carry them:
+
+| Code | Category |
+| --- | --- |
+| `hub.candidate_absent` | caller |
+| `hub.install_failed` | execution |
+| `hub.no_app_declared` | declaration |
+| `hub.multiple_apps_declared` | declaration |
+| `hub.declaration_missing` | declaration |
+| `hub.facts_unreadable` | execution |
+| `hub.source_unreadable` | caller |
+| `hub.not_installed` | caller |
+| `hub.no_web_channel` | caller |
+| `hub.already_running` | caller |
+| `hub.not_running` | caller |
+| `hub.start_failed` | execution |
 """
 
 from pathlib import Path
@@ -10,11 +29,14 @@ from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel
 
+from vibepy_core.errors import ErrorCategory
+
 
 class Diagnostic(BaseModel):
     """An expected, actionable failure, in the form a channel can render."""
 
     code: str
+    category: ErrorCategory
     message: str
     details: dict[str, str] = {}
 

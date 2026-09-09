@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
@@ -32,6 +33,7 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
             secret_fields=[],
             diagnostic=Diagnostic(
                 code="hub.not_installed",
+                category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is not installed",
                 details={"app_name": payload.app_name},
             ),

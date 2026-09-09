@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import HubDeps, HubState, candidates, read_state, write_state
 from vibepy_hub.models import CandidateRow, Diagnostic, SourceListing, SourcePath
@@ -34,6 +35,7 @@ async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath
             candidates=[],
             diagnostic=Diagnostic(
                 code="hub.source_unreadable",
+                category=ErrorCategory.CALLER,
                 message=f"{payload.path} is not a folder",
                 details={"path": str(payload.path)},
             ),

@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from vibepy_core.app.package import discover_apps
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
@@ -74,6 +75,7 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
             if present
             else Diagnostic(
                 code="hub.declaration_missing",
+                category=ErrorCategory.DECLARATION,
                 message=f"{env} no longer declares {wanted!r}",
                 details={"app_name": env.name, "declared_name": wanted},
             ),
@@ -90,6 +92,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.candidate_absent",
+                category=ErrorCategory.CALLER,
                 message=f"No registered source offers {payload.app_name!r}",
                 details={"app_name": payload.app_name},
             ),
@@ -104,6 +107,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.install_failed",
+                category=ErrorCategory.EXECUTION,
                 message=str(failure),
                 details={"step": failure.step, "output": failure.output},
             ),
@@ -117,6 +121,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.no_app_declared",
+                category=ErrorCategory.DECLARATION,
                 message=f"{folder} installs no App",
                 details={"folder": str(folder)},
             ),

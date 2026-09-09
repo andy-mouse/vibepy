@@ -71,6 +71,12 @@ exception propagates unchanged. A lifespan that fails propagates to its host, wh
 own contract already covers. Normalization is not wrapping: `to_error_info` is called where
 a channel must render an answer, and nowhere else.
 
+An App's own expected failures are not the framework's either. An App may publish an expected,
+actionable failure as data inside its own output model, provided it carries `code`, `category`,
+`message` and `details` — the same fields an `ErrorInfo` carries, so one reader parses both.
+The table above stays the framework's, and an App's codes are the App's to publish and document.
+See `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
+
 ## What each channel does
 
 The Web channel translates nothing. A framework error or a handler exception raised during a
@@ -88,3 +94,4 @@ A client ignores payload members it does not recognize, so a later milestone may
 
 - `docs/decisions/ADR-019-framework-errors-carry-stable-codes.md`
 - `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`
+- `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`
