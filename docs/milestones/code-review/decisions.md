@@ -122,11 +122,14 @@ Nothing needed promoting. `adapters.md` already carried ADR-003's decision sente
 and `tool-model.md` and `page-model.md` already carried what ADR-014 and ADR-016 assert — which
 is why those records failed the bar in the first place.
 
-A test replaces the index that would otherwise list which records are live. An index restates
-twenty-six statuses that each record already declares, which is the defect this review found
-elsewhere; `tests/test_decisions.py` asserts the rule instead, and found on its first run that
-`lifecycle.md` and `composition.py` were both citing ADR-018, superseded by ADR-020 — a live
-document resting on a withdrawn decision that none of the seven reviewers reported.
+No index lists which records are live: it would restate twenty-six statuses that each record
+already declares, which is the defect this review found elsewhere. Nor is there a test. One was
+written and removed — `make test` verifies the framework's public contracts, and an ADR's status
+is not one; a rule AGENTS.md states does not become sounder for being stated twice.
+
+While it existed it found `lifecycle.md` and `composition.py` both citing ADR-018, superseded by
+ADR-020 — a live document resting on a withdrawn decision that none of the seven reviewers
+reported. Both are fixed.
 
 This runs before the new ADR is written, not after. A record added to a set that does not meet
 the bar is not held to it either. Two consequences follow and are part of A0's scope: promoting
