@@ -78,6 +78,9 @@ One role per document. The same fact is not stated in two places.
 | git history | history | everything else |
 
 - A new architecture document requires a concept that no existing document owns. Extend the owning document first.
-- ADRs use the Nygard format. Edit a `Proposed` ADR; supersede an `Accepted` one, never rewrite it.
+- ADRs use the Nygard format. Edit a `Proposed` ADR. Supersede an `Accepted` one when the decision itself changed. Correct one in place only when it was wrong at authoring and no separate reviewer accepted it, and say so in the commit message; immutability protects a decision that was taken, not a defect self-accepted in the session that wrote it.
 - An ADR records a decision that changes structure, quality characteristics, external dependencies, interfaces, or construction technique. Choices below that line go in the commit message.
+- Within that line, record only what is difficult to reverse or constrains later decisions. An internal mechanism with no contract outside its module is neither.
+- An ADR says why a decision was taken, not how it was implemented. A record that reads as a design guide is not one.
+- A fact another surface owns is cited, not restated.
 - On integration, promote what is still true out of the milestone folder, then delete the folder.
