@@ -2,6 +2,12 @@
 
 Status: Accepted
 
+Amendment, appended: `register_pages` has always taken an `AppDefinition` and enumerated
+`definition.pages`, never a `PageRegistry`. The decision this record states — registering routes
+is separated from running a server — is unaffected; only the sentence describing it was wrong on
+arrival. `docs/architecture/page-model.md` and `docs/architecture/adapters.md` carry the shape as
+it is.
+
 ## Context
 
 The Web server lives inside the app process, unlike a stdio MCP server, so the Web channel
@@ -16,10 +22,9 @@ collision is reported.
 
 ## Decision
 
-Registering routes is separated from running a server. `register_pages` reads an
-AppDefinition's declared Pages and projects each onto a NiceGUI route, rendering through the
-PageRuntime the caller's window yielded; it returns, and the framework starts no Web server and
-holds no server object.
+Registering routes is separated from running a server. register_pages projects a PageRegistry
+onto NiceGUI routes and returns; the framework starts no Web server and holds no server
+object.
 
 The adapter validates route format and uniqueness before any route is registered, because
 NiceGUI reports no collision of its own.

@@ -60,7 +60,7 @@ These are not yet ADRs. A0 records them.
 | D9 | The venv-per-App model is kept | `docs/architecture/packaging.md` states what it buys: no App's dependencies constrain another's, and no top-level import name collides. It is `uv venv` plus `uv pip install` — delegation, not self-implementation. The complexity worth removing is around it (the four name spaces), not the venv |
 | D10 | Documents are corrected to match the code, not the reverse, wherever the two disagree | building what a document promises but no milestone asked for is building ahead |
 | D11 | AGENTS.md's ADR rules are tightened first, and the existing records are brought to that bar in A0, before any new ADR is written | the criterion in AGENTS.md was already the industry one (Richards & Ford, by way of AWS Prescriptive Guidance), so the failure was in applying it, not in stating it. Two tests were missing and are now written down: Microsoft's *only what is difficult to reverse*, and AWS's *why it was decided, not how it was built*. Roughly five of the nineteen live records fail the second — they document an internal mechanism with no contract outside its module |
-| D12 | An ADR that was wrong when written may be corrected in place | every ADR here was written and marked `Accepted` by the same author in one session. Immutability protects a decision a reviewer ratified; it does not protect an authoring defect, and citing it to avoid the correction is how the defect survives. Recorded in AGENTS.md so this does not have to be re-argued |
+| D12 | An `Accepted` record takes typo and broken-reference corrections and nothing else. What changes meaning is a superseding record or an amendment appended beneath the status | the carve-out that let an authoring defect be corrected in place was a deviation from every source behind the bar, and it was used to rewrite three records' reasoning before it was withdrawn. The role table already prevents the harm the carve-out was reaching for: nobody needs a record to be current, because `docs/architecture/` is what current truth is read from |
 
 ## Stages
 
@@ -91,8 +91,8 @@ with each, because the remedy differs:
 
 | Defect | Records | Remedy |
 | --- | --- | --- |
-| wrong when written | ADR-012, whose Decision gives `register_pages` a signature it has never had | corrected in place, per D12 |
-| states no rejected alternative | ADR-005 has no Context section. ADR-001 and ADR-002 have one that states the requirement instead, which is the same defect with a heading over it — and half of ADR-002's Decision is a sentence ADR-001 already carries as a consequence | Context supplied: the channel-first Tool model ADR-001 rejects, and the Web-side service layer ADR-002 rejects |
+| wrong when written | ADR-012, whose Decision gives `register_pages` a signature it has never had | an amendment appended beneath the status. The decision it records is unaffected, so a superseding record would carry no decision and would fail the intake bar |
+| states no rejected alternative | ADR-005 has no Context; ADR-001 and ADR-002 have one that states the requirement instead | nothing. Reasoning that was not recorded is a fact about the record, and supplying it now would put words written today into a record dated then. The rationale a reader needs for the framework's founding decisions belongs to `docs/architecture.md`, which is maintained |
 | the decision actually changed | ADR-006, which still names the `AppRuntime` that ADR-020 deleted, and which `docs/architecture/lifecycle.md` still cites as live | superseded |
 | how, not why | ADR-003, 014, 016. ADR-021 was in this list on a partial reading and is not: removing `lifespan` from `AppDefinition` changes every App's public shape, and ADR-023 rests on it | marked `Deprecated`, bodies untouched, each pointing at the document that owns what survives it |
 | decided but never recorded | the direct `fastapi`/`uvicorn` dependency with an ASGI-lifespan Web window, `python -m vibepy.serve` as a second command, and the Hub's `Diagnostic`/`hub.*` vocabulary | written, if they still pass the bar |
@@ -106,10 +106,17 @@ the act of applying it, and ADR-020's body cites ADR-003, which deletion would l
 nothing. `Deprecated` is in Nygard's original status set and in the MADR template, and it leaves
 the same fifteen live records while keeping the history and the citation intact.
 
-The first pass exempted ADR-001 and ADR-002 for being foundational, which is not one of the
-tests. Re-reading them against the same bar that retired ADR-003 found the same defect, and they
-were repaired rather than exempted. A bar applied to the records that are easy to retire and not
-to the ones that are hard is not a bar.
+Three passes were needed and each corrected the one before it, which is worth recording because
+the corrections were of one kind. The first exempted ADR-001 and ADR-002 for being foundational,
+which is not one of the tests. The second repaired them by writing the Context they lack — and
+that was worse: every source behind this bar allows an `Accepted` record only typo and
+broken-reference corrections, because a reader must be able to tell what was recorded then from
+what someone reconstructed later. The third reverted that, and the records keep their thin
+reasoning as the historical fact it is.
+
+The pattern in all three is asking a record to be persuasive today. That is not its role.
+`docs/architecture/` is what a reader consults for what is true now, and it is maintained;
+a record says what was decided and why, on its own date, and is not.
 
 Nothing needed promoting. `adapters.md` already carried ADR-003's decision sentence for sentence,
 and `tool-model.md` and `page-model.md` already carried what ADR-014 and ADR-016 assert — which
