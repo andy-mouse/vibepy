@@ -16,10 +16,19 @@ from vibepy_hub.models import CandidateRow, Diagnostic, SourceListing, SourcePat
 
 
 async def _listing(deps: HubDeps, /) -> SourceListing:
-    """Every registered folder and what it offers."""
+    """Every registered folder and what it offers.
+
+    A registered source that can no longer be read is reported here as
+    `list_apps` reports it. One fact, one answer: a Tool that stayed silent
+    about it would contradict the other about the same source.
+    """
     state = await read_state(deps.root)
     rows: list[CandidateRow] = []
+    unreadable: list[str] = []
     for source in state.sources:
+        if not await readable(source):
+            unreadable.append(str(source))
+            continue
         rows.extend(
             CandidateRow(
                 folder=row.folder,
@@ -29,7 +38,21 @@ async def _listing(deps: HubDeps, /) -> SourceListing:
             )
             for row in await candidates(source)
         )
-    return SourceListing(sources=state.sources, candidates=rows)
+    return SourceListing(
+        sources=state.sources,
+        candidates=rows,
+        diagnostic=None if not unreadable else _unreadable(unreadable),
+    )
+
+
+def _unreadable(paths: Sequence[str], /) -> Diagnostic:
+    """Registered sources this Hub could not read, named so a caller can withdraw one."""
+    return Diagnostic(
+        code="hub.source_unreadable",
+        category=ErrorCategory.CALLER,
+        message="a registered source could not be read",
+        details={"paths": ", ".join(paths)},
+    )
 
 
 async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath) -> SourceListing:

@@ -11,6 +11,7 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 | Code | Category |
 | --- | --- |
 | `hub.candidate_absent` | caller |
+| `hub.candidate_ambiguous` | caller |
 | `hub.install_failed` | execution |
 | `hub.no_app_declared` | declaration |
 | `hub.multiple_apps_declared` | declaration |

@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 
 from tests_support import hub, write_project
-from vibepy_hub.models import AppListing, SourceListing
+from vibepy_hub.models import AppListing, Installation, SourceListing
 
 
 async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None:
@@ -111,3 +111,64 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
     assert listed.diagnostic.code == "hub.source_unreadable"
     assert isinstance(withdrawn, SourceListing)
     assert withdrawn.sources == []
+
+
+async def test_two_sources_offering_one_name_is_refused_rather_than_ordered(
+    tmp_path: Path,
+) -> None:
+    """One name addresses one App, so two folders claiming it addresses none.
+
+    Installing the first-registered source's copy would make registration order
+    decide which App a name means, which is the shape this stage exists to
+    remove. `docs/decisions/ADR-027` already refuses a duplicate name at the
+    point it is read rather than letting one of the two disappear.
+    """
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    write_project(first / "demo", name="demo-app", declares=True)
+    write_project(second / "demo-copy", name="Demo_App", declares=True)
+
+    async with hub(tmp_path / "hub") as tools:
+        await tools.invoke("register_package_source", {"path": str(first)})
+        await tools.invoke("register_package_source", {"path": str(second)})
+        answered = await tools.invoke("install_app", {"app_name": "demo-app"})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(answered, Installation)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.candidate_ambiguous"
+    assert str(first / "demo") in answered.diagnostic.details["folders"]
+    assert str(second / "demo-copy") in answered.diagnostic.details["folders"]
+
+    assert isinstance(listed, AppListing)
+    rows = {row.app_name: row for row in listed.apps}
+    assert rows["demo-app"].diagnostic is not None
+    assert rows["demo-app"].diagnostic.code == "hub.candidate_ambiguous"
+
+
+async def test_registering_reports_a_source_that_can_no_longer_be_read(
+    tmp_path: Path,
+) -> None:
+    """Every Tool answering with a source listing says the same thing about it.
+
+    `list_apps` reports a registered source it could not read; so must this, or
+    one Tool's silence contradicts the other's diagnostic about one fact.
+    """
+    gone = tmp_path / "gone"
+    kept = tmp_path / "kept"
+    write_project(gone / "demo", name="demo-app", declares=True)
+    kept.mkdir()
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(gone)})
+
+    shutil.rmtree(gone)
+
+    async with hub(root) as tools:
+        listed = await tools.invoke("register_package_source", {"path": str(kept)})
+
+    assert isinstance(listed, SourceListing)
+    assert listed.diagnostic is not None
+    assert listed.diagnostic.code == "hub.source_unreadable"
+    assert str(gone) in listed.diagnostic.details["paths"]

@@ -105,17 +105,7 @@ async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> Non
 
 
 async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    held = await held_notes_secret(root)
-
-    assert held.values == {"api_base_url": "https://notes.internal"}
-
-
-async def test_a_held_secret_is_absent_from_the_values_it_could_be_sent_back_in(
-    tmp_path: Path,
-) -> None:
-    """The output type must be safe as the input type.
+    """It is not handed back at all, so the output type is safe as the input type.
 
     A secret has no value in `values`, so the natural round trip -- read the
     form, edit one field, send it back -- cannot carry anything over the stored

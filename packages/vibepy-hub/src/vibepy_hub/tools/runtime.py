@@ -57,16 +57,6 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
             category=ErrorCategory.CALLER,
         )
-    if deps.processes.taken(payload.app_name):
-        # The same refusal is made again by `Processes` -- this one answers
-        # without an install's worth of work, and that one closes the gap this
-        # handler's own awaits leave open.
-        return _refusal(
-            payload.app_name,
-            "hub.already_running",
-            f"{payload.app_name!r} is already running",
-            category=ErrorCategory.CALLER,
-        )
     held = (await read_state(deps.root)).config.get(payload.app_name, {})
     try:
         port = await deps.processes.start(
@@ -76,6 +66,9 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             known_as=payload.app_name,
         )
     except AlreadyStarted:
+        # One name holds one child, and `Processes` is the one place that
+        # decides it: a check made here would not survive this handler's own
+        # awaits, and two places deciding one fact is how they come to disagree.
         return _refusal(
             payload.app_name,
             "hub.already_running",

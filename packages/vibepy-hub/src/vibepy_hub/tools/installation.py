@@ -44,13 +44,30 @@ from vibepy_hub.models import (
 logger = logging.getLogger(__name__)
 
 
-async def _candidate(deps: HubDeps, app_name: str, /) -> Candidate | None:
-    """The registered folder that offers this App, by its distribution name."""
+async def _offering(deps: HubDeps, app_name: str, /) -> tuple[Candidate, ...]:
+    """Every registered folder that offers this App, by its distribution name.
+
+    More than one is not a preference to resolve. One name addresses one App,
+    and letting registration order decide which folder a name means would put
+    back the ambiguity this Hub addresses Apps by a canonical name to remove.
+    """
+    found: list[Candidate] = []
     for source in (await read_state(deps.root)).sources:
-        for row in await candidates(source):
-            if row.name == app_name:
-                return row
-    return None
+        found.extend(row for row in await candidates(source) if row.name == app_name)
+    return tuple(found)
+
+
+def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
+    """Two folders claiming one name, named so a caller can withdraw one."""
+    return Diagnostic(
+        code="hub.candidate_ambiguous",
+        category=ErrorCategory.CALLER,
+        message=f"more than one registered source offers {app_name!r}",
+        details={
+            "app_name": app_name,
+            "folders": ", ".join(sorted(str(row.folder) for row in offered)),
+        },
+    )
 
 
 async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
@@ -101,8 +118,10 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
 async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installation:
     """Install one offered App into an environment of its own."""
     deps = ctx.dependencies
-    offered = await _candidate(deps, payload.app_name)
-    if offered is None:
+    offered = await _offering(deps, payload.app_name)
+    if len(offered) != 1:
+        # Neither none nor two is one App to install, and a caller answers the
+        # two differently: register a source, or withdraw one.
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
@@ -110,9 +129,11 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 category=ErrorCategory.CALLER,
                 message=f"No registered source offers {payload.app_name!r}",
                 details={"app_name": payload.app_name},
-            ),
+            )
+            if not offered
+            else _ambiguous(payload.app_name, offered),
         )
-    folder = offered.folder
+    folder = offered[0].folder
     env = environment(deps.root, payload.app_name)
     try:
         await install(folder=folder, env=env)
@@ -176,12 +197,14 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     """Every App this Hub can act on, installed or merely offered."""
     deps = ctx.dependencies
     rows = await _installed(deps)
+    offered: dict[str, list[Candidate]] = {}
     unreadable: list[str] = []
     for source in (await read_state(deps.root)).sources:
         if not await readable(source):
             unreadable.append(str(source))
             continue
         for row in await candidates(source):
+            offered.setdefault(row.name, []).append(row)
             if row.name in rows:
                 continue
             rows[row.name] = AppRow(
@@ -190,6 +213,9 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
                 version=row.version,
                 state="available",
             )
+    for name, claiming in offered.items():
+        if len(claiming) > 1 and rows[name].state == "available":
+            rows[name] = rows[name].model_copy(update={"diagnostic": _ambiguous(name, claiming)})
     return AppListing(
         apps=[rows[name] for name in sorted(rows)],
         diagnostic=None

@@ -47,12 +47,14 @@ async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None
 
 
 async def test_starting_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
+    """And it says a different call could succeed, which is what a category is for."""
     async with hub(tmp_path / "hub") as tools:
         answered = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.not_installed"
+    assert answered.diagnostic.category == ErrorCategory.CALLER
 
 
 async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
