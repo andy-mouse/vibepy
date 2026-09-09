@@ -1,8 +1,7 @@
 # L1 — Workspace layout and channel extras
 
-L1 is not a `docs/roadmap.md` milestone. Its scope and ordering come from
-`docs/milestones/code-review/decisions.md`, which the owner approved; that file is the entry
-point for this whole sequence and should be read first.
+L1 is not a `docs/roadmap.md` milestone. Its scope, acceptance criteria and place in the order
+come from `docs/milestones/code-review-roadmap.md`, which is read the way `docs/roadmap.md` is.
 
 L1 moves files and splits dependencies. It changes no behaviour, which is what makes its
 acceptance criteria checkable: the suite that passes now must pass identically after.
@@ -87,7 +86,7 @@ here: "the core declares no channel" is a boundary that becomes true in this sta
 ## Out of scope
 
 - `packages/vibepy-builder` — M12 and M13 own it, and an empty package is building ahead
-- every defect in `findings.md` — CR1 and CR2 own them. A defect noticed while moving a file is
+- every defect the review found — CR1 and CR2 own them, and the roadmap lists them. A defect noticed while moving a file is
   reported, not fixed, because a fix inside a pure move cannot be reviewed as either
 - subdomain routing and fixed ports — R1
 - the documentation debt — CR3
