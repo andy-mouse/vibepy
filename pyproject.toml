@@ -48,6 +48,12 @@ vibepy-notes = { workspace = true }
 
 [tool.ruff]
 line-length = 100
+# ruff formats the Python blocks in Markdown as well, and a block in
+# `docs/architecture/` is an excerpt of a contract written to be read rather
+# than code to be styled. Scope belongs here rather than in each runner's file
+# list: the hook runs `ruff format --force-exclude`, so this wins over the
+# files pre-commit passes it.
+extend-exclude = ["docs"]
 src = [
     "src",
     "tests",
