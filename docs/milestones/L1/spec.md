@@ -30,7 +30,10 @@ stays.
 | every workspace needs a root, which is also a workspace member, and the documented layout is a root project with accompanying libraries under `packages/` | uv, *Using workspaces* (<https://docs.astral.sh/uv/concepts/projects/workspaces/>) |
 | `UV_PROJECT_ENVIRONMENT` sets the project environment path, and an absolute path is used as-is | uv, *Configuring projects* (<https://docs.astral.sh/uv/concepts/projects/config/#project-environment-path>) |
 | the Web channel is opened by `python -m <core>.serve`, and no command opens the Agent channel | `docs/architecture/packaging.md` |
-| the Hub is a platform-tier App whose UI is NiceGUI | `docs/decisions/ADR-024`, `docs/roadmap.md` M11 |
+| an App declares the channels it offers | `docs/decisions/ADR-025` |
+| an installed App has one entrypoint per channel it offers; the Agent channel's is a command the MCP client launches, the Web channel's is what the Hub opens | `docs/architecture/app-model.md` |
+| the Hub is a platform-tier App, consumed through a UI that consumes its Tools as any Page does, and its status and stop describe the Web channel | `docs/decisions/ADR-024`, `docs/decisions/ADR-017`, `docs/roadmap.md` M11 |
+| Notes exists as the App with no Web channel for a Hub to start | git `be56a96` |
 | `vibepy-builder` is not created here | `docs/roadmap.md` M12 and M13 own it; AGENTS.md forbids building ahead |
 | CI lints `src tests` where the Makefile lints `src tests hub samples` | `findings.md` I23 |
 
@@ -119,9 +122,9 @@ three the framework imports itself, in `adapters/nicegui/` and `serve.py` — an
 
 | Distribution | Declares | Why |
 | --- | --- | --- |
-| `vibepy-hub` | `vibepy-core[web]` | the Hub's UI is NiceGUI (`docs/roadmap.md` M11); `pages=[]` is M11 not having arrived, not an Agent-only App |
-| `vibepy-todo` | `vibepy-core[web]` | `packaging.md` documents one command that serves an App, and it opens the Web channel |
-| `vibepy-notes` | `vibepy-core[agent]` | it declares no Pages, and this is what makes it Agent-only in its dependency tree rather than only in its declaration |
+| `vibepy-hub` | `vibepy-core[web]` | the Hub opens Web channels and is consumed through one. ADR-024 says a Hub UI consumes its Tools *as any Page consumes Tools*; ADR-017 says Hub status and stop describe the Web channel and the Agent channel is available whether or not the Hub runs; `app-model.md:88-90` puts the Hub on the opening side of a Web channel and the MCP client on the Agent side. `docs/roadmap.md` M11 builds that UI in NiceGUI. No document exposes the Hub itself on the Agent channel |
+| `vibepy-todo` | `vibepy-core[web,agent]` | it declares Tools *and* Pages, so it offers both channels, and `tests/test_dual_channel.py` runs this one declaration through an MCP client and a NiceGUI user to prove it |
+| `vibepy-notes` | `vibepy-core[agent]` | being the App with no Web channel is why it exists: "a second sample `vibepy-notes` declares Tools and no Pages — the App that has no Web channel for a Hub to start" (be56a96). This is what makes it Agent-only in its dependency tree rather than only in its declaration |
 
 The dev group declares `vibepy-core[web,agent]` and `nicegui[testing]`, because the suite
 exercises both channels.
