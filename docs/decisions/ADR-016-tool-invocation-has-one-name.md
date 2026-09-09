@@ -1,6 +1,10 @@
 # ADR-016: Tool invocation has one name
 
-Status: Accepted
+Status: Deprecated
+
+This record documents a rename and the removal of two internal types. What survives it — the
+ToolInvoker Protocol carries `ToolRuntime.invoke`'s signature, name included, and the Page
+package imports nothing from the Tool package — is held by `docs/architecture/page-model.md`.
 
 ## Context
 

@@ -2,6 +2,12 @@
 
 Status: Accepted
 
+Amendment, appended: `register_pages` has always taken an `AppDefinition` and enumerated
+`definition.pages`, never a `PageRegistry`. The decision this record states — registering routes
+is separated from running a server — is unaffected; only the sentence describing it was wrong on
+arrival. `docs/architecture/page-model.md` and `docs/architecture/adapters.md` carry the shape as
+it is.
+
 ## Context
 
 The Web server lives inside the app process, unlike a stdio MCP server, so the Web channel

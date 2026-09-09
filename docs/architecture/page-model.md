@@ -85,8 +85,8 @@ response instead is a Web channel concern and belongs to the NiceGUI adapter.
 A PageDefinition paired with the handler that implements it.
 
 Page is not generic. A PageHandler declares no input or output model, so every Page already
-shares one static type and needs no binding step before storage. ADR-014 applies to Tools
-only.
+shares one static type and needs no binding step before storage. Only a Tool, whose declared
+models differ per Tool, needs one.
 
 ### ToolInvoker
 
@@ -103,8 +103,7 @@ imports nothing from the Tool package.
 
 ToolRuntime satisfies the Protocol structurally, so nothing stands between a Page and the
 canonical invocation path. What a Page can reach is what this Protocol declares: one
-operation, addressed by name. See
-`docs/decisions/ADR-016-tool-invocation-has-one-name.md`.
+operation, addressed by name.
 
 Tool errors are not translated. `ToolNotFoundError`, `ToolInputValidationError` and
 `ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
