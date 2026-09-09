@@ -70,12 +70,13 @@ that predates this work.
 
 | Stage | Contents | Done when |
 | --- | --- | --- |
-| **A0** | the ADR rules in AGENTS.md, then the overhaul of the existing records against them, then one new ADR: the framework implements channel neutrality and delegates the rest (P1/P2), carrying the extras split and the three-distribution naming as its consequences | every surviving record passes the bar, and the new one was judged by the same bar rather than added on top of records that were not |
-| **L1** | the layout move and the extras split. Pure restructuring, no behaviour change | the same 152 tests pass; a `notes` environment contains no nicegui; CI runs what the Makefile runs |
+| **A0** — done, merged | the ADR rules in AGENTS.md, then the overhaul of the existing records against them, then one new ADR: the framework implements channel neutrality and delegates the rest (P1/P2), carrying the extras split and the three-distribution naming as its consequences | every surviving record passes the bar, and the new one was judged by the same bar rather than added on top of records that were not |
+| **Q1** — done, merged | AGENTS.md holds boundaries; the twelve descriptions among its invariants go back to the architecture documents that already carried them. Lifted out of CR3 because every later stage has to know what belongs in AGENTS.md, and guessing it wrong once was enough | AGENTS.md states only what an agent must not do |
+| **L1** — next, `docs/milestones/L1/` | the layout move and the extras split. Pure restructuring, no behaviour change | the same 152 tests pass; a `notes` environment contains no nicegui; CI runs what the Makefile runs |
 | **CR1** | framework core: C1 path traversal, I15 `to_error_info`, I1 `AppNotDeclared`, I6 duplicate Page name, D1 serialization schema, dead-code deletions, I14 invariant guards | a reproducing test per item |
 | **CR2** | the Hub: App identity unification (dissolves I11, I18, M3, M5), I2 blocking I/O, I7/I16/I17 failure paths, I8/I9/I19 contracts, I10 state durability, I21/I22 hollow tests, I24 samples | a reproducing test per item |
 | **R1** | subdomain routing and fixed ports, with its ADR. `RunningApp` returns a URL | two Apps served concurrently through one static proxy configuration |
-| **CR3** | remaining documentation debt: I3, I4, I12, I13, I27, I28, and Q1–Q4 | the documents match the code |
+| **CR3** | remaining documentation debt: I3, I4, I12, I13, I27, I28, and Q2–Q4 | the documents match the code |
 
 Ordering is not arbitrary. A0 precedes L1 because the simplicity ADR is what justifies splitting
 the core's dependencies. L1 precedes CR1 because a pure move must not share a diff with defect
@@ -141,7 +142,6 @@ I25 and I26 from `findings.md` are settled here rather than in CR3.
 
 ## Open questions for the owner
 
-Recorded in `findings.md` as Q1–Q4. Q1 is the one that blocks work: AGENTS.md restates about
-eleven facts that architecture documents own, so the repository's own one-role rule cannot be
-satisfied without either a carve-out or a cite-don't-restate policy. Deciding it after CR3 edits
-files means editing them twice.
+Recorded in `findings.md` as Q1–Q4. Q1 is settled and merged: it blocked everything after it,
+because each stage has to know whether what it learns belongs in AGENTS.md. Q2, Q3 and Q4 remain
+and are CR3's.
