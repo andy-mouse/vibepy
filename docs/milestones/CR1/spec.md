@@ -209,7 +209,7 @@ I9's, and CR2 unifies it; CR1 adds one type and no new `Diagnostic` code.
 
 ## Testing
 
-`make test` collects 153 tests where CR1 begins and 191 where it ends. Two go with the method
+`make test` collects 153 tests where CR1 begins and 189 where it ends. Two go with the method
 each covers: `test_definitions_enumerates_every_registered_page` and
 `test_registry_enumerates_the_declarations_it_registered`. The two that assert a registry replaces
 on re-registration keep their `resolve` assertion and lose their `definitions()` one, because that
@@ -244,14 +244,21 @@ What CR1 adds:
 - **I20** — a Page handler raising a framework error, and one raising an App's own exception,
   both reached through a registered route. The assertion is that the exception arrives unchanged
   and no normalized payload is produced: the Web channel translates nothing.
-- **I14** — one guard replaces the two duplicated AST scans. It reads every module under
-  `src/vibepy_core` that is not a channel component — `adapters/` and `serve.py`, which
-  `packaging.md` documents as the command that opens the Web channel — and it also imports
-  `vibepy_core` in a subprocess and asserts neither `mcp` nor `nicegui` is in `sys.modules`,
-  which catches a leak reached through an import rather than written in the file.
-  `test_app_isolation.py` already uses the subprocess technique. A fourth test asserts the
-  scan's own coverage, derived from `__all__`: every module a publicly exported name is defined
-  in must be scanned, so narrowing the scan fails without pinning any internal path.
+- **I14** — the static half moves to the linter and the two duplicated AST scans are deleted.
+  `TID251` bans `mcp` and `nicegui` across `src/vibepy_core`, with `adapters/` and `serve.py`
+  exempt because being a channel component is their job — `packaging.md` documents `serve` as
+  the command that opens the Web channel. A rule a tool enforces is not re-implemented as a
+  test, and the linter reaches modules a test cannot: `describe.py` is covered though nothing
+  imports it.
+
+  One test remains, for what a static rule cannot see — an SDK reached through another import
+  rather than named in the file. It imports `vibepy_core` in a subprocess and asserts neither
+  SDK is in `sys.modules`; `test_app_isolation.py` uses the same technique.
+
+  This reads the seventh criterion's "fails a test" as the repository's own gate, which
+  `AGENTS.md` states as `make lint typecheck test`: a leak anywhere in the core fails it. A leak
+  in a module the package root reaches fails the test as well. The reading is stated here
+  because it is a reading, and the criterion is the owner's.
 
 ## Compatibility
 
