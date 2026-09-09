@@ -6,6 +6,9 @@ child is this window's resource, released when the window closes, and status
 answers for what this window started — the same reading
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` gives the Agent
 channel's processes.
+
+A child is owned from the moment it exists, so nothing between the spawn and the
+first answer can leave one this window cannot release.
 """
 
 import asyncio
@@ -14,6 +17,7 @@ import logging
 import os
 import socket
 from collections.abc import Mapping
+from dataclasses import dataclass
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -75,22 +79,50 @@ def free_port() -> int:
         return int(probe.getsockname()[1])
 
 
+@dataclass
+class _Child:
+    """One started App: the process, its port, and whether it has answered."""
+
+    process: asyncio.subprocess.Process
+    port: int
+    answering: bool = False
+
+
 class Processes:
     """One window's running Apps."""
 
-    def __init__(self) -> None:
-        self._running: dict[str, tuple[asyncio.subprocess.Process, int]] = {}
+    def __init__(self, *, logs: Path) -> None:
+        self._running: dict[str, _Child] = {}
+        self._logs = logs
 
     def running(self, app_name: str, /) -> int | None:
-        """The port an App is serving on, or nothing when it is not running."""
-        found = self._running.get(app_name)
-        if found is None:
+        """The port an App is serving on, or nothing when it is not serving."""
+        child = self._running.get(app_name)
+        if child is None:
             return None
-        process, port = found
-        if process.returncode is not None:
+        if child.process.returncode is not None:
             del self._running[app_name]
             return None
-        return port
+        return child.port if child.answering else None
+
+    def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
+        """The child this window holds for an App, serving or not yet serving.
+
+        `running` answers with a port and therefore only for a child that has
+        answered. Ownership begins earlier, and a caller that must release a
+        child -- or a test that must see one -- asks this.
+        """
+        child = self._running.get(app_name)
+        return None if child is None else child.process
+
+    async def _release(self, known_as: str, /) -> None:
+        """Kill and reap a child this window can no longer wait for."""
+        child = self._running.pop(known_as, None)
+        if child is None:
+            return
+        if child.process.returncode is None:
+            child.process.kill()
+        await child.process.wait()
 
     async def _wait_until_answering(
         self, process: asyncio.subprocess.Process, port: int, /
@@ -163,27 +195,30 @@ class Processes:
             stdin=asyncio.subprocess.PIPE,
             env=child_environment(),
         )
-        if process.stdin is not None:
-            process.stdin.write(json.dumps(dict(config)).encode())
-            await process.stdin.drain()
-            process.stdin.close()
+        child = _Child(process=process, port=port)
+        self._running[known_as] = child
         try:
+            if process.stdin is not None:
+                process.stdin.write(json.dumps(dict(config)).encode())
+                await process.stdin.drain()
+                process.stdin.close()
             await self._wait_until_answering(process, port)
-        except StartFailed:
-            if process.returncode is None:
-                process.kill()
-                await process.wait()
+        except OSError as broken:
+            await self._release(known_as)
+            raise StartFailed(f"the App did not take its configuration: {broken}") from broken
+        except BaseException:
+            await self._release(known_as)
             raise
-        self._running[known_as] = (process, port)
+        child.answering = True
         logger.info("started %s on port %d", known_as, port)
         return port
 
     async def stop(self, app_name: str, /) -> bool:
         """Terminate one App, then kill it if it does not leave."""
-        found = self._running.pop(app_name, None)
-        if found is None:
+        child = self._running.pop(app_name, None)
+        if child is None:
             return False
-        process, _ = found
+        process = child.process
         if process.returncode is not None:
             return True
         process.terminate()

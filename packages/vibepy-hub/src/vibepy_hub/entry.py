@@ -37,7 +37,7 @@ async def hub_lifespan(config: HubConfig) -> AsyncGenerator[HubDeps]:
     behind. See `docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
     """
     await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
-    processes = Processes()
+    processes = Processes(logs=config.root / "logs")
     try:
         yield HubDeps(root=config.root, processes=processes)
     finally:
