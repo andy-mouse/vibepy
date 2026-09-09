@@ -48,7 +48,7 @@ def wait_for(url: str, process: "subprocess.Popen[bytes]", *, timeout: float = 3
 
 def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
-    config = json.dumps({"db_path": str(tmp_path / "todo.db")})
+    config = json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"})
     process = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
         stdin=subprocess.PIPE,

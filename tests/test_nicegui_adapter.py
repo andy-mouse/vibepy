@@ -7,13 +7,15 @@ fixture is built on and which performs the same reset: the fixture also fails a
 test on any ERROR log, and a render that raises logs one.
 """
 
+from pathlib import Path
+
 import pytest
 from nicegui import app, ui
 from nicegui.testing import User, user_simulation  # pyright: ignore[reportUnknownVariableType]
 from starlette.routing import Route
 
 from tests.lifecycle import no_dependencies
-from todo_app.entry import TODO_APP, TODO_CONFIG, todo_lifespan
+from todo_app.entry import TODO_APP, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
 from vibepy_core.errors import (
@@ -130,8 +132,9 @@ async def test_a_rejected_registry_registers_nothing(user: User) -> None:
     assert "/todos" not in registered_paths()
 
 
-async def test_page_interaction_invokes_a_tool(user: User) -> None:
-    async with page_runtime_for(TODO_APP, todo_lifespan, config=TODO_CONFIG) as pages:
+async def test_page_interaction_invokes_a_tool(user: User, tmp_path: Path) -> None:
+    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}
+    async with page_runtime_for(TODO_APP, todo_lifespan, config=config) as pages:
         register_pages(TODO_APP, pages)
         await user.open("/todos")
         user.find("title").type("write the spec")

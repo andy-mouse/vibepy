@@ -28,7 +28,7 @@ def test_a_description_carries_the_declared_identity() -> None:
 def test_a_description_carries_the_configuration_schema() -> None:
     description = APP.describe()
 
-    assert properties(description.config_schema) == ["db_path"]
+    assert properties(description.config_schema) == ["db_key", "db_path"]
 
 
 def test_a_description_carries_every_tool_with_both_schemas() -> None:

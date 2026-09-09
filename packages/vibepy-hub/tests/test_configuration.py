@@ -21,14 +21,18 @@ async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         held = await tools.invoke(
             "configure_app",
-            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
+            },
         )
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(held, HeldConfig)
     assert held.diagnostic is None
     assert held.values == {"db_path": str(tmp_path / "todo.db")}
-    assert held.secret_fields == []
+    assert held.secret_fields == ["db_key"]
+    assert held.secrets_set == ["db_key"]
     assert isinstance(listed, AppListing)
     assert [row.configured for row in listed.apps if row.app_name == "vibepy-todo"] == [True]
 

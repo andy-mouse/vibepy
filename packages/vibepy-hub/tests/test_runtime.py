@@ -24,7 +24,10 @@ async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
-            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
+            },
         )
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         assert isinstance(started, RunningApp)
@@ -84,7 +87,10 @@ async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
-            {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.db")}},
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
+            },
         )
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         assert isinstance(started, RunningApp)

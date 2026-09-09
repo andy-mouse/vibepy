@@ -69,7 +69,7 @@ def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) 
     assert result.returncode == 0, result.stderr
     todo = described_app(result, "todo-app")
     assert todo["version"] == "0.0.0"
-    assert sorted(todo["config_schema"]["properties"]) == ["db_path"]
+    assert sorted(todo["config_schema"]["properties"]) == ["db_key", "db_path"]
     assert [tool["name"] for tool in todo["tools"]] == ["create_todo", "list_todos"]
     assert [page["route"] for page in todo["pages"]] == ["/todos"]
     assert described_app(result, "notes-app")["pages"] == []
