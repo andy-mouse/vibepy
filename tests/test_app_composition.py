@@ -18,7 +18,7 @@ from vibepy_core.app import (
     page_runtime_for,
     tool_runtime_for,
 )
-from vibepy_core.errors import PageNameConflictError
+from vibepy_core.errors import PageNameConflictError, ToolNameConflictError
 from vibepy_core.page import Page, PageContext, PageDefinition
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
@@ -223,3 +223,37 @@ async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
 
     assert error.value.page_name == "todos"
     assert {error.value.route, error.value.conflicting_route} == {"/todos", "/todo-list"}
+
+
+async def test_two_tools_declaring_one_name_do_not_open_a_window() -> None:
+    """A channel enumerates the declaration, so a duplicate name would publish
+    two Tools and answer both with one. ADR-027."""
+
+    async def read(_ctx: ToolContext[None], _payload: EmptyInput) -> Entry:
+        return Entry(seen="either")
+
+    def declared(description: str) -> Tool[None]:
+        return Tool(
+            definition=ToolDefinition(
+                name="read",
+                description=description,
+                input_model=EmptyInput,
+                output_model=Entry,
+            ),
+            handler=read,
+        )
+
+    definition: AppDefinition[None, NoConfig] = AppDefinition(
+        app_id="collides",
+        name="Collides",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[declared("first"), declared("second")],
+        pages=[],
+    )
+
+    with pytest.raises(ToolNameConflictError) as error:
+        async with tool_runtime_for(definition, no_dependencies, config={}):
+            raise AssertionError("the window must not open")
+
+    assert error.value.tool_name == "read"

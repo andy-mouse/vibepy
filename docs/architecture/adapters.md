@@ -30,8 +30,10 @@ Framework ToolDefinition -> MCP projection
 
 Never make MCP decorators or MCP SDK types the source of truth for framework Tools.
 
-`build_mcp_server(definition, lifespan)` reads the registry it enumerates, and the server's name
-and version, from the declaration. The ToolRuntime a call goes through is read from the SDK's
+`build_mcp_server(definition, lifespan)` enumerates the declaration for discovery, and reads the
+server's name and version from it. It builds no registry of its own, so a running App holds the
+one its window created and the list an agent is shown cannot be a different object from the map
+its call resolves in. The ToolRuntime a call goes through is read from the SDK's
 request context, which carries whatever the lifespan yielded, so the adapter holds no running
 state of its own.
 

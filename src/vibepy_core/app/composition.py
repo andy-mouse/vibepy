@@ -16,7 +16,11 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pydantic import BaseModel, ValidationError
 
 from vibepy_core.app.model import AppDefinition
-from vibepy_core.errors import AppConfigInvalidError, PageNameConflictError
+from vibepy_core.errors import (
+    AppConfigInvalidError,
+    PageNameConflictError,
+    ToolNameConflictError,
+)
 from vibepy_core.page.registry import PageRegistry
 from vibepy_core.page.runtime import PageRuntime
 from vibepy_core.tool.registry import ToolRegistry
@@ -36,9 +40,19 @@ release a resource whose type it does not know. See
 def tool_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> ToolRegistry[DepsT]:
-    """Fill a ToolRegistry from declarations. Reads no resource."""
+    """Fill a ToolRegistry from declarations. Reads no resource.
+
+    A name declared twice is refused rather than replaced: a channel enumerates
+    the declaration, so a duplicate would publish two Tools and answer both with
+    one. See `docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md`.
+    """
     registry: ToolRegistry[DepsT] = ToolRegistry()
+    claimed: set[str] = set()
     for tool in definition.tools:
+        name = tool.definition.name
+        if name in claimed:
+            raise ToolNameConflictError(name)
+        claimed.add(name)
         registry.register(tool)
     return registry
 
@@ -48,10 +62,10 @@ def page_registry_for[DepsT, ConfigT: BaseModel](
 ) -> PageRegistry:
     """Fill a PageRegistry from declarations. Reads no resource.
 
-    A name declared twice is refused rather than replaced. The registry's own
-    contract is that a re-registration replaces, and `page-model.md` places a
-    check by the model that owns the field: a route belongs to the Web channel
-    adapter, and a name is what the framework addresses a Page by.
+    A name declared twice is refused rather than replaced, as ADR-027 requires
+    of both registries. `page-model.md` also places a check by the model that
+    owns the field: a route belongs to the Web channel adapter, and a name is
+    what the framework addresses a Page by.
     """
     registry = PageRegistry()
     claimed: dict[str, str] = {}

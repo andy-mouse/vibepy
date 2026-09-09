@@ -104,17 +104,25 @@ None. Every change applies a record that already exists:
 Two readings are settled here rather than in a record, because each follows from a document
 rather than from a choice:
 
-- **The two channels enumerate declarations from different sources, and both are documented.**
-  The Agent channel enumerates a `ToolRegistry` built from the declaration (ADR-011's
-  consequence, kept unchanged by ADR-014, held by `tool-model.md` and `adapters.md`); the Web
-  channel enumerates the declaration itself (ADR-012's amendment, `adapters.md`). CR1 does not
-  unify them. `PageRegistry.definitions()` is therefore deleted and `ToolRegistry.definitions()`
-  is kept, and the acceptance criterion's two branches are answered one each.
-- **Name replacement stays the registries' contract, and only Pages need a conflict refused.**
-  A duplicate Tool name is invisible to an agent because discovery and dispatch read the same
-  registry: one Tool is published and that same one is called. A duplicate Page name is not,
-  because registration reads the declaration and rendering reads the registry. The defect is the
-  asymmetry, not the replacement, so the replacement rule is left as three documents state it.
+ADR-027 is written, because the sixth criterion cannot be met without taking a decision. The
+criterion is that `PageRegistry.definitions()` and the Agent channel's second `ToolRegistry` are
+gone or used, and the second `ToolRegistry` exists for one reason: the adapter builds a lookup
+table to enumerate a list it already holds. Removing that reason reverses a consequence
+`tool-model.md` still states, which is a record's work rather than a spec's. Two readings the
+record rests on:
+
+- **ADR-011's consequence outlived its premise.** ADR-011 had the adapter enumerate a registry
+  because the registry "stores the bound callable alone and discards each declaration", so
+  discovery "has nothing to enumerate". ADR-014 moved binding into `Tool`, so an `AppDefinition`
+  holds Tools that carry their own declarations — and kept `definitions()` "unchanged" without
+  asking whether an adapter still needed it. Of three enumerating surfaces only one went through
+  a registry: the Web adapter reads the declaration (ADR-012's amendment) and so does
+  `AppEntrypoint.describe`.
+- **Refusing a duplicate name becomes required for Tools, not only for Pages.** While discovery
+  read the registry a duplicate Tool name could not be seen: one Tool was published and that same
+  one was called. Enumerating the declaration removes that, so the refusal `page_registry_for`
+  performs is now owed by `tool_registry_for` too. The registries keep replacement as their own
+  contract, and no framework path reaches it.
 
 ## Scope
 
@@ -126,7 +134,9 @@ rather than from a choice:
 4. A duplicate Page name is refused where declarations become a registry.
 5. A declaration answers with its own JSON Schemas, and both publishing surfaces ask it,
    so the output schema a channel publishes is the one its payload is serialized against.
-6. `PageRegistry.definitions()` is deleted.
+6. Both channels enumerate the declaration, both registries answer a name and nothing
+   else, and both refuse a name declared twice. `PageRegistry.definitions()` and
+   `ToolRegistry.definitions()` are deleted, and a running App holds one `ToolRegistry`.
 7. One guard covers both channel SDKs across every core module, statically and at import time.
 
 ## Public API
@@ -139,7 +149,9 @@ Three additions and one deletion. Nothing is renamed and no signature changes.
 | code `package.app_not_declared`, category `caller` | added |
 | `PageNameConflictError`, code `page.name_conflict`, category `declaration` | added |
 | `ToolDefinition.input_schema()` and `output_schema()` | added |
+| `ToolNameConflictError`, code `tool.name_conflict`, category `declaration` | added |
 | `PageRegistry.definitions()` | deleted |
+| `ToolRegistry.definitions()` | deleted |
 
 `AppNotDeclared` moves out of `serve.py` and gains the `Error` suffix every other framework
 exception carries. It was never exported and never caught outside the module that raised it, so
@@ -258,15 +270,18 @@ so nothing reads either form today.
 
 Only what CR1 makes false:
 
-- `errors.md` — two rows in the code table.
+- `errors.md` — three rows in the code table.
+- `tool-model.md` — what a channel asks of a registry, and that a duplicate name is refused
+  before one is filled. `adapters.md` — that the Agent channel's adapter builds no registry.
 - `page-model.md` — the paragraph stating that the registry enumerates its declarations because
   a Web channel adapter projects them is deleted, which is what ADR-012's amendment already
   recorded; a sentence says where a name conflict is refused.
 - `tool-model.md`, `adapters.md` — unchanged. Both describe the Agent channel's enumeration as
   it stays.
 
-No `Accepted` record changes. ADR-012's decision is unaffected: CR1 adds the check its
-consequence describes to a second field.
+No existing record changes. ADR-012's decision is unaffected: CR1 adds the check its consequence
+describes to a second field. ADR-027 is new, and supersedes nothing — the consequence it reverses
+belongs to a record ADR-014 already superseded, and current truth is `tool-model.md`.
 
 The Hub has no architecture document to update, which is I13 and CR3's.
 
@@ -277,9 +292,8 @@ The Hub has no architecture document to update, which is I13 and CR3's.
   vocabulary
 - `serve.py`'s hand-written `serve.config_invalid` string, a published code with no exception
   class. The review did not promote it and it is the same path as I8, which CR2 owns
-- unifying the two channels' enumeration sources, which would reverse ADR-011 and ADR-014 and
-  answers no defect
-- Tool name conflicts, and Q2's question of whether a Tool name is validated at all — CR3
+- Q2's question of whether a Tool name's string is validated at all — CR3. ADR-027 makes a
+  duplicate name a failure; whether a name is well formed is a separate question
 - `list_tools` ignoring the pagination cursor, and the reviewer suggestions the coordinator did
   not promote to `findings.md`
 - ADR-016's untested consequence that the Page package imports nothing from the Tool package.

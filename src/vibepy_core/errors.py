@@ -83,6 +83,19 @@ class ToolOutputValidationError(VibepyError):
         return {"tool_name": self.tool_name}
 
 
+class ToolNameConflictError(VibepyError):
+    """Two Tools declared the same name."""
+
+    code = "tool.name_conflict"
+
+    def __init__(self, tool_name: str) -> None:
+        super().__init__(f"Two Tools declare the name {tool_name!r}")
+        self.tool_name = tool_name
+
+    def details(self) -> Mapping[str, str]:
+        return {"tool_name": self.tool_name}
+
+
 class PageNotFoundError(VibepyError):
     """No Page is registered under the requested name."""
 
@@ -215,6 +228,7 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
     ToolOutputValidationError.code: ErrorCategory.EXECUTION,
+    ToolNameConflictError.code: ErrorCategory.DECLARATION,
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
     PageRouteConflictError.code: ErrorCategory.DECLARATION,

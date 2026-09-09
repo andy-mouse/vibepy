@@ -27,6 +27,7 @@ from vibepy_core.errors import (
     PageRouteConflictError,
     PageRouteInvalidError,
     ToolInputValidationError,
+    ToolNameConflictError,
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
@@ -134,6 +135,12 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
             "reference": "todo_app.entry:app",
             "found": "AppDefinition",
         },
+    ),
+    (
+        ToolNameConflictError("create_todo"),
+        "tool.name_conflict",
+        ErrorCategory.DECLARATION,
+        {"tool_name": "create_todo"},
     ),
     (
         PageNameConflictError("todos", "/todos", "/todo-list"),

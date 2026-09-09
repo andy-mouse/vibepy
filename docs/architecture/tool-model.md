@@ -95,11 +95,13 @@ handler.
 Maps a Tool name to the Tool registered under it. Storage only; it implements no
 invocation semantics.
 
-One dictionary suffices: a Tool carries both its declaration and its bound callable.
-ToolRuntime resolves a Tool by name, and `definitions()` enumerates
-`tool.definition` in registration order, which is what a channel needs for discovery.
+One dictionary suffices, and resolution is all a channel asks of it: a channel enumerates what
+an App declares from the declaration, so a registry answers a name and nothing else. See
+`docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md`.
 
-Registering a name twice replaces the earlier Tool, declaration included.
+Registering a name twice replaces the earlier Tool, declaration included. A declaration carrying
+one name twice never reaches the registry: the window refuses it where it builds one, because
+enumeration and resolution no longer read the same object.
 
 ### ToolRuntime
 

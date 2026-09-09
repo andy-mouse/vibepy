@@ -275,37 +275,23 @@ async def test_each_invocation_receives_its_own_invocation_id() -> None:
     assert first.invocation_id != second.invocation_id
 
 
-def test_registry_enumerates_the_declarations_it_registered() -> None:
+def test_registering_a_name_twice_replaces_the_earlier_tool() -> None:
+    """The registry's own contract, which no framework path reaches: ADR-027 has
+    a window refuse a declaration carrying one name twice."""
     registry: ToolRegistry[TodoStore] = ToolRegistry()
     registry.register(create_todo_tool())
-    registry.register(list_todos_tool())
-
-    definitions = registry.definitions()
-
-    assert [definition.name for definition in definitions] == ["create_todo", "list_todos"]
-    assert definitions[0].input_model is CreateTodoInput
-    assert definitions[0].output_model is Todo
-
-
-def test_registering_a_name_twice_replaces_its_declaration() -> None:
-    registry: ToolRegistry[TodoStore] = ToolRegistry()
-    registry.register(create_todo_tool())
-    registry.register(
-        Tool(
-            definition=ToolDefinition(
-                name="create_todo",
-                description="Replaced",
-                input_model=CreateTodoInput,
-                output_model=Todo,
-            ),
-            handler=create_todo,
-        )
+    replacement = Tool(
+        definition=ToolDefinition(
+            name="create_todo",
+            description="Replaced",
+            input_model=CreateTodoInput,
+            output_model=Todo,
+        ),
+        handler=create_todo,
     )
+    registry.register(replacement)
 
-    definitions = registry.definitions()
-
-    assert len(definitions) == 1
-    assert definitions[0].description == "Replaced"
+    assert registry.resolve("create_todo") is replacement
 
 
 async def test_the_handler_receives_the_runtime_dependencies() -> None:

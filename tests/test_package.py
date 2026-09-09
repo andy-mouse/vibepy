@@ -34,6 +34,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolHandler",
         "ToolInputValidationError",
         "ToolInvoker",
+        "ToolNameConflictError",
         "ToolNotFoundError",
         "ToolOutputValidationError",
         "ToolRegistry",

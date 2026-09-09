@@ -20,6 +20,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `tool.not_found` | caller | `ToolNotFoundError` |
 | `tool.input_invalid` | caller | `ToolInputValidationError` |
 | `tool.output_invalid` | execution | `ToolOutputValidationError` |
+| `tool.name_conflict` | declaration | `ToolNameConflictError` |
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
