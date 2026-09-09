@@ -17,6 +17,7 @@ from vibepy_core.errors import (
     AppConfigInvalidError,
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
+    AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
     PageNotFoundError,
@@ -110,6 +111,12 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
             "reference": "todo_app.entry:app",
             "found": "AppDefinition",
         },
+    ),
+    (
+        AppNotDeclaredError("absent"),
+        "package.app_not_declared",
+        ErrorCategory.CALLER,
+        {"app_name": "absent"},
     ),
 ]
 

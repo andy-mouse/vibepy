@@ -25,6 +25,7 @@ from vibepy_core.app.package import APP_GROUP, discover_apps
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
+    AppNotDeclaredError,
     to_error_info,
 )
 
@@ -32,10 +33,6 @@ logger = logging.getLogger(__name__)
 
 _CONFIG = TypeAdapter(dict[str, object])
 """Standard input is one JSON object of configuration, validated as such."""
-
-
-class AppNotDeclared(Exception):
-    """No App of that name is declared in this environment."""
 
 
 def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:
@@ -62,7 +59,7 @@ def _entrypoint(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
         if not _is_entrypoint(loaded):
             raise AppEntrypointInvalidError(app_name, reference, type(loaded).__name__)
         return loaded
-    raise AppNotDeclared(f"No App named {app_name!r} is declared in this environment")
+    raise AppNotDeclaredError(app_name)
 
 
 def _serve(
@@ -83,8 +80,10 @@ def main(argv: Sequence[str], /) -> int:
 
     Exits 1 for a failure of the command itself — an App this environment does
     not declare, a declaration that will not load, configuration that is not a
-    JSON object. A window the App refuses to open fails the server's startup,
-    and the server's own exit code says so.
+    JSON object — writing the framework's code and message as one JSON object to
+    standard error, which is what `docs/architecture/packaging.md` says a command
+    does. A window the App refuses to open fails the server's startup, and the
+    server's own exit code says so.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")
@@ -97,10 +96,11 @@ def main(argv: Sequence[str], /) -> int:
         return 1
     try:
         entrypoint = _entrypoint(str(parsed.app_name))
-    except AppNotDeclared as absent:
-        sys.stderr.write(f"{absent}\n")
-        return 1
-    except (AppEntrypointUnloadableError, AppEntrypointInvalidError) as error:
+    except (
+        AppNotDeclaredError,
+        AppEntrypointUnloadableError,
+        AppEntrypointInvalidError,
+    ) as error:
         info = to_error_info(error)
         sys.stderr.write(json.dumps({"code": info.code, "message": info.message}) + "\n")
         return 1

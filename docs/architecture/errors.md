@@ -26,6 +26,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `config.invalid` | caller | `AppConfigInvalidError` |
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
+| `package.app_not_declared` | caller | `AppNotDeclaredError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.

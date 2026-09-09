@@ -177,6 +177,19 @@ class AppEntrypointInvalidError(VibepyError):
         return {"app_name": self.app_name, "reference": self.reference, "found": self.found}
 
 
+class AppNotDeclaredError(VibepyError):
+    """No App of that name is declared in this environment."""
+
+    code = "package.app_not_declared"
+
+    def __init__(self, app_name: str) -> None:
+        super().__init__(f"No App named {app_name!r} is declared in this environment")
+        self.app_name = app_name
+
+    def details(self) -> Mapping[str, str]:
+        return {"app_name": self.app_name}
+
+
 _CATEGORIES: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
@@ -187,6 +200,7 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     AppConfigInvalidError.code: ErrorCategory.CALLER,
     AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
+    AppNotDeclaredError.code: ErrorCategory.CALLER,
 }
 
 
