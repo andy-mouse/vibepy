@@ -96,7 +96,13 @@ testpaths = ["tests", "packages"]
 # rewriting on import, and no __init__.py in a tests directory, so two
 # distributions may each hold one without their packages colliding.
 # <https://docs.pytest.org/en/stable/explanation/goodpractices.html>
-addopts = ["--import-mode=importlib"]
+# `--durations` is not a diagnostic left switched on by accident. This suite
+# starts real child processes and builds real environments, so its cost is a
+# property worth seeing at the moment it changes rather than after a gate has
+# grown slow -- and it is the only way to see which tests cost what on a
+# platform none of us runs, which is how the Windows runner came to take four
+# times the macOS one without anyone able to say where.
+addopts = ["--import-mode=importlib", "--durations=15"]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
 pythonpath = ["tests", "packages/vibepy-hub/tests"]
