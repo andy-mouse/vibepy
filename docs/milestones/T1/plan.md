@@ -553,6 +553,136 @@ local before/after, and the Windows number comes only from CI after merge.
 
 ---
 
+### Task 7: The copy holds what the test names
+
+Tasks 1-5 gave every copy all three Apps, and the spec's "What the first execution measured"
+records what that cost: 3.50s a copy, twenty-one times, and a local gate slower than before the
+stage. This task makes the copy hold only the Apps a test names and removes the rest through the
+Hub's own `remove_app`, per the spec's decision "The copy holds the Apps the test names".
+
+**Files:**
+- Modify: `pyproject.toml` (`[tool.pytest.ini_options]`, `markers`)
+- Modify: `packages/vibepy-hub/tests/conftest.py`
+- Modify: every test taking `installed` in `packages/vibepy-hub/tests/test_addresses.py`,
+  `test_configuration.py`, `test_installation.py`, `test_proxy.py`, `test_runtime.py`,
+  `test_state.py`
+
+**Interfaces:**
+- Consumes: `installed: Path`, `template_root`, `APPS` from Task 1; `hub` from `tests_support`.
+- Produces: the `apps` marker every copy-taking test carries.
+
+- [ ] **Step 1: Register the marker**
+
+In `pyproject.toml`, extend `markers` so it reads:
+
+```toml
+markers = [
+    "integration: crosses into a real distribution or child process",
+    "apps(*names): the fixture Apps a test's copy of the template root holds",
+]
+```
+
+- [ ] **Step 2: The fixture reads the marker and prunes the copy**
+
+Replace the `installed` fixture in `conftest.py` with this one. The docstring's claims are the
+spec's; keep them true.
+
+```python
+@pytest.fixture
+def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Path) -> Path:
+    """Give one test its own copy of the template root, holding the Apps it names.
+
+    A test says which Apps it needs with `@pytest.mark.apps("vibepy-todo")`, the
+    way pytest's guide has a fixture read a test's data from its marker. Only
+    those Apps' environments are linked -- a copy has the same unit of cost as
+    an install, entries created, and a test that needs one App must not pay for
+    three. The Apps left out are then removed through `remove_app`, so the
+    copy's state, ports and routes agree with its `envs/` directory. A test
+    that names nothing gets nothing: a copy whose contents nobody chose is
+    what the spec measured at 3.5s.
+
+    Hardlinked rather than copied: the bytes are already on the disk and
+    already assessed, and a second inode for each would be the cost the
+    template exists to avoid. The only thing rewritten is the one path the Hub
+    recorded inside the root, each environment's `purelib`.
+    """
+    marker = request.node.get_closest_marker("apps")
+    assert marker is not None, "a test taking `installed` names its Apps with @pytest.mark.apps"
+    named = frozenset(marker.args)
+    unknown = named - frozenset(APPS)
+    assert not unknown, f"not fixture Apps: {sorted(unknown)}"
+
+    def leave_out(directory: str, names: list[str]) -> list[str]:
+        if Path(directory) != template_root / "envs":
+            return []
+        return [name for name in names if name not in named]
+
+    root = tmp_path / "hub"
+    shutil.copytree(template_root, root, copy_function=os.link, ignore=leave_out)
+    for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
+        facts = json.loads(recorded.read_text(encoding="utf-8"))
+        facts["purelib"] = str(root / Path(facts["purelib"]).relative_to(template_root))
+        # Unlinked first: every file here is a hardlink to the template's, and
+        # writing through this name would write the template too.
+        recorded.unlink()
+        recorded.write_text(json.dumps(facts, indent=1), encoding="utf-8")
+
+    async def prune() -> None:
+        async with hub(root) as tools:
+            for app_name in APPS:
+                if app_name not in named:
+                    await tools.invoke("remove_app", {"app_name": app_name})
+
+    asyncio.run(prune())
+    return root
+```
+
+- [ ] **Step 3: Every copy-taking test names its Apps**
+
+For each test that takes `installed`, read its body and add `@pytest.mark.apps(...)` naming
+exactly the Apps it uses -- the ones it starts, configures, asks the address of, removes, or
+asserts a fact about. Rules:
+
+- an App the test asserts is *available* or *absent* (`test_an_installed_app_is_listed_apart_from_an_offered_one`
+  removes `vibepy-timer` to show it offered) is not named; the test's own `remove_app` call for
+  that purpose is then deleted, because the fixture already did it, and the assertion stays
+- an App the test asserts `has_pages is False` about (`vibepy-notes`) is named, because the fact
+  is read from a row of an installed App
+- a test that needs two Apps names two; the proxy test serving two Apps names both
+- the marker goes on the test beside `@pytest.mark.integration`
+
+Then convert `test_configuration.py::test_a_secret_is_held_so_a_restart_needs_no_one`, which
+Task 1 left installing: its subject is that a held secret survives a window, not installing. It
+takes `installed`, names `vibepy-todo`, and both its windows open over `installed`; its assertions
+are untouched.
+
+- [ ] **Step 4: Prove the marker is required and exact**
+
+Write no test for this; prove it once by hand and record it in the report: remove the marker from
+one test, run that test alone, see the fixture's assertion fail with its message, restore it. Then
+misspell one as `@pytest.mark.app(...)`, run, see `strict_markers` fail collection, restore.
+
+- [ ] **Step 5: Prove each converted test still fails for its own reason**
+
+For `test_a_secret_is_held_so_a_restart_needs_no_one` and
+`test_an_installed_app_is_listed_apart_from_an_offered_one`, invert the decisive assertion, run
+alone, see it fail, restore.
+
+- [ ] **Step 6: Run the gate and read the durations**
+
+Run: `make lint typecheck test`
+Expected: pass, 252 tests; in the `--durations=15` block no `setup` line above about 1.7s on
+macOS, and the total below the 169s the spec records. Paste the block into the report.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add pyproject.toml packages/vibepy-hub/tests
+git commit -m "Hand a test a copy of the Apps it names, and no other"
+```
+
+---
+
 ## Verification at merge
 
 The last acceptance criterion is read from CI, not from a laptop. After the merge to `main` is

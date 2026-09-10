@@ -39,6 +39,25 @@ Two things the measurement rules out. It is not the readiness poll: `READY_INTER
 start costs 1.66s there. It is not a cold uv cache asymmetry: both jobs missed the action cache
 identically, and `uv sync` alone is 241ms against 1.07s, the same ratio as everything else.
 
+### What the first execution measured
+
+The stage was first executed with a copy that held all three Apps, and the local gate went from
+131s to 169s. A copy has the same unit as an install — entries created — and a root holding three
+Apps is 8,746 of them:
+
+| Copy of the template root, hardlinked | macOS |
+| --- | --- |
+| all three Apps (8,746 entries) | 3.50s |
+| `vibepy-todo` and `vibepy-timer` | 3.00s |
+| `vibepy-todo` alone (4,079 entries) | 1.69s |
+| `vibepy-notes` alone (1,299 entries) | 0.50s |
+| a window that removes the Apps a copy left out | 0.01s |
+
+Twenty-one tests took that copy, and a test that once installed `vibepy-notes` in 0.87s now paid
+3.50s for two environments it never opened. At Windows's measured rate for a hardlink, one such
+copy is about nine seconds, and twenty-one of them are the 400s again under another name. The
+decision below that a copy holds what its test names, and nothing more, comes from this table.
+
 ## Acceptance criteria
 
 - a test whose subject is not installing, removing or a failed install does not call
@@ -46,6 +65,8 @@ identically, and `uv sync` alone is 241ms against 1.07s, the same ratio as every
 - that root is built once a session by the real `install_app`, through a Hub window like any
   caller's, and each test receives a hardlinked copy of it — no test calls the installer's own
   functions to build one
+- a test names the Apps its copy holds, and the copy holds those and no other: an App the test
+  did not name is not in the copy's environments and is not installed in its state
 - the tests that cross the distribution or process boundary are marked `integration`, the marker is
   registered, and a typo in it fails the run
 - `make test` and CI run every test, marked or not; no test is skipped and no test is deselected by
@@ -64,6 +85,8 @@ identically, and `uv sync` alone is 241ms against 1.07s, the same ratio as every
 | that copy is `shutil.copytree(self._template.location, self.location, symlinks=True)`, with no path in the environment rewritten | pypa/pip, `tests/lib/venv.py` (<https://github.com/pypa/pip/blob/main/tests/lib/venv.py>) |
 | "environments are inherently non-portable, in the general case", because installed scripts' shebangs carry the absolute path of their interpreter | Python, *venv* (<https://docs.python.org/3/library/venv.html>) |
 | a marker is registered in the `markers` ini option, selected with `-m`, and "Typos in function markers are treated as an error if you use the strict_markers configuration option" | pytest, *Working with custom markers* (<https://docs.pytest.org/en/stable/example/markers.html>) |
+| a fixture reads what its test asks of it from a marker: `request.node.get_closest_marker(name)`, with the test's values in `marker.args` | pytest, *How to use fixtures*, "Using markers to pass data to fixtures" (<https://docs.pytest.org/en/stable/how-to/fixtures.html#using-markers-to-pass-data-to-fixtures>) |
+| the copy measurements above | this stage's first execution, on macOS; see "What the first execution measured" |
 | a skipped test cannot fail, so the proxy is required rather than skipped | R1, in git history; `packages/vibepy-hub/tests/tests_support.py` |
 | tests verify public contracts, not internals | `AGENTS.md` |
 | the Hub regenerates `traefik.yml` every time a window opens, and it is the only root artifact that records the root's own path | `vibepy_hub/entry.py` (`write_install_config` in `hub_lifespan`), `internals/routing.py` |
@@ -97,6 +120,18 @@ root is the template. A test that needs installed Apps is handed a hardlinked co
 root: environments, state, routes. This is pip's device applied one level up, and it is what lets
 the tests about starting and addresses use it, because a copied root carries the port and the
 route the environment alone did not.
+
+**The copy holds the Apps the test names, and removes the rest through the Hub.** A test
+declares the Apps it needs with `@pytest.mark.apps("vibepy-todo")`, and the fixture reads that
+marker the way pytest's own guide shows a fixture reading a test's data. The copy links only those
+Apps' environments — the table above is why: a test that needs one App must not pay for three —
+and then opens a window over the copy and calls `remove_app` for each App it left out, so the
+copy's state, ports and routes say the same thing its `envs/` directory says. That is the public
+Tool doing what it exists for, on an environment that is already absent, and it costs 0.01s. A
+test with no marker gets no copy: the fixture fails, because a copy whose contents nobody chose is
+the shape that cost 169s. `apps` is registered beside `integration`, so a misspelled one fails too.
+An earlier version of this stage had every copy hold all three Apps; its measurement is in "What
+the first execution measured", and this decision replaces it.
 
 **The copy rewrites one path and regenerates none.** Of everything a root records, two things name
 the root's own location: `traefik.yml`, which `hub_lifespan` rewrites every time a window opens over
@@ -144,15 +179,18 @@ is a name for the cost and `-m "not integration"` while developing.
    `tmp_path_factory`, registers `fixtures/` as a source and calls `install_app` for each of the
    three fixture Apps, then closes the window. `_build`, its use of `describe`, `install`,
    `purelib` and `write_facts`, and the per-App template fixtures are deleted.
-2. **A per-test copy.** A fixture hands each test a hardlinked copy of the template root, with each
-   environment's `purelib` rewritten to the copy — `_place` generalised from one environment to a
-   root. Which Apps a test needs no longer chooses a fixture: every copy holds all three, and a
-   test that must show an App *absent* removes it or starts from an empty root.
+2. **A per-test copy.** A fixture hands each test a hardlinked copy of the template root holding
+   the Apps the test names in `@pytest.mark.apps(...)`, with each environment's `purelib` rewritten
+   to the copy — `_place` generalised from one environment to a root — and every unnamed App removed
+   through `remove_app` before the test sees the root. A test that must show an App *absent* does
+   not name it.
 3. **Every test that installs without installing being its subject takes the copy instead.** Each
    of the 29 `install_app` calls is judged: kept where installing, removing or a failed install is
    the subject; replaced by the copy everywhere else, the test's assertions untouched.
-4. **The `integration` marker**, registered in `pyproject.toml` under `[tool.pytest.ini_options]`
-   with `strict_markers = true`, applied to every test that builds an environment or starts a child.
+4. **The `integration` and `apps` markers**, registered in `pyproject.toml` under
+   `[tool.pytest.ini_options]` with `strict_markers = true`. `integration` is applied to every
+   test that builds an environment or starts a child; `apps` names, on each test that takes the
+   copy, the Apps the copy holds.
    The framework's own `tests/test_serve_command.py`, `test_describe_command.py`,
    `test_channel_extras.py` and `test_dual_channel.py` are checked for the same boundary rather
    than assumed either way.
@@ -174,6 +212,9 @@ is a name for the cost and `-m "not integration"` while developing.
 - **The Hub's public surface.** No configuration is added to the Hub for a test's benefit. The
   template is built through `install_app` and read through the same Tools every test already uses.
 - **The three fixture Apps.** No fixture is added or reshaped.
+- **What a test asserts about an App it did not name.** A test that once held three Apps and
+  asserted on one names that one; an assertion that another App is *absent* or *available* is kept
+  by not naming it, never by dropping the assertion.
 
 ## Testing
 
@@ -185,6 +226,12 @@ The suite is the subject, so the verification is the suite's own behaviour:
   `uv run pytest -m integration` passes and is where the time is
 - every test whose arrangement changed is run once with its assertion inverted, to prove it still
   fails for its own reason; a test that passes either way has lost its subject and is restored
+- each test that takes the copy names its Apps, and `list_apps` inside the copy reports every
+  unnamed App as available and every named one as installed — proven once, by the test of the
+  fixture's contract that the removing-an-App test already is: its copy holds the App it removes
+  and the listing afterwards shows it available
+- the local gate's `--durations=15` block shows no copy setup above the cost of the Apps it names:
+  about 0.5s for `vibepy-notes`, about 1.7s for `vibepy-todo`, on macOS
 - the template root is built by `install_app` and by nothing else: `conftest.py` calls none of
   `vibepy_hub.internals.installer`'s functions. The one internal it still touches is the name of
   the facts file whose `purelib` the copy relocates, which is reading what the Hub wrote, not
