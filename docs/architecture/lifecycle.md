@@ -108,6 +108,15 @@ Web channel to start and no address at all. An address that exists belongs to th
 rather than to a run, so a refusal to start still says where the App lives. See
 `docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`.
 
+An address takes the form `http://<app>.localhost:<proxy port>`: the hostname is the App's
+canonical distribution name, and the port is the one `HubConfig` configures the Hub with. The Hub
+writes this shape into Traefik's routing configuration and owns no proxy: it starts, supervises
+and health-checks none. An App's own port — allocated at install and held in the Hub's state — is
+not what is published; only the proxy port is. An address therefore answers only while a proxy is
+running against that configuration, not because the Hub published it. See
+`docs/decisions/ADR-031-the-proxy-is-traefik.md`; `vibepy_hub/internals/routing.py` is the module
+that owns the mechanism.
+
 A diagnostic travels in the `hub.*` vocabulary, whose codes, categories and what each reports are
 defined in `vibepy_hub/models.py` and are not restated here. A failure the Hub expects travels as
 data rather than as an exception. See
