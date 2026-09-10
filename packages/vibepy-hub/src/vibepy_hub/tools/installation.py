@@ -17,6 +17,8 @@ from vibepy_hub.internals import (
     HubDeps,
     HubState,
     InstallFailed,
+    address,
+    allocate,
     candidates,
     declarations,
     describe,
@@ -94,13 +96,13 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
         present = any(
             ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
         )
-        port = deps.processes.running(env.name)
+        held_port = (await read_state(deps.root)).ports.get(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
             name=facts.name,
             version=facts.version,
-            state="running" if port is not None else "installed",
-            url=f"http://127.0.0.1:{port}" if port is not None else None,
+            state="running" if deps.processes.running(env.name) else "installed",
+            url=None if held_port is None else address(env.name, deps.proxy_port),
             configured=is_configured(facts, held.get(env.name, {})),
             has_pages=facts.has_pages,
             diagnostic=None
@@ -182,12 +184,22 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"step": failure.step, "output": failure.output},
             ),
         )
+
+    def hold(state: HubState) -> HubState:
+        return HubState(
+            sources=state.sources,
+            config=state.config,
+            ports={**state.ports, payload.app_name: allocate(state.ports, payload.app_name)},
+        )
+
+    await update_state(deps, hold)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
             name=facts.name,
             version=facts.version,
             state="installed",
+            url=address(payload.app_name, deps.proxy_port),
             has_pages=facts.has_pages,
         )
     )
@@ -241,6 +253,7 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
             config={
                 name: values for name, values in state.config.items() if name != payload.app_name
             },
+            ports={name: port for name, port in state.ports.items() if name != payload.app_name},
         )
 
     await update_state(deps, forget)
