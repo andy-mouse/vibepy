@@ -6,7 +6,9 @@ outside it, so the framework needs no lifecycle state and no error for a runtime
 that is not running. See
 `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
 
-Each function yields the one runtime its channel needs. Registries are built from
+`tool_runtime_for` is the invocation window, and it belongs to no channel: every
+channel reaches Tools through it. `page_runtime_for` is the Web channel's window,
+and it is that window with a PageRegistry over it. Registries are built from
 declarations alone, so they are made once, before the resource is acquired.
 """
 
@@ -102,7 +104,15 @@ async def tool_runtime_for[DepsT, ConfigT: BaseModel](
     *,
     config: Mapping[str, object],
 ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-    """The Agent channel's window: one ToolRuntime over one acquired resource."""
+    """The invocation window: one ToolRuntime over one acquired resource.
+
+    Channel-neutral, and named so. The Agent channel adds nothing to it and
+    hands it straight to its server's lifespan; the Web channel composes over
+    it. Calling this one channel's would give a channel-neutral concern a
+    channel's name, and then the other channel reaches Tools by borrowing from
+    a peer -- which is how it read before, and which left the framework no
+    neutral place to put what both channels need.
+    """
     registry = tool_registry_for(definition)
     validated = _validated(definition, config)
     async with lifespan(validated) as dependencies:
@@ -117,10 +127,12 @@ async def page_runtime_for[DepsT, ConfigT: BaseModel](
     *,
     config: Mapping[str, object],
 ) -> AsyncGenerator[PageRuntime]:
-    """The Web channel's window: one PageRuntime over that same invocation path.
+    """The Web channel's window: the invocation window, with Pages over it.
 
-    A Page reaches Tools through ToolInvoker, which ToolRuntime satisfies, so the
-    Web channel gets the canonical invocation path without seeing the runtime.
+    It opens `tool_runtime_for` rather than repeating it, so configuration is
+    validated once and a resource acquired once. A Page reaches Tools through
+    ToolInvoker, which ToolRuntime satisfies, so the Web channel gets the
+    canonical invocation path without seeing the runtime.
     """
     registry = page_registry_for(definition)
     async with tool_runtime_for(definition, lifespan, config=config) as tools:
