@@ -33,8 +33,6 @@ and is not repeated below.
 
 `make install | lint | format | typecheck | test`. A change is done when `make lint typecheck test` passes.
 
-CI runs the gate on macOS and Windows; the local gate covers one. A push is not done until its run is read.
-
 ## Python conventions
 
 - `pyproject.toml` is the only project config. No `setup.py`, no `requirements.txt`.
@@ -57,7 +55,7 @@ One milestone in `docs/roadmap.md` is one Superpowers cycle. The skills own the 
 - The milestone's acceptance criteria in `docs/roadmap.md` are the tests.
 - Implement only the current milestone, exactly as specified. Do not build ahead.
 - `docs/roadmap.md` is never edited. If a milestone cannot be implemented as specified, stop and ask.
-- Push once the milestone is merged, not before.
+- Push once the milestone is merged, not before. CI runs the gate on macOS and Windows; the local gate covers one. A push is not done until its run is read.
 
 ## Documentation
 
