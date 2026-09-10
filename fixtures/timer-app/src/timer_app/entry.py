@@ -19,9 +19,16 @@ from datetime import UTC, datetime
 from nicegui import ui
 from pydantic import BaseModel
 
-from vibepy_core.app import AppDefinition, AppEntrypoint
-from vibepy_core.page import Page, PageContext, PageDefinition
-from vibepy_core.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core import (
+    AppDefinition,
+    AppEntrypoint,
+    Page,
+    PageContext,
+    PageDefinition,
+    Tool,
+    ToolContext,
+    ToolDefinition,
+)
 
 
 class TimerConfig(BaseModel):

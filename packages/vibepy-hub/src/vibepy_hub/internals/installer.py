@@ -19,7 +19,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from vibepy_core.app.package import AppRef, discover_apps
+from vibepy_core import AppRef, discover_apps
 from vibepy_hub.models import AppFacts
 
 logger = logging.getLogger(__name__)

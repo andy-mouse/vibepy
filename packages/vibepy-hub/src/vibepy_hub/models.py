@@ -40,7 +40,7 @@ from typing import Annotated
 from packaging.utils import canonicalize_name
 from pydantic import AfterValidator, BaseModel
 
-from vibepy_core.errors import ErrorCategory
+from vibepy_core import ErrorCategory
 
 
 class Diagnostic(BaseModel):

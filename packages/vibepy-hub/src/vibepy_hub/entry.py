@@ -12,7 +12,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field
 
-from vibepy_core.app import AppDefinition, AppEntrypoint
+from vibepy_core import AppDefinition, AppEntrypoint
 from vibepy_hub.internals import HubDeps, Processes, write_install_config
 from vibepy_hub.tools import HUB_TOOLS
 

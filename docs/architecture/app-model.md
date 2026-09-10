@@ -13,6 +13,14 @@ AppDefinition + lifespan -> a channel's running window
 `docs/architecture/packaging.md` owns the layer above the definition: how a distribution says
 which App it contains, and how a reader learns that without importing it.
 
+## The import surface
+
+An App author imports from `vibepy_core` and from nothing below it. The package root is the
+public surface: `tests/test_package.py` holds its exact contents, so a name that is not exported
+there is not public. The subpackages beneath it — `vibepy_core.tool`, `.page`, `.app`, `.errors` —
+are how the framework is organised, and they keep working for anything already written against
+them.
+
 ## AppDefinition
 
 `AppDefinition` is static and declarative. A frozen dataclass, generic in the app's own
