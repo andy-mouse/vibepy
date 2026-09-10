@@ -231,6 +231,10 @@ is not running. That property is kept on purpose, and this is what it costs.
   the environment and the address where they were.
 - **The route file** — installing writes a route naming the App's host and its port; removing
   deletes it. Read as YAML and asserted by content, not by string.
+- **One new departure from public contracts**, and it is counted. An App's own port is never
+  published, so no Tool's answer can be asked which port an App holds: `test_addresses.py`
+  reaches `allocate` and the stored state directly, and says so in its docstring. It is the
+  second such file, after `test_processes.py`. Everything a Tool can answer is asked of the Tool.
 - **`free_port` is gone** — the existing tests of `Processes` supply a port. The test helper of
   the same name in `tests/test_serve_command.py` is a different function and stays: it chooses a
   port for a command the test itself runs, which is not the Hub allocating one.

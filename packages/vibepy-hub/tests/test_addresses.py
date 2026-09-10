@@ -3,6 +3,12 @@
 The port belongs to the installation and the hostname is the App's canonical
 name (ADR-028), so the address is built rather than kept. See
 `docs/decisions/ADR-031-the-proxy-is-traefik.md`.
+
+This file is the second departure from testing public contracts, after
+`test_processes.py`. An App's own port is never published -- that is the
+decision, not an oversight -- so no Tool's answer can be asked which port an
+App holds, and `allocate` and the stored state are reached directly. What a
+Tool can answer is asked of the Tool.
 """
 
 from pathlib import Path
