@@ -21,7 +21,6 @@ The framework should provide deterministic feedback surfaces for agents:
 - type validation
 - runtime errors
 - policy/conformance errors
-- app status
 - Tool invocation tests
 - package validation
 
