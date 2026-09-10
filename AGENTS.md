@@ -33,6 +33,8 @@ and is not repeated below.
 
 `make install | lint | format | typecheck | test`. A change is done when `make lint typecheck test` passes.
 
+CI runs the gate on macOS and Windows; the local gate covers one. A push is not done until its run is read.
+
 ## Python conventions
 
 - `pyproject.toml` is the only project config. No `setup.py`, no `requirements.txt`.
