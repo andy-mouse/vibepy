@@ -7,16 +7,13 @@ An App's life has two layers, and the framework owns one of them.
 | runtime lifecycle | a channel's running window, from opening to closing | the channel host |
 | package lifecycle | a distribution installed, configured, addressed, started and stopped | a host App built on the framework, never the framework |
 
-The framework's own statement about the later layer is that it is not the framework's. What the
-framework implements is channel neutrality, and where a problem already has an owner it delegates;
-see
+What the framework implements is channel neutrality, and where a problem already has an owner it
+delegates; see
 `docs/decisions/ADR-025-the-framework-implements-channel-neutrality-and-delegates-the-rest.md`
-and `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`. That is why it holds no lifecycle
-object and no lifecycle state, and why nothing of installation is published from it.
+and `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`. That is why nothing of
+installation is published from it.
 
 ## Runtime lifecycle
-
-Runtime lifecycle is distinct from package installation lifecycle.
 
 The framework owns no runtime lifecycle object and no lifecycle state. A channel's runtime exists
 for the duration of an `async with` block and cannot be reached outside it, so there is no state
@@ -62,7 +59,7 @@ failing lifespan is the host's to report, and the host's own contract already co
 
 ## Package lifecycle
 
-Package lifecycle is a later layer:
+The steps run in order:
 
 ```text
 Package -> install -> configure -> open a channel
@@ -88,25 +85,29 @@ is starting and stopping that process, and no window is reached from outside its
 
 Because the layer is an App rather than a capability inside the framework, its capabilities are
 Tools, which makes them reachable from either channel and neutral between them. Eight exist, as
-the Hub declares them:
+the Hub declares them.
 
-- `register_package_source`, `remove_package_source` — where the Hub looks for Apps
-- `list_apps` — what is known, what is installed, what is running
-- `install_app`, `remove_app` — an environment of its own per App, created and destroyed
-- `configure_app` — the values an App runs with
-- `start_app`, `stop_app` — the Web channel window of an installed App
+| Tools | What they act on |
+| --- | --- |
+| `register_package_source`, `remove_package_source` | where the Hub looks for Apps |
+| `list_apps` | what is known, what is installed, what is running |
+| `install_app`, `remove_app` | an environment of its own per App, created and destroyed |
+| `configure_app` | the values an App runs with |
+| `start_app`, `stop_app` | the Web channel window of an installed App |
 
 ### How an installed App is described
 
-- **state** — `available` for an App a registered source offers, `installed` for one whose
-  environment exists, `running` for one whose Web channel this Hub has started. `AppRow.state` in
-  `vibepy_hub/models.py` publishes the three values
-- **address** — an App has one only if it declares Pages. `install_app` allocates a port and
-  publishes a route for such an App and answers with its address; an App declaring no Pages has no
-  Web channel to start and no address at all. An address that exists belongs to the installation
-  rather than to a run, so a refusal to start still says where the App lives. See
-  `docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`
-- **diagnostic** — the `hub.*` vocabulary: each code, its category and what it reports are defined
-  in `vibepy_hub/models.py` and are not restated here. A failure the operator expects travels as
-  data rather than as an exception. See
-  `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`
+A state is one of three: `available` for an App a registered source offers, `installed` for one
+whose environment exists, `running` for one whose Web channel this Hub has started. `AppRow.state`
+in `vibepy_hub/models.py` publishes the three values.
+
+An address belongs to an App only if it declares Pages. `install_app` allocates a port and
+publishes a route for such an App and answers with its address; an App declaring no Pages has no
+Web channel to start and no address at all. An address that exists belongs to the installation
+rather than to a run, so a refusal to start still says where the App lives. See
+`docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`.
+
+A diagnostic travels in the `hub.*` vocabulary, whose codes, categories and what each reports are
+defined in `vibepy_hub/models.py` and are not restated here. A failure the Hub expects travels as
+data rather than as an exception. See
+`docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`
