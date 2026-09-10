@@ -10,15 +10,13 @@ what is read and writes what is stored.
 
 import asyncio
 import logging
-import os
-import stat
-import sys
 from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
 from vibepy_hub.internals.deps import HubDeps
+from vibepy_hub.internals.files import write_whole
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +53,6 @@ def _read_state(root: Path, /) -> HubState:
         return HubState()
 
 
-OWNER_ONLY_FILE = stat.S_IRUSR | stat.S_IWUSR
-OWNER_ONLY_DIRECTORY = stat.S_IRWXU
-
-
 async def write_state(root: Path, state: HubState, /) -> None:
     """Replace the stored state, readable by its owner and no one else.
 
@@ -83,17 +77,12 @@ async def write_state(root: Path, state: HubState, /) -> None:
 
 def _write_state(root: Path, state: HubState, /) -> None:
     root.mkdir(parents=True, exist_ok=True)
-    path = root / STATE_FILE
-    pending = root / f"{STATE_FILE}.pending"
-    pending.write_text(state.model_dump_json(indent=1), encoding="utf-8")
-    if sys.platform != "win32":
-        os.chmod(root, OWNER_ONLY_DIRECTORY)
-        os.chmod(pending, OWNER_ONLY_FILE)
-    try:
-        os.replace(pending, path)
-    except OSError:
-        pending.unlink(missing_ok=True)
-        raise
+    write_whole(
+        root / STATE_FILE,
+        state.model_dump_json(indent=1),
+        staging=root,
+        owner_only=True,
+    )
 
 
 async def update_state(deps: HubDeps, change: Callable[[HubState], HubState], /) -> HubState:

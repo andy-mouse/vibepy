@@ -8,12 +8,12 @@ observes the proxy: see
 
 import asyncio
 import logging
-import os
 from collections.abc import Mapping
 from pathlib import Path
-from uuid import uuid4
 
 import yaml
+
+from vibepy_hub.internals.files import write_whole
 
 logger = logging.getLogger(__name__)
 
@@ -119,23 +119,8 @@ def _remove_route(root: Path, app_name: str, /) -> None:
 def _replace(root: Path, path: Path, document: object, /) -> None:
     """Write one of the proxy's files whole.
 
-    The provider watches a directory, so a half-written file is a configuration
-    it would read. `os.replace` overwrites the destination and the rename is
-    atomic where POSIX requires it
-    (<https://docs.python.org/3/library/os.html#os.replace>).
-
-    The file is staged in the Hub's root rather than beside its destination,
-    which is inside the watched directory. What the provider does with a file it
-    was not meant to read is then not a question anyone has to answer.
-
-    The staging name belongs to this write rather than to its destination. The
-    Hub does not serialize Tool invocations, so two installs of one App would
-    otherwise stage onto one path and the loser would find it already gone.
+    Staged in the Hub's root rather than beside its destination, because the
+    destination is inside the directory the provider watches. `write_whole`
+    owns the rest, and says why.
     """
-    pending = root / f".{path.name}.{uuid4().hex}.pending"
-    pending.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
-    try:
-        os.replace(pending, path)
-    except OSError:
-        pending.unlink(missing_ok=True)
-        raise
+    write_whole(path, yaml.safe_dump(document, sort_keys=False), staging=root)
