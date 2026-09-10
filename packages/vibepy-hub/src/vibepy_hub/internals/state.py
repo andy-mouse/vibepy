@@ -26,7 +26,12 @@ STATE_FILE = "state.json"
 
 
 class HubState(BaseModel):
-    """Everything the Hub remembers between windows."""
+    """Everything the Hub remembers between windows.
+
+    A writer states what it changes, with `model_copy(update=...)`, and never
+    rebuilds the whole. A writer that names every field is a writer that drops
+    the next field someone adds, silently and everywhere at once.
+    """
 
     sources: list[Path] = []
     config: dict[str, dict[str, object]] = {}

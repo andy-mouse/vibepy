@@ -9,6 +9,7 @@ from vibepy_hub.internals import (
     AlreadyStarted,
     HubDeps,
     StartFailed,
+    address,
     environment,
     installed_facts,
     interpreter,
@@ -19,11 +20,25 @@ from vibepy_hub.models import AppName, Diagnostic, RunningApp, StartRequest
 logger = logging.getLogger(__name__)
 
 
-def _refusal(app_name: str, code: str, message: str, /, *, category: ErrorCategory) -> RunningApp:
-    """An App that will not start or stop, and why."""
+def _refusal(
+    app_name: str,
+    code: str,
+    message: str,
+    /,
+    *,
+    category: ErrorCategory,
+    url: str | None = None,
+) -> RunningApp:
+    """An App that will not start or stop, and why.
+
+    It carries the App's address when it has one, because an address belongs to
+    an installation rather than to a run: a refusal is not a reason to stop
+    saying where an App lives.
+    """
     return RunningApp(
         app_name=app_name,
         state="installed",
+        url=url,
         diagnostic=Diagnostic(
             code=code, category=category, message=message, details={"app_name": app_name}
         ),
@@ -57,13 +72,24 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
             category=ErrorCategory.CALLER,
         )
-    held = (await read_state(deps.root)).config.get(payload.app_name, {})
+    state = await read_state(deps.root)
+    held = state.config.get(payload.app_name, {})
+    port = state.ports.get(payload.app_name)
+    if port is None:
+        return _refusal(
+            payload.app_name,
+            "hub.not_installed",
+            f"{payload.app_name!r} holds no port, so this Hub did not install it",
+            category=ErrorCategory.CALLER,
+        )
+    where = address(payload.app_name, deps.proxy_port)
     try:
-        port = await deps.processes.start(
+        await deps.processes.start(
             app_name=facts.declared_name,
             interpreter=interpreter(environment(deps.root, payload.app_name)),
             config={**held, **payload.secrets},
             known_as=payload.app_name,
+            port=port,
         )
     except AlreadyStarted:
         # One name holds one child, and `Processes` is the one place that
@@ -74,6 +100,7 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
             "hub.already_running",
             f"{payload.app_name!r} is already running",
             category=ErrorCategory.CALLER,
+            url=where,
         )
     except StartFailed as failure:
         reported = failure.reported
@@ -83,10 +110,12 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
                 "hub.start_failed",
                 str(failure),
                 category=ErrorCategory.EXECUTION,
+                url=where,
             )
         return RunningApp(
             app_name=payload.app_name,
             state="installed",
+            url=where,
             diagnostic=Diagnostic(
                 code=reported.code,
                 category=_category(reported.category),
@@ -94,19 +123,23 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
                 details={"app_name": payload.app_name, **reported.details},
             ),
         )
-    return RunningApp(app_name=payload.app_name, url=f"http://127.0.0.1:{port}", state="running")
+    return RunningApp(app_name=payload.app_name, url=where, state="running")
 
 
 async def stop_app(ctx: ToolContext[HubDeps], payload: AppName) -> RunningApp:
     """Stop an App this window started."""
-    if not await ctx.dependencies.processes.stop(payload.app_name):
+    deps = ctx.dependencies
+    port = (await read_state(deps.root)).ports.get(payload.app_name)
+    where = None if port is None else address(payload.app_name, deps.proxy_port)
+    if not await deps.processes.stop(payload.app_name):
         return _refusal(
             payload.app_name,
             "hub.not_running",
             f"{payload.app_name!r} is not running here",
             category=ErrorCategory.CALLER,
+            url=where,
         )
-    return RunningApp(app_name=payload.app_name, state="installed")
+    return RunningApp(app_name=payload.app_name, url=where, state="installed")
 
 
 RUNTIME_TOOLS: Sequence[Tool[HubDeps]] = [

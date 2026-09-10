@@ -188,10 +188,13 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
         )
 
     def hold(state: HubState) -> HubState:
-        return HubState(
-            sources=state.sources,
-            config=state.config,
-            ports={**state.ports, payload.app_name: allocate(state.ports, payload.app_name)},
+        return state.model_copy(
+            update={
+                "ports": {
+                    **state.ports,
+                    payload.app_name: allocate(state.ports, payload.app_name),
+                }
+            }
         )
 
     port = (await update_state(deps, hold)).ports[payload.app_name]
@@ -252,12 +255,17 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     await remove_route(deps.root, payload.app_name)
 
     def forget(state: HubState) -> HubState:
-        return HubState(
-            sources=state.sources,
-            config={
-                name: values for name, values in state.config.items() if name != payload.app_name
-            },
-            ports={name: port for name, port in state.ports.items() if name != payload.app_name},
+        return state.model_copy(
+            update={
+                "config": {
+                    name: values
+                    for name, values in state.config.items()
+                    if name != payload.app_name
+                },
+                "ports": {
+                    name: port for name, port in state.ports.items() if name != payload.app_name
+                },
+            }
         )
 
     await update_state(deps, forget)

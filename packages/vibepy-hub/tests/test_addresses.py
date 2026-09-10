@@ -12,7 +12,7 @@ import yaml
 from tests_support import EXAMPLES, hub
 from vibepy_hub.internals import read_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
-from vibepy_hub.models import AppListing, Installation
+from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
 def test_the_first_app_takes_the_base_port() -> None:
@@ -118,3 +118,29 @@ async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path)
     servers = written["http"]["services"]["vibepy-todo"]["loadBalancer"]["servers"]
     assert servers == [{"url": f"http://127.0.0.1:{port}"}]
     assert gone is False
+
+
+async def test_an_address_outlives_a_run(tmp_path: Path) -> None:
+    """The port belongs to the installation, so stopping does not release it."""
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        first = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        stopped = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
+        second = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+
+    assert isinstance(first, RunningApp)
+    assert isinstance(stopped, RunningApp)
+    assert isinstance(second, RunningApp)
+    assert first.url == "http://vibepy-todo.localhost:8080"
+    assert stopped.url == first.url
+    assert second.url == first.url

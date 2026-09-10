@@ -46,12 +46,13 @@ async def configure_app(ctx: ToolContext[HubDeps], payload: ConfigureRequest) ->
     secrets = secret_fields(facts.config_schema)
 
     def hold(state: HubState) -> HubState:
-        return HubState(
-            sources=state.sources,
-            config={
-                **state.config,
-                payload.app_name: {**state.config.get(payload.app_name, {}), **payload.values},
-            },
+        return state.model_copy(
+            update={
+                "config": {
+                    **state.config,
+                    payload.app_name: {**state.config.get(payload.app_name, {}), **payload.values},
+                }
+            }
         )
 
     changed = await update_state(deps, hold)

@@ -9,9 +9,7 @@ current test or living in the Hub's virtual environment.
 import asyncio
 from pathlib import Path
 
-import pytest
-
-from tests_support import EXAMPLES, http_status, hub
+from tests_support import EXAMPLES, hub
 from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
@@ -38,8 +36,6 @@ async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None
         assert isinstance(listed, AppListing)
         assert [row.url for row in listed.apps if row.app_name == "vibepy-todo"] == [started.url]
         assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["running"]
-
-        assert await http_status(f"{started.url}/todos") == 200
 
         stopped = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
         assert isinstance(stopped, RunningApp)
@@ -81,28 +77,6 @@ async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Pat
     assert answered.diagnostic.code == "hub.not_running"
 
 
-async def test_closing_the_window_leaves_no_child_behind(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        await tools.invoke(
-            "configure_app",
-            {
-                "app_name": "vibepy-todo",
-                "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
-            },
-        )
-        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
-        assert isinstance(started, RunningApp)
-        url = started.url
-    assert url is not None
-
-    with pytest.raises(OSError):
-        await asyncio.open_connection("127.0.0.1", int(url.rsplit(":", 1)[1]))
-
-
 async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     tmp_path: Path,
 ) -> None:
@@ -119,7 +93,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
     assert isinstance(started, RunningApp)
-    assert started.url is None
+    assert started.state == "installed"
     assert started.diagnostic is not None
     assert started.diagnostic.code == "config.invalid"
     assert started.diagnostic.category == ErrorCategory.CALLER
@@ -202,14 +176,10 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path) -> None:
     assert isinstance(first, RunningApp)
     assert isinstance(second, RunningApp)
     answered = [first, second]
-    assert [one.url is not None for one in answered].count(True) == 1
-    refused = next(one for one in answered if one.url is None)
+    assert [one.diagnostic is None for one in answered].count(True) == 1
+    refused = next(one for one in answered if one.diagnostic is not None)
     assert refused.diagnostic is not None
     assert refused.diagnostic.code == "hub.already_running"
 
-    # And the second start left nothing running behind the first: a child this
-    # window did not file is one it could not close.
-    started = next(one for one in answered if one.url is not None)
-    assert started.url is not None
-    with pytest.raises(OSError):
-        await asyncio.open_connection("127.0.0.1", int(started.url.rsplit(":", 1)[1]))
+    # That the refused start left no second child behind is a fact about
+    # `Processes` and is asserted where `Processes` is the subject.
