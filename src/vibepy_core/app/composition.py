@@ -34,7 +34,11 @@ It receives the App's validated configuration and nothing else.
 def tool_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> ToolRegistry[DepsT]:
-    """Fill a ToolRegistry from declarations. Reads no resource."""
+    """Fill a ToolRegistry from declarations. Reads no resource.
+
+    Raises:
+        ToolNameConflictError: two declared Tools share a name.
+    """
     registry: ToolRegistry[DepsT] = ToolRegistry()
     claimed: set[str] = set()
     for tool in definition.tools:
@@ -49,7 +53,11 @@ def tool_registry_for[DepsT, ConfigT: BaseModel](
 def page_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> PageRegistry:
-    """Fill a PageRegistry from declarations. Reads no resource."""
+    """Fill a PageRegistry from declarations. Reads no resource.
+
+    Raises:
+        PageNameConflictError: two declared Pages share a name.
+    """
     registry = PageRegistry()
     claimed: dict[str, str] = {}
     for page in definition.pages:

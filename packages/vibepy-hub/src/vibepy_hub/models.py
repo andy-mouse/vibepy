@@ -100,7 +100,7 @@ _SEPARATORS = frozenset("/\\:\x00")
 
 
 def _one_segment(value: str) -> str:
-    """Canonicalize `value`, once it is confirmed to name one path segment.
+    """Refuse `value` unless it names one path segment, then canonicalize it.
 
     What survives the gate is canonicalized, because an App is addressed by its
     distribution name and the specification compares two of those by

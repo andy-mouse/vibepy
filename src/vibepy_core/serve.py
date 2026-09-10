@@ -118,7 +118,7 @@ def _serve(
     """Serve one App for as long as its window is open."""
     served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)
     # The window is the served application's own lifespan, so the `async with`
-    # this relies on is the whole of the server's life, and a window that
+    # that opens it is the whole of the server's life, and a window that
     # refuses to open fails the server's startup.
     uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=_LOG_CONFIG)
 

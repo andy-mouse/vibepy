@@ -77,7 +77,7 @@ class ToolRuntime[DepsT]:
     def __init__(
         self, *, app_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
     ) -> None:
-        """Hold `registry` and the `dependencies` every invocation will receive."""
+        """Hold `app_id`, `registry`, and the `dependencies` every invocation will receive."""
         self._app_id = app_id
         self._registry = registry
         self._dependencies = dependencies

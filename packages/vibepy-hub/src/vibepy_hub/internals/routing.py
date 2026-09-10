@@ -42,10 +42,9 @@ def allocate(held: Collection[int], /) -> int:
 def address(app_name: str, proxy_port: int, /) -> str:
     """Where a caller reaches this App.
 
-    The hostname is the App's canonical distribution name, which the
-    normalization specification leaves as lowercase letters, digits and `-`,
-    beginning and ending with a letter or digit. That is a DNS label as written,
-    so nothing here escapes or maps it.
+    The hostname is the App's canonical distribution name, which the normalization specification
+    leaves as lowercase letters, digits and `-`, beginning and ending with a letter or digit. That
+    is a DNS label as written, so nothing here escapes or maps it.
     """
     return f"http://{app_name}.localhost:{proxy_port}"
 
