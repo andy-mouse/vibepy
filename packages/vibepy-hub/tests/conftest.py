@@ -4,20 +4,24 @@ pytest's guidance is that a resource which is expensive to build belongs to a
 broader scope than the test that uses it, and that `tmp_path_factory` is where
 a session-scoped one lives
 (<https://docs.pytest.org/en/stable/how-to/fixtures.html>,
-<https://docs.pytest.org/en/stable/how-to/tmp_path.html>).
+<https://docs.pytest.org/en/stable/how-to/tmp_path.html>). pip's own suite
+applies that guidance to virtual environments: one is built a session and each
+test is handed a copy of it, with nothing inside rewritten
+(<https://github.com/pypa/pip/blob/main/tests/lib/venv.py>).
 
-An App's environment is exactly that resource. Building one runs `uv` and then
-imports everything the App depends on, in a directory nothing has imported
-before. Every test built its own, which is the shape that guidance names, and
-the suite paid for it once per test rather than once.
+Here the expensive resource is a Hub root with the fixture Apps installed. It
+is built once, by the same `install_app` a user calls, so what a test is handed
+is what installing produces and not a second construction that could drift.
+Each test receives a hardlinked copy: the same inodes, so nothing is assessed
+or compiled a second time.
 
-It is built once here instead. A test that needs an App already installed is
-given a fresh Hub root with a hardlinked copy of that environment: the same
-inodes, so nothing is assessed or compiled a second time, and the copy costs
-milliseconds. An environment is relocatable -- `pyvenv.cfg` records the base
-Python and not its own location, and the Hub reaches an environment only
-through `env/bin/python` -- so the only thing the copy rewrites is the one path
-the Hub itself recorded.
+Two things in a root name the root's own path. `traefik.yml` is rewritten by
+the Hub every time a window opens, so a copy is corrected the moment a test
+opens it. Each environment's facts file records `purelib` as an absolute path,
+and that one the copy rewrites. An environment's `pyvenv.cfg` records the base
+interpreter, which is outside the root and does not move; the Hub reaches an
+environment only through its interpreter and `-m`, so no installed script's
+shebang is ever read.
 
 A test whose subject *is* installing takes none of this. It drives
 `install_app` like any caller, because that is the thing it is testing.
@@ -27,93 +31,55 @@ import asyncio
 import json
 import os
 import shutil
-from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
 
-from tests_support import FIXTURES
-from vibepy_hub.internals.installer import (
-    FACTS_FILE,
-    describe,
-    install,
-    purelib,
-    write_facts,
-)
+from tests_support import FIXTURES, hub
+from vibepy_hub.internals.installer import FACTS_FILE
 
-NOTES = "vibepy-notes"
-"""The lightest App here: no Pages, so no Web technology at all (ADR-025)."""
-
-TODO = "vibepy-todo"
-"""The one App with Pages, a secret and a store of its own."""
+APPS = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
+"""Every fixture App, installed into the template in this order."""
 
 
-def _build(folder: Path, env: Path, /) -> None:
-    """Install one distribution into one environment, as the Hub would.
+@pytest.fixture(scope="session")
+def template_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Build a Hub root with every fixture App installed, once for the session.
 
-    The Hub's own installer, so what a test is handed is what installing
-    produces rather than a second construction of it that could drift.
+    Built through the Hub's own Tools rather than the installer's functions, so
+    the root holds exactly what a user's install leaves: environments, facts,
+    state with a port per App, and a route per App declaring Pages.
     """
+    root = tmp_path_factory.mktemp("template") / "hub"
 
-    async def built() -> None:
-        await install(folder=folder, env=env)
-        described = await describe(env)
-        metadata = await purelib(env)
-        await write_facts(env, described[0].model_copy(update={"purelib": metadata}))
+    async def build() -> None:
+        async with hub(root) as tools:
+            await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+            for app_name in APPS:
+                installed = await tools.invoke("install_app", {"app_name": app_name})
+                diagnostic = getattr(installed, "diagnostic", None)
+                assert diagnostic is None, diagnostic
 
-    asyncio.run(built())
+    asyncio.run(build())
+    return root
 
 
-def _place(template: Path, root: Path, app_name: str, /) -> None:
-    """Put a built environment where a Hub with this root will find it.
+@pytest.fixture
+def installed(tmp_path: Path, template_root: Path) -> Path:
+    """Give one test its own copy of the template root.
 
     Hardlinked rather than copied: the bytes are already on the disk and
-    already assessed, and a second inode for each would be the cost this
-    fixture exists to avoid.
+    already assessed, and a second inode for each would be the cost the
+    template exists to avoid. The only thing rewritten is the one path the Hub
+    recorded inside the root, each environment's `purelib`.
     """
-    env = root / "envs" / app_name
-    env.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(template, env, copy_function=os.link)
-    recorded = env / FACTS_FILE
-    facts = json.loads(recorded.read_text(encoding="utf-8"))
-    # The Hub records where the environment keeps its distribution metadata,
-    # and this copy is somewhere else. Same segment, new root.
-    facts["purelib"] = str(env / Path(facts["purelib"]).relative_to(template))
-    # Unlinked first, because every file here is a hardlink to the template's:
-    # writing through this name would write the template too, and the next
-    # test would be handed an environment describing the previous one.
-    recorded.unlink()
-    recorded.write_text(json.dumps(facts, indent=1), encoding="utf-8")
-
-
-@pytest.fixture(scope="session")
-def notes_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The no-Pages App's environment, built once for the whole session."""
-    env = tmp_path_factory.mktemp("templates") / NOTES
-    _build(FIXTURES / "notes-app", env)
-    return env
-
-
-@pytest.fixture(scope="session")
-def todo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The App with Pages, built once. Costly, so asked for only when needed."""
-    env = tmp_path_factory.mktemp("templates") / TODO
-    _build(FIXTURES / "todo-app", env)
-    return env
-
-
-@pytest.fixture
-def notes_installed(tmp_path: Path, notes_template: Path) -> Iterator[Path]:
-    """A Hub root that already holds an App declaring a secret."""
     root = tmp_path / "hub"
-    _place(notes_template, root, NOTES)
-    yield root
-
-
-@pytest.fixture
-def two_installed(tmp_path: Path, notes_template: Path, todo_template: Path) -> Iterator[Path]:
-    """A Hub root holding two Apps, for what only happens when there are two."""
-    root = tmp_path / "hub"
-    _place(notes_template, root, NOTES)
-    _place(todo_template, root, TODO)
-    yield root
+    shutil.copytree(template_root, root, copy_function=os.link)
+    for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
+        facts = json.loads(recorded.read_text(encoding="utf-8"))
+        facts["purelib"] = str(root / Path(facts["purelib"]).relative_to(template_root))
+        # Unlinked first: every file here is a hardlink to the template's, and
+        # writing through this name would write the template too.
+        recorded.unlink()
+        recorded.write_text(json.dumps(facts, indent=1), encoding="utf-8")
+    return root

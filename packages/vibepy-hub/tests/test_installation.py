@@ -47,11 +47,9 @@ async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Pat
     assert a_python_lives_in(environment(root, "vibepy-notes"))
 
 
-async def test_an_installed_app_is_listed_apart_from_an_offered_one(
-    notes_installed: Path,
-) -> None:
-    async with hub(notes_installed) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: Path) -> None:
+    async with hub(installed) as tools:
+        await tools.invoke("remove_app", {"app_name": "vibepy-timer"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
@@ -330,10 +328,10 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
 
 
 async def test_an_environment_that_no_longer_declares_its_app_says_so(
-    notes_installed: Path,
+    installed: Path,
 ) -> None:
-    async with hub(notes_installed) as tools:
-        facts = await read_facts(environment(notes_installed, "vibepy-notes"))
+    async with hub(installed) as tools:
+        facts = await read_facts(environment(installed, "vibepy-notes"))
         assert facts is not None and facts.purelib is not None
         for info in facts.purelib.glob("vibepy_notes-*.dist-info"):
             shutil.rmtree(info)
