@@ -7,6 +7,8 @@ name (ADR-028), so the address is built rather than kept. See
 
 from pathlib import Path
 
+import yaml
+
 from tests_support import EXAMPLES, hub
 from vibepy_hub.internals import read_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
@@ -77,3 +79,42 @@ async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> Non
 
     assert isinstance(again, Installation)
     assert (await read_state(root)).ports["vibepy-todo"] == first
+
+
+async def test_the_window_writes_a_configuration_that_apps_do_not_change(
+    tmp_path: Path,
+) -> None:
+    """The install configuration is written once and never follows an App."""
+    root = tmp_path / "hub"
+
+    async with hub(root, proxy_port=9999) as tools:
+        written = (root / "traefik.yml").read_text(encoding="utf-8")
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        after = (root / "traefik.yml").read_text(encoding="utf-8")
+
+    assert written == after
+    config = yaml.safe_load(written)
+    assert config["entryPoints"]["web"]["address"] == ":9999"
+    assert config["providers"]["file"]["directory"] == str(root / "routes")
+    assert config["providers"]["file"]["watch"] is True
+
+
+async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path) -> None:
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        route = root / "routes" / "vibepy-todo.yml"
+        written = yaml.safe_load(route.read_text(encoding="utf-8"))
+        port = (await read_state(root)).ports["vibepy-todo"]
+        await tools.invoke("remove_app", {"app_name": "vibepy-todo"})
+        gone = route.exists()
+
+    router = written["http"]["routers"]["vibepy-todo"]
+    assert router["rule"] == "Host(`vibepy-todo.localhost`)"
+    assert router["service"] == "vibepy-todo"
+    servers = written["http"]["services"]["vibepy-todo"]["loadBalancer"]["servers"]
+    assert servers == [{"url": f"http://127.0.0.1:{port}"}]
+    assert gone is False

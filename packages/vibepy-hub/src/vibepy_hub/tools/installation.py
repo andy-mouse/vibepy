@@ -31,8 +31,10 @@ from vibepy_hub.internals import (
     read_state,
     readable,
     remove_environment,
+    remove_route,
     update_state,
     write_facts,
+    write_route,
 )
 from vibepy_hub.models import (
     AppListing,
@@ -192,7 +194,8 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             ports={**state.ports, payload.app_name: allocate(state.ports, payload.app_name)},
         )
 
-    await update_state(deps, hold)
+    port = (await update_state(deps, hold)).ports[payload.app_name]
+    await write_route(deps.root, payload.app_name, port=port)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
@@ -246,6 +249,7 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
     await remove_environment(environment(deps.root, payload.app_name))
+    await remove_route(deps.root, payload.app_name)
 
     def forget(state: HubState) -> HubState:
         return HubState(

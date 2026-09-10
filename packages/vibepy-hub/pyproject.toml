@@ -7,6 +7,7 @@ dependencies = [
     "vibepy-core[web]",
     "pydantic>=2.9",
     "packaging>=24.0",
+    "pyyaml>=6.0",
 ]
 
 [project.entry-points."vibepy.apps"]
