@@ -58,7 +58,7 @@ Avoid generic Tools such as:
 - create_method
 - edit_python
 
-The Authoring MCP should provide framework-specific introspection, validation, runtime control, testing, packaging, and diagnostics.
+The Authoring MCP should provide framework-specific introspection, validation, testing, packaging, and diagnostics.
 
 ## North-star dogfooding test
 

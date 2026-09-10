@@ -3,7 +3,7 @@
 `vibepy_core.describe` reads a declaration; this runs one.
 
 The adapter builds the application this serves; the command owns the process and
-runs it. `tests/test_serve_command.py` holds both to that.
+runs it.
 """
 
 import argparse

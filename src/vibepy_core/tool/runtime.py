@@ -87,6 +87,10 @@ class ToolRuntime[DepsT]:
 
         Raises:
             ToolNotFoundError: no Tool is registered under `name`.
+            ToolInputValidationError: `raw_input` does not satisfy the Tool's
+                input model.
+            ToolOutputValidationError: the Tool returned what its own output
+                model rejects.
         """
         tool = self._registry.resolve(name)
         ctx = ToolContext(
