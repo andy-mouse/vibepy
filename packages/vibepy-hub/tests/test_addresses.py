@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from tests_support import EXAMPLES, hub
+from tests_support import EXAMPLES, FIXTURES, hub
 from vibepy_hub.internals import read_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
 from vibepy_hub.models import AppListing, Installation, RunningApp
@@ -52,19 +52,21 @@ async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path:
 
 
 async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Path) -> None:
+    """Both Apps declare Pages, because only an App that can be served holds a port."""
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
         both = (await read_state(root)).ports
         await tools.invoke("remove_app", {"app_name": "vibepy-todo"})
         after = (await read_state(root)).ports
 
     assert sorted(both.values()) == [PORT_BASE, PORT_BASE + 1]
     assert "vibepy-todo" not in after
-    assert after["vibepy-notes"] == both["vibepy-notes"]
+    assert after["vibepy-second"] == both["vibepy-second"]
 
 
 async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> None:
@@ -72,7 +74,8 @@ async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> Non
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         first = (await read_state(root)).ports["vibepy-todo"]
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
@@ -144,3 +147,28 @@ async def test_an_address_outlives_a_run(tmp_path: Path) -> None:
     assert first.url == "http://vibepy-todo.localhost:8080"
     assert stopped.url == first.url
     assert second.url == first.url
+
+
+async def test_an_app_with_no_pages_gets_no_address(tmp_path: Path) -> None:
+    """An address is for an App that can answer at one.
+
+    `examples/notes` declares no Pages, so it has no Web channel (ADR-017) and
+    `start_app` refuses it. An address for it would name something that will
+    never answer, and its route would point the proxy at a port nothing binds.
+    """
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+        listed = await tools.invoke("list_apps", {})
+        held = (await read_state(root)).ports
+        route = (root / "routes" / "vibepy-notes.yml").exists()
+
+    assert isinstance(installed, Installation)
+    assert installed.app.has_pages is False
+    assert installed.app.url is None
+    assert isinstance(listed, AppListing)
+    assert [row.url for row in listed.apps if row.app_name == "vibepy-notes"] == [None]
+    assert "vibepy-notes" not in held
+    assert route is False

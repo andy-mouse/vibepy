@@ -187,25 +187,31 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             ),
         )
 
-    def hold(state: HubState) -> HubState:
-        return state.model_copy(
-            update={
-                "ports": {
-                    **state.ports,
-                    payload.app_name: allocate(state.ports, payload.app_name),
-                }
-            }
-        )
+    # An address is for an App that can answer at one. An App declaring no Pages
+    # has no Web channel at all (ADR-017) and `start_app` refuses it, so giving
+    # it a port and a route would publish an address that is not slow to answer
+    # but will never answer, and point the proxy at a port nothing will bind.
+    if facts.has_pages:
 
-    port = (await update_state(deps, hold)).ports[payload.app_name]
-    await write_route(deps.root, payload.app_name, port=port)
+        def hold(state: HubState) -> HubState:
+            return state.model_copy(
+                update={
+                    "ports": {
+                        **state.ports,
+                        payload.app_name: allocate(state.ports, payload.app_name),
+                    }
+                }
+            )
+
+        port = (await update_state(deps, hold)).ports[payload.app_name]
+        await write_route(deps.root, payload.app_name, port=port)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
             name=facts.name,
             version=facts.version,
             state="installed",
-            url=address(payload.app_name, deps.proxy_port),
+            url=address(payload.app_name, deps.proxy_port) if facts.has_pages else None,
             has_pages=facts.has_pages,
         )
     )
