@@ -18,17 +18,21 @@ def properties(schema: Mapping[str, JsonValue], /) -> Sequence[str]:
 
 
 def test_a_description_carries_the_declared_identity() -> None:
+    """Described against the definition it was built from, not against
+    literals: what is under test is that `describe` projects a declaration
+    faithfully, and an App that renames itself is not a failure of that."""
     description = APP.describe()
 
-    assert description.app_id == "todo-app"
-    assert description.name == "Todo"
-    assert description.version == "0.0.0"
+    assert description.app_id == APP.definition.app_id
+    assert description.name == APP.definition.name
+    assert description.version == APP.definition.version
 
 
 def test_a_description_carries_the_configuration_schema() -> None:
+    """The schema is the config model's own, so the fields are asked of it."""
     description = APP.describe()
 
-    assert properties(description.config_schema) == ["db_key", "db_path"]
+    assert properties(description.config_schema) == sorted(APP.definition.config.model_fields)
 
 
 def test_a_description_carries_every_tool_with_both_schemas() -> None:

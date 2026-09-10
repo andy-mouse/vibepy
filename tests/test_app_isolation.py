@@ -33,6 +33,8 @@ def test_a_description_is_obtained_without_this_process_loading_the_app(tmp_path
     sibling tests import it, so its absence would say more about test order than
     about this command.
     """
+    # The name is written out rather than read from `todo_app`, because
+    # importing it to derive it is the thing this test forbids.
     before = set(sys.modules)
 
     result = run_describe(tmp_path)
