@@ -186,6 +186,15 @@ A start whose port is already taken by something else is a child that exits, whi
 the operating system no longer guarantees the port is free, and the failure surfaces at start
 rather than being avoided. It is stated in ADR-031's consequences.
 
+Not observing the proxy has a second cost, and it is stated there too. An address is published as
+soon as its route file is written, and nothing tells the Hub when the proxy has read one, so an
+address begins answering shortly after an install rather than at the moment the Hub answers with
+it. Traefik publishes no readiness signal — `/ping` answers before the dynamic configuration is
+loaded and the request for an endpoint that does not is open
+(<https://github.com/traefik/traefik/issues/10458>) — so the alternative is the Hub waiting on a
+proxy it deliberately does not observe, which would also make an install fail whenever the proxy
+is not running. That property is kept on purpose, and this is what it costs.
+
 ## Testing
 
 `make test` collects 229 tests where R1 begins.
