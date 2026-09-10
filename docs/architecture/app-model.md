@@ -69,8 +69,11 @@ def page_runtime_for[DepsT, ConfigT: BaseModel](
 ) -> AbstractAsyncContextManager[PageRuntime]: ...
 ```
 
-Each yields the one runtime its channel needs. Registries are built from declarations alone, so
-they are made before the resource is acquired. `config` is a raw mapping the window validates
+`tool_runtime_for` is the invocation window and belongs to no channel: every channel reaches
+Tools through it. The Agent channel adds nothing to it and hands it to its server's lifespan.
+`page_runtime_for` is the Web channel's window, and it is that same window with a PageRegistry
+over it, so configuration is validated once and a resource acquired once. Registries are built
+from declarations alone, so they are made before the resource is acquired. `config` is a raw mapping the window validates
 against the declaration before it enters the lifespan, so a window that cannot run acquires
 nothing; the lifespan receives the validated model. Two windows over one definition are
 isolated by default: each enters its own lifespan.
