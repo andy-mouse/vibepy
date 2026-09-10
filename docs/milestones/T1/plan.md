@@ -162,6 +162,19 @@ window); `purelib` is recorded as an absolute `Path` in the facts; the only othe
 the routes directory in `traefik.yml`. If a third root-relative absolute path is recorded anywhere,
 stop and report it — the copy would have to rewrite it too and the spec does not know about it.
 
+Then the hardlinks' one hazard — a write through a linked name reaches the template too:
+
+```bash
+grep -rn "write_whole\|os.replace\|write_text\|\.open(" packages/vibepy-hub/src/vibepy_hub/internals/*.py
+```
+
+Expected: state, routes and configuration are written by `write_whole`, which stages and
+`os.replace`s — a new inode, so the template is never written through. The one in-place
+`write_text` is the facts file during `install`, which only runs into an environment the test
+itself creates, and `remove_app`'s `rmtree` unlinks names rather than truncating files.
+Directories are real in a `copytree`; only files are links. If any write under a root opens a
+linked file for writing in place, stop and report it.
+
 - [ ] **Step 3: Migrate the eight tests off the old fixtures**
 
 In `test_configuration.py`, `test_installation.py` and `test_state.py`, replace the parameter
