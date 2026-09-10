@@ -24,8 +24,7 @@ class Candidate:
     """One installable folder inside a registered source.
 
     `name` is the canonical distribution name, which is what a Hub Tool
-    addresses this App by. See
-    `docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`.
+    addresses this App by.
     """
 
     folder: Path
@@ -57,7 +56,7 @@ class _Document(BaseModel):
 
 
 def _described(project: Path, /) -> _Project | None:
-    """The `[project]` table of a project file, or nothing when there is none."""
+    """Return the `[project]` table of a project file, or nothing when there is none."""
     try:
         document = tomllib.loads(project.read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):

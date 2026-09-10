@@ -63,7 +63,7 @@ def describe_app(ref: AppRef, /) -> AppDescription:
     """Load one declared entrypoint and project it.
 
     This imports, so it belongs in the App's own environment. A host that cannot
-    import an App runs it there instead: see `src/vibepy_core/describe.py`.
+    import an App runs `python -m vibepy_core.describe` in that environment instead.
     """
     reference = f"{ref.module}:{ref.attr}"
     entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)

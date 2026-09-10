@@ -7,8 +7,8 @@ Status: Accepted
 The Hub answers a caller who asked for something it will not do — an App that is not installed, a
 source that offers nothing, an environment that is already serving — with a `Diagnostic` carried
 inside its own output model. That vocabulary was invented without a record.
-`docs/milestones/code-review/decisions.md` lists it among three decisions that were live and
-undocumented, and no record in `docs/decisions/` mentions it.
+The full-repository code review of 2026-09-09 listed it among three decisions that were live and
+undocumented — its notes are in git history — and no record in `docs/decisions/` mentions it.
 
 `docs/architecture/errors.md` defines the framework's failure model: an exception derived from
 `VibepyError`, normalized to an `ErrorInfo` of `code`, `category`, `message` and `details`, which

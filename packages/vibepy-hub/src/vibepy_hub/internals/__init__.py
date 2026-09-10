@@ -1,9 +1,6 @@
 """The Hub's own domain internals, behind its Tools.
 
-`docs/architecture.md` places an App's models, policies, repositories and
-integrations here, which is why calling `uv`, reading a project file, holding a
-child process and storing state are not Tools. A Tool handler reaches them
-through its ToolContext and nothing else does.
+A Tool handler reaches them through its ToolContext and nothing else does.
 """
 
 from vibepy_hub.internals.configuration import (

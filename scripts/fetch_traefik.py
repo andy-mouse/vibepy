@@ -19,7 +19,7 @@ TOOLS = Path(__file__).resolve().parents[1] / ".tools"
 
 
 def asset() -> tuple[str, str]:
-    """The archive for this platform, and the name of the binary inside it.
+    """Return the archive for this platform, and the name of the binary inside it.
 
     The extracted file is named for the version it is, so raising `VERSION`
     fetches rather than leaving every warm checkout on the binary it already
@@ -35,7 +35,7 @@ def asset() -> tuple[str, str]:
 
 
 def expected(archive: str, /) -> str:
-    """The digest the release publishes for this archive."""
+    """Return the digest the release publishes for this archive."""
     with urllib.request.urlopen(f"{RELEASE}/traefik_{VERSION}_checksums.txt") as answer:
         published = answer.read().decode()
     for line in published.splitlines():
@@ -46,6 +46,7 @@ def expected(archive: str, /) -> str:
 
 
 def main() -> None:
+    """Fetch and extract the pinned Traefik binary, if it is not already there."""
     archive, binary = asset()
     target = TOOLS / f"{Path(binary).stem}-{VERSION}{Path(binary).suffix}"
     if target.exists():

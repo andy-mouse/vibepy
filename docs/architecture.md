@@ -15,7 +15,6 @@ The framework provides the App contract, the runtime, validation, and channel ad
 
 ```text
 App
-├─ Manifest / metadata
 ├─ Tools
 │  ├─ ToolDefinition
 │  └─ Tool implementation

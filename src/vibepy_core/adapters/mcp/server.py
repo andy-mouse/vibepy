@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 def _payload(error: Exception) -> dict[str, object]:
-    """The framework's own description of a failure, in the form an agent reads.
+    """Build the framework's own description of a failure, in the form an agent reads.
 
     Both MCP failure paths carry it, so the Agent channel reports one failure one
     way whether the protocol answers with an error or with a result.
@@ -51,7 +51,7 @@ def _payload(error: Exception) -> dict[str, object]:
 
 
 def _failure(error: Exception) -> types.CallToolResult:
-    """A failure the agent can read and act on, rather than a protocol error.
+    """Report a failure the agent can read and act on, rather than a protocol error.
 
     The payload travels as text rather than as structured content: a Tool declares
     an output schema, and the specification requires structured results to conform
@@ -70,18 +70,7 @@ def build_mcp_server[DepsT, ConfigT: BaseModel](
     *,
     config: Mapping[str, object],
 ) -> Server[ToolRuntime[DepsT]]:
-    """Build the MCP projection of one App's Tools.
-
-    Discovery, and the server's name and version, are read from the declaration.
-    ADR-027: a channel enumerates what an App declares from the declaration, so
-    this adapter builds no registry of its own and the one a call resolves in is
-    the only one a running App holds. The ToolRuntime that call goes through is
-    read from the request context, which carries whatever the lifespan yielded.
-
-    The SDK enters that lifespan inside ``run()``. Over stdio the client launches
-    one process per server, so that window is the process. See
-    `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
-    """
+    """Build the MCP projection of one App's Tools."""
 
     @asynccontextmanager
     async def server_lifespan(

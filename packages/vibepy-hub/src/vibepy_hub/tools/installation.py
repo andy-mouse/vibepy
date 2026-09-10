@@ -201,10 +201,10 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             ),
         )
 
-    # An address is for an App that can answer at one. An App declaring no Pages
-    # has no Web channel at all (ADR-017) and `start_app` refuses it, so giving
-    # it a port and a route would publish an address that is not slow to answer
-    # but will never answer, and point the proxy at a port nothing will bind.
+    # An address is for an App that can answer at one. An App declaring no Pages has no Web channel
+    # at all and `start_app` refuses it, so giving it a port and a route would publish an address
+    # that is not slow to answer but will never answer, and point the proxy at a port nothing will
+    # bind.
     if facts.has_pages:
 
         def hold(state: HubState) -> HubState:

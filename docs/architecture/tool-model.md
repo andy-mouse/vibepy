@@ -103,6 +103,12 @@ Registering a name twice replaces the earlier Tool, declaration included. A decl
 one name twice never reaches the registry: the window refuses it where it builds one, because
 enumeration and resolution no longer read the same object.
 
+A name's *format* is not validated anywhere. `ToolDefinition.name` is a `str`, and the projection
+a channel publishes carries it through unchanged. This is a decision rather than a gap: any
+grammar a name must satisfy belongs to the protocol a channel speaks, and a framework that
+enforced one channel's grammar in the core model would be implementing that channel's rule on its
+behalf. What the framework guarantees about a name is uniqueness within one App.
+
 ### ToolRuntime
 
 The canonical invocation path for every channel. Constructed from a app id, a ToolRegistry

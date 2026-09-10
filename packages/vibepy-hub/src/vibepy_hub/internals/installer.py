@@ -1,9 +1,7 @@
 """Creating an App's environment, and asking that environment what it holds.
 
-`docs/architecture/packaging.md` states the contract that an App is installed
-into an environment of its own, and leaves the mechanism to the Hub. `uv venv`
-with `uv pip install` satisfies it for a local folder while leaving the
-environment's path to the Hub.
+`uv venv` with `uv pip install` gives an App an environment of its own for a
+local folder, while leaving the environment's path to the Hub.
 
 Describing runs in that environment's interpreter, because reading a declaration
 imports it and the Hub must not import an App.
@@ -19,7 +17,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from vibepy_core.app.package import AppRef, discover_apps
+from vibepy_core import AppRef, discover_apps
 from vibepy_hub.models import AppFacts
 
 logger = logging.getLogger(__name__)
@@ -31,6 +29,7 @@ class InstallFailed(Exception):
     """A step of installation failed. Carries which step and what it wrote."""
 
     def __init__(self, step: str, output: str) -> None:
+        """Record `step` and `output` for the message."""
         super().__init__(f"{step} failed: {output}")
         self.step = step
         self.output = output
@@ -40,6 +39,7 @@ class AppNameInvalid(Exception):
     """An App name does not address a directory inside this Hub's environments."""
 
     def __init__(self, app_name: str) -> None:
+        """Record `app_name` for the message."""
         super().__init__(f"App name {app_name!r} is not one path segment")
         self.app_name = app_name
 
@@ -71,7 +71,7 @@ def environment(root: Path, app_name: str, /) -> Path:
 
 
 def interpreter(env: Path, /) -> Path:
-    """The Python of an environment, on either platform."""
+    """Return the Python of an environment, on either platform."""
     return env / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
@@ -154,7 +154,7 @@ _DESCRIBED = TypeAdapter(list[_Described])
 
 
 async def describe(env: Path, /) -> tuple[AppFacts, ...]:
-    """What the Apps in one environment declare, read in that environment."""
+    """Return what the Apps in one environment declare, read in that environment."""
     written = await _run([str(interpreter(env)), "-m", "vibepy_core.describe"])
     try:
         described = _DESCRIBED.validate_json(written)
@@ -175,7 +175,7 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
 
 
 async def read_facts(env: Path, /) -> AppFacts | None:
-    """What an installation learned when it was installed, or nothing."""
+    """Return what an installation learned when it was installed, or nothing."""
     return await asyncio.to_thread(_read_facts, env)
 
 
@@ -205,7 +205,7 @@ def _write_facts(env: Path, facts: AppFacts, /) -> None:
 
 
 async def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
-    """What one installed App declared, or nothing when it is not installed."""
+    """Return what one installed App declared, or nothing when it is not installed."""
     env = environment(root, app_name)
     return await read_facts(env) if await asyncio.to_thread(Path.is_dir, env) else None
 
@@ -216,7 +216,7 @@ async def remove_environment(env: Path, /) -> None:
 
 
 async def declarations(purelib: Path, /) -> tuple[AppRef, ...]:
-    """What one environment declares, read from its metadata.
+    """Return what one environment declares, read from its metadata.
 
     `discover_apps` scans a `site-packages` directory, so it blocks for as long
     as that directory takes to read. A Tool handler asks this instead.

@@ -68,7 +68,14 @@ extend-exclude = ["docs/**"]
 src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID", "D"]
+
+# PEP 257 is a standard, so it is enforced by the linter rather than restated as
+# a rule of our own. ruff implements it as the `D` rules and `convention`
+# selects which of them a style disables.
+# <https://docs.astral.sh/ruff/settings/#lint_pydocstyle_convention>
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 # The two headline invariants, enforced by the linter rather than by a test of
 # our own: no MCP type reaches the core Tool model and no Web type reaches the
@@ -84,6 +91,12 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID"]
 "!src/vibepy_core/**" = ["TID251"]
 "src/vibepy_core/adapters/**" = ["TID251"]
 "src/vibepy_core/serve.py" = ["TID251"]
+# Docstrings are documentation of a public surface. A test module and a fixture
+# App are neither: their module docstrings state what the file covers, and
+# PEP 8 asks for docstrings on public API, which these are not.
+"tests/**" = ["D"]
+"packages/*/tests/**" = ["D"]
+"fixtures/**" = ["D"]
 
 [tool.pyright]
 include = ["src", "tests", "packages", "fixtures"]
@@ -96,7 +109,13 @@ testpaths = ["tests", "packages"]
 # rewriting on import, and no __init__.py in a tests directory, so two
 # distributions may each hold one without their packages colliding.
 # <https://docs.pytest.org/en/stable/explanation/goodpractices.html>
-addopts = ["--import-mode=importlib"]
+# `--durations` is not a diagnostic left switched on by accident. This suite
+# starts real child processes and builds real environments, so its cost is a
+# property worth seeing at the moment it changes rather than after a gate has
+# grown slow -- and it is the only way to see which tests cost what on a
+# platform none of us runs, which is how the Windows runner came to take four
+# times the macOS one without anyone able to say where.
+addopts = ["--import-mode=importlib", "--durations=15"]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
 pythonpath = ["tests", "packages/vibepy-hub/tests"]

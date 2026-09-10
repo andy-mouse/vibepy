@@ -74,9 +74,12 @@ demands an answer to every call; the Web channel makes no such demand.
 `docs/architecture/errors.md` describes what the MCP adapter sends.
 
 `build_web_app(definition, lifespan, config=…)` returns the ASGI application those routes are
-served through, with the running window as that application's own lifespan: routes are
-registered as the window opens and left when it closes, and a window that refuses to open fails
-the application's startup rather than leaving a server answering for nothing.
+served through, with the running window as that application's own lifespan: a window that refuses
+to open fails the application's startup rather than leaving a server answering for nothing. What
+the window bounds is the PageRuntime each builder closes over, not the routes themselves — those
+are registered on the Web technology's process-global table and stay there, which is why one
+process serves one App's Pages. See
+`docs/decisions/ADR-026-the-web-window-is-the-served-applications-lifespan.md`.
 
 The adapter registers routes and starts no server; building the application it hands back is not
 running one. `vibepy_core.serve` owns the process and runs it. See

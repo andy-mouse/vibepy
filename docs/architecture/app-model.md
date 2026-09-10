@@ -13,6 +13,16 @@ AppDefinition + lifespan -> a channel's running window
 `docs/architecture/packaging.md` owns the layer above the definition: how a distribution says
 which App it contains, and how a reader learns that without importing it.
 
+## The import surface
+
+An App author reaches for `vibepy_core`, the package root: `tests/test_package.py` holds its
+exact contents, so a name that is not exported there is not public. The subpackages beneath it —
+`vibepy_core.tool`, `.page`, `.app`, `.errors` — are how the framework is organised, and they keep
+working for anything already written against them. A module whose handlers must never reach a
+blocking call (`docs/architecture/runtime.md` says why) imports the narrower subpackage instead of
+the root that re-exports it; the Hub's Tool modules are that case, held by
+`packages/vibepy-hub/tests/test_no_blocking_handlers.py`.
+
 ## AppDefinition
 
 `AppDefinition` is static and declarative. A frozen dataclass, generic in the app's own
@@ -88,9 +98,11 @@ owns no lifecycle of its own.
 A definition and a lifespan meet in an entrypoint, and nowhere else. That entrypoint is package
 metadata rather than framework behaviour, which is where ADR-010 already places one.
 
-An installed App has one entrypoint per channel it offers. The Agent channel's is a command
-the MCP client launches; the Web channel's is what the Hub opens. An App declaring no Pages has
-no Web channel, and is complete for an agent.
+An installed App has one entrypoint per channel it offers. The Web channel's is what the operator
+runs: `python -m vibepy_core.serve`, which `docs/architecture/packaging.md` owns. The Agent
+channel has no command today — nothing in this repository declares a console script, and an
+Agent-only App is therefore reachable only by a host that opens the channel itself. An App
+declaring no Pages has no Web channel.
 
 ## State ownership
 

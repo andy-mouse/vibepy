@@ -1,10 +1,4 @@
-"""The composition root as a value, and the projection a reader gets from it.
-
-A declaration holds no factory, so the pairing of a definition with a lifespan
-needs an object of its own. That object is what a package names, and it is not a
-declaration. See
-`docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.md`.
-"""
+"""The composition root as a value, and the projection a reader gets from it."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass

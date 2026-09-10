@@ -19,10 +19,16 @@ class PageRuntime:
     """
 
     def __init__(self, *, registry: PageRegistry, tools: ToolInvoker) -> None:
+        """Hold `registry` and the ToolInvoker every render will use."""
         self._registry = registry
         self._tools = tools
 
     async def render(self, name: str) -> None:
+        """Resolve `name`, build its PageContext, and run its handler.
+
+        Raises:
+            PageNotFoundError: no Page is registered under `name`.
+        """
         page = self._registry.resolve(name)
         ctx = PageContext(tools=self._tools)
         await page.handler(ctx)

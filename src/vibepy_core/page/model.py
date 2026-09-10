@@ -19,7 +19,9 @@ class ToolInvoker(Protocol):
     still imports no Tool runtime.
     """
 
-    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]: ...
+    def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
+        """Invoke `name` with `raw_input` and return its validated result."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -51,7 +53,9 @@ class PageHandler(Protocol):
     freely.
     """
 
-    def __call__(self, ctx: PageContext, /) -> Awaitable[None]: ...
+    def __call__(self, ctx: PageContext, /) -> Awaitable[None]:
+        """Render the Page's interface for one context."""
+        ...
 
 
 @dataclass(frozen=True)

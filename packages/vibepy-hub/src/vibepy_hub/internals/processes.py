@@ -3,9 +3,7 @@
 Only a parent observes its own children: `subprocess` documents `poll`, `wait`,
 `terminate` and `kill`, and documents no way to observe an arbitrary pid. So a
 child is this window's resource, released when the window closes, and status
-answers for what this window started — the same reading
-`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` gives the Agent
-channel's processes.
+answers for what this window started.
 
 A child is owned from the moment it exists, so nothing between the spawn and the
 first answer can leave one this window cannot release.
@@ -46,8 +44,7 @@ A launcher hands a child the environment the child is entitled to. Passing on
 what describes the launcher misdescribes the child: an App told it runs in the
 Hub's virtual environment, or that it is running the Hub's current test, behaves
 as something it is not. Removing them is what keeps the isolation the Hub exists
-to provide — see
-`docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
+to provide.
 """
 
 STOP_TIMEOUT = 10.0
@@ -85,6 +82,7 @@ class StartFailed(Exception):
     """A started App never answered. Carries what the child did."""
 
     def __init__(self, reason: str, *, reported: ChildFailure | None = None) -> None:
+        """Record `reason` and what the child, if any, `reported`."""
         super().__init__(reason)
         self.reason = reason
         self.reported = reported
@@ -109,7 +107,7 @@ def _log_path(logs: Path, known_as: str, /) -> Path:
 
 
 def _reported(path: Path, /) -> ChildFailure | None:
-    """The failure a child described, read from the last object it wrote."""
+    """Return the failure a child described, read from the last object it wrote."""
     try:
         written = path.read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
     except OSError:
@@ -129,7 +127,7 @@ def _reported(path: Path, /) -> ChildFailure | None:
 
 
 def child_environment() -> dict[str, str]:
-    """The environment a started App is entitled to."""
+    """Return the environment a started App is entitled to."""
     return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
 
 
@@ -149,6 +147,7 @@ class Processes:
     """One window's running Apps."""
 
     def __init__(self, *, logs: Path) -> None:
+        """Start with no App running, writing child output under `logs`."""
         self._running: dict[str, _Child | None] = {}
         self._logs = logs
 
@@ -164,7 +163,7 @@ class Processes:
             del self._running[app_name]
 
     def _held(self, app_name: str, /) -> _Child | None:
-        """The child filed under a name, once there is one to hold."""
+        """Return the child filed under a name, once there is one to hold."""
         self._forget_if_gone(app_name)
         return self._running.get(app_name)
 
@@ -189,7 +188,7 @@ class Processes:
         return app_name in self._running
 
     def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
-        """The child this window holds for an App, serving or not yet serving.
+        """Return the child this window holds for an App, serving or not yet serving.
 
         `running` answers only for a child that has answered. Ownership begins
         earlier, and a caller that must not start a second child under one name

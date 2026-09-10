@@ -23,15 +23,7 @@ class ToolContext[DepsT]:
 
 @dataclass(frozen=True)
 class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
-    """Static declaration of a Tool. Both models are required.
-
-    The declaration answers with its own JSON Schemas, so every surface that
-    publishes them publishes the same ones. Two surfaces do — the Agent
-    channel's projection and a package's self-description — and ADR-007
-    requires that a published schema and the value it describes cannot diverge.
-    Held here rather than at each surface because a rule written twice is a rule
-    that can be changed once.
-    """
+    """Static declaration of a Tool. Both models are required."""
 
     name: str
     description: str
@@ -39,7 +31,7 @@ class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
     output_model: type[OutputT]
 
     def input_schema(self) -> dict[str, JsonValue]:
-        """What an argument mapping is validated against.
+        """Return what an argument mapping is validated against.
 
         The validation schema: an input model is accepted, so a member it only
         produces is not part of what a caller may send.
@@ -47,7 +39,7 @@ class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
         return self.input_model.model_json_schema()
 
     def output_schema(self) -> dict[str, JsonValue]:
-        """What a result is serialized to.
+        """Return what a result is serialized to.
 
         The serialization schema, because a channel sends
         ``model_dump(by_alias=True, mode="json")``. A computed member and a
@@ -67,4 +59,6 @@ class ToolHandler[DepsT, InputT: BaseModel, OutputT: BaseModel](Protocol):
     Parameters are positional-only so that an app author may name them freely.
     """
 
-    def __call__(self, ctx: ToolContext[DepsT], payload: InputT, /) -> Awaitable[OutputT]: ...
+    def __call__(self, ctx: ToolContext[DepsT], payload: InputT, /) -> Awaitable[OutputT]:
+        """Handle one invocation and return its result."""
+        ...

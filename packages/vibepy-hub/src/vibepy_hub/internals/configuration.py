@@ -29,11 +29,10 @@ class _ConfigSchema(BaseModel):
 
 
 def secret_fields(schema: Mapping[str, object], /) -> tuple[str, ...]:
-    """The fields an App declared as secret, read from its projected schema.
+    """Return the fields an App declared as secret, read from its projected schema.
 
     Pydantic projects `SecretStr` as `format: password`, so a Host tells a secret
-    from an ordinary string without importing the App. See
-    `docs/decisions/ADR-022-configuration-is-a-declaration.md`.
+    from an ordinary string without importing the App.
     """
     try:
         described = _ConfigSchema.model_validate(dict(schema))
@@ -44,12 +43,12 @@ def secret_fields(schema: Mapping[str, object], /) -> tuple[str, ...]:
 
 
 def held_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> tuple[str, ...]:
-    """The declared secrets this App has a value for."""
+    """Return the declared secrets this App has a value for."""
     return tuple(name for name in secrets if values.get(name) not in (None, ""))
 
 
 def without_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> dict[str, object]:
-    """The held values a channel may see: every field that is not a secret."""
+    """Return the held values a channel may see: every field that is not a secret."""
     return {name: value for name, value in values.items() if name not in secrets}
 
 

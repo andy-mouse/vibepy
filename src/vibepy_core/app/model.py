@@ -24,8 +24,7 @@ class AppDefinition[DepsT, ConfigT: BaseModel]:
     ``DepsT`` is the app's own type for its application-scoped resource. The
     definition declares that its Tools require one of that type; it does not
     declare where one comes from. An entrypoint supplies that at composition
-    time, and the type checker rejects a mismatch at that one site. See
-    `docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.md`.
+    time, and the type checker rejects a mismatch at that one site.
 
     An App whose Tools need no resource declares ``AppDefinition[None, ...]``.
 

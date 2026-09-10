@@ -38,7 +38,7 @@ class HubState(BaseModel):
 
 
 async def read_state(root: Path, /) -> HubState:
-    """The stored state, or an empty one when nothing readable has been stored."""
+    """Return the stored state, or an empty one when nothing readable has been stored."""
     return await asyncio.to_thread(_read_state, root)
 
 
@@ -88,9 +88,6 @@ def _write_state(root: Path, state: HubState, /) -> None:
 async def update_state(deps: HubDeps, change: Callable[[HubState], HubState], /) -> HubState:
     """Read, change and store the state, with no other call in between.
 
-    ToolRuntime permits concurrent invocations and does not serialize them, so
-    a read-modify-write is the App's own to make safe --
-    `docs/architecture/runtime.md` puts overlapping mutation in the domain row.
     The lock is the window's, which is where application-scoped state belongs.
     """
     async with deps.state_lock:

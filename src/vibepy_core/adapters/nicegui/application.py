@@ -2,8 +2,7 @@
 
 Registering routes is not running a server, and neither is this: the application
 is built and handed back, and whoever owns the process runs it. The MCP adapter
-builds an SDK server object the same way. See
-`docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
+builds an SDK server object the same way.
 
 The window a channel runs in is the application's own lifespan, so a window that
 will not open fails the server's startup rather than leaving it answering: ASGI
@@ -41,8 +40,10 @@ def build_web_app[DepsT, ConfigT: BaseModel](
 
     NiceGUI documents mounting into an application of one's own as
     `ui.run_with(app)`, which is what lets the window be that application's
-    lifespan. Routes are registered inside the window and left with it, so a
-    builder holds its PageRuntime for exactly as long as the window lasts.
+    lifespan. A builder closes over the PageRuntime the window yielded, so a
+    render outside the window is unreachable; the routes themselves are
+    registered on the process-global table and are not removed when the window
+    closes.
     """
 
     @asynccontextmanager
@@ -70,8 +71,7 @@ def _report(failure: Exception, /) -> None:
     and exits, which is legible to a person and not to a caller. So the window
     describes itself in the framework's own shape first. Nothing is translated
     and nothing is swallowed: the exception propagates as raised, and this is a
-    log record beside it. See
-    `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
+    log record beside it.
     """
     info = to_error_info(failure)
     logger.error(
