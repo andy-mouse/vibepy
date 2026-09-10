@@ -31,6 +31,7 @@ async def _owned_once_it_exists(
             await asyncio.sleep(0.01)
 
 
+@pytest.mark.integration
 async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
     """`todo-app` is declared in this interpreter's own environment and takes a
     moment to answer, so the cancellation lands while the child is starting.
@@ -60,6 +61,7 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
     await processes.aclose()
 
 
+@pytest.mark.integration
 async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
     tmp_path: Path,
 ) -> None:
@@ -86,6 +88,7 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
     await processes.aclose()
 
 
+@pytest.mark.integration
 async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     """`aclose` is what `entry.py` promises: a window leaves no child behind.
 
@@ -110,6 +113,7 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
         await asyncio.open_connection("127.0.0.1", port)
 
 
+@pytest.mark.integration
 async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Path) -> None:
     """One name holds one child, and the start that was refused started nothing."""
     processes = Processes(logs=tmp_path / "logs")

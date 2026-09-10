@@ -10,6 +10,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 WEB_TECHNOLOGY = ("nicegui", "fastapi")
@@ -53,6 +55,7 @@ def sync(package: str, environment: Path, /) -> None:
     assert installing.returncode == 0, installing.stderr
 
 
+@pytest.mark.integration
 def test_an_agent_only_apps_environment_holds_no_web_technology(tmp_path: Path) -> None:
     environment = tmp_path / "notes-env"
     sync("vibepy-notes", environment)

@@ -13,6 +13,7 @@ Tool can answer is asked of the Tool.
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests_support import FIXTURES, hub
@@ -39,6 +40,7 @@ def test_an_address_names_the_app_and_the_proxy() -> None:
     assert address("vibepy-todo", 8080) == "http://vibepy-todo.localhost:8080"
 
 
+@pytest.mark.integration
 async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub", proxy_port=8080) as tools:
         await tools.invoke("register_package_source", {"path": str(FIXTURES)})
@@ -53,6 +55,7 @@ async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path:
     assert [row.state for row in rows] == ["installed"]
 
 
+@pytest.mark.integration
 async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Path) -> None:
     """Both Apps declare Pages, because only an App that can be served holds a port."""
     root = tmp_path / "hub"
@@ -71,6 +74,7 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Pa
     assert after["vibepy-timer"] == both["vibepy-timer"]
 
 
+@pytest.mark.integration
 async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     """What installing over an installation means is nobody's decision yet.
 
@@ -97,6 +101,7 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     assert after.ports["vibepy-todo"] == held
 
 
+@pytest.mark.integration
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     tmp_path: Path,
 ) -> None:
@@ -116,6 +121,7 @@ async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     assert config["providers"]["file"]["watch"] is True
 
 
+@pytest.mark.integration
 async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
@@ -136,13 +142,11 @@ async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path)
     assert gone is False
 
 
-async def test_an_address_outlives_a_run(tmp_path: Path) -> None:
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_an_address_outlives_a_run(tmp_path: Path, installed: Path) -> None:
     """The port belongs to the installation, so stopping does not release it."""
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {
@@ -162,33 +166,32 @@ async def test_an_address_outlives_a_run(tmp_path: Path) -> None:
     assert second.url == first.url
 
 
-async def test_an_app_with_no_pages_gets_no_address(tmp_path: Path) -> None:
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     """An address is for an App that can answer at one.
 
     `fixtures/notes` declares no Pages, so it has no Web channel (ADR-017) and
     `start_app` refuses it. An address for it would name something that will
     never answer, and its route would point the proxy at a port nothing binds.
     """
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+    async with hub(installed) as tools:
         listed = await tools.invoke("list_apps", {})
-        held = (await read_state(root)).ports
-        route = (root / "routes" / "vibepy-notes.yml").exists()
+        held = (await read_state(installed)).ports
+        route = (installed / "routes" / "vibepy-notes.yml").exists()
 
-    assert isinstance(installed, Installation)
-    assert installed.app.has_pages is False
-    assert installed.app.url is None
     assert isinstance(listed, AppListing)
-    assert [row.url for row in listed.apps if row.app_name == "vibepy-notes"] == [None]
+    rows = {row.app_name: row for row in listed.apps}
+    assert rows["vibepy-notes"].has_pages is False
+    assert rows["vibepy-notes"].url is None
     assert "vibepy-notes" not in held
     assert route is False
 
 
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
 async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
-    tmp_path: Path,
+    tmp_path: Path, installed: Path
 ) -> None:
     """An App is installed once its facts are written, and given a port after.
 
@@ -199,11 +202,7 @@ async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
     while the App is there, and a start that allocated a port would be a
     partial install under another name.
     """
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {
@@ -213,8 +212,8 @@ async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
         )
         # What either leaves behind: an installed App, its configuration, and
         # no port.
-        before = await read_state(root)
-        await write_state(root, before.model_copy(update={"ports": {}}))
+        before = await read_state(installed)
+        await write_state(installed, before.model_copy(update={"ports": {}}))
 
         refused = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         listed = await tools.invoke("list_apps", {})

@@ -7,6 +7,8 @@ import sys
 from pathlib import Path
 from typing import TypedDict
 
+import pytest
+
 from test_app_package import write_distribution
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -63,6 +65,7 @@ def described_app(result: subprocess.CompletedProcess[str], app_id: str) -> Desc
     return found[0]
 
 
+@pytest.mark.integration
 def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) -> None:
     result = run_describe(tmp_path)
 
@@ -75,6 +78,7 @@ def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) 
     assert described_app(result, "notes-app")["pages"] == []
 
 
+@pytest.mark.integration
 def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> None:
     first: list[Described] = json.loads(run_describe(tmp_path).stdout)
     before = {entry["app_id"] for entry in first}
@@ -91,6 +95,7 @@ def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> No
     assert {entry["app_id"] for entry in again} == before
 
 
+@pytest.mark.integration
 def test_an_unloadable_declaration_fails_with_the_framework_code(tmp_path: Path) -> None:
     write_distribution(
         tmp_path,
@@ -105,6 +110,7 @@ def test_an_unloadable_declaration_fails_with_the_framework_code(tmp_path: Path)
     assert "package.entrypoint_unloadable" in result.stderr
 
 
+@pytest.mark.integration
 def test_a_description_says_which_declaration_it_describes(tmp_path: Path) -> None:
     """A reader joins two answers about one environment on identity, so the
     command reports the identity of what it described."""

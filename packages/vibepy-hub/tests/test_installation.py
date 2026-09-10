@@ -33,6 +33,7 @@ def a_python_lives_in(env: Path, /) -> bool:
     return (env / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")).is_file()
 
 
+@pytest.mark.integration
 async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
@@ -47,11 +48,10 @@ async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Pat
     assert a_python_lives_in(environment(root, "vibepy-notes"))
 
 
-async def test_an_installed_app_is_listed_apart_from_an_offered_one(
-    notes_installed: Path,
-) -> None:
-    async with hub(notes_installed) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: Path) -> None:
+    async with hub(installed) as tools:
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
@@ -60,18 +60,16 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(
     assert rows["vibepy-timer"].state == "available"
 
 
-async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None:
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, installed: Path) -> None:
     """A folder's name is not a declaration.
 
     `fixtures/todo` is the distribution `vibepy-todo` and declares itself as
     `todo-app`, so the Hub files it under the distribution name it was asked for
     and runs it under the name its environment answers to.
     """
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {
@@ -88,18 +86,17 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
     assert started.diagnostic is None
 
 
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
 async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
-    tmp_path: Path,
+    tmp_path: Path, installed: Path
 ) -> None:
     """The data is written by the App's own store, at the path it was configured
     with, so the assertion means something: it is real, and it lies outside the
     environment `remove_app` deletes."""
-    root = tmp_path / "hub"
     data = tmp_path / "todo.json"
 
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {"app_name": "vibepy-todo", "values": {"db_path": str(data), "db_key": "k"}},
@@ -112,7 +109,7 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
 
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
-    assert not environment(root, "vibepy-todo").exists()
+    assert not environment(installed, "vibepy-todo").exists()
     assert data.is_file()
     assert [todo.title for todo in TodoStore(data, SecretStr("k")).list_all()] == ["keep me"]
 
@@ -126,6 +123,7 @@ async def test_an_app_no_source_offers_is_a_diagnostic(tmp_path: Path) -> None:
     assert answered.diagnostic.code == "hub.candidate_absent"
 
 
+@pytest.mark.integration
 async def test_a_folder_that_installs_no_app_is_a_diagnostic(tmp_path: Path) -> None:
     source = tmp_path / "packages"
     write_project(source / "plain", name="plain-package", declares=False)
@@ -140,6 +138,7 @@ async def test_a_folder_that_installs_no_app_is_a_diagnostic(tmp_path: Path) -> 
     assert answered.diagnostic.code in {"hub.no_app_declared", "hub.install_failed"}
 
 
+@pytest.mark.integration
 async def test_an_uninstallable_folder_is_a_diagnostic(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -214,6 +213,7 @@ def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:
     assert hub_environment(tmp_path, "todo") == tmp_path / "envs" / "todo"
 
 
+@pytest.mark.integration
 async def test_one_app_is_one_row_however_it_was_installed(tmp_path: Path) -> None:
     """Installing by the distribution name lists that App once, not twice."""
     root = tmp_path / "hub"
@@ -239,6 +239,7 @@ async def test_a_folder_name_is_not_an_app_name(tmp_path: Path) -> None:
     assert answered.diagnostic.code == "hub.candidate_absent"
 
 
+@pytest.mark.integration
 async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path) -> None:
     """The specification compares names by normalizing them, and so does the Hub."""
     root = tmp_path / "hub"
@@ -253,6 +254,7 @@ async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path) -> None
     assert a_python_lives_in(environment(root, "vibepy-notes"))
 
 
+@pytest.mark.integration
 async def test_a_distribution_declaring_two_apps_is_refused(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -291,6 +293,7 @@ async def test_a_distribution_declaring_two_apps_is_refused(
     assert not environment(root, "vibepy-todo").exists()
 
 
+@pytest.mark.integration
 async def test_a_failed_description_leaves_no_environment_behind(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -329,11 +332,13 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"
 
 
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
 async def test_an_environment_that_no_longer_declares_its_app_says_so(
-    notes_installed: Path,
+    installed: Path,
 ) -> None:
-    async with hub(notes_installed) as tools:
-        facts = await read_facts(environment(notes_installed, "vibepy-notes"))
+    async with hub(installed) as tools:
+        facts = await read_facts(environment(installed, "vibepy-notes"))
         assert facts is not None and facts.purelib is not None
         for info in facts.purelib.glob("vibepy_notes-*.dist-info"):
             shutil.rmtree(info)
@@ -346,6 +351,7 @@ async def test_an_environment_that_no_longer_declares_its_app_says_so(
     assert rows["vibepy-notes"].diagnostic.code == "hub.declaration_missing"
 
 
+@pytest.mark.integration
 async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

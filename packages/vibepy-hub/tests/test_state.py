@@ -10,8 +10,10 @@ from vibepy_hub.internals.state import STATE_FILE, HubState, read_state, write_s
 from vibepy_hub.models import HeldConfig
 
 
-async def test_two_overlapping_configurations_both_survive(two_installed: Path) -> None:
-    async with hub(two_installed) as tools:
+@pytest.mark.apps("vibepy-notes", "vibepy-todo")
+@pytest.mark.integration
+async def test_two_overlapping_configurations_both_survive(installed: Path) -> None:
+    async with hub(installed) as tools:
         first, second = await asyncio.gather(
             tools.invoke(
                 "configure_app",
@@ -25,7 +27,7 @@ async def test_two_overlapping_configurations_both_survive(two_installed: Path) 
         assert isinstance(first, HeldConfig)
         assert isinstance(second, HeldConfig)
 
-    held = (await read_state(two_installed)).config
+    held = (await read_state(installed)).config
     assert set(held) == {"vibepy-notes"}
 
 

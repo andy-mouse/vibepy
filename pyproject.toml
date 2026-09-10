@@ -119,6 +119,16 @@ addopts = ["--import-mode=importlib", "--durations=15"]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
 pythonpath = ["tests", "packages/vibepy-hub/tests"]
+# `integration` names the tests whose subject crosses into a real distribution
+# or a real child process -- the ones that build an environment or start an
+# App. It selects and never excuses: `make test` runs everything. Strict, so a
+# mistyped marker fails rather than marking nothing.
+# <https://docs.pytest.org/en/stable/example/markers.html>
+markers = [
+    "integration: crosses into a real distribution or child process",
+    "apps(*names): the fixture Apps a test's copy of the template root holds",
+]
+strict_markers = true
 asyncio_mode = "auto"
 # NiceGUI's user fixture runs a main file unless this is empty. Pages are
 # registered by the tests themselves, so there is no main file to run.
