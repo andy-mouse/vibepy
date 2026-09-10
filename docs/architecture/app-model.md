@@ -88,9 +88,11 @@ owns no lifecycle of its own.
 A definition and a lifespan meet in an entrypoint, and nowhere else. That entrypoint is package
 metadata rather than framework behaviour, which is where ADR-010 already places one.
 
-An installed App has one entrypoint per channel it offers. The Agent channel's is a command
-the MCP client launches; the Web channel's is what the Hub opens. An App declaring no Pages has
-no Web channel, and is complete for an agent.
+An installed App has one entrypoint per channel it offers. The Web channel's is what the operator
+runs: `python -m vibepy_core.serve`, which `docs/architecture/packaging.md` owns. The Agent
+channel has no command today — nothing in this repository declares a console script, and an
+Agent-only App is therefore reachable only by a host that opens the channel itself. An App
+declaring no Pages has no Web channel.
 
 ## State ownership
 
