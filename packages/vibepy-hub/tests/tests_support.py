@@ -8,7 +8,7 @@ import sys
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
@@ -17,6 +17,8 @@ from vibepy_hub.internals import HubDeps
 
 REPO = Path(__file__).resolve().parents[3]
 EXAMPLES = REPO / "examples"
+FIXTURES = REPO / "fixtures"
+"""Distributions that exist to be installed by a test. Not product surface."""
 
 TRAEFIK = REPO / ".tools" / ("traefik.exe" if sys.platform == "win32" else "traefik")
 """The proxy `make install` fetched. Required: a skipped test cannot fail."""
@@ -138,6 +140,25 @@ async def http_status(url: str, /) -> int:
 def _status(url: str, /) -> int:
     with urlopen(url, timeout=30) as answer:
         return int(answer.status)
+
+
+async def served_body(port: int, *, host: str, path: str) -> str:
+    """What the App behind this hostname answers with.
+
+    A body rather than a status, because a status cannot tell two Apps apart:
+    two requests answered by one App are also two 200s.
+
+    The `Host` header is sent and never resolved, which is what the proxy routes
+    on and what keeps this independent of whether the platform's resolver knows
+    `.localhost` -- RFC 6761 makes that a SHOULD, and browsers rather than
+    system resolvers are what implement it.
+    """
+    return await asyncio.to_thread(_body, f"http://127.0.0.1:{port}{path}", host)
+
+
+def _body(url: str, host: str, /) -> str:
+    with urlopen(Request(url, headers={"Host": host}), timeout=30) as answer:
+        return answer.read().decode(errors="replace")
 
 
 def write_project(folder: Path, *, name: str, declares: bool) -> None:

@@ -18,7 +18,11 @@ agent = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "examples/*"]
+members = ["packages/*", "examples/*", "fixtures/*"]
+# `fixtures/*` are distributions a test installs, not product surface. They are
+# members so that they resolve the core the way every other distribution here
+# does, and are absent from `[dependency-groups].dev` so nothing installs them
+# into this repository's own environment.
 
 [build-system]
 requires = ["hatchling"]

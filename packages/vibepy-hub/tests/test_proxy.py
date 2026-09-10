@@ -6,77 +6,88 @@ carries one. This file answers that from the running pair rather than from a
 document.
 """
 
-import asyncio
-import json
-import sys
 from pathlib import Path
 
-from tests_support import first_frame, free_port, traefik
+from tests_support import EXAMPLES, FIXTURES, first_frame, free_port, hub, served_body, traefik
+from vibepy_hub.models import RunningApp
 
 SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 """Where NiceGUI mounts socket.io (`nicegui/nicegui.py`, `app.mount('/_nicegui_ws/', ...)`)."""
 
 
-def install_configuration(root: Path, *, port: int) -> Path:
-    """The half of the proxy's configuration that does not change.
-
-    Scaffolding: Task 4 of `docs/milestones/R1/plan.md` teaches the Hub to write
-    this document, and this helper goes when it does.
-    """
-    routes = root / "routes"
-    routes.mkdir(parents=True)
-    config = root / "traefik.yml"
-    config.write_text(
-        f'entryPoints:\n  web:\n    address: ":{port}"\n'
-        f"providers:\n  file:\n    directory: {routes}\n    watch: true\n",
-        encoding="utf-8",
-    )
-    return config
-
-
-def route(root: Path, *, host: str, port: int) -> None:
-    """One App's routing configuration, written where the provider watches."""
-    (root / "routes" / "one.yml").write_text(
-        "http:\n"
-        "  routers:\n"
-        "    one:\n"
-        f'      rule: "Host(`{host}`)"\n'
-        "      service: one\n"
-        "  services:\n"
-        "    one:\n"
-        "      loadBalancer:\n"
-        "        servers:\n"
-        f'          - url: "http://127.0.0.1:{port}"\n',
-        encoding="utf-8",
-    )
-
-
 async def test_a_page_s_websocket_survives_the_proxy(tmp_path: Path) -> None:
-    app_port, proxy_port = free_port(), free_port()
-    config = install_configuration(tmp_path, port=proxy_port)
-    route(tmp_path, host="todo-app.localhost", port=app_port)
+    """Traefik's documentation does not say it carries a WebSocket, and a
+    NiceGUI Page does not work without one. This settles it, and settles it
+    against the configuration the Hub itself wrote rather than one composed
+    here."""
+    proxy_port = free_port()
+    root = tmp_path / "hub"
 
-    served = await asyncio.create_subprocess_exec(
-        sys.executable,
-        "-m",
-        "vibepy_core.serve",
-        "todo-app",
-        "--port",
-        str(app_port),
-        stdin=asyncio.subprocess.PIPE,
-    )
-    assert served.stdin is not None
-    served.stdin.write(json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "k"}).encode())
-    await served.stdin.drain()
-    served.stdin.close()
-    try:
-        async with traefik(config, port=proxy_port, host="todo-app.localhost", path="/todos"):
-            frame = await first_frame(proxy_port, host="todo-app.localhost", path=SOCKET_IO)
-    finally:
-        served.terminate()
-        await served.wait()
+    async with hub(root, proxy_port=proxy_port) as tools:
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-second", "secrets": {}})
+        assert isinstance(started, RunningApp)
+        assert started.diagnostic is None
+
+        async with traefik(
+            root / "traefik.yml",
+            port=proxy_port,
+            host="vibepy-second.localhost",
+            path="/home",
+        ):
+            frame = await first_frame(proxy_port, host="vibepy-second.localhost", path=SOCKET_IO)
 
     # An unmasked text frame carrying engine.io's OPEN packet: the upgrade was
     # carried, and so was what the server sent after it.
     assert frame[0] == 0x81
     assert frame[2:4] == b"0{"
+
+
+async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> None:
+    """The acceptance criterion: one configuration, two Apps, at once.
+
+    The configuration is read before either App exists and compared after both
+    are running: what changes as Apps arrive is the routing files beside it, not
+    this.
+    """
+    proxy_port = free_port()
+    root = tmp_path / "hub"
+
+    async with hub(root, proxy_port=proxy_port) as tools:
+        config = root / "traefik.yml"
+        written = config.read_text(encoding="utf-8")
+
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        await tools.invoke("install_app", {"app_name": "vibepy-second"})
+
+        for name in ("vibepy-todo", "vibepy-second"):
+            started = await tools.invoke("start_app", {"app_name": name, "secrets": {}})
+            assert isinstance(started, RunningApp)
+            assert started.diagnostic is None
+
+        async with traefik(config, port=proxy_port, host="vibepy-todo.localhost", path="/todos"):
+            todo = await served_body(proxy_port, host="vibepy-todo.localhost", path="/todos")
+            second = await served_body(proxy_port, host="vibepy-second.localhost", path="/home")
+
+        assert config.read_text(encoding="utf-8") == written
+
+    # Each host reached its own App. Two statuses would not say that: two
+    # requests answered by one App are also two 200s, and the criterion is that
+    # both Apps are served, not that both requests succeeded.
+    assert "todos" in todo.lower()
+    assert "second-app" in second
+    # And neither answer came from the other App, which is what would happen if
+    # one route shadowed the other and both requests still returned 200.
+    assert "second-app" not in todo
+    assert "todos" not in second.lower()
