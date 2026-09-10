@@ -156,8 +156,9 @@ is a name for the cost and `-m "not integration"` while developing.
    The framework's own `tests/test_serve_command.py`, `test_describe_command.py`,
    `test_channel_extras.py` and `test_dual_channel.py` are checked for the same boundary rather
    than assumed either way.
-5. **The measurement is reported.** The Windows job's time after the change, against 400s, in the
-   merge commit message, with its `--durations=15` list.
+5. **The measurement is reported.** The Windows job's time after the change, against 400s, with
+   its `--durations=15` list — read from the CI run of the merge and reported to the owner, since
+   no run of `main` exists before the merge is pushed.
 6. **`scripts/bench_hub.py` and `.github/workflows/bench.yml` are deleted** with the
    `bench-hub-cost` branch. Their numbers live in this document, and a benchmark nobody runs goes
    stale.
