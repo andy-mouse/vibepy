@@ -1520,7 +1520,12 @@ use — Status, Context, Decision, Consequences — saying *why* and not *how*. 
   trust store; a fixed port means a port taken by something else is a start that fails with
   `hub.start_failed`, which `free_port()` used to prevent; the Hub does not know whether the
   proxy is running; Traefik's documentation does not state that it carries WebSocket
-  connections, and `packages/vibepy-hub/tests/test_proxy.py` is what holds it to doing so.
+  connections, and `packages/vibepy-hub/tests/test_proxy.py` is what holds it to doing so;
+  **an address answers shortly after it is published rather than at once** — the Hub writes a
+  route file and answers, and nothing tells it when the proxy has read one. Traefik publishes no
+  readiness signal at all (<https://github.com/traefik/traefik/issues/10458>), so the alternative
+  is the Hub waiting on a proxy it deliberately does not observe, which would also make an
+  install fail whenever the proxy is not running — a property this decision keeps on purpose.
 
 Cite rather than restate: ADR-025 for what is adopted rather than written, ADR-028 for the name
 the hostname is taken from, and `docs/milestones/code-review/decisions.md` for D6 to D8.
