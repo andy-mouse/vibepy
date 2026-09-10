@@ -10,8 +10,9 @@ The agent is not merely a one-shot code generator.
 inspect -> design -> implement -> validate -> run -> test -> observe -> repair
 ```
 
-Authoring is one half of an App's lifecycle. `docs/architecture/operation.md` owns the other: how
-an App that exists is installed, addressed, started and reached.
+Authoring is one half of an App's lifecycle. `docs/architecture/lifecycle.md` owns both layers of
+that life, and the package layer is where an App that exists is installed, addressed, started and
+reached.
 
 ## Framework responsibility
 
@@ -43,7 +44,7 @@ Conceptual capabilities:
 - package_app
 
 Installing, starting and stopping an App are not authoring capabilities. They belong to the
-operation role, which declares them as Tools of its own; see `docs/architecture/operation.md`.
+package layer, which declares them as Tools of its own; see `docs/architecture/lifecycle.md`.
 
 ## Authoring MCP
 
