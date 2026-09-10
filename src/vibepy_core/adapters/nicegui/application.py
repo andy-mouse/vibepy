@@ -41,8 +41,10 @@ def build_web_app[DepsT, ConfigT: BaseModel](
 
     NiceGUI documents mounting into an application of one's own as
     `ui.run_with(app)`, which is what lets the window be that application's
-    lifespan. Routes are registered inside the window and left with it, so a
-    builder holds its PageRuntime for exactly as long as the window lasts.
+    lifespan. A builder closes over the PageRuntime the window yielded, so a
+    render outside the window is unreachable; the routes themselves are
+    registered on the process-global table and are not removed when the window
+    closes.
     """
 
     @asynccontextmanager

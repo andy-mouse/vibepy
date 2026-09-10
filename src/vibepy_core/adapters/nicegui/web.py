@@ -2,7 +2,9 @@
 
 Route validation reads the declaration; the builders close over the PageRuntime
 the caller's window yielded. Registration therefore happens inside that window,
-and a builder holds its runtime for exactly as long as the window lasts.
+and a builder can only render while its runtime lives. Registration itself is not
+undone: it mutates the Web technology's process-global route table, which one
+process holds for one App.
 
 NiceGUI documents no lifespan and mounts as a sub-application, and Starlette does
 not document lifespan state reaching one, so nothing here reads request state. A
