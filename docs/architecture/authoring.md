@@ -10,6 +10,9 @@ The agent is not merely a one-shot code generator.
 inspect -> design -> implement -> validate -> run -> test -> observe -> repair
 ```
 
+Authoring is one half of an App's lifecycle. `docs/architecture/operation.md` owns the other: how
+an App that exists is installed, addressed, started and reached.
+
 ## Framework responsibility
 
 The framework should provide deterministic feedback surfaces for agents:
@@ -34,19 +37,14 @@ Conceptual capabilities:
 - inspect_app
 - validate_app
 - validate_package
-- start_app
-- stop_app
-- app_status
 - invoke_tool
 - run_conformance_tests
 - get_app_errors
 - get_runtime_logs
 - package_app
-- install_package
 
-`start_app`, `stop_app` and `app_status` describe the Web channel window the Hub owns. A
-process the agent platform spawned is not one the Hub started. See
-`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
+Installing, starting and stopping an App are not authoring capabilities. They belong to the
+operation role, which declares them as Tools of its own; see `docs/architecture/operation.md`.
 
 ## Authoring MCP
 
