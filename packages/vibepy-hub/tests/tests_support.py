@@ -22,9 +22,13 @@ TRAEFIK = REPO / ".tools" / ("traefik.exe" if sys.platform == "win32" else "trae
 """The proxy `make install` fetched. Required: a skipped test cannot fail."""
 
 
-def hub(root: Path, /) -> AbstractAsyncContextManager[ToolRuntime[HubDeps]]:
-    """One Hub window over a temporary root."""
-    return tool_runtime_for(HUB_APP, APP.lifespan, config={"root": str(root)})
+def hub(
+    root: Path, /, *, proxy_port: int = 8080
+) -> AbstractAsyncContextManager[ToolRuntime[HubDeps]]:
+    """One Hub window over a temporary root, published at one proxy port."""
+    return tool_runtime_for(
+        HUB_APP, APP.lifespan, config={"root": str(root), "proxy_port": proxy_port}
+    )
 
 
 def free_port() -> int:

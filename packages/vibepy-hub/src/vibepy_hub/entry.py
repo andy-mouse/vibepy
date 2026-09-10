@@ -23,10 +23,15 @@ class HubConfig(BaseModel):
     """What the Hub requires of its host.
 
     The root is declared rather than assumed, so a test supplies a temporary
-    directory and two Hubs never share one.
+    directory and two Hubs never share one. `proxy_port` is declared for the
+    same reason and one more: it is part of every address the Hub answers with,
+    and a Hub that assumed it would publish addresses reaching nothing, or
+    something else, without ever being told. See
+    `docs/decisions/ADR-031-the-proxy-is-traefik.md`.
     """
 
     root: Path
+    proxy_port: int = 8080
 
 
 @asynccontextmanager
@@ -39,7 +44,7 @@ async def hub_lifespan(config: HubConfig) -> AsyncGenerator[HubDeps]:
     await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
     processes = Processes(logs=config.root / "logs")
     try:
-        yield HubDeps(root=config.root, processes=processes)
+        yield HubDeps(root=config.root, processes=processes, proxy_port=config.proxy_port)
     finally:
         await processes.aclose()
 

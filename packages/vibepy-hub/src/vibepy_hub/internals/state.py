@@ -30,6 +30,8 @@ class HubState(BaseModel):
 
     sources: list[Path] = []
     config: dict[str, dict[str, object]] = {}
+    ports: dict[str, int] = {}
+    """The port each installed App serves on, allocated when it was installed."""
 
 
 async def read_state(root: Path, /) -> HubState:
