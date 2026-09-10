@@ -37,6 +37,7 @@ import pytest
 
 from tests_support import FIXTURES, hub
 from vibepy_hub.internals.installer import FACTS_FILE
+from vibepy_hub.models import Installation
 
 APPS = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
 """Every fixture App, installed into the template in this order."""
@@ -57,8 +58,8 @@ def template_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
             await tools.invoke("register_package_source", {"path": str(FIXTURES)})
             for app_name in APPS:
                 installed = await tools.invoke("install_app", {"app_name": app_name})
-                diagnostic = getattr(installed, "diagnostic", None)
-                assert diagnostic is None, diagnostic
+                assert isinstance(installed, Installation)
+                assert installed.diagnostic is None, installed.diagnostic
 
     asyncio.run(build())
     return root

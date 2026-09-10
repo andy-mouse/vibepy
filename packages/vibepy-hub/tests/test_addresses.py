@@ -101,21 +101,23 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     assert after.ports["vibepy-todo"] == held
 
 
-@pytest.mark.apps()
 @pytest.mark.integration
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
-    installed: Path,
+    tmp_path: Path,
 ) -> None:
     """The install configuration is written once and never follows an App."""
-    async with hub(installed, proxy_port=9999) as tools:
-        written = (installed / "traefik.yml").read_text(encoding="utf-8")
-        await tools.invoke("list_apps", {})
-        after = (installed / "traefik.yml").read_text(encoding="utf-8")
+    root = tmp_path / "hub"
+
+    async with hub(root, proxy_port=9999) as tools:
+        written = (root / "traefik.yml").read_text(encoding="utf-8")
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        after = (root / "traefik.yml").read_text(encoding="utf-8")
 
     assert written == after
     config = yaml.safe_load(written)
     assert config["entryPoints"]["web"]["address"] == ":9999"
-    assert config["providers"]["file"]["directory"] == str(installed / "routes")
+    assert config["providers"]["file"]["directory"] == str(root / "routes")
     assert config["providers"]["file"]["watch"] is True
 
 
