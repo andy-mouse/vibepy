@@ -9,6 +9,7 @@ This repository implements an agent-native application framework where one App e
 
 - Answers come from this repository's documents first. Search `docs/` before introducing a concept, and say what you searched.
 - External behaviour comes from official documentation, cited. Training data is not a source.
+- When the documentation does not answer, the authority's own code does; a workaround is not an answer.
 - Where no source answers, that is an open decision. Stop and ask; do not invent.
 
 ## Boundaries
