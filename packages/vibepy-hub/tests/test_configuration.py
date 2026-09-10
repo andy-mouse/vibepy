@@ -13,6 +13,7 @@ from vibepy_hub.models import AppListing, HeldConfig, RunningApp
 TOKEN = "s3cret-token-value"
 
 
+@pytest.mark.integration
 async def test_values_are_held_for_an_installed_app(installed: Path) -> None:
     data = installed / "plain.db"
 
@@ -35,6 +36,7 @@ async def test_values_are_held_for_an_installed_app(installed: Path) -> None:
     assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [True]
 
 
+@pytest.mark.integration
 async def test_an_app_missing_a_required_value_is_not_configured(installed: Path) -> None:
     async with hub(installed) as tools:
         listed = await tools.invoke("list_apps", {})
@@ -66,6 +68,7 @@ async def held_notes_secret(root: Path) -> HeldConfig:
     return held
 
 
+@pytest.mark.integration
 async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> None:
     """A second window over the same root starts the App with nobody present.
 
@@ -96,6 +99,7 @@ async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> Non
     assert started.url is not None
 
 
+@pytest.mark.integration
 async def test_a_held_secret_is_never_handed_back(installed: Path) -> None:
     """It is not handed back at all, so the output type is safe as the input type.
 
@@ -122,6 +126,7 @@ async def test_a_held_secret_is_never_handed_back(installed: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+@pytest.mark.integration
 async def test_what_is_held_is_readable_only_by_its_owner(installed: Path) -> None:
     root = installed
 

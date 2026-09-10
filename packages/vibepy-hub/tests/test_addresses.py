@@ -13,6 +13,7 @@ Tool can answer is asked of the Tool.
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 from tests_support import FIXTURES, hub
@@ -39,6 +40,7 @@ def test_an_address_names_the_app_and_the_proxy() -> None:
     assert address("vibepy-todo", 8080) == "http://vibepy-todo.localhost:8080"
 
 
+@pytest.mark.integration
 async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub", proxy_port=8080) as tools:
         await tools.invoke("register_package_source", {"path": str(FIXTURES)})
@@ -53,6 +55,7 @@ async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path:
     assert [row.state for row in rows] == ["installed"]
 
 
+@pytest.mark.integration
 async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Path) -> None:
     """Both Apps declare Pages, because only an App that can be served holds a port."""
     root = tmp_path / "hub"
@@ -71,6 +74,7 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Pa
     assert after["vibepy-timer"] == both["vibepy-timer"]
 
 
+@pytest.mark.integration
 async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     """What installing over an installation means is nobody's decision yet.
 
@@ -97,6 +101,7 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     assert after.ports["vibepy-todo"] == held
 
 
+@pytest.mark.integration
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     installed: Path,
 ) -> None:
@@ -113,6 +118,7 @@ async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     assert config["providers"]["file"]["watch"] is True
 
 
+@pytest.mark.integration
 async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
@@ -133,6 +139,7 @@ async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path)
     assert gone is False
 
 
+@pytest.mark.integration
 async def test_an_address_outlives_a_run(tmp_path: Path, installed: Path) -> None:
     """The port belongs to the installation, so stopping does not release it."""
     async with hub(installed) as tools:
@@ -155,6 +162,7 @@ async def test_an_address_outlives_a_run(tmp_path: Path, installed: Path) -> Non
     assert second.url == first.url
 
 
+@pytest.mark.integration
 async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     """An address is for an App that can answer at one.
 
@@ -175,6 +183,7 @@ async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     assert route is False
 
 
+@pytest.mark.integration
 async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
     tmp_path: Path, installed: Path
 ) -> None:

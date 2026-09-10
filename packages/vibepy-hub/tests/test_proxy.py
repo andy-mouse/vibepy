@@ -8,6 +8,8 @@ document.
 
 from pathlib import Path
 
+import pytest
+
 from tests_support import first_frame, free_port, hub, served_body, traefik
 from vibepy_hub.models import RunningApp
 
@@ -15,6 +17,7 @@ SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 """Where NiceGUI mounts socket.io (`nicegui/nicegui.py`, `app.mount('/_nicegui_ws/', ...)`)."""
 
 
+@pytest.mark.integration
 async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     """Traefik's documentation does not say it carries a WebSocket, and a
     NiceGUI Page does not work without one. This settles it, and settles it
@@ -41,6 +44,7 @@ async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     assert b'"sid"' in opened
 
 
+@pytest.mark.integration
 async def test_two_apps_are_served_through_one_configuration(
     tmp_path: Path, installed: Path
 ) -> None:

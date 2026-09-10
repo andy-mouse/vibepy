@@ -9,11 +9,14 @@ current test or living in the Hub's virtual environment.
 import asyncio
 from pathlib import Path
 
+import pytest
+
 from tests_support import hub
 from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppListing, RunningApp
 
 
+@pytest.mark.integration
 async def test_an_installed_app_starts_and_stops(tmp_path: Path, installed: Path) -> None:
     """That the App answered is `start_app`'s contract, not this test's reading:
     a start returns without a diagnostic only once the child answered a request.
@@ -52,6 +55,7 @@ async def test_starting_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: P
     assert answered.diagnostic.category == ErrorCategory.CALLER
 
 
+@pytest.mark.integration
 async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
     installed: Path,
 ) -> None:
@@ -77,6 +81,7 @@ async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Pat
     assert answered.diagnostic.code == "hub.not_running"
 
 
+@pytest.mark.integration
 async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     installed: Path,
 ) -> None:
@@ -96,6 +101,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     assert "db_path" in started.diagnostic.details["fields"]
 
 
+@pytest.mark.integration
 async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path, installed: Path) -> None:
     """`start_app`'s `secrets` is merged over what the Hub holds, and the App's
     window validates the result: without the secret it refuses to open."""
@@ -118,6 +124,7 @@ async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path, instal
     assert started.url is not None
 
 
+@pytest.mark.integration
 async def test_starting_a_running_app_says_it_is_already_running(
     tmp_path: Path, installed: Path
 ) -> None:
@@ -137,6 +144,7 @@ async def test_starting_a_running_app_says_it_is_already_running(
     assert again.diagnostic.code == "hub.already_running"
 
 
+@pytest.mark.integration
 async def test_two_overlapping_starts_answer_once(tmp_path: Path, installed: Path) -> None:
     """`hub.already_running` covers a child that is still starting.
 

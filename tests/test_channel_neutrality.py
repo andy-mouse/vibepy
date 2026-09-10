@@ -14,9 +14,12 @@ import json
 import subprocess
 import sys
 
+import pytest
+
 CHANNEL_SDKS = ("mcp", "nicegui")
 
 
+@pytest.mark.integration
 def test_importing_the_core_loads_no_channel_sdk() -> None:
     probe = (
         "import json, sys; import vibepy_core; "

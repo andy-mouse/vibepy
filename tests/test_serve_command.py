@@ -11,6 +11,8 @@ from typing import TypedDict, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
+import pytest
+
 
 def child_environment() -> dict[str, str]:
     """The environment a served App is entitled to.
@@ -46,6 +48,7 @@ def wait_for(url: str, process: "subprocess.Popen[bytes]", *, timeout: float = 3
     raise AssertionError(f"{url} did not answer within {timeout}s")
 
 
+@pytest.mark.integration
 def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
     config = json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"})
@@ -65,6 +68,7 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     assert "<html" in body.lower()
 
 
+@pytest.mark.integration
 def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     """`packaging.md`: a failure writes the framework's code and message."""
     finished = subprocess.run(
@@ -102,6 +106,7 @@ def _reported(stderr: bytes, /) -> Reported:
     raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
 
 
+@pytest.mark.integration
 def test_a_window_that_will_not_open_stops_the_server() -> None:
     """A refused configuration is a server that does not serve, and it says so
     in the shape every other framework failure uses.
@@ -126,6 +131,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     assert "db_path" in reported["details"]["fields"]
 
 
+@pytest.mark.integration
 def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) -> None:
     """The general case, not one code: any failure of opening crosses with a
     code. The Hub App requires a root it can create, and a path under a file is
@@ -148,6 +154,7 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
     assert reported["category"] == "execution"
 
 
+@pytest.mark.integration
 def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> None:
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],

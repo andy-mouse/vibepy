@@ -10,6 +10,7 @@ from vibepy_hub.internals.state import STATE_FILE, HubState, read_state, write_s
 from vibepy_hub.models import HeldConfig
 
 
+@pytest.mark.integration
 async def test_two_overlapping_configurations_both_survive(installed: Path) -> None:
     async with hub(installed) as tools:
         first, second = await asyncio.gather(
