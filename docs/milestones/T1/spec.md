@@ -22,6 +22,18 @@ run is `34501780568` on branch `bench-hub-cost`.
 | the child's `import nicegui` | 0.40s | 0.87s | 2.2× |
 | hardlinked placement of one built environment (4.8k entries) | 0.78s | 5.04s | 6.5× |
 
+The unit of that cost is files created, not packages resolved:
+
+| Environment | Files | Distributions | Install, macOS | Install, Windows |
+| --- | --- | --- | --- | --- |
+| an App declaring no channel (`vibepy-core` alone) | **281** | 7 | 0.76s | not yet measured |
+| `vibepy-notes`, `vibepy-core[agent]` | 1105 | 30 | 1.04s | 12.45s |
+| `vibepy-todo`, `vibepy-core[web,agent]` | 3601 | 65 | 2.80s | 22.11s |
+
+An App declaring no channel holds an eighth of `vibepy-todo`'s files. Most of the Hub suite's
+subjects — installing, removing, listing, configuring, refusing — need an installed App and no
+channel at all.
+
 Installing is the whole of it. Starting, stopping and the child's imports together are under three
 seconds on Windows, where one install of a Pages-declaring App is twenty-two. The Windows job runs
 `make test` in 400s against macOS's 131s, and the Hub suite calls `install_app` 29 times — 21 of
@@ -35,7 +47,10 @@ identically, and `uv sync` alone is 241ms against 1.07s, the same ratio as every
 
 - a test builds an App environment only if its subject requires a real distribution or a real
   child process; every other test reaches its answer without one
-- a test that needs an installed App but not a Page installs the App that declares none
+- a test that needs an installed App installs the lightest App its subject allows, and installs it
+  where it will be used: no environment is copied or linked into a second location
+- `conftest.py`'s template-and-placement fixtures are gone, and nothing in the suite relocates a
+  built environment
 - the tests that cross the distribution or process boundary are marked `integration`, the marker is
   registered, and a typo in it fails the run
 - `make test` and CI run every test, marked or not; no test is skipped and no test is deselected by
@@ -81,8 +96,11 @@ not its convenience: if the answer comes from the Hub's own state, its diagnosti
 declaration, the test arranges no environment. This is what removes the 22 seconds rather than
 moving them.
 
-**Where an installed App is the subject but a Page is not, the App declaring none is installed.**
-That is `vibepy-notes`, and it is 10 seconds cheaper on Windows for every test that takes it.
+**An install takes the lightest App the subject allows.** A Page in the subject means a
+Pages-declaring App at 3601 files; the Agent channel in the subject means `vibepy-notes` at 1105;
+a subject that is the Hub's own bookkeeping means an App declaring no channel at all, at 281. The
+cost is files created, so this is where the seconds are, and it is why the channel-free fixture is
+part of this stage rather than a nicety.
 
 **The marker is `integration`.** It names what those tests are — the ones whose subject crosses
 into a real distribution or a real child process — rather than what they do to get there.
@@ -105,15 +123,20 @@ is a name for the cost and `-m "not integration"` while developing.
    calls: keep it if the subject requires a real distribution or child, otherwise arrange the Hub
    without one. `test_installation.py` is where installing is the subject and will keep most of
    its own.
-2. **Every kept install of a Pages-declaring App is justified by a Page.** Those that are not take
-   `vibepy-notes`.
-3. **The `integration` marker**, registered in `pyproject.toml` under `[tool.pytest.ini_options]`
+2. **Every kept install takes the lightest App its subject allows.** A Page in the subject means a
+   Pages-declaring App; the Agent channel in the subject means `vibepy-notes`; everything else — the
+   installing, removing, listing and configuring subjects — takes the new channel-free fixture.
+3. **`fixtures/bare-app`**, a workspace member declaring `vibepy-core` and no extra, one Tool and
+   no Pages.
+4. **The `integration` marker**, registered in `pyproject.toml` under `[tool.pytest.ini_options]`
    with `strict_markers = true`, applied to every test that builds an environment or starts a
    child — including the proxy tests and the framework's own `test_serve_command.py` and
    `test_dual_channel.py` if they cross the same boundary, which is checked rather than assumed.
-4. **The measurement is reported.** The Windows job's time after the change, against 400s, in the
+5. **The measurement is reported.** The Windows job's time after the change, against 400s, in the
    merge commit message.
-5. **`scripts/bench_hub.py` and `.github/workflows/bench.yml` are deleted** with the
+6. **`conftest.py`'s `_build`, `_place` and the template fixtures are deleted**, with every test
+   that used them installing instead.
+7. **`scripts/bench_hub.py` and `.github/workflows/bench.yml` are deleted** with the
    `bench-hub-cost` branch. Their numbers live in this document, and a benchmark nobody runs is a
    file that goes stale.
 
@@ -127,16 +150,31 @@ is a name for the cost and `-m "not integration"` while developing.
   where the time goes, so touching them would hide rather than fix.
 - **The Hub's public surface.** Making an environment reachable from outside a Hub root would let
   tests share one, and that is a product change for a test's benefit. Not here.
+- **What an environment is.** Every environment a test uses is created by the Hub, at the path it
+  is used from, by the same `install_app` a user calls. No test builds one by hand.
 
-## Open, and deliberately not answered here
+## The placement is removed rather than widened
 
-`conftest.py`'s `_place` hardlinks a built environment into a second location. CPython's `venv`
-documentation says an environment is "inherently non-portable, in the general case" and that a
-move should be a recreation. The tests that use it pass because they invoke the interpreter as
-`python -m`, which never reads a script's shebang — so it works for the reason the documentation's
-exception describes, not against it. Two questions follow, and both are the owner's: whether the
-placement stays, and whether an App environment should be reachable from outside a Hub root at all.
-T1 neither widens `_place` to more tests nor removes it.
+`conftest.py` builds an App's environment once a session and hardlinks it into each test's Hub
+root. CPython's `venv` documentation says an environment is "inherently non-portable, in the
+general case" and that a move should be a recreation at the new location. The placement passes
+today only because the Hub invokes the interpreter as `python -m`, so no script's shebang — which
+carries the absolute path of the environment it was created in — is ever read. It works for the
+reason the documentation's own caveat describes, not against it, and the moment anything runs a
+console script from one of those environments it stops working.
+
+So it goes. A test that needs an installed App installs it where it will be used, which is what
+the documentation prescribes, and the cost of doing so is held down by the two decisions above:
+far fewer tests need an environment at all, and the ones that do install the lightest App their
+subject allows.
+
+That makes one fixture necessary: an App declaring no channel, `vibepy-core` alone, 281 files
+against `vibepy-todo`'s 3601. It is also the fixture the framework's own claim asks for — the core
+declares no channel, and no fixture demonstrated an App that declares none either.
+
+The second question this leaves — whether an App's environment should be reachable from outside a
+Hub root, which would let one environment serve many tests — is not opened. It is a change to the
+Hub's own surface for a test's benefit, and the numbers above say it is not needed to fix this.
 
 ## Testing
 
