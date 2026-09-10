@@ -58,6 +58,11 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
     async with hub(installed) as tools:
         answered = await tools.invoke("start_app", {"app_name": "vibepy-notes", "secrets": {}})
 
+        listed = await tools.invoke("list_apps", {})
+        assert isinstance(listed, AppListing)
+        rows = {row.app_name: row for row in listed.apps}
+        assert rows["vibepy-notes"].has_pages is False
+
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.no_web_channel"
