@@ -58,18 +58,14 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: P
     assert rows["vibepy-timer"].state == "available"
 
 
-async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None:
+async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, installed: Path) -> None:
     """A folder's name is not a declaration.
 
     `fixtures/todo` is the distribution `vibepy-todo` and declares itself as
     `todo-app`, so the Hub files it under the distribution name it was asked for
     and runs it under the name its environment answers to.
     """
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {
@@ -87,17 +83,14 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None
 
 
 async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
-    tmp_path: Path,
+    tmp_path: Path, installed: Path
 ) -> None:
     """The data is written by the App's own store, at the path it was configured
     with, so the assertion means something: it is real, and it lies outside the
     environment `remove_app` deletes."""
-    root = tmp_path / "hub"
     data = tmp_path / "todo.json"
 
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(installed) as tools:
         await tools.invoke(
             "configure_app",
             {"app_name": "vibepy-todo", "values": {"db_path": str(data), "db_key": "k"}},
@@ -110,7 +103,7 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
 
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
-    assert not environment(root, "vibepy-todo").exists()
+    assert not environment(installed, "vibepy-todo").exists()
     assert data.is_file()
     assert [todo.title for todo in TodoStore(data, SecretStr("k")).list_all()] == ["keep me"]
 

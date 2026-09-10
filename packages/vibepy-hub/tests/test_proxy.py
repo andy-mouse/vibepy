@@ -8,30 +8,27 @@ document.
 
 from pathlib import Path
 
-from tests_support import FIXTURES, first_frame, free_port, hub, served_body, traefik
+from tests_support import first_frame, free_port, hub, served_body, traefik
 from vibepy_hub.models import RunningApp
 
 SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 """Where NiceGUI mounts socket.io (`nicegui/nicegui.py`, `app.mount('/_nicegui_ws/', ...)`)."""
 
 
-async def test_a_page_s_websocket_survives_the_proxy(tmp_path: Path) -> None:
+async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     """Traefik's documentation does not say it carries a WebSocket, and a
     NiceGUI Page does not work without one. This settles it, and settles it
     against the configuration the Hub itself wrote rather than one composed
     here."""
     proxy_port = free_port()
-    root = tmp_path / "hub"
 
-    async with hub(root, proxy_port=proxy_port) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-timer"})
+    async with hub(installed, proxy_port=proxy_port) as tools:
         started = await tools.invoke("start_app", {"app_name": "vibepy-timer", "secrets": {}})
         assert isinstance(started, RunningApp)
         assert started.diagnostic is None
 
         async with traefik(
-            root / "traefik.yml",
+            installed / "traefik.yml",
             port=proxy_port,
             host="vibepy-timer.localhost",
             path="/home",
@@ -44,7 +41,9 @@ async def test_a_page_s_websocket_survives_the_proxy(tmp_path: Path) -> None:
     assert b'"sid"' in opened
 
 
-async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> None:
+async def test_two_apps_are_served_through_one_configuration(
+    tmp_path: Path, installed: Path
+) -> None:
     """The acceptance criterion: one configuration, two Apps, at once.
 
     The configuration is read before either App exists and compared after both
@@ -52,16 +51,11 @@ async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> 
     this.
     """
     proxy_port = free_port()
-    root = tmp_path / "hub"
 
-    async with hub(root, proxy_port=proxy_port) as tools:
-        config = root / "traefik.yml"
+    async with hub(installed, proxy_port=proxy_port) as tools:
+        config = installed / "traefik.yml"
         written = config.read_text(encoding="utf-8")
 
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
             {
@@ -69,7 +63,6 @@ async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> 
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             },
         )
-        await tools.invoke("install_app", {"app_name": "vibepy-timer"})
 
         for name in ("vibepy-todo", "vibepy-timer"):
             started = await tools.invoke("start_app", {"app_name": name, "secrets": {}})
