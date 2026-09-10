@@ -62,12 +62,13 @@ failing lifespan is the host's to report, and the host's own contract already co
 The steps run in order:
 
 ```text
-Package -> install -> configure -> open a channel
+Package -> install -> address -> configure -> open a channel
 ```
 
 `configure` is the host supplying the values the App declared it requires; the Hub holds those
 values per installation, secrets included, and gives a secret's value back to no channel: it
-reports such a field as set. What it holds is readable by its owner and by no one else. The App's
+reports such a field as set. What it holds is restricted to its owner by whatever access control
+its platform gives a file; `vibepy_hub/internals/files.py` owns the mechanism. The App's
 own window validates them as it opens, so a configuration failure happens before anything is
 acquired;
 `docs/architecture/app-model.md` carries that boundary. `docs/architecture/packaging.md` owns the
