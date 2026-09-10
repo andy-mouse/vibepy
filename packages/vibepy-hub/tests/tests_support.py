@@ -16,9 +16,14 @@ from vibepy_hub.entry import APP, HUB_APP
 from vibepy_hub.internals import HubDeps
 
 REPO = Path(__file__).resolve().parents[3]
-EXAMPLES = REPO / "examples"
 FIXTURES = REPO / "fixtures"
-"""Distributions that exist to be installed by a test. Not product surface."""
+"""Every distribution a test installs. There is no other kind here.
+
+An example is a documentation artifact and this repository has no document that
+walks through one, so what was `examples/` was a fixture wearing a sample's
+name -- and paying a sample's costs. When a reader arrives, an example is
+derived from what is true then.
+"""
 
 TRAEFIK_VERSION = "v3.7.12"
 """Pinned beside `scripts/fetch_traefik.py`, which fetches this exact binary."""

@@ -9,7 +9,7 @@ current test or living in the Hub's virtual environment.
 import asyncio
 from pathlib import Path
 
-from tests_support import EXAMPLES, hub
+from tests_support import FIXTURES, hub
 from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
@@ -21,7 +21,7 @@ async def test_an_installed_app_starts_and_stops(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
@@ -60,7 +60,7 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
     tmp_path: Path,
 ) -> None:
     async with hub(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
         answered = await tools.invoke("start_app", {"app_name": "vibepy-notes", "secrets": {}})
 
@@ -91,7 +91,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
@@ -109,7 +109,7 @@ async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path) -> Non
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
@@ -133,7 +133,7 @@ async def test_starting_a_running_app_says_it_is_already_running(tmp_path: Path)
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",
@@ -162,7 +162,7 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke(
             "configure_app",

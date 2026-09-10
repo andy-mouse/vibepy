@@ -224,11 +224,17 @@ Acceptance:
 - runtime execution is bounded and shuts down gracefully
 - health, compatibility, and security failures are surfaced deterministically
 - production hardening preserves the canonical ToolRuntime execution path
-## Sample apps
+## Apps
+
+The Apps this repository carries. They live in `fixtures/`, because each one is
+a distribution the tests install and no document yet walks a reader through
+one; an example is a documentation artifact and is derived when there is a
+document to derive it from.
 
 ### Todo
 
-Used from M1 through early Hub work to prove framework architecture.
+Used from M1 through early Hub work to prove framework architecture. Both
+channels, a secret it uses, and a store outside its environment.
 
 Tools:
 
@@ -239,6 +245,17 @@ Tools:
 Page:
 
 - /todos
+
+### Notes
+
+Tools and no Pages, so no Web channel at all (ADR-017) and no Web technology
+installed (ADR-025). Declares a secret. The lightest App the suite installs.
+
+### Timer
+
+A second App with a Web channel, because one address per App cannot be shown
+with one App. Requires nothing of its host, and its lifespan holds the one
+thing it knows.
 
 ### Customer
 

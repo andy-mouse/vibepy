@@ -11,8 +11,7 @@ members = [
     "vibepy-core",
     "vibepy-hub",
     "vibepy-notes",
-    "vibepy-plain",
-    "vibepy-second",
+    "vibepy-timer",
     "vibepy-todo",
 ]
 
@@ -1737,6 +1736,7 @@ dev = [
     { name = "vibepy-core", extra = ["agent", "web"] },
     { name = "vibepy-hub" },
     { name = "vibepy-notes" },
+    { name = "vibepy-timer" },
     { name = "vibepy-todo" },
 ]
 
@@ -1760,8 +1760,9 @@ dev = [
     { name = "ruff", specifier = ">=0.14" },
     { name = "vibepy-core", extras = ["web", "agent"] },
     { name = "vibepy-hub", editable = "packages/vibepy-hub" },
-    { name = "vibepy-notes", editable = "examples/notes" },
-    { name = "vibepy-todo", editable = "examples/todo" },
+    { name = "vibepy-notes", editable = "fixtures/notes-app" },
+    { name = "vibepy-timer", editable = "fixtures/timer-app" },
+    { name = "vibepy-todo", editable = "fixtures/todo-app" },
 ]
 
 [[package]]
@@ -1786,7 +1787,7 @@ requires-dist = [
 [[package]]
 name = "vibepy-notes"
 version = "0.1.0"
-source = { editable = "examples/notes" }
+source = { editable = "fixtures/notes-app" }
 dependencies = [
     { name = "vibepy-core", extra = ["agent"] },
 ]
@@ -1795,20 +1796,9 @@ dependencies = [
 requires-dist = [{ name = "vibepy-core", extras = ["agent"], editable = "." }]
 
 [[package]]
-name = "vibepy-plain"
+name = "vibepy-timer"
 version = "0.0.0"
-source = { editable = "fixtures/plain-app" }
-dependencies = [
-    { name = "vibepy-core" },
-]
-
-[package.metadata]
-requires-dist = [{ name = "vibepy-core", editable = "." }]
-
-[[package]]
-name = "vibepy-second"
-version = "0.0.0"
-source = { editable = "fixtures/second-app" }
+source = { editable = "fixtures/timer-app" }
 dependencies = [
     { name = "nicegui" },
     { name = "vibepy-core", extra = ["web"] },
@@ -1823,7 +1813,7 @@ requires-dist = [
 [[package]]
 name = "vibepy-todo"
 version = "0.1.0"
-source = { editable = "examples/todo" }
+source = { editable = "fixtures/todo-app" }
 dependencies = [
     { name = "nicegui" },
     { name = "vibepy-core", extra = ["agent", "web"] },

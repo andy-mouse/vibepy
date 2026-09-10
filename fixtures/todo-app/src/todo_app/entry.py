@@ -1,9 +1,15 @@
-"""The Todo sample App from docs/roadmap.md.
+"""The Todo App `docs/roadmap.md` names under Sample apps.
 
-The App the Hub installs and starts. Its store keeps todos in the file it was
-configured with, so what a channel writes is there for the next window and for
-the other channel -- which is what `docs/architecture/app-model.md` requires of
-an App that must agree across its channels.
+It lives beside the other installable distributions rather than in a directory
+of its own, because it is also what most of the suite installs and there is no
+document yet that walks a reader through it. What the roadmap asks of it is
+unchanged.
+
+Its store keeps todos in the file it was configured with, so what a channel
+writes is there for the next window and for the other channel -- which is what
+`docs/architecture/app-model.md` requires of an App that must agree across its
+channels. It is the only App here with a store, and the only one whose secret
+is used rather than merely declared.
 """
 
 import asyncio

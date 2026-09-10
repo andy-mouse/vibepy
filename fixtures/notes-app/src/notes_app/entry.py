@@ -1,11 +1,13 @@
-"""A sample App with Tools and no Pages.
+"""An App with Tools and no Pages, which is a whole App.
 
 ADR-017 states that an App declaring no Pages has no Web channel and therefore no
-runtime for the Hub to start, and is complete for an agent. This is that App.
+runtime for the Hub to start, and is complete for an agent. This is that App, and
+ADR-025 cites it as the evidence that such an App installs no Web technology --
+which is also what makes it the lightest thing the suite can install.
 
-It also declares a secret, which is what an agent-facing App usually needs of its
+It declares a secret, which is what an agent-facing App usually needs of its
 host, and what lets a Host show that a secret is declared by type rather than by
-storage.
+storage. Most tests that need an App installed are handed this one.
 """
 
 from collections.abc import AsyncGenerator

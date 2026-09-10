@@ -1,7 +1,7 @@
 [project]
 name = "vibepy-notes"
 version = "0.1.0"
-description = "A sample App with Tools and no Pages"
+description = "An App with Tools and no Pages. The lightest thing a test installs"
 requires-python = ">=3.12"
 dependencies = ["vibepy-core[agent]"]
 

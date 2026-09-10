@@ -18,11 +18,12 @@ agent = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/*", "examples/*", "fixtures/*"]
+members = ["packages/*", "fixtures/*"]
 # `fixtures/*` are distributions a test installs, not product surface. They are
 # members so that they resolve the core the way every other distribution here
-# does, and are absent from `[dependency-groups].dev` so nothing installs them
-# into this repository's own environment.
+# does. Two of them are in `[dependency-groups].dev` because the framework's
+# own tests import one of them directly; the rest are absent, so nothing
+# installs them into this repository's own environment.
 
 [build-system]
 requires = ["hatchling"]
@@ -37,6 +38,7 @@ dev = [
     "vibepy-hub",
     "vibepy-todo",
     "vibepy-notes",
+    "vibepy-timer",
     "nicegui[testing]>=3.16",
     "ruff>=0.14",
     "pyright>=1.1.400",
@@ -49,6 +51,7 @@ dev = [
 vibepy-hub = { workspace = true }
 vibepy-todo = { workspace = true }
 vibepy-notes = { workspace = true }
+vibepy-timer = { workspace = true }
 
 [tool.ruff]
 line-length = 100
@@ -62,7 +65,7 @@ extend-exclude = ["docs/**"]
 # Where a first-party import resolves from, which is not the same list as what
 # ruff checks: the scope is the whole tree less what `extend-exclude` names.
 # Globs are supported, so a member added later needs no edit here.
-src = ["src", "tests", "packages/*/src", "packages/*/tests", "examples/*/src"]
+src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID"]
@@ -83,7 +86,7 @@ select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID"]
 "src/vibepy_core/serve.py" = ["TID251"]
 
 [tool.pyright]
-include = ["src", "tests", "packages", "examples"]
+include = ["src", "tests", "packages", "fixtures"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 

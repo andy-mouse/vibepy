@@ -32,7 +32,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import EXAMPLES, FIXTURES
+from tests_support import FIXTURES
 from vibepy_hub.internals.installer import (
     FACTS_FILE,
     describe,
@@ -41,11 +41,11 @@ from vibepy_hub.internals.installer import (
     write_facts,
 )
 
-PLAIN = "vibepy-plain"
-"""The smallest installable App. `fixtures/plain-app` says why it exists."""
-
 NOTES = "vibepy-notes"
-"""The example that declares a secret and no Pages."""
+"""The lightest App here: no Pages, so no Web technology at all (ADR-025)."""
+
+TODO = "vibepy-todo"
+"""The one App with Pages, a secret and a store of its own."""
 
 
 def _build(folder: Path, env: Path, /) -> None:
@@ -62,14 +62,6 @@ def _build(folder: Path, env: Path, /) -> None:
         await write_facts(env, described[0].model_copy(update={"purelib": metadata}))
 
     asyncio.run(built())
-
-
-@pytest.fixture(scope="session")
-def plain_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The minimal App's environment, built once for the whole session."""
-    env = tmp_path_factory.mktemp("templates") / PLAIN
-    _build(FIXTURES / "plain-app", env)
-    return env
 
 
 def _place(template: Path, root: Path, app_name: str, /) -> None:
@@ -94,19 +86,19 @@ def _place(template: Path, root: Path, app_name: str, /) -> None:
     recorded.write_text(json.dumps(facts, indent=1), encoding="utf-8")
 
 
-@pytest.fixture
-def plain_installed(tmp_path: Path, plain_template: Path) -> Iterator[Path]:
-    """A Hub root that already holds the minimal App, and nothing else."""
-    root = tmp_path / "hub"
-    _place(plain_template, root, PLAIN)
-    yield root
+@pytest.fixture(scope="session")
+def notes_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The no-Pages App's environment, built once for the whole session."""
+    env = tmp_path_factory.mktemp("templates") / NOTES
+    _build(FIXTURES / "notes-app", env)
+    return env
 
 
 @pytest.fixture(scope="session")
-def notes_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """`examples/notes` declares a secret and no Pages, built once."""
-    env = tmp_path_factory.mktemp("templates") / NOTES
-    _build(EXAMPLES / "notes", env)
+def todo_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """The App with Pages, built once. Costly, so asked for only when needed."""
+    env = tmp_path_factory.mktemp("templates") / TODO
+    _build(FIXTURES / "todo-app", env)
     return env
 
 
@@ -119,9 +111,9 @@ def notes_installed(tmp_path: Path, notes_template: Path) -> Iterator[Path]:
 
 
 @pytest.fixture
-def two_installed(tmp_path: Path, plain_template: Path, notes_template: Path) -> Iterator[Path]:
+def two_installed(tmp_path: Path, notes_template: Path, todo_template: Path) -> Iterator[Path]:
     """A Hub root holding two Apps, for what only happens when there are two."""
     root = tmp_path / "hub"
-    _place(plain_template, root, PLAIN)
     _place(notes_template, root, NOTES)
+    _place(todo_template, root, TODO)
     yield root

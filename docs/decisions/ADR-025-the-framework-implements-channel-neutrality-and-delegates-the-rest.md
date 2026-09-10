@@ -47,7 +47,7 @@ the Web technology, `vibepy-core[agent]` carries MCP, and an App declares the ch
   derives a Tool's schema from a Python function signature, which would make the SDK the source
   of truth for what a Tool is — the one thing this decision protects. Delegation stops where it
   would take channel neutrality with it, and that is the only place it stops
-- an App declaring no Pages installs no Web technology, which is what makes `examples/notes` an
+- an App declaring no Pages installs no Web technology, which is what makes `fixtures/notes-app` an
   Agent-only App in its dependency tree and not merely in its declaration
 - the environment-per-App model stays. `docs/architecture/packaging.md` states what it buys, and
   it is `uv venv` and `uv pip install` — delegation already. What is worth removing around it is

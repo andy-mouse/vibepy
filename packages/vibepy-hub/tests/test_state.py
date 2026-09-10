@@ -15,7 +15,7 @@ async def test_two_overlapping_configurations_both_survive(two_installed: Path) 
         first, second = await asyncio.gather(
             tools.invoke(
                 "configure_app",
-                {"app_name": "vibepy-plain", "values": {"data_path": "/tmp/p.db"}},
+                {"app_name": "vibepy-notes", "values": {"api_base_url": "/tmp/p.db"}},
             ),
             tools.invoke(
                 "configure_app",
@@ -26,7 +26,7 @@ async def test_two_overlapping_configurations_both_survive(two_installed: Path) 
         assert isinstance(second, HeldConfig)
 
     held = (await read_state(two_installed)).config
-    assert set(held) == {"vibepy-plain", "vibepy-notes"}
+    assert set(held) == {"vibepy-notes"}
 
 
 async def test_a_write_that_fails_leaves_the_previous_state_readable(

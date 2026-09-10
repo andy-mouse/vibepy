@@ -6,41 +6,41 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import EXAMPLES, hub
+from tests_support import FIXTURES, hub
 from vibepy_hub.internals.state import STATE_FILE
 from vibepy_hub.models import AppListing, HeldConfig, RunningApp
 
 TOKEN = "s3cret-token-value"
 
 
-async def test_values_are_held_for_an_installed_app(plain_installed: Path) -> None:
-    data = plain_installed / "plain.db"
+async def test_values_are_held_for_an_installed_app(notes_installed: Path) -> None:
+    data = notes_installed / "plain.db"
 
-    async with hub(plain_installed) as tools:
+    async with hub(notes_installed) as tools:
         held = await tools.invoke(
             "configure_app",
             {
-                "app_name": "vibepy-plain",
-                "values": {"data_path": str(data), "data_key": "k"},
+                "app_name": "vibepy-notes",
+                "values": {"api_base_url": str(data), "api_token": "k"},
             },
         )
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(held, HeldConfig)
     assert held.diagnostic is None
-    assert held.values == {"data_path": str(data)}
-    assert held.secret_fields == ["data_key"]
-    assert held.secrets_set == ["data_key"]
+    assert held.values == {"api_base_url": str(data)}
+    assert held.secret_fields == ["api_token"]
+    assert held.secrets_set == ["api_token"]
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "vibepy-plain"] == [True]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [True]
 
 
-async def test_an_app_missing_a_required_value_is_not_configured(plain_installed: Path) -> None:
-    async with hub(plain_installed) as tools:
+async def test_an_app_missing_a_required_value_is_not_configured(notes_installed: Path) -> None:
+    async with hub(notes_installed) as tools:
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "vibepy-plain"] == [False]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [False]
 
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
@@ -76,7 +76,7 @@ async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> Non
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         held = await tools.invoke(
             "configure_app",
