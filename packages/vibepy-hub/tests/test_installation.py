@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from tests_support import EXAMPLES, hub, write_project
+from tests_support import EXAMPLES, FIXTURES, hub, write_project
 from todo_app.entry import TodoStore
 from vibepy_core.errors import ToolInputValidationError
 from vibepy_hub.internals import AppNameInvalid, InstallFailed, read_facts
@@ -37,29 +37,27 @@ async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Pat
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-plain"})
 
     assert isinstance(installed, Installation)
     assert installed.diagnostic is None
-    assert installed.app.name == "Todo"
+    assert installed.app.name == "Plain"
     assert installed.app.version == "0.0.0"
-    assert installed.app.has_pages is True
-    assert a_python_lives_in(environment(root, "vibepy-todo"))
+    assert a_python_lives_in(environment(root, "vibepy-plain"))
 
 
-async def test_an_installed_app_is_listed_apart_from_an_offered_one(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+async def test_an_installed_app_is_listed_apart_from_an_offered_one(
+    plain_installed: Path,
+) -> None:
+    async with hub(plain_installed) as tools:
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
-    assert rows["vibepy-todo"].state == "installed"
-    assert rows["vibepy-notes"].state == "available"
+    assert rows["vibepy-plain"].state == "installed"
+    assert rows["vibepy-second"].state == "available"
 
 
 async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path) -> None:
@@ -221,14 +219,14 @@ async def test_one_app_is_one_row_however_it_was_installed(tmp_path: Path) -> No
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-plain"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
-    rows = [row for row in listed.apps if row.app_name == "vibepy-todo"]
+    rows = [row for row in listed.apps if row.app_name == "vibepy-plain"]
     assert [row.state for row in rows] == ["installed"]
-    assert [row.app_name for row in listed.apps].count("todo") == 0
+    assert [row.app_name for row in listed.apps].count("plain-app") == 0
 
 
 async def test_a_folder_name_is_not_an_app_name(tmp_path: Path) -> None:
@@ -246,13 +244,13 @@ async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path) -> None
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "Vibepy_Todo"})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("install_app", {"app_name": "Vibepy_Plain"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
-    assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["installed"]
-    assert a_python_lives_in(environment(root, "vibepy-todo"))
+    assert [row.state for row in listed.apps if row.app_name == "vibepy-plain"] == ["installed"]
+    assert a_python_lives_in(environment(root, "vibepy-plain"))
 
 
 async def test_a_distribution_declaring_two_apps_is_refused(
@@ -306,16 +304,16 @@ async def test_a_failed_description_leaves_no_environment_behind(
     monkeypatch.setattr("vibepy_hub.tools.installation.purelib", refuse)
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-plain"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.install_failed"
-    assert not environment(root, "vibepy-todo").exists()
+    assert not environment(root, "vibepy-plain").exists()
     assert isinstance(listed, AppListing)
-    assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
+    assert [row.state for row in listed.apps if row.app_name == "vibepy-plain"] == ["available"]
 
 
 async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Path) -> None:
@@ -331,25 +329,21 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"
 
 
-async def test_an_environment_that_no_longer_declares_its_app_says_so(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        assert isinstance(installed, Installation)
-
-        facts = await read_facts(environment(root, "vibepy-todo"))
+async def test_an_environment_that_no_longer_declares_its_app_says_so(
+    plain_installed: Path,
+) -> None:
+    async with hub(plain_installed) as tools:
+        facts = await read_facts(environment(plain_installed, "vibepy-plain"))
         assert facts is not None and facts.purelib is not None
-        for info in facts.purelib.glob("vibepy_todo-*.dist-info"):
+        for info in facts.purelib.glob("vibepy_plain-*.dist-info"):
             shutil.rmtree(info)
 
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
-    assert rows["vibepy-todo"].diagnostic is not None
-    assert rows["vibepy-todo"].diagnostic.code == "hub.declaration_missing"
+    assert rows["vibepy-plain"].diagnostic is not None
+    assert rows["vibepy-plain"].diagnostic.code == "hub.declaration_missing"
 
 
 async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described(

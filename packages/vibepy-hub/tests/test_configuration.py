@@ -13,40 +13,34 @@ from vibepy_hub.models import AppListing, HeldConfig, RunningApp
 TOKEN = "s3cret-token-value"
 
 
-async def test_values_are_held_for_an_installed_app(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
+async def test_values_are_held_for_an_installed_app(plain_installed: Path) -> None:
+    data = plain_installed / "plain.db"
 
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+    async with hub(plain_installed) as tools:
         held = await tools.invoke(
             "configure_app",
             {
-                "app_name": "vibepy-todo",
-                "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
+                "app_name": "vibepy-plain",
+                "values": {"data_path": str(data), "data_key": "k"},
             },
         )
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(held, HeldConfig)
     assert held.diagnostic is None
-    assert held.values == {"db_path": str(tmp_path / "todo.db")}
-    assert held.secret_fields == ["db_key"]
-    assert held.secrets_set == ["db_key"]
+    assert held.values == {"data_path": str(data)}
+    assert held.secret_fields == ["data_key"]
+    assert held.secrets_set == ["data_key"]
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "vibepy-todo"] == [True]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-plain"] == [True]
 
 
-async def test_an_app_missing_a_required_value_is_not_configured(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+async def test_an_app_missing_a_required_value_is_not_configured(plain_installed: Path) -> None:
+    async with hub(plain_installed) as tools:
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
-    assert [row.configured for row in listed.apps if row.app_name == "vibepy-todo"] == [False]
+    assert [row.configured for row in listed.apps if row.app_name == "vibepy-plain"] == [False]
 
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
@@ -61,8 +55,6 @@ async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path
 async def held_notes_secret(root: Path) -> HeldConfig:
     """Notes declares a secret, so configuring it exercises the secret path."""
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
         held = await tools.invoke(
             "configure_app",
             {
@@ -104,14 +96,14 @@ async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path) -> Non
     assert started.url is not None
 
 
-async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
+async def test_a_held_secret_is_never_handed_back(notes_installed: Path) -> None:
     """It is not handed back at all, so the output type is safe as the input type.
 
     A secret has no value in `values`, so the natural round trip -- read the
     form, edit one field, send it back -- cannot carry anything over the stored
     secret. What is held is said beside the values, not inside them.
     """
-    root = tmp_path / "hub"
+    root = notes_installed
 
     held = await held_notes_secret(root)
 
@@ -130,8 +122,8 @@ async def test_a_held_secret_is_never_handed_back(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
-async def test_what_is_held_is_readable_only_by_its_owner(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
+async def test_what_is_held_is_readable_only_by_its_owner(notes_installed: Path) -> None:
+    root = notes_installed
 
     await held_notes_secret(root)
 

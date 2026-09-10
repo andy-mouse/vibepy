@@ -5,23 +5,17 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import EXAMPLES, hub
+from tests_support import hub
 from vibepy_hub.internals.state import STATE_FILE, HubState, read_state, write_state
 from vibepy_hub.models import HeldConfig
 
 
-async def test_two_overlapping_configurations_both_survive(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
-
+async def test_two_overlapping_configurations_both_survive(two_installed: Path) -> None:
+    async with hub(two_installed) as tools:
         first, second = await asyncio.gather(
             tools.invoke(
                 "configure_app",
-                {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "t.db")}},
+                {"app_name": "vibepy-plain", "values": {"data_path": "/tmp/p.db"}},
             ),
             tools.invoke(
                 "configure_app",
@@ -31,8 +25,8 @@ async def test_two_overlapping_configurations_both_survive(tmp_path: Path) -> No
         assert isinstance(first, HeldConfig)
         assert isinstance(second, HeldConfig)
 
-    held = (await read_state(root)).config
-    assert set(held) == {"vibepy-todo", "vibepy-notes"}
+    held = (await read_state(two_installed)).config
+    assert set(held) == {"vibepy-plain", "vibepy-notes"}
 
 
 async def test_a_write_that_fails_leaves_the_previous_state_readable(

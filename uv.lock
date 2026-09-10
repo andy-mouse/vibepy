@@ -11,6 +11,7 @@ members = [
     "vibepy-core",
     "vibepy-hub",
     "vibepy-notes",
+    "vibepy-plain",
     "vibepy-second",
     "vibepy-todo",
 ]
@@ -1792,6 +1793,17 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "vibepy-core", extras = ["agent"], editable = "." }]
+
+[[package]]
+name = "vibepy-plain"
+version = "0.0.0"
+source = { editable = "fixtures/plain-app" }
+dependencies = [
+    { name = "vibepy-core" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-core", editable = "." }]
 
 [[package]]
 name = "vibepy-second"
