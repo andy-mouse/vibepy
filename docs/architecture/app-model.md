@@ -15,11 +15,13 @@ which App it contains, and how a reader learns that without importing it.
 
 ## The import surface
 
-An App author imports from `vibepy_core` and from nothing below it. The package root is the
-public surface: `tests/test_package.py` holds its exact contents, so a name that is not exported
-there is not public. The subpackages beneath it — `vibepy_core.tool`, `.page`, `.app`, `.errors` —
-are how the framework is organised, and they keep working for anything already written against
-them.
+An App author reaches for `vibepy_core`, the package root: `tests/test_package.py` holds its
+exact contents, so a name that is not exported there is not public. The subpackages beneath it —
+`vibepy_core.tool`, `.page`, `.app`, `.errors` — are how the framework is organised, and they keep
+working for anything already written against them. A module whose handlers must never reach a
+blocking call (`docs/architecture/runtime.md` says why) imports the narrower subpackage instead of
+the root that re-exports it; the Hub's Tool modules are that case, held by
+`packages/vibepy-hub/tests/test_no_blocking_handlers.py`.
 
 ## AppDefinition
 
