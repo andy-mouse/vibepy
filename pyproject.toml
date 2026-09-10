@@ -126,6 +126,7 @@ pythonpath = ["tests", "packages/vibepy-hub/tests"]
 # <https://docs.pytest.org/en/stable/example/markers.html>
 markers = [
     "integration: crosses into a real distribution or child process",
+    "apps(*names): the fixture Apps a test's copy of the template root holds",
 ]
 strict_markers = true
 asyncio_mode = "auto"

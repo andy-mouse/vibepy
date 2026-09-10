@@ -65,16 +65,41 @@ def template_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-def installed(tmp_path: Path, template_root: Path) -> Path:
-    """Give one test its own copy of the template root.
+def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Path) -> Path:
+    """Give one test its own copy of the template root, holding the Apps it names.
+
+    A test says which Apps it needs with `@pytest.mark.apps("vibepy-todo")`, the
+    way pytest's guide has a fixture read a test's data from its marker. Only
+    those Apps' environments are linked -- a copy has the same unit of cost as
+    an install, entries created, and a test that needs one App must not pay for
+    three. The Apps left out are then removed through `remove_app`, so the
+    copy's state, ports and routes agree with its `envs/` directory. A test
+    that names nothing gets nothing: a copy whose contents nobody chose is
+    what the spec measured at 3.5s.
 
     Hardlinked rather than copied: the bytes are already on the disk and
     already assessed, and a second inode for each would be the cost the
     template exists to avoid. The only thing rewritten is the one path the Hub
     recorded inside the root, each environment's `purelib`.
     """
+    # pytest's `Node.get_closest_marker` resolves to Unknown under pyright
+    # strict -- `Node` is built through a custom ABC metaclass its stubs do not
+    # carry through -- so this is the one place in the fixture that narrows by
+    # hand rather than by annotation.
+    marker: pytest.Mark | None = request.node.get_closest_marker("apps")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    assert marker is not None, "a test taking `installed` names its Apps with @pytest.mark.apps"
+    args: tuple[str, ...] = marker.args  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportUnknownArgumentType]
+    named: frozenset[str] = frozenset(args)  # pyright: ignore[reportUnknownArgumentType]
+    unknown = named - frozenset(APPS)
+    assert not unknown, f"not fixture Apps: {sorted(unknown)}"
+
+    def leave_out(directory: str, names: list[str]) -> list[str]:
+        if Path(directory) != template_root / "envs":
+            return []
+        return [name for name in names if name not in named]
+
     root = tmp_path / "hub"
-    shutil.copytree(template_root, root, copy_function=os.link)
+    shutil.copytree(template_root, root, copy_function=os.link, ignore=leave_out)
     for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
         facts = json.loads(recorded.read_text(encoding="utf-8"))
         facts["purelib"] = str(root / Path(facts["purelib"]).relative_to(template_root))
@@ -82,4 +107,12 @@ def installed(tmp_path: Path, template_root: Path) -> Path:
         # writing through this name would write the template too.
         recorded.unlink()
         recorded.write_text(json.dumps(facts, indent=1), encoding="utf-8")
+
+    async def prune() -> None:
+        async with hub(root) as tools:
+            for app_name in APPS:
+                if app_name not in named:
+                    await tools.invoke("remove_app", {"app_name": app_name})
+
+    asyncio.run(prune())
     return root

@@ -17,6 +17,7 @@ SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 """Where NiceGUI mounts socket.io (`nicegui/nicegui.py`, `app.mount('/_nicegui_ws/', ...)`)."""
 
 
+@pytest.mark.apps("vibepy-timer")
 @pytest.mark.integration
 async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     """Traefik's documentation does not say it carries a WebSocket, and a
@@ -44,6 +45,7 @@ async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     assert b'"sid"' in opened
 
 
+@pytest.mark.apps("vibepy-todo", "vibepy-timer")
 @pytest.mark.integration
 async def test_two_apps_are_served_through_one_configuration(
     tmp_path: Path, installed: Path

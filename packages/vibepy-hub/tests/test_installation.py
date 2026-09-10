@@ -48,10 +48,10 @@ async def test_installing_an_app_creates_an_environment_of_its_own(tmp_path: Pat
     assert a_python_lives_in(environment(root, "vibepy-notes"))
 
 
+@pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: Path) -> None:
     async with hub(installed) as tools:
-        await tools.invoke("remove_app", {"app_name": "vibepy-timer"})
         listed = await tools.invoke("list_apps", {})
 
     assert isinstance(listed, AppListing)
@@ -60,6 +60,7 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: P
     assert rows["vibepy-timer"].state == "available"
 
 
+@pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, installed: Path) -> None:
     """A folder's name is not a declaration.
@@ -85,6 +86,7 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, install
     assert started.diagnostic is None
 
 
+@pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
     tmp_path: Path, installed: Path
@@ -330,6 +332,7 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"
 
 
+@pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_an_environment_that_no_longer_declares_its_app_says_so(
     installed: Path,

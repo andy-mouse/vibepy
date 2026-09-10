@@ -101,6 +101,7 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     assert after.ports["vibepy-todo"] == held
 
 
+@pytest.mark.apps()
 @pytest.mark.integration
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     installed: Path,
@@ -139,6 +140,7 @@ async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path)
     assert gone is False
 
 
+@pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_an_address_outlives_a_run(tmp_path: Path, installed: Path) -> None:
     """The port belongs to the installation, so stopping does not release it."""
@@ -162,6 +164,7 @@ async def test_an_address_outlives_a_run(tmp_path: Path, installed: Path) -> Non
     assert second.url == first.url
 
 
+@pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     """An address is for an App that can answer at one.
@@ -183,6 +186,7 @@ async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     assert route is False
 
 
+@pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
     tmp_path: Path, installed: Path
