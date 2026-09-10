@@ -25,4 +25,9 @@ jobs:
       - if: runner.os == 'Windows'
         run: choco install make --no-progress
 
+      # `make test` serves an App through a real proxy, which `uv sync` does not
+      # bring. Without this the proxy tests fail here and pass on a laptop, so
+      # `make test` would not mean the same thing in the two places.
+      - run: make tools
+
       - run: make lint typecheck test

@@ -17,6 +17,8 @@ from vibepy_hub.internals import (
     HubDeps,
     HubState,
     InstallFailed,
+    address,
+    allocate,
     candidates,
     declarations,
     describe,
@@ -29,8 +31,10 @@ from vibepy_hub.internals import (
     read_state,
     readable,
     remove_environment,
+    remove_route,
     update_state,
     write_facts,
+    write_route,
 )
 from vibepy_hub.models import (
     AppListing,
@@ -73,7 +77,7 @@ def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
 async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
     """One row per environment this Hub created, read without importing."""
     rows: dict[str, AppRow] = {}
-    held = (await read_state(deps.root)).config
+    stored = await read_state(deps.root)
     for env in await environments(deps.root):
         facts = await read_facts(env)
         if facts is None or facts.purelib is None:
@@ -94,14 +98,14 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
         present = any(
             ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
         )
-        port = deps.processes.running(env.name)
+        held_port = stored.ports.get(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
             name=facts.name,
             version=facts.version,
-            state="running" if port is not None else "installed",
-            url=f"http://127.0.0.1:{port}" if port is not None else None,
-            configured=is_configured(facts, held.get(env.name, {})),
+            state="running" if deps.processes.running(env.name) else "installed",
+            url=None if held_port is None else address(env.name, deps.proxy_port),
+            configured=is_configured(facts, stored.config.get(env.name, {})),
             has_pages=facts.has_pages,
             diagnostic=None
             if present
@@ -135,6 +139,20 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
         )
     folder = offered[0].folder
     env = environment(deps.root, payload.app_name)
+    if env in await environments(deps.root):
+        # What installing over an installation means is not this stage's to
+        # decide, and no milestone owns updating an App. Saying so is the whole
+        # of it: the caller removes the App and installs it again, which is two
+        # operations that already exist and mean what they say.
+        return Installation(
+            app=AppRow(app_name=payload.app_name, state="installed"),
+            diagnostic=Diagnostic(
+                code="hub.already_installed",
+                category=ErrorCategory.CALLER,
+                message=f"{payload.app_name!r} is already installed; remove it first",
+                details={"app_name": payload.app_name},
+            ),
+        )
     try:
         await install(folder=folder, env=env)
         described = await describe(env)
@@ -182,12 +200,32 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"step": failure.step, "output": failure.output},
             ),
         )
+
+    # An address is for an App that can answer at one. An App declaring no Pages
+    # has no Web channel at all (ADR-017) and `start_app` refuses it, so giving
+    # it a port and a route would publish an address that is not slow to answer
+    # but will never answer, and point the proxy at a port nothing will bind.
+    if facts.has_pages:
+
+        def hold(state: HubState) -> HubState:
+            return state.model_copy(
+                update={
+                    "ports": {
+                        **state.ports,
+                        payload.app_name: allocate(state.ports.values()),
+                    }
+                }
+            )
+
+        port = (await update_state(deps, hold)).ports[payload.app_name]
+        await write_route(deps.root, payload.app_name, port=port)
     return Installation(
         app=AppRow(
             app_name=payload.app_name,
             name=facts.name,
             version=facts.version,
             state="installed",
+            url=address(payload.app_name, deps.proxy_port) if facts.has_pages else None,
             has_pages=facts.has_pages,
         )
     )
@@ -236,14 +274,24 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     await remove_environment(environment(deps.root, payload.app_name))
 
     def forget(state: HubState) -> HubState:
-        return HubState(
-            sources=state.sources,
-            config={
-                name: values for name, values in state.config.items() if name != payload.app_name
-            },
+        return state.model_copy(
+            update={
+                "config": {
+                    name: values
+                    for name, values in state.config.items()
+                    if name != payload.app_name
+                },
+                "ports": {
+                    name: port for name, port in state.ports.items() if name != payload.app_name
+                },
+            }
         )
 
     await update_state(deps, forget)
+    # After the state, so that a failure in between leaves a route to a child
+    # that is gone -- which the proxy answers as 502 -- rather than a port held
+    # by an App that no longer has one, which nothing would report at all.
+    await remove_route(deps.root, payload.app_name)
     return await list_apps(ctx, Empty())
 
 

@@ -11,8 +11,9 @@ from pathlib import Path
 
 import pytest
 
+from tests_support import free_port
 from vibepy_hub.internals import interpreter
-from vibepy_hub.internals.processes import Processes, StartFailed
+from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -45,6 +46,7 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
             interpreter=Path(sys.executable),
             config={"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             known_as="todo-app",
+            port=free_port(),
         )
     )
     owned = await _owned_once_it_exists(processes, "todo-app")
@@ -54,7 +56,7 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
         await starting
 
     assert owned.returncode is not None
-    assert processes.running("todo-app") is None
+    assert processes.running("todo-app") is False
     await processes.aclose()
 
 
@@ -77,7 +79,58 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
             interpreter=interpreter(env),
             config={"payload": "x" * 500_000},
             known_as="gone",
+            port=free_port(),
         )
 
-    assert processes.running("gone") is None
+    assert processes.running("gone") is False
+    await processes.aclose()
+
+
+async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
+    """`aclose` is what `entry.py` promises: a window leaves no child behind.
+
+    Asserted here rather than through a Hub Tool, because it is a fact about
+    `Processes` that no Tool can see -- which is what this file is for.
+    """
+    processes = Processes(logs=tmp_path / "logs")
+    port = free_port()
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config={"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+        known_as="todo-app",
+        port=port,
+    )
+    assert processes.running("todo-app") is True
+
+    await processes.aclose()
+
+    assert processes.running("todo-app") is False
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", port)
+
+
+async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Path) -> None:
+    """One name holds one child, and the start that was refused started nothing."""
+    processes = Processes(logs=tmp_path / "logs")
+    first, second = free_port(), free_port()
+    config: dict[str, object] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config=config,
+        known_as="todo-app",
+        port=first,
+    )
+    with pytest.raises(AlreadyStarted):
+        await processes.start(
+            app_name="todo-app",
+            interpreter=Path(sys.executable),
+            config=config,
+            known_as="todo-app",
+            port=second,
+        )
+
+    with pytest.raises(OSError):
+        await asyncio.open_connection("127.0.0.1", second)
     await processes.aclose()

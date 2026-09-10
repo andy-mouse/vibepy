@@ -30,6 +30,13 @@ from vibepy_hub.internals.installer import (
 )
 from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
 from vibepy_hub.internals.projects import Candidate, candidates, readable
+from vibepy_hub.internals.routing import (
+    address,
+    allocate,
+    remove_route,
+    write_install_config,
+    write_route,
+)
 from vibepy_hub.internals.state import HubState, read_state, update_state, write_state
 
 __all__ = [
@@ -41,6 +48,8 @@ __all__ = [
     "InstallFailed",
     "Processes",
     "StartFailed",
+    "address",
+    "allocate",
     "candidates",
     "declarations",
     "describe",
@@ -56,9 +65,12 @@ __all__ = [
     "read_state",
     "readable",
     "remove_environment",
+    "remove_route",
     "secret_fields",
     "update_state",
     "without_secrets",
     "write_facts",
+    "write_install_config",
+    "write_route",
     "write_state",
 ]

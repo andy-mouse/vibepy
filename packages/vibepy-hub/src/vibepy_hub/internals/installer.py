@@ -109,9 +109,33 @@ async def _run(command: Sequence[str], /) -> str:
 
 
 async def install(*, folder: Path, env: Path) -> None:
-    """Create an environment of its own for one App and install it there."""
+    """Create an environment of its own for one App and install it there.
+
+    The link mode is stated rather than defaulted. uv links from its cache with
+    `clone` on macOS and Linux and `hardlink` on Windows
+    (<https://docs.astral.sh/uv/reference/settings/#link-mode>), and a clone
+    gives every file a new inode. macOS assesses a `.so` it has not seen by
+    inode, so an environment of cloned files is scanned in full the first time
+    the App is imported -- which the Hub does immediately, to describe it. Every
+    installed App pays that, and it is seconds
+    (<https://github.com/astral-sh/uv/issues/18577>). Hardlinks reuse the
+    cache's inodes, so the scan happens once for a dependency rather than once
+    per App that holds it. The Hub never writes inside an environment it
+    installed, which is what makes sharing an inode with the cache safe.
+    """
     await _run(["uv", "venv", str(env)])
-    await _run(["uv", "pip", "install", "--python", str(interpreter(env)), str(folder)])
+    await _run(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--link-mode",
+            "hardlink",
+            "--python",
+            str(interpreter(env)),
+            str(folder),
+        ]
+    )
 
 
 class _Described(BaseModel):

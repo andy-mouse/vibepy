@@ -13,4 +13,5 @@ class HubDeps:
 
     root: Path
     processes: Processes
+    proxy_port: int
     state_lock: asyncio.Lock = field(default_factory=asyncio.Lock)

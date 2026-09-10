@@ -80,7 +80,7 @@ async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath
         """
         if payload.path in held.sources:
             return held
-        return HubState(sources=[*held.sources, payload.path], config=held.config)
+        return held.model_copy(update={"sources": [*held.sources, payload.path]})
 
     await update_state(deps, offer)
     return await _listing(deps)
@@ -91,9 +91,8 @@ async def remove_package_source(ctx: ToolContext[HubDeps], payload: SourcePath) 
     deps = ctx.dependencies
 
     def withdraw(held: HubState) -> HubState:
-        return HubState(
-            sources=[path for path in held.sources if path != payload.path],
-            config=held.config,
+        return held.model_copy(
+            update={"sources": [path for path in held.sources if path != payload.path]}
         )
 
     await update_state(deps, withdraw)

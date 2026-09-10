@@ -46,7 +46,7 @@ async def test_a_write_that_fails_leaves_the_previous_state_readable(
     def refuse(src: object, dst: object) -> None:
         raise OSError("interrupted")
 
-    monkeypatch.setattr("vibepy_hub.internals.state.os.replace", refuse)
+    monkeypatch.setattr("vibepy_hub.internals.files.os.replace", refuse)
     with pytest.raises(OSError):
         await write_state(root, HubState(sources=[], config={"lost": {}}))
 

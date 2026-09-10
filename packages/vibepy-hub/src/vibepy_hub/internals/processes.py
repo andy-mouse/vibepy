@@ -15,7 +15,6 @@ import asyncio
 import json
 import logging
 import os
-import socket
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -134,24 +133,15 @@ def child_environment() -> dict[str, str]:
     return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
 
 
-def free_port() -> int:
-    """A port nothing is listening on, chosen by the operating system.
-
-    NiceGUI documents no way to report back the port it chose, so the Hub
-    chooses one and passes it. A port taken between the choice and the bind is a
-    child that exits, which `running` then reports as not running.
-    """
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        return int(probe.getsockname()[1])
-
-
 @dataclass
 class _Child:
-    """One started App: the process, its port, and whether it has answered."""
+    """One started App: the process, and whether it has answered.
+
+    The port is not here. It belongs to the installation and the Hub holds it;
+    this window is told which port to serve on and needs no memory of it.
+    """
 
     process: asyncio.subprocess.Process
-    port: int
     answering: bool = False
 
 
@@ -178,19 +168,21 @@ class Processes:
         self._forget_if_gone(app_name)
         return self._running.get(app_name)
 
-    def running(self, app_name: str, /) -> int | None:
-        """The port an App is serving on, or nothing when it is not serving."""
+    def running(self, app_name: str, /) -> bool:
+        """Whether an App is serving.
+
+        The port it serves on is the Hub's fact, held in its state and published
+        as an address; this window only knows whether the child has answered.
+        """
         child = self._held(app_name)
-        if child is None:
-            return None
-        return child.port if child.answering else None
+        return child is not None and child.answering
 
     def taken(self, app_name: str, /) -> bool:
         """Whether this window has claimed a name.
 
         A name is claimed from before the spawn until its child leaves, so this
-        is wider than `running`, which reports a port and therefore nothing for
-        a child that has not answered yet. The claim is the key's presence: the
+        is wider than `running`, which reports nothing for a child that has not
+        answered yet. The claim is the key's presence: the
         entry holds nothing until there is a child to put in it.
         """
         self._forget_if_gone(app_name)
@@ -199,10 +191,9 @@ class Processes:
     def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
         """The child this window holds for an App, serving or not yet serving.
 
-        `running` answers with a port and therefore only for a child that has
-        answered. Ownership begins earlier, and a caller that must not start a
-        second child under one name -- or a test that must see the first --
-        asks this.
+        `running` answers only for a child that has answered. Ownership begins
+        earlier, and a caller that must not start a second child under one name
+        -- or a test that must see the first -- asks this.
         """
         child = self._held(app_name)
         return None if child is None else child.process
@@ -266,8 +257,9 @@ class Processes:
         interpreter: Path,
         config: Mapping[str, object],
         known_as: str,
-    ) -> int:
-        """Serve one App on a free port, handing it its configuration on stdin.
+        port: int,
+    ) -> None:
+        """Serve one App on the port it was given, handing it its configuration on stdin.
 
         `app_name` is the name the App declares itself under, which is what its
         environment answers to; `known_as` is what this Hub filed it under. The
@@ -289,7 +281,6 @@ class Processes:
         if self.taken(known_as):
             raise AlreadyStarted(f"{known_as!r} is already started here")
         self._running[known_as] = None
-        port = free_port()
         path = await asyncio.to_thread(_log_path, self._logs, known_as)
         handle = await asyncio.to_thread(path.open, "wb")
         try:
@@ -306,7 +297,7 @@ class Processes:
             )
         finally:
             await asyncio.to_thread(handle.close)
-        child = _Child(process=process, port=port)
+        child = _Child(process=process)
         self._running[known_as] = child
         try:
             if process.stdin is not None:
@@ -330,7 +321,6 @@ class Processes:
             raise
         child.answering = True
         logger.info("started %s on port %d", known_as, port)
-        return port
 
     async def stop(self, app_name: str, /) -> bool:
         """Terminate one App, then kill it if it does not leave."""

@@ -11,6 +11,7 @@ members = [
     "vibepy-core",
     "vibepy-hub",
     "vibepy-notes",
+    "vibepy-second",
     "vibepy-todo",
 ]
 
@@ -1769,6 +1770,7 @@ source = { editable = "packages/vibepy-hub" }
 dependencies = [
     { name = "packaging" },
     { name = "pydantic" },
+    { name = "pyyaml" },
     { name = "vibepy-core", extra = ["web"] },
 ]
 
@@ -1776,6 +1778,7 @@ dependencies = [
 requires-dist = [
     { name = "packaging", specifier = ">=24.0" },
     { name = "pydantic", specifier = ">=2.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "vibepy-core", extras = ["web"], editable = "." },
 ]
 
@@ -1789,6 +1792,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "vibepy-core", extras = ["agent"], editable = "." }]
+
+[[package]]
+name = "vibepy-second"
+version = "0.0.0"
+source = { editable = "fixtures/second-app" }
+dependencies = [
+    { name = "nicegui" },
+    { name = "vibepy-core", extra = ["web"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "nicegui", specifier = ">=3.16" },
+    { name = "vibepy-core", extras = ["web"], editable = "." },
+]
 
 [[package]]
 name = "vibepy-todo"

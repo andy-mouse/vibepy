@@ -98,39 +98,50 @@ is that case.
 
 ## Scope
 
-1. **A port per installed App.** `install_app` allocates the lowest port at or above 9000 that
-   the Hub's state does not already hold, and stores it under the App's canonical name.
-   `remove_app` releases it. A reinstall of an App that still holds a port keeps that port.
+1. **A port per installed App that declares Pages.** `install_app` allocates the lowest port at
+   or above 9000 that the Hub's state does not already hold, and stores it under the App's
+   canonical name. `remove_app` releases it. Installing an App that is already installed is
+   refused as `hub.already_installed`: what installing over an installation means is nobody's
+   decision yet, no milestone owns updating an App, and the remedy is two operations that
+   already exist -- remove it, then install it. An App declaring no Pages has no Web
+   channel (ADR-017) and is refused by `start_app`, so it is given no port, no route and no
+   address.
 2. **The Hub writes both halves of the proxy's configuration.** A window writes
-   `<root>/traefik.yml` when it opens: one entry point on `:8080` and a file provider watching
-   `<root>/routes`, with `watch` true. It does not change as Apps come and go. `install_app`
+   `<root>/traefik.yml` when it opens: one entry point on the port the Hub was configured with
+   and a file provider watching `<root>/routes`, with `watch` true. It does not change as Apps come and go. `install_app`
    writes `<root>/routes/<app>.yml`, one router matching `Host(<app>.localhost)` and one service
    pointing at `http://127.0.0.1:<port>`; `remove_app` deletes it.
 3. **An address replaces a port in every answer.** `AppRow.url` and `RunningApp.url` become
-   `http://<app>.localhost:8080` for an installed App, whether it is running or not, `stop_app`'s
+   `http://<app>.localhost:<proxy port>` for an installed App that holds a port, whether it is
+   running or not, `stop_app`'s
    answer included: the address belongs to the installation, and a stopped App is one whose
    address does not answer. The child's own port stops leaving the Hub.
 4. **`free_port` is gone.** `Processes.start` takes the port it is to serve on and returns
    nothing. `Processes.running` answers whether an App is serving, not on which port.
 5. **`make install` obtains the proxy.** It fetches a pinned Traefik release for the running
-   platform into the workspace, so `make test` means the same thing on a contributor's machine
-   and on CI. CI gains no proxy-specific step.
+   platform into the workspace through a `tools` target, so `make test` means the same thing on a
+   contributor's machine and on CI. CI runs that target: `uv sync` does not bring a proxy, and a
+   test that cannot run there is the skip this stage refused, arriving by another door.
 
 ## Public API
 
 | Change | Kind |
 | --- | --- |
+| `HubConfig.proxy_port`, an `int` defaulting to `8080` | added |
 | `HubState.ports`, a `dict[str, int]` | added |
-| `AppRow.url` is the App's proxy address, present whenever the App is installed | changed |
+| `AppRow.url` is the App's proxy address, present whenever the App holds a port | changed |
 | `RunningApp.url` is the App's proxy address | changed |
 | `Processes.start` takes `port` and returns `None` | changed |
 | `Processes.running` answers `bool` | changed |
+| `hub.already_installed`, refusing an install of an installed App | added |
+| `hub.no_address`, refusing a start of an installed App holding no port | added |
 | `free_port` | deleted |
 
 `HubState` is a stored model, so a state file written before this stage validates against it: a
 missing `ports` is an empty mapping, and every installed App is allocated a port the next time it
-is installed. An App installed before this stage and not reinstalled has no port and therefore no
-address, which `AppRow.url` reports as absent — the same shape a caller already handles.
+is installed. An App installed before this stage has no port and therefore no address, which
+`AppRow.url` reports as absent — the same shape a caller already handles. `start_app` refuses it
+as `hub.no_address` and names the remedy: remove the App and install it again.
 
 No new `hub.*` code. A route file the Hub cannot write is the same class of failure as a state
 file it cannot write, which this Hub does not catch either, and inventing a diagnostic for it
@@ -139,9 +150,21 @@ expected.
 
 ## Where each thing lives
 
-**The address is derived, not stored.** State holds the port; the hostname is the App's canonical
-name and the entry point is a constant. Storing the full URL would put the same fact in two
-places and let a state file disagree with the proxy configuration the Hub itself wrote.
+**The address is derived, not stored.** State holds the App's port; the hostname is the App's
+canonical name and the entry point comes from the Hub's own configuration. Storing the full URL
+would put the same fact in two places and let a state file disagree with the proxy configuration
+the Hub itself wrote.
+
+**What is published is declared; what is internal is allocated.** The entry point is part of
+every address the Hub answers with, and a Hub that hardcoded it would assert a fact about its
+host that it cannot know: when the port is taken, Traefik does not bind, the Hub is not told —
+it owns no proxy — and it goes on publishing addresses that reach nothing, or reach whatever
+else holds that port. `HubConfig` is documented as what the Hub requires of its host and already
+declares `root` for this reason; a port on that host is the same kind of fact as a directory on
+it, and ADR-022 makes an App's configuration its declaration rather than something hidden in its
+code. It defaults to 8080, so nothing is configured in the ordinary case. An App's own port is
+not published, is reached only by the proxy, and fails loudly as `hub.start_failed` when it is
+taken, so it is allocated rather than declared.
 
 **The name is already a valid label.** ADR-028 addresses an App by its canonical distribution
 name, and the normalization specification leaves only lowercase letters, digits and `-`, with a
@@ -166,12 +189,27 @@ one port.
 
 ## Errors
 
-No row joins `errors.md`, and the Hub's code table in `vibepy_hub/models.py` is unchanged.
+`hub.already_installed` and `hub.no_address` join the Hub's code table in
+`vibepy_hub/models.py`, both in the `caller` category. No row joins `errors.md`.
+
+`hub.no_address` is for an App that is installed and holds no port. An App becomes installed when
+its facts are written and is given a port after that, so a window closing between the two leaves
+one; a state file written before this stage is the other way to reach it. Reporting that as
+`hub.not_installed` would name a remedy that is now refused.
 
 A start whose port is already taken by something else is a child that exits, which
 `hub.start_failed` already reports. This is the cost D8 accepted when it replaced `free_port()`:
 the operating system no longer guarantees the port is free, and the failure surfaces at start
 rather than being avoided. It is stated in ADR-031's consequences.
+
+Not observing the proxy has a second cost, and it is stated there too. An address is published as
+soon as its route file is written, and nothing tells the Hub when the proxy has read one, so an
+address begins answering shortly after an install rather than at the moment the Hub answers with
+it. Traefik publishes no readiness signal — `/ping` answers before the dynamic configuration is
+loaded and the request for an endpoint that does not is open
+(<https://github.com/traefik/traefik/issues/10458>) — so the alternative is the Hub waiting on a
+proxy it deliberately does not observe, which would also make an install fail whenever the proxy
+is not running. That property is kept on purpose, and this is what it costs.
 
 ## Testing
 
@@ -189,9 +227,14 @@ rather than being avoided. It is stated in ADR-031's consequences.
 - **An address that outlives a run** — an App started, stopped and started again answers with the
   same URL each time, and the URL is present in `list_apps` while the App is not running.
 - **Allocation** — two installs take two ports; removing the first and installing a third leaves
-  the second where it was; reinstalling an App keeps its port.
+  the second where it was. Installing an installed App is refused, and the refusal leaves both
+  the environment and the address where they were.
 - **The route file** — installing writes a route naming the App's host and its port; removing
   deletes it. Read as YAML and asserted by content, not by string.
+- **One new departure from public contracts**, and it is counted. An App's own port is never
+  published, so no Tool's answer can be asked which port an App holds: `test_addresses.py`
+  reaches `allocate` and the stored state directly, and says so in its docstring. It is the
+  second such file, after `test_processes.py`. Everything a Tool can answer is asked of the Tool.
 - **`free_port` is gone** — the existing tests of `Processes` supply a port. The test helper of
   the same name in `tests/test_serve_command.py` is a different function and stays: it chooses a
   port for a command the test itself runs, which is not the Hub allocating one.
@@ -229,8 +272,9 @@ owns none.
 - **HTTPS, certificates and any origin that is not `.localhost`.** A single developer machine is
   the shape this stage serves.
 - **Running, supervising or health-checking the proxy.** The Hub writes files.
-- **A configurable base domain or entry point.** No criterion asks for one, and a constant that
-  two places must agree on is smaller than a setting three places must read.
+- **A configurable base domain.** `.localhost` is what needs no resolver configuration on any
+  supported platform, and an origin that is not local is out of scope with the certificates it
+  would require.
 - **A second Hub window.** Two windows over one root would allocate ports against one state file
   and write into one routes directory; cross-process coordination is not opened here, as CR2
   already stated for the state file.
