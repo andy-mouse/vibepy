@@ -82,14 +82,14 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
     template exists to avoid. The only thing rewritten is the one path the Hub
     recorded inside the root, each environment's `purelib`.
     """
-    # pytest's `Node.get_closest_marker` resolves to Unknown under pyright
-    # strict -- `Node` is built through a custom ABC metaclass its stubs do not
-    # carry through -- so this is the one place in the fixture that narrows by
-    # hand rather than by annotation.
-    marker: pytest.Mark | None = request.node.get_closest_marker("apps")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    # pytest leaves `FixtureRequest.node` unannotated; a function-scoped
+    # fixture's node is the test, and once it is known to be one, pytest's own
+    # annotations type the marker and its arguments.
+    node = request.node  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    assert isinstance(node, pytest.Item)
+    marker = node.get_closest_marker("apps")
     assert marker is not None, "a test taking `installed` names its Apps with @pytest.mark.apps"
-    args: tuple[str, ...] = marker.args  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType, reportUnknownArgumentType]
-    named: frozenset[str] = frozenset(args)  # pyright: ignore[reportUnknownArgumentType]
+    named = frozenset[str](marker.args)
     unknown = named - frozenset(APPS)
     assert not unknown, f"not fixture Apps: {sorted(unknown)}"
 
