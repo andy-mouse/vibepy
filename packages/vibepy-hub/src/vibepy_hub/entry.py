@@ -10,7 +10,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from vibepy_core.app import AppDefinition, AppEntrypoint
 from vibepy_hub.internals import HubDeps, Processes, write_install_config
@@ -31,7 +31,9 @@ class HubConfig(BaseModel):
     """
 
     root: Path
-    proxy_port: int = 8080
+    proxy_port: int = Field(default=8080, ge=1, le=65535)
+    """Bounded because the Hub never learns that the proxy failed to bind: it
+    owns no proxy, so a port that cannot be one has to be refused here."""
 
 
 @asynccontextmanager

@@ -11,6 +11,7 @@ import logging
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from uuid import uuid4
 
 import yaml
 
@@ -108,7 +109,11 @@ def _write_route(root: Path, app_name: str, port: int, /) -> None:
 
 async def remove_route(root: Path, app_name: str, /) -> None:
     """Withdraw one App's route, if it has one."""
-    await asyncio.to_thread((root / ROUTES / f"{app_name}.yml").unlink, True)
+    await asyncio.to_thread(_remove_route, root, app_name)
+
+
+def _remove_route(root: Path, app_name: str, /) -> None:
+    (root / ROUTES / f"{app_name}.yml").unlink(missing_ok=True)
 
 
 def _replace(root: Path, path: Path, document: object, /) -> None:
@@ -122,8 +127,12 @@ def _replace(root: Path, path: Path, document: object, /) -> None:
     The file is staged in the Hub's root rather than beside its destination,
     which is inside the watched directory. What the provider does with a file it
     was not meant to read is then not a question anyone has to answer.
+
+    The staging name belongs to this write rather than to its destination. The
+    Hub does not serialize Tool invocations, so two installs of one App would
+    otherwise stage onto one path and the loser would find it already gone.
     """
-    pending = root / f".{path.name}.pending"
+    pending = root / f".{path.name}.{uuid4().hex}.pending"
     pending.write_text(yaml.safe_dump(document, sort_keys=False), encoding="utf-8")
     try:
         os.replace(pending, path)

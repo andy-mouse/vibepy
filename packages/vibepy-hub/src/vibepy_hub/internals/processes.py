@@ -135,10 +135,13 @@ def child_environment() -> dict[str, str]:
 
 @dataclass
 class _Child:
-    """One started App: the process, its port, and whether it has answered."""
+    """One started App: the process, and whether it has answered.
+
+    The port is not here. It belongs to the installation and the Hub holds it;
+    this window is told which port to serve on and needs no memory of it.
+    """
 
     process: asyncio.subprocess.Process
-    port: int
     answering: bool = False
 
 
@@ -178,8 +181,8 @@ class Processes:
         """Whether this window has claimed a name.
 
         A name is claimed from before the spawn until its child leaves, so this
-        is wider than `running`, which reports a port and therefore nothing for
-        a child that has not answered yet. The claim is the key's presence: the
+        is wider than `running`, which reports nothing for a child that has not
+        answered yet. The claim is the key's presence: the
         entry holds nothing until there is a child to put in it.
         """
         self._forget_if_gone(app_name)
@@ -188,10 +191,9 @@ class Processes:
     def owned(self, app_name: str, /) -> asyncio.subprocess.Process | None:
         """The child this window holds for an App, serving or not yet serving.
 
-        `running` answers with a port and therefore only for a child that has
-        answered. Ownership begins earlier, and a caller that must not start a
-        second child under one name -- or a test that must see the first --
-        asks this.
+        `running` answers only for a child that has answered. Ownership begins
+        earlier, and a caller that must not start a second child under one name
+        -- or a test that must see the first -- asks this.
         """
         child = self._held(app_name)
         return None if child is None else child.process
@@ -295,7 +297,7 @@ class Processes:
             )
         finally:
             await asyncio.to_thread(handle.close)
-        child = _Child(process=process, port=port)
+        child = _Child(process=process)
         self._running[known_as] = child
         try:
             if process.stdin is not None:

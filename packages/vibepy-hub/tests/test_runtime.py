@@ -14,7 +14,10 @@ from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
-async def test_an_installed_app_starts_answers_and_stops(tmp_path: Path) -> None:
+async def test_an_installed_app_starts_and_stops(tmp_path: Path) -> None:
+    """That the App answered is `start_app`'s contract, not this test's reading:
+    a start returns without a diagnostic only once the child answered a request.
+    Reaching an App through its address is `test_proxy.py`'s subject."""
     root = tmp_path / "hub"
 
     async with hub(root) as tools:

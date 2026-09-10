@@ -36,12 +36,12 @@ async def test_a_page_s_websocket_survives_the_proxy(tmp_path: Path) -> None:
             host="vibepy-second.localhost",
             path="/home",
         ):
-            frame = await first_frame(proxy_port, host="vibepy-second.localhost", path=SOCKET_IO)
+            opened = await first_frame(proxy_port, host="vibepy-second.localhost", path=SOCKET_IO)
 
-    # An unmasked text frame carrying engine.io's OPEN packet: the upgrade was
-    # carried, and so was what the server sent after it.
-    assert frame[0] == 0x81
-    assert frame[2:4] == b"0{"
+    # engine.io's OPEN packet, which the server sends of its own accord once the
+    # socket is up: the upgrade was carried, and so was what followed it.
+    assert opened.startswith(b"0{")
+    assert b'"sid"' in opened
 
 
 async def test_two_apps_are_served_through_one_configuration(tmp_path: Path) -> None:

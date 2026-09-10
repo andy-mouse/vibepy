@@ -19,7 +19,12 @@ TOOLS = Path(__file__).resolve().parents[1] / ".tools"
 
 
 def asset() -> tuple[str, str]:
-    """The archive for this platform, and the name of the binary inside it."""
+    """The archive for this platform, and the name of the binary inside it.
+
+    The extracted file is named for the version it is, so raising `VERSION`
+    fetches rather than leaving every warm checkout on the binary it already
+    had -- which is the situation `make install` exists to prevent.
+    """
     machine = platform.machine().lower()
     arch = "arm64" if machine in {"arm64", "aarch64"} else "amd64"
     if sys.platform == "win32":
@@ -42,22 +47,27 @@ def expected(archive: str, /) -> str:
 
 def main() -> None:
     archive, binary = asset()
-    target = TOOLS / binary
+    target = TOOLS / f"{Path(binary).stem}-{VERSION}{Path(binary).suffix}"
     if target.exists():
         return
     TOOLS.mkdir(parents=True, exist_ok=True)
     downloaded = TOOLS / archive
-    urllib.request.urlretrieve(f"{RELEASE}/{archive}", downloaded)
-    if hashlib.sha256(downloaded.read_bytes()).hexdigest() != expected(archive):
-        downloaded.unlink()
-        raise SystemExit(f"{archive} does not match its published digest")
-    if archive.endswith(".zip"):
-        with zipfile.ZipFile(downloaded) as held:
-            held.extract(binary, TOOLS)
-    else:
-        with tarfile.open(downloaded) as held:
-            held.extract(binary, TOOLS, filter="data")
-    downloaded.unlink()
+    try:
+        urllib.request.urlretrieve(f"{RELEASE}/{archive}", downloaded)
+        if hashlib.sha256(downloaded.read_bytes()).hexdigest() != expected(archive):
+            raise SystemExit(f"{archive} does not match its published digest")
+        if archive.endswith(".zip"):
+            with zipfile.ZipFile(downloaded) as held:
+                held.extract(binary, TOOLS)
+        else:
+            with tarfile.open(downloaded) as held:
+                held.extract(binary, TOOLS, filter="data")
+    finally:
+        # Whatever happened -- a digest that did not match, an interrupted
+        # download, an archive that would not open -- no half-fetched archive
+        # is left for the next run to find.
+        downloaded.unlink(missing_ok=True)
+    (TOOLS / binary).replace(target)
     target.chmod(target.stat().st_mode | stat.S_IXUSR)
 
 

@@ -20,7 +20,18 @@ EXAMPLES = REPO / "examples"
 FIXTURES = REPO / "fixtures"
 """Distributions that exist to be installed by a test. Not product surface."""
 
-TRAEFIK = REPO / ".tools" / ("traefik.exe" if sys.platform == "win32" else "traefik")
+TRAEFIK_VERSION = "v3.7.12"
+"""Pinned beside `scripts/fetch_traefik.py`, which fetches this exact binary."""
+
+TRAEFIK = (
+    REPO
+    / ".tools"
+    / (
+        f"traefik-{TRAEFIK_VERSION}.exe"
+        if sys.platform == "win32"
+        else f"traefik-{TRAEFIK_VERSION}"
+    )
+)
 """The proxy `make install` fetched. Required: a skipped test cannot fail."""
 
 
@@ -123,23 +134,27 @@ async def first_frame(port: int, *, host: str, path: str) -> bytes:
         head = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), timeout=30)
         if not head.startswith(b"HTTP/1.1 101"):
             raise AssertionError(f"the proxy refused the upgrade: {head!r}")
-        return await asyncio.wait_for(reader.read(64), timeout=30)
+        return await asyncio.wait_for(_payload(reader), timeout=30)
     finally:
         writer.close()
 
 
-async def http_status(url: str, /) -> int:
-    """The status a running App answers with.
+async def _payload(reader: asyncio.StreamReader, /) -> bytes:
+    """One server frame's payload, read by the length the frame declares.
 
-    `urlopen` blocks, so it runs in a thread rather than on the loop the test
-    shares with the Hub.
+    A server frame is unmasked, and its second byte carries a 7-bit length that
+    escapes into two or eight further bytes above 125. Reading a fixed slice
+    instead would turn a handshake that grew by one field into a failure that
+    reads like a proxy defect.
     """
-    return await asyncio.to_thread(_status, url)
-
-
-def _status(url: str, /) -> int:
-    with urlopen(url, timeout=30) as answer:
-        return int(answer.status)
+    first, length = await reader.readexactly(2)
+    if first != 0x81:
+        raise AssertionError(f"expected an unmasked text frame, got {first:#x}")
+    if length == 126:
+        length = int.from_bytes(await reader.readexactly(2), "big")
+    elif length == 127:
+        length = int.from_bytes(await reader.readexactly(8), "big")
+    return await reader.readexactly(length)
 
 
 async def served_body(port: int, *, host: str, path: str) -> str:

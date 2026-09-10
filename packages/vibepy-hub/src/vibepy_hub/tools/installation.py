@@ -77,7 +77,7 @@ def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
 async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
     """One row per environment this Hub created, read without importing."""
     rows: dict[str, AppRow] = {}
-    held = (await read_state(deps.root)).config
+    stored = await read_state(deps.root)
     for env in await environments(deps.root):
         facts = await read_facts(env)
         if facts is None or facts.purelib is None:
@@ -98,14 +98,14 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
         present = any(
             ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
         )
-        held_port = (await read_state(deps.root)).ports.get(env.name)
+        held_port = stored.ports.get(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
             name=facts.name,
             version=facts.version,
             state="running" if deps.processes.running(env.name) else "installed",
             url=None if held_port is None else address(env.name, deps.proxy_port),
-            configured=is_configured(facts, held.get(env.name, {})),
+            configured=is_configured(facts, stored.config.get(env.name, {})),
             has_pages=facts.has_pages,
             diagnostic=None
             if present
@@ -252,7 +252,6 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
     await remove_environment(environment(deps.root, payload.app_name))
-    await remove_route(deps.root, payload.app_name)
 
     def forget(state: HubState) -> HubState:
         return state.model_copy(
@@ -269,6 +268,10 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
         )
 
     await update_state(deps, forget)
+    # After the state, so that a failure in between leaves a route to a child
+    # that is gone -- which the proxy answers as 502 -- rather than a port held
+    # by an App that no longer has one, which nothing would report at all.
+    await remove_route(deps.root, payload.app_name)
     return await list_apps(ctx, Empty())
 
 
