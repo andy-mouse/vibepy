@@ -29,7 +29,7 @@ def _refusal(
     category: ErrorCategory,
     url: str | None = None,
 ) -> RunningApp:
-    """An App that will not start or stop, and why.
+    """Describe an App that will not start or stop, and why.
 
     It carries the App's address when it has one, because an address belongs to
     an installation rather than to a run: a refusal is not a reason to stop
@@ -46,7 +46,7 @@ def _refusal(
 
 
 def _category(reported: str, /) -> ErrorCategory:
-    """The category a child named, or execution when it named one we do not know."""
+    """Return the category a child named, or execution when it named one we do not know."""
     try:
         return ErrorCategory(reported)
     except ValueError:

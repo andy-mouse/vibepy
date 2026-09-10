@@ -36,7 +36,7 @@ class VibepyError(Exception):
     code: ClassVar[str]
 
     def details(self) -> Mapping[str, str]:
-        """The values this error's message interpolates.
+        """Return the values this error's message interpolates.
 
         An agent reads these rather than parsing the sentence, so a message may be
         reworded without breaking anyone.
@@ -50,10 +50,12 @@ class ToolNotFoundError(VibepyError):
     code = "tool.not_found"
 
     def __init__(self, tool_name: str) -> None:
+        """Record `tool_name` for the message and for `details()`."""
         super().__init__(f"No Tool is registered under the name {tool_name!r}")
         self.tool_name = tool_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `tool_name`."""
         return {"tool_name": self.tool_name}
 
 
@@ -63,10 +65,12 @@ class ToolInputValidationError(VibepyError):
     code = "tool.input_invalid"
 
     def __init__(self, tool_name: str) -> None:
+        """Record `tool_name` for the message and for `details()`."""
         super().__init__(f"Input for Tool {tool_name!r} failed validation")
         self.tool_name = tool_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `tool_name`."""
         return {"tool_name": self.tool_name}
 
 
@@ -76,10 +80,12 @@ class ToolOutputValidationError(VibepyError):
     code = "tool.output_invalid"
 
     def __init__(self, tool_name: str) -> None:
+        """Record `tool_name` for the message and for `details()`."""
         super().__init__(f"Output of Tool {tool_name!r} failed validation")
         self.tool_name = tool_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `tool_name`."""
         return {"tool_name": self.tool_name}
 
 
@@ -89,10 +95,12 @@ class ToolNameConflictError(VibepyError):
     code = "tool.name_conflict"
 
     def __init__(self, tool_name: str) -> None:
+        """Record `tool_name` for the message and for `details()`."""
         super().__init__(f"Two Tools declare the name {tool_name!r}")
         self.tool_name = tool_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `tool_name`."""
         return {"tool_name": self.tool_name}
 
 
@@ -102,10 +110,12 @@ class PageNotFoundError(VibepyError):
     code = "page.not_found"
 
     def __init__(self, page_name: str) -> None:
+        """Record `page_name` for the message and for `details()`."""
         super().__init__(f"No Page is registered under the name {page_name!r}")
         self.page_name = page_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `page_name`."""
         return {"page_name": self.page_name}
 
 
@@ -115,11 +125,13 @@ class PageRouteInvalidError(VibepyError):
     code = "page.route_invalid"
 
     def __init__(self, page_name: str, route: str) -> None:
+        """Record `page_name` and `route` for the message and for `details()`."""
         super().__init__(f"Page {page_name!r} declared the invalid route {route!r}")
         self.page_name = page_name
         self.route = route
 
     def details(self) -> Mapping[str, str]:
+        """Return `page_name` and `route`."""
         return {"page_name": self.page_name, "route": self.route}
 
 
@@ -129,6 +141,7 @@ class PageRouteConflictError(VibepyError):
     code = "page.route_conflict"
 
     def __init__(self, route: str, page_name: str, conflicting_page_name: str) -> None:
+        """Record `route`, `page_name` and `conflicting_page_name` for `details()`."""
         super().__init__(
             f"Pages {page_name!r} and {conflicting_page_name!r} both declare the route {route!r}"
         )
@@ -137,6 +150,7 @@ class PageRouteConflictError(VibepyError):
         self.conflicting_page_name = conflicting_page_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `route`, `page_name` and `conflicting_page_name`."""
         return {
             "route": self.route,
             "page_name": self.page_name,
@@ -150,6 +164,7 @@ class PageNameConflictError(VibepyError):
     code = "page.name_conflict"
 
     def __init__(self, page_name: str, route: str, conflicting_route: str) -> None:
+        """Record `page_name`, `route` and `conflicting_route` for `details()`."""
         super().__init__(
             f"Pages at {route!r} and {conflicting_route!r} both declare the name {page_name!r}"
         )
@@ -158,6 +173,7 @@ class PageNameConflictError(VibepyError):
         self.conflicting_route = conflicting_route
 
     def details(self) -> Mapping[str, str]:
+        """Return `page_name`, `route` and `conflicting_route`."""
         return {
             "page_name": self.page_name,
             "route": self.route,
@@ -171,12 +187,14 @@ class AppConfigInvalidError(VibepyError):
     code = "config.invalid"
 
     def __init__(self, app_id: str, fields: Sequence[str]) -> None:
+        """Record `app_id` and the invalid `fields` for the message and for `details()`."""
         named = ", ".join(fields)
         super().__init__(f"Configuration for App {app_id!r} failed validation at {named}")
         self.app_id = app_id
         self.fields = tuple(fields)
 
     def details(self) -> Mapping[str, str]:
+        """Return `app_id` and the invalid fields, joined."""
         return {"app_id": self.app_id, "fields": ", ".join(self.fields)}
 
 
@@ -186,11 +204,13 @@ class AppEntrypointUnloadableError(VibepyError):
     code = "package.entrypoint_unloadable"
 
     def __init__(self, app_name: str, reference: str) -> None:
+        """Record `app_name` and `reference` for the message and for `details()`."""
         super().__init__(f"Entrypoint {reference!r} declared by App {app_name!r} did not load")
         self.app_name = app_name
         self.reference = reference
 
     def details(self) -> Mapping[str, str]:
+        """Return `app_name` and `reference`."""
         return {"app_name": self.app_name, "reference": self.reference}
 
 
@@ -200,6 +220,7 @@ class AppEntrypointInvalidError(VibepyError):
     code = "package.entrypoint_invalid"
 
     def __init__(self, app_name: str, reference: str, found: str) -> None:
+        """Record `app_name`, `reference` and what was `found` for `details()`."""
         super().__init__(
             f"Entrypoint {reference!r} declared by App {app_name!r} resolved to {found}"
         )
@@ -208,6 +229,7 @@ class AppEntrypointInvalidError(VibepyError):
         self.found = found
 
     def details(self) -> Mapping[str, str]:
+        """Return `app_name`, `reference` and `found`."""
         return {"app_name": self.app_name, "reference": self.reference, "found": self.found}
 
 
@@ -217,10 +239,12 @@ class AppNotDeclaredError(VibepyError):
     code = "package.app_not_declared"
 
     def __init__(self, app_name: str) -> None:
+        """Record `app_name` for the message and for `details()`."""
         super().__init__(f"No App named {app_name!r} is declared in this environment")
         self.app_name = app_name
 
     def details(self) -> Mapping[str, str]:
+        """Return `app_name`."""
         return {"app_name": self.app_name}
 
 
@@ -230,6 +254,7 @@ class ServeConfigInvalidError(VibepyError):
     code = "serve.config_invalid"
 
     def __init__(self) -> None:
+        """State that standard input was not one JSON object."""
         super().__init__("Configuration on standard input is not a JSON object")
 
 

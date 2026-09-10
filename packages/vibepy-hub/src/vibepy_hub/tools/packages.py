@@ -46,7 +46,7 @@ async def _listing(deps: HubDeps, /) -> SourceListing:
 
 
 def _unreadable(paths: Sequence[str], /) -> Diagnostic:
-    """Registered sources this Hub could not read, named so a caller can withdraw one."""
+    """Describe registered sources this Hub could not read, named so a caller can withdraw one."""
     return Diagnostic(
         code="hub.source_unreadable",
         category=ErrorCategory.CALLER,
@@ -72,7 +72,7 @@ async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath
         )
 
     def offer(held: HubState) -> HubState:
-        """The decision belongs inside the change, not before it.
+        """Make the decision inside the change, not before it.
 
         A membership test made against a state read earlier is a check whose
         answer a second caller can invalidate, which is the shape

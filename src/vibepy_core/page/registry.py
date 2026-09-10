@@ -12,12 +12,19 @@ class PageRegistry:
     """
 
     def __init__(self) -> None:
+        """Start with no Page registered."""
         self._pages: dict[str, Page] = {}
 
     def register(self, page: Page) -> None:
+        """Register `page` under its own name, replacing any earlier one."""
         self._pages[page.definition.name] = page
 
     def resolve(self, name: str) -> Page:
+        """Return the Page registered under `name`.
+
+        Raises:
+            PageNotFoundError: no Page is registered under that name.
+        """
         page = self._pages.get(name)
         if page is None:
             raise PageNotFoundError(name)

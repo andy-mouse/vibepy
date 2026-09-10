@@ -2,11 +2,9 @@
 
 A diagnostic is plain fields because an output model is revalidated, so no
 exception instance and no live object can travel in one. It carries a category
-because a caller reads that to learn whether a different call could succeed. See
-`docs/decisions/ADR-007-framework-guarantees-tool-output.md` and
-`docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
+because a caller reads that to learn whether a different call could succeed.
 
-The Hub's own codes, until CR3 gives the Hub a document to carry them:
+The Hub's own codes:
 
 | Code | Category |
 | --- | --- |
@@ -27,11 +25,9 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 | `hub.start_failed` | execution |
 
 An installed App is reached at `http://<app>.localhost:<proxy port>`. The
-hostname is the App's canonical distribution name (ADR-028) and the port is the
-one the Hub was configured with; the port the App itself serves on is allocated
-when it is installed and does not leave the Hub. See
-`docs/decisions/ADR-031-the-proxy-is-traefik.md`, until CR3 gives the Hub a
-document to carry this and the table above.
+hostname is the App's canonical distribution name and the port is the one the
+Hub was configured with; the port the App itself serves on is allocated when
+it is installed and does not leave the Hub.
 """
 
 from pathlib import Path
@@ -57,10 +53,14 @@ class Empty(BaseModel):
 
 
 class SourcePath(BaseModel):
+    """A registered folder, as `register_package_source` takes it."""
+
     path: Path
 
 
 class CandidateRow(BaseModel):
+    """One folder a source holds, whether or not it declares an App."""
+
     folder: Path
     name: str
     version: str | None
@@ -68,6 +68,8 @@ class CandidateRow(BaseModel):
 
 
 class SourceListing(BaseModel):
+    """Every registered source and the candidates found in them."""
+
     sources: list[Path]
     candidates: list[CandidateRow]
     diagnostic: Diagnostic | None = None
@@ -98,12 +100,7 @@ _SEPARATORS = frozenset("/\\:\x00")
 
 
 def _one_segment(value: str) -> str:
-    """An App name addresses one environment and cannot address its neighbours.
-
-    Every Hub Tool is on the Agent channel (ADR-024), so an App name is a
-    model-controlled string that reaches the file system. Refusing it here is
-    what makes the channel answer `tool.input_invalid` rather than the Hub grow
-    a diagnostic of its own.
+    """Canonicalize `value`, once it is confirmed to name one path segment.
 
     What survives the gate is canonicalized, because an App is addressed by its
     distribution name and the specification compares two of those by
@@ -111,6 +108,10 @@ def _one_segment(value: str) -> str:
     separator.
     """
     if value in {"", ".", ".."} or _SEPARATORS & set(value):
+        # Every Hub Tool is on the Agent channel, so an App name is a
+        # model-controlled string that reaches the file system. Refusing it
+        # here is what makes the channel answer `tool.input_invalid` rather
+        # than the Hub grow a diagnostic of its own.
         raise ValueError("an App name is one path segment")
     return str(canonicalize_name(value))
 
@@ -125,6 +126,8 @@ into a Tool failure rather than a row.
 
 
 class AppName(BaseModel):
+    """The input of a Tool that takes only an App name."""
+
     app_name: AppNameField
 
 
@@ -146,16 +149,22 @@ class AppRow(BaseModel):
 
 
 class AppListing(BaseModel):
+    """Every App the control plane knows of."""
+
     apps: list[AppRow]
     diagnostic: Diagnostic | None = None
 
 
 class Installation(BaseModel):
+    """One App, as `install_app` and `remove_app` answer with it."""
+
     app: AppRow
     diagnostic: Diagnostic | None = None
 
 
 class ConfigureRequest(BaseModel):
+    """An App to configure, with the values to hold for it."""
+
     app_name: AppNameField
     values: dict[str, object] = {}
 
@@ -166,9 +175,8 @@ class HeldConfig(BaseModel):
     A secret's value is stored and handed back to no channel, so `values`
     carries only the fields that are not secrets. `secret_fields` names the
     fields an App declared as secret and `secrets_set` names those that have a
-    value -- which is what `docs/architecture/lifecycle.md` requires reported,
-    said where a client cannot mistake it for a value. A client keeps a held
-    secret by omitting the field.
+    value, said where a client cannot mistake it for a value. A client keeps a
+    held secret by omitting the field.
     """
 
     app_name: str
@@ -186,6 +194,8 @@ class StartRequest(BaseModel):
 
 
 class RunningApp(BaseModel):
+    """One App, as `start_app` and `stop_app` answer with it."""
+
     app_name: str
     url: str | None = None
     state: str

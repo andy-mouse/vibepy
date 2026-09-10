@@ -2,8 +2,7 @@
 
 This is the Hub's whole knowledge of Traefik. A different proxy replaces this
 module and nothing else. The Hub writes files here and never signals, starts or
-observes the proxy: see
-`docs/decisions/ADR-031-the-proxy-is-traefik.md`.
+observes the proxy.
 """
 
 import asyncio
@@ -27,7 +26,7 @@ are unlikely to meet.
 
 
 def allocate(held: Collection[int], /) -> int:
-    """The lowest port at or above the base that no installed App holds.
+    """Return the lowest port at or above the base that no installed App holds.
 
     Which App holds which port is not this function's fact: it is asked only for
     an App that holds none, because one that is already installed is refused
@@ -43,7 +42,7 @@ def allocate(held: Collection[int], /) -> int:
 def address(app_name: str, proxy_port: int, /) -> str:
     """Where a caller reaches this App.
 
-    The hostname is the App's canonical distribution name (ADR-028), which the
+    The hostname is the App's canonical distribution name, which the
     normalization specification leaves as lowercase letters, digits and `-`,
     beginning and ending with a letter or digit. That is a DNS label as written,
     so nothing here escapes or maps it.
@@ -56,7 +55,7 @@ INSTALL_CONFIG = "traefik.yml"
 
 
 async def write_install_config(root: Path, /, *, proxy_port: int) -> None:
-    """The half of the proxy's configuration that does not follow an App.
+    """Write the half of the proxy's configuration that does not follow an App.
 
     Written when a window opens rather than when an App arrives, because it says
     only where the proxy listens and where it watches. Traefik calls this the

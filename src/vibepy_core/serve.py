@@ -1,8 +1,6 @@
 """Open one App's Web channel, in that App's own environment.
 
-`vibepy_core.describe` reads a declaration; this runs one. Both are commands rather
-than library calls for the same reason: the import belongs on the App's side of a
-process boundary. See `docs/architecture/packaging.md`.
+`vibepy_core.describe` reads a declaration; this runs one.
 
 The adapter builds the application this serves; the command owns the process and
 runs it. `tests/test_serve_command.py` holds both to that.
@@ -117,13 +115,11 @@ def _entrypoint(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
 def _serve(
     entrypoint: AppEntrypoint[object, BaseModel], config: Mapping[str, object], port: int, /
 ) -> None:
-    """Serve one App for as long as its window is open.
-
-    The window is the served application's own lifespan, so the `async with` that
-    `docs/architecture/lifecycle.md` relies on is the whole of the server's life
-    and a window that refuses to open fails the server's startup.
-    """
+    """Serve one App for as long as its window is open."""
     served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)
+    # The window is the served application's own lifespan, so the `async with`
+    # this relies on is the whole of the server's life, and a window that
+    # refuses to open fails the server's startup.
     uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=_LOG_CONFIG)
 
 
@@ -134,11 +130,6 @@ def main(argv: Sequence[str], /) -> int:
     not declare, a declaration that will not load, or configuration that is not
     a JSON object. Each writes one JSON object of `code`, `category`, `message`
     and `details` to standard error, and each carries a framework code.
-
-    A window that will not open reports itself the same way and then fails the
-    server's startup, so this process's standard error carries one such object
-    for any failure of starting. See
-    `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")

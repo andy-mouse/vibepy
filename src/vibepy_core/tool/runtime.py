@@ -44,6 +44,8 @@ class Tool[DepsT]:
         definition: ToolDefinition[InputT, OutputT],
         handler: ToolHandler[DepsT, InputT, OutputT],
     ) -> None:
+        """Bind `handler` to `definition` into one invocable callable."""
+
         async def bound(ctx: ToolContext[DepsT], raw_input: Mapping[str, object]) -> BaseModel:
             try:
                 payload = definition.input_model.model_validate(raw_input)
@@ -75,11 +77,17 @@ class ToolRuntime[DepsT]:
     def __init__(
         self, *, app_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
     ) -> None:
+        """Hold `registry` and the `dependencies` every invocation will receive."""
         self._app_id = app_id
         self._registry = registry
         self._dependencies = dependencies
 
     async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
+        """Resolve `name` in the registry and invoke it with `raw_input`.
+
+        Raises:
+            ToolNotFoundError: no Tool is registered under `name`.
+        """
         tool = self._registry.resolve(name)
         ctx = ToolContext(
             app_id=self._app_id,

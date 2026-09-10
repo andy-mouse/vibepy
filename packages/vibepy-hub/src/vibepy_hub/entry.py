@@ -26,8 +26,7 @@ class HubConfig(BaseModel):
     directory and two Hubs never share one. `proxy_port` is declared for the
     same reason and one more: it is part of every address the Hub answers with,
     and a Hub that assumed it would publish addresses reaching nothing, or
-    something else, without ever being told. See
-    `docs/decisions/ADR-031-the-proxy-is-traefik.md`.
+    something else, without ever being told.
     """
 
     root: Path
@@ -38,11 +37,7 @@ class HubConfig(BaseModel):
 
 @asynccontextmanager
 async def hub_lifespan(config: HubConfig) -> AsyncGenerator[HubDeps]:
-    """The Hub's resource for the life of one window.
-
-    Acquisition is bound to release, so a window that closes leaves no child
-    behind. See `docs/decisions/ADR-018-app-scoped-resource-is-an-async-context-manager.md`.
-    """
+    """Acquire the Hub's resource for the life of one window."""
     await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
     await write_install_config(config.root, proxy_port=config.proxy_port)
     processes = Processes(logs=config.root / "logs")

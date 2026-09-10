@@ -1,10 +1,6 @@
 """The window in which one channel of one App is running.
 
-A declaration is paired with a lifespan here and nowhere else. What the pairing
-produces exists for the duration of an ``async with`` block and cannot be reached
-outside it, so the framework needs no lifecycle state and no error for a runtime
-that is not running. See
-`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
+A declaration is paired with a lifespan here and nowhere else.
 
 `tool_runtime_for` is the invocation window, and it belongs to no channel: every
 channel reaches Tools through it. `page_runtime_for` is the Web channel's window,
@@ -31,23 +27,14 @@ from vibepy_core.tool.runtime import ToolRuntime
 type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 """A factory returning the app's resource for the life of one window.
 
-It receives the App's validated configuration and nothing else. What precedes
-the ``yield`` runs as the window opens and what follows runs as it closes.
-Acquisition and release cannot be declared apart, which is what lets a channel
-release a resource whose type it does not know. See
-`docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md`.
+It receives the App's validated configuration and nothing else.
 """
 
 
 def tool_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> ToolRegistry[DepsT]:
-    """Fill a ToolRegistry from declarations. Reads no resource.
-
-    A name declared twice is refused rather than replaced: a channel enumerates
-    the declaration, so a duplicate would publish two Tools and answer both with
-    one. See `docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md`.
-    """
+    """Fill a ToolRegistry from declarations. Reads no resource."""
     registry: ToolRegistry[DepsT] = ToolRegistry()
     claimed: set[str] = set()
     for tool in definition.tools:
@@ -62,13 +49,7 @@ def tool_registry_for[DepsT, ConfigT: BaseModel](
 def page_registry_for[DepsT, ConfigT: BaseModel](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> PageRegistry:
-    """Fill a PageRegistry from declarations. Reads no resource.
-
-    A name declared twice is refused rather than replaced, as ADR-027 requires
-    of both registries. `page-model.md` also places a check by the model that
-    owns the field: a route belongs to the Web channel adapter, and a name is
-    what the framework addresses a Page by.
-    """
+    """Fill a PageRegistry from declarations. Reads no resource."""
     registry = PageRegistry()
     claimed: dict[str, str] = {}
     for page in definition.pages:
@@ -104,7 +85,7 @@ async def tool_runtime_for[DepsT, ConfigT: BaseModel](
     *,
     config: Mapping[str, object],
 ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-    """The invocation window: one ToolRuntime over one acquired resource.
+    """Open the invocation window: one ToolRuntime over one acquired resource.
 
     Channel-neutral, and named so. The Agent channel adds nothing to it and
     hands it straight to its server's lifespan; the Web channel composes over
@@ -127,7 +108,7 @@ async def page_runtime_for[DepsT, ConfigT: BaseModel](
     *,
     config: Mapping[str, object],
 ) -> AsyncGenerator[PageRuntime]:
-    """The Web channel's window: the invocation window, with Pages over it.
+    """Open the Web channel's window: the invocation window, with Pages over it.
 
     It opens `tool_runtime_for` rather than repeating it, so configuration is
     validated once and a resource acquired once. A Page reaches Tools through
