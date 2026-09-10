@@ -77,13 +77,14 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
     port = state.ports.get(payload.app_name)
     if port is None:
         # An environment with no port was installed before an App had an address
-        # of its own. The code is `hub.not_installed` because the remedy is the
-        # one that code always names -- install it again -- and installing is
-        # what allocates a port and writes a route.
+        # of its own. Installing is what allocates a port and writes a route, and
+        # installing over an installation is refused, so the remedy is to remove
+        # this App and install it again.
         return _refusal(
             payload.app_name,
             "hub.not_installed",
-            f"{payload.app_name!r} was installed before it had an address; install it again",
+            f"{payload.app_name!r} was installed before it had an address; "
+            "remove it and install it again",
             category=ErrorCategory.CALLER,
         )
     where = address(payload.app_name, deps.proxy_port)

@@ -10,27 +10,23 @@ from pathlib import Path
 import yaml
 
 from tests_support import EXAMPLES, FIXTURES, hub
+from vibepy_core.errors import ErrorCategory
 from vibepy_hub.internals import read_state, write_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
 
 def test_the_first_app_takes_the_base_port() -> None:
-    assert allocate({}, "vibepy-todo") == PORT_BASE
+    assert allocate([]) == PORT_BASE
 
 
 def test_a_second_app_takes_the_next_free_port() -> None:
-    assert allocate({"vibepy-todo": PORT_BASE}, "vibepy-notes") == PORT_BASE + 1
-
-
-def test_an_app_that_already_holds_one_keeps_it() -> None:
-    taken = {"vibepy-todo": PORT_BASE, "vibepy-notes": PORT_BASE + 1}
-    assert allocate(taken, "vibepy-todo") == PORT_BASE
+    assert allocate([PORT_BASE]) == PORT_BASE + 1
 
 
 def test_a_released_port_is_taken_again_before_the_next_one() -> None:
     """Removing an App frees its port; the next install fills the gap."""
-    assert allocate({"vibepy-notes": PORT_BASE + 1}, "vibepy-other") == PORT_BASE
+    assert allocate([PORT_BASE + 1]) == PORT_BASE
 
 
 def test_an_address_names_the_app_and_the_proxy() -> None:
@@ -69,27 +65,30 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Pa
     assert after["vibepy-second"] == both["vibepy-second"]
 
 
-async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> None:
-    """The second install has to succeed for this to be about addresses at all.
+async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
+    """What installing over an installation means is nobody's decision yet.
 
-    It did not, once: `uv venv` refuses an existing environment, so the install
-    failed and the port survived only because the code that allocates one was
-    never reached. This asserts the install first.
+    No milestone owns updating an App and the Hub publishes no Tool for it, so
+    the Hub says what is true and names two operations that already exist.
     """
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("install_app", {"app_name": "vibepy-second"})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
-        first = (await read_state(root)).ports["vibepy-todo"]
+        held = (await read_state(root)).ports["vibepy-todo"]
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        after = await read_state(root)
+        env = (root / "envs" / "vibepy-todo").is_dir()
 
     assert isinstance(again, Installation)
-    assert again.diagnostic is None
-    assert again.app.state == "installed"
-    assert (await read_state(root)).ports["vibepy-todo"] == first
+    assert again.diagnostic is not None
+    assert again.diagnostic.code == "hub.already_installed"
+    assert again.diagnostic.category == ErrorCategory.CALLER
+    # The refusal changed nothing: the environment is where it was, and so is
+    # the address. The failure this replaces removed the environment.
+    assert env is True
+    assert after.ports["vibepy-todo"] == held
 
 
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
@@ -212,8 +211,16 @@ async def test_an_app_installed_before_addresses_existed_is_told_to_install_agai
         refused = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
         listed = await tools.invoke("list_apps", {})
 
-        # And installing again is the remedy the code names.
+        # And the remedy the code names: remove it, then install it again.
+        await tools.invoke("remove_app", {"app_name": "vibepy-todo"})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
         started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
 
     assert isinstance(refused, RunningApp)

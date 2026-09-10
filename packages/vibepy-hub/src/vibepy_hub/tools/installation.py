@@ -139,6 +139,20 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
         )
     folder = offered[0].folder
     env = environment(deps.root, payload.app_name)
+    if env in await environments(deps.root):
+        # What installing over an installation means is not this stage's to
+        # decide, and no milestone owns updating an App. Saying so is the whole
+        # of it: the caller removes the App and installs it again, which is two
+        # operations that already exist and mean what they say.
+        return Installation(
+            app=AppRow(app_name=payload.app_name, state="installed"),
+            diagnostic=Diagnostic(
+                code="hub.already_installed",
+                category=ErrorCategory.CALLER,
+                message=f"{payload.app_name!r} is already installed; remove it first",
+                details={"app_name": payload.app_name},
+            ),
+        )
     try:
         await install(folder=folder, env=env)
         described = await describe(env)
@@ -198,7 +212,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 update={
                     "ports": {
                         **state.ports,
-                        payload.app_name: allocate(state.ports, payload.app_name),
+                        payload.app_name: allocate(state.ports.values()),
                     }
                 }
             )

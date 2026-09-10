@@ -100,8 +100,10 @@ is that case.
 
 1. **A port per installed App that declares Pages.** `install_app` allocates the lowest port at
    or above 9000 that the Hub's state does not already hold, and stores it under the App's
-   canonical name. `remove_app` releases it. A reinstall of an App that still holds a port keeps
-   that port, and is a replace rather than a failure. An App declaring no Pages has no Web
+   canonical name. `remove_app` releases it. Installing an App that is already installed is
+   refused as `hub.already_installed`: what installing over an installation means is nobody's
+   decision yet, no milestone owns updating an App, and the remedy is two operations that
+   already exist -- remove it, then install it. An App declaring no Pages has no Web
    channel (ADR-017) and is refused by `start_app`, so it is given no port, no route and no
    address.
 2. **The Hub writes both halves of the proxy's configuration.** A window writes
@@ -131,12 +133,14 @@ is that case.
 | `RunningApp.url` is the App's proxy address | changed |
 | `Processes.start` takes `port` and returns `None` | changed |
 | `Processes.running` answers `bool` | changed |
+| `hub.already_installed`, refusing an install of an installed App | added |
 | `free_port` | deleted |
 
 `HubState` is a stored model, so a state file written before this stage validates against it: a
 missing `ports` is an empty mapping, and every installed App is allocated a port the next time it
-is installed. An App installed before this stage and not reinstalled has no port and therefore no
-address, which `AppRow.url` reports as absent — the same shape a caller already handles.
+is installed. An App installed before this stage has no port and therefore no address, which
+`AppRow.url` reports as absent — the same shape a caller already handles. `start_app` refuses it
+and names the remedy: remove the App and install it again.
 
 No new `hub.*` code. A route file the Hub cannot write is the same class of failure as a state
 file it cannot write, which this Hub does not catch either, and inventing a diagnostic for it
@@ -184,7 +188,8 @@ one port.
 
 ## Errors
 
-No row joins `errors.md`, and the Hub's code table in `vibepy_hub/models.py` is unchanged.
+`hub.already_installed` joins the Hub's code table in `vibepy_hub/models.py`, in the `caller`
+category. No row joins `errors.md`.
 
 A start whose port is already taken by something else is a child that exits, which
 `hub.start_failed` already reports. This is the cost D8 accepted when it replaced `free_port()`:
@@ -216,7 +221,8 @@ is not running. That property is kept on purpose, and this is what it costs.
 - **An address that outlives a run** — an App started, stopped and started again answers with the
   same URL each time, and the URL is present in `list_apps` while the App is not running.
 - **Allocation** — two installs take two ports; removing the first and installing a third leaves
-  the second where it was; reinstalling an App keeps its port.
+  the second where it was. Installing an installed App is refused, and the refusal leaves both
+  the environment and the address where they were.
 - **The route file** — installing writes a route naming the App's host and its port; removing
   deletes it. Read as YAML and asserted by content, not by string.
 - **`free_port` is gone** — the existing tests of `Processes` supply a port. The test helper of

@@ -8,7 +8,7 @@ observes the proxy: see
 
 import asyncio
 import logging
-from collections.abc import Mapping
+from collections.abc import Collection
 from pathlib import Path
 
 import yaml
@@ -26,16 +26,14 @@ are unlikely to meet.
 """
 
 
-def allocate(taken: Mapping[str, int], app_name: str, /) -> int:
-    """The port this App holds, or the lowest free one at or above the base.
+def allocate(held: Collection[int], /) -> int:
+    """The lowest port at or above the base that no installed App holds.
 
-    An App that already holds a port keeps it, so reinstalling does not move an
-    address a user has kept.
+    Which App holds which port is not this function's fact: it is asked only for
+    an App that holds none, because one that is already installed is refused
+    before an allocation is reached.
     """
-    held = taken.get(app_name)
-    if held is not None:
-        return held
-    used = set(taken.values())
+    used = set(held)
     port = PORT_BASE
     while port in used:
         port += 1
@@ -87,7 +85,9 @@ async def write_route(root: Path, app_name: str, /, *, port: int) -> None:
 
 
 def _write_route(root: Path, app_name: str, port: int, /) -> None:
-    (root / ROUTES).mkdir(parents=True, exist_ok=True)
+    # The directory is the window's, made when the install configuration that
+    # names it is written. An App arrives through a window, so there is no
+    # moment when a route is written and the directory it goes in is absent.
     _replace(
         root,
         root / ROUTES / f"{app_name}.yml",
