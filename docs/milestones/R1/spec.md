@@ -98,23 +98,28 @@ is that case.
 
 ## Scope
 
-1. **A port per installed App.** `install_app` allocates the lowest port at or above 9000 that
-   the Hub's state does not already hold, and stores it under the App's canonical name.
-   `remove_app` releases it. A reinstall of an App that still holds a port keeps that port.
+1. **A port per installed App that declares Pages.** `install_app` allocates the lowest port at
+   or above 9000 that the Hub's state does not already hold, and stores it under the App's
+   canonical name. `remove_app` releases it. A reinstall of an App that still holds a port keeps
+   that port, and is a replace rather than a failure. An App declaring no Pages has no Web
+   channel (ADR-017) and is refused by `start_app`, so it is given no port, no route and no
+   address.
 2. **The Hub writes both halves of the proxy's configuration.** A window writes
    `<root>/traefik.yml` when it opens: one entry point on the port the Hub was configured with
    and a file provider watching `<root>/routes`, with `watch` true. It does not change as Apps come and go. `install_app`
    writes `<root>/routes/<app>.yml`, one router matching `Host(<app>.localhost)` and one service
    pointing at `http://127.0.0.1:<port>`; `remove_app` deletes it.
 3. **An address replaces a port in every answer.** `AppRow.url` and `RunningApp.url` become
-   `http://<app>.localhost:<proxy port>` for an installed App, whether it is running or not, `stop_app`'s
+   `http://<app>.localhost:<proxy port>` for an installed App that holds a port, whether it is
+   running or not, `stop_app`'s
    answer included: the address belongs to the installation, and a stopped App is one whose
    address does not answer. The child's own port stops leaving the Hub.
 4. **`free_port` is gone.** `Processes.start` takes the port it is to serve on and returns
    nothing. `Processes.running` answers whether an App is serving, not on which port.
 5. **`make install` obtains the proxy.** It fetches a pinned Traefik release for the running
-   platform into the workspace, so `make test` means the same thing on a contributor's machine
-   and on CI. CI gains no proxy-specific step.
+   platform into the workspace through a `tools` target, so `make test` means the same thing on a
+   contributor's machine and on CI. CI runs that target: `uv sync` does not bring a proxy, and a
+   test that cannot run there is the skip this stage refused, arriving by another door.
 
 ## Public API
 
@@ -122,7 +127,7 @@ is that case.
 | --- | --- |
 | `HubConfig.proxy_port`, an `int` defaulting to `8080` | added |
 | `HubState.ports`, a `dict[str, int]` | added |
-| `AppRow.url` is the App's proxy address, present whenever the App is installed | changed |
+| `AppRow.url` is the App's proxy address, present whenever the App holds a port | changed |
 | `RunningApp.url` is the App's proxy address | changed |
 | `Processes.start` takes `port` and returns `None` | changed |
 | `Processes.running` answers `bool` | changed |

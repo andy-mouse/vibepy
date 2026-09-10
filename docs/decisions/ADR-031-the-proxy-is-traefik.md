@@ -23,10 +23,13 @@ owning one requires an argument. Three candidates were named: nginx, Caddy and T
 The proxy is Traefik. The Hub writes its routing configuration and owns no proxy: it does not
 start, supervise, signal or observe one.
 
-An installed App is reached at `http://<app>.localhost:<proxy port>`. The hostname is the App's
-canonical distribution name (ADR-028); the entry point is declared in `HubConfig`, because it is
-part of every address the Hub publishes and a Hub cannot know it by assuming it. Each App's own
-port is allocated when it is installed and held in the Hub's state, and is never published.
+An installed App that declares Pages is reached at `http://<app>.localhost:<proxy port>`. The
+hostname is the App's canonical distribution name (ADR-028); the entry point is declared in
+`HubConfig`, because it is part of every address the Hub publishes and a Hub cannot know it by
+assuming it. Such an App's own port is allocated when it is installed and held in the Hub's
+state, and is never published. An App declaring no Pages has no Web channel at all (ADR-017),
+so it is given no port, no route and no address: an address that can never answer is the thing
+this decision exists to stop publishing, not a shape of it.
 
 ## Consequences
 

@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 
 from tests_support import EXAMPLES, FIXTURES, hub
-from vibepy_hub.internals import read_state
+from vibepy_hub.internals import read_state, write_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
 from vibepy_hub.models import AppListing, Installation, RunningApp
 
@@ -70,6 +70,12 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Pa
 
 
 async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> None:
+    """The second install has to succeed for this to be about addresses at all.
+
+    It did not, once: `uv venv` refuses an existing environment, so the install
+    failed and the port survived only because the code that allocates one was
+    never reached. This asserts the install first.
+    """
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
@@ -81,6 +87,8 @@ async def test_reinstalling_keeps_the_address_a_user_kept(tmp_path: Path) -> Non
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
 
     assert isinstance(again, Installation)
+    assert again.diagnostic is None
+    assert again.app.state == "installed"
     assert (await read_state(root)).ports["vibepy-todo"] == first
 
 
@@ -172,3 +180,48 @@ async def test_an_app_with_no_pages_gets_no_address(tmp_path: Path) -> None:
     assert [row.url for row in listed.apps if row.app_name == "vibepy-notes"] == [None]
     assert "vibepy-notes" not in held
     assert route is False
+
+
+async def test_an_app_installed_before_addresses_existed_is_told_to_install_again(
+    tmp_path: Path,
+) -> None:
+    """A state file written before this stage holds no port for its Apps.
+
+    The environment is there and works, so the refusal is not `start_app`
+    inventing a new failure: it is the one `hub.not_installed` always names,
+    because installing is what allocates a port and writes a route, and a start
+    that allocated would be a partial install under another name.
+    """
+    root = tmp_path / "hub"
+
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(EXAMPLES)})
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "configure_app",
+            {
+                "app_name": "vibepy-todo",
+                "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
+            },
+        )
+        # What a Hub from before this stage left behind: an installed App, its
+        # configuration, and no port.
+        before = await read_state(root)
+        await write_state(root, before.model_copy(update={"ports": {}}))
+
+        refused = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        listed = await tools.invoke("list_apps", {})
+
+        # And installing again is the remedy the code names.
+        await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+
+    assert isinstance(refused, RunningApp)
+    assert refused.diagnostic is not None
+    assert refused.diagnostic.code == "hub.not_installed"
+    assert refused.url is None
+    assert isinstance(listed, AppListing)
+    assert [row.url for row in listed.apps if row.app_name == "vibepy-todo"] == [None]
+    assert isinstance(started, RunningApp)
+    assert started.diagnostic is None
+    assert started.url == "http://vibepy-todo.localhost:8080"

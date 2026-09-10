@@ -109,8 +109,15 @@ async def _run(command: Sequence[str], /) -> str:
 
 
 async def install(*, folder: Path, env: Path) -> None:
-    """Create an environment of its own for one App and install it there."""
-    await _run(["uv", "venv", str(env)])
+    """Create an environment of its own for one App and install it there.
+
+    `--clear` because installing an App that is already installed is a replace,
+    not an error: `uv venv` refuses an existing environment and names this flag
+    as how to replace one. Without it a reinstall failed, and the failure path
+    -- which removes the environment, so that a failed install leaves none --
+    took the working environment with it.
+    """
+    await _run(["uv", "venv", "--clear", str(env)])
     await _run(["uv", "pip", "install", "--python", str(interpreter(env)), str(folder)])
 
 
