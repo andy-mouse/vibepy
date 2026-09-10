@@ -113,6 +113,8 @@ Acceptance:
 
 Precedes `docs/roadmap.md` M11, which renders these addresses.
 
+Merged.
+
 ## CR3 - Documentation debt
 
 Acceptance:
@@ -126,7 +128,7 @@ Acceptance:
 
 ## Order
 
-CR3 — next.
+CR3 — in progress.
 
 A0 before L1: the record of what the framework adopts is what justifies splitting the core's
 dependencies. L1 before CR1: a pure move must not share a diff with defect fixes, and it is what
