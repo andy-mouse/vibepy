@@ -96,6 +96,8 @@ Acceptance:
 - the Todo example writes to the path it declares, ships no test scaffolding, and narrows a Tool
   result by validation rather than by `assert`
 
+Merged.
+
 ## R1 - One address per App
 
 The Hub gives each App a stable port held in its state, and a proxy in front maps one hostname
@@ -124,7 +126,7 @@ Acceptance:
 
 ## Order
 
-CR2 — next.
+CR3 — next.
 
 A0 before L1: the record of what the framework adopts is what justifies splitting the core's
 dependencies. L1 before CR1: a pure move must not share a diff with defect fixes, and it is what

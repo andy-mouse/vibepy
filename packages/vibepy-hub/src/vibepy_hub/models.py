@@ -23,6 +23,13 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 | `hub.already_running` | caller |
 | `hub.not_running` | caller |
 | `hub.start_failed` | execution |
+
+An installed App is reached at `http://<app>.localhost:<proxy port>`. The
+hostname is the App's canonical distribution name (ADR-028) and the port is the
+one the Hub was configured with; the port the App itself serves on is allocated
+when it is installed and does not leave the Hub. See
+`docs/decisions/ADR-031-the-proxy-is-traefik.md`, until CR3 gives the Hub a
+document to carry this and the table above.
 """
 
 from pathlib import Path
