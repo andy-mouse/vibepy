@@ -44,8 +44,8 @@ identically, and `uv sync` alone is 241ms against 1.07s, the same ratio as every
 - a test whose subject is not installing, removing or a failed install does not call
   `install_app`; it is handed a Hub root in which the Apps it needs are already installed
 - that root is built once a session by the real `install_app`, through a Hub window like any
-  caller's, and each test receives a hardlinked copy of it — no test reaches into the installer's
-  internals to build one
+  caller's, and each test receives a hardlinked copy of it — no test calls the installer's own
+  functions to build one
 - the tests that cross the distribution or process boundary are marked `integration`, the marker is
   registered, and a typo in it fails the run
 - `make test` and CI run every test, marked or not; no test is skipped and no test is deselected by
@@ -184,8 +184,10 @@ The suite is the subject, so the verification is the suite's own behaviour:
   `uv run pytest -m integration` passes and is where the time is
 - every test whose arrangement changed is run once with its assertion inverted, to prove it still
   fails for its own reason; a test that passes either way has lost its subject and is restored
-- the template root is built by `install_app` and by nothing else: `conftest.py` imports no name
-  from `vibepy_hub.internals.installer`
+- the template root is built by `install_app` and by nothing else: `conftest.py` calls none of
+  `vibepy_hub.internals.installer`'s functions. The one internal it still touches is the name of
+  the facts file whose `purelib` the copy relocates, which is reading what the Hub wrote, not
+  building it
 - the Windows job's `make test` time and its `--durations=15` list, read from CI rather than
   predicted
 
