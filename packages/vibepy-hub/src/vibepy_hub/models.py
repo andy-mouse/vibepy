@@ -20,6 +20,7 @@ The Hub's own codes, until CR3 gives the Hub a document to carry them:
 | `hub.source_unreadable` | caller |
 | `hub.not_installed` | caller |
 | `hub.already_installed` | caller |
+| `hub.no_address` | caller |
 | `hub.no_web_channel` | caller |
 | `hub.already_running` | caller |
 | `hub.not_running` | caller |

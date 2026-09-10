@@ -76,14 +76,17 @@ async def start_app(ctx: ToolContext[HubDeps], payload: StartRequest) -> Running
     held = state.config.get(payload.app_name, {})
     port = state.ports.get(payload.app_name)
     if port is None:
-        # An environment with no port was installed before an App had an address
-        # of its own. Installing is what allocates a port and writes a route, and
-        # installing over an installation is refused, so the remedy is to remove
-        # this App and install it again.
+        # Installed, and holding no address. An App becomes installed when its
+        # facts are written and is given a port after that, so a window that
+        # closes between the two leaves this behind; so does a state file
+        # written before an App had an address at all. Which of the two it was
+        # is not knowable here and does not change the remedy, and it is not
+        # `hub.not_installed`: the App is there, and installing is refused
+        # until it is removed.
         return _refusal(
             payload.app_name,
-            "hub.not_installed",
-            f"{payload.app_name!r} was installed before it had an address; "
+            "hub.no_address",
+            f"{payload.app_name!r} is installed but holds no address; "
             "remove it and install it again",
             category=ErrorCategory.CALLER,
         )

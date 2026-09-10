@@ -134,13 +134,14 @@ is that case.
 | `Processes.start` takes `port` and returns `None` | changed |
 | `Processes.running` answers `bool` | changed |
 | `hub.already_installed`, refusing an install of an installed App | added |
+| `hub.no_address`, refusing a start of an installed App holding no port | added |
 | `free_port` | deleted |
 
 `HubState` is a stored model, so a state file written before this stage validates against it: a
 missing `ports` is an empty mapping, and every installed App is allocated a port the next time it
 is installed. An App installed before this stage has no port and therefore no address, which
 `AppRow.url` reports as absent — the same shape a caller already handles. `start_app` refuses it
-and names the remedy: remove the App and install it again.
+as `hub.no_address` and names the remedy: remove the App and install it again.
 
 No new `hub.*` code. A route file the Hub cannot write is the same class of failure as a state
 file it cannot write, which this Hub does not catch either, and inventing a diagnostic for it
@@ -188,8 +189,13 @@ one port.
 
 ## Errors
 
-`hub.already_installed` joins the Hub's code table in `vibepy_hub/models.py`, in the `caller`
-category. No row joins `errors.md`.
+`hub.already_installed` and `hub.no_address` join the Hub's code table in
+`vibepy_hub/models.py`, both in the `caller` category. No row joins `errors.md`.
+
+`hub.no_address` is for an App that is installed and holds no port. An App becomes installed when
+its facts are written and is given a port after that, so a window closing between the two leaves
+one; a state file written before this stage is the other way to reach it. Reporting that as
+`hub.not_installed` would name a remedy that is now refused.
 
 A start whose port is already taken by something else is a child that exits, which
 `hub.start_failed` already reports. This is the cost D8 accepted when it replaced `free_port()`:

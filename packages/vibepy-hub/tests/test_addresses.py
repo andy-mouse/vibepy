@@ -181,15 +181,17 @@ async def test_an_app_with_no_pages_gets_no_address(tmp_path: Path) -> None:
     assert route is False
 
 
-async def test_an_app_installed_before_addresses_existed_is_told_to_install_again(
+async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
     tmp_path: Path,
 ) -> None:
-    """A state file written before this stage holds no port for its Apps.
+    """An App is installed once its facts are written, and given a port after.
 
-    The environment is there and works, so the refusal is not `start_app`
-    inventing a new failure: it is the one `hub.not_installed` always names,
-    because installing is what allocates a port and writes a route, and a start
-    that allocated would be a partial install under another name.
+    A window that closes between the two leaves this state behind, and so does
+    a state file written before this stage; the state file is written here
+    because it is the same file either one leaves. The environment is there and
+    works, so the refusal is not `hub.not_installed` -- installing is refused
+    while the App is there, and a start that allocated a port would be a
+    partial install under another name.
     """
     root = tmp_path / "hub"
 
@@ -203,8 +205,8 @@ async def test_an_app_installed_before_addresses_existed_is_told_to_install_agai
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             },
         )
-        # What a Hub from before this stage left behind: an installed App, its
-        # configuration, and no port.
+        # What either leaves behind: an installed App, its configuration, and
+        # no port.
         before = await read_state(root)
         await write_state(root, before.model_copy(update={"ports": {}}))
 
@@ -225,7 +227,7 @@ async def test_an_app_installed_before_addresses_existed_is_told_to_install_agai
 
     assert isinstance(refused, RunningApp)
     assert refused.diagnostic is not None
-    assert refused.diagnostic.code == "hub.not_installed"
+    assert refused.diagnostic.code == "hub.no_address"
     assert refused.url is None
     assert isinstance(listed, AppListing)
     assert [row.url for row in listed.apps if row.app_name == "vibepy-todo"] == [None]
