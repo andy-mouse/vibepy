@@ -22,9 +22,7 @@ from vibepy_core.errors import (
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
     ServeConfigInvalidError,
-    VibepyError,
-    report_line,
-    to_error_info,
+    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -67,11 +65,6 @@ one JSON object and a reader of this process's standard error parses it as such.
 """
 
 
-def _reported(error: VibepyError, /) -> None:
-    """Write one failure of the command where whatever started it can read it."""
-    sys.stderr.write(report_line(to_error_info(error)))
-
-
 def _serve(
     entrypoint: AppEntrypoint[object, BaseModel], config: Mapping[str, object], port: int, /
 ) -> None:
@@ -98,7 +91,7 @@ def main(argv: Sequence[str], /) -> int:
     try:
         config: Mapping[str, object] = _CONFIG.validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
-        _reported(ServeConfigInvalidError())
+        report(ServeConfigInvalidError())
         logger.debug("configuration on standard input was unreadable", exc_info=invalid)
         return 1
     try:
@@ -108,7 +101,7 @@ def main(argv: Sequence[str], /) -> int:
         AppEntrypointUnloadableError,
         AppEntrypointInvalidError,
     ) as error:
-        _reported(error)
+        report(error)
         return 1
     _serve(entrypoint, config, int(parsed.port))
     return 0

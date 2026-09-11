@@ -11,7 +11,8 @@ from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
-from vibepy_studio.internals.processes import ChildFailure, reported, run
+from vibepy_core.errors import ErrorInfo
+from vibepy_studio.internals.processes import reported, run
 from vibepy_studio.models import Described
 
 logger = logging.getLogger(__name__)
@@ -22,7 +23,7 @@ _DESCRIBED = TypeAdapter(list[Described])
 class DescribeFailed(Exception):
     """The command did not describe. Carries what it wrote and any report among it."""
 
-    def __init__(self, output: str, *, reported: ChildFailure | None) -> None:
+    def __init__(self, output: str, *, reported: ErrorInfo | None) -> None:
         """Record `output` for the message and the child's `reported` failure, if any."""
         super().__init__(output)
         self.output = output

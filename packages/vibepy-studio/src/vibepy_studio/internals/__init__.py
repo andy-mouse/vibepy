@@ -4,7 +4,6 @@ from vibepy_studio.internals.deps import StudioDeps
 from vibepy_studio.internals.describing import DescribeFailed, describe
 from vibepy_studio.internals.processes import (
     AlreadyStarted,
-    ChildFailure,
     Completed,
     NotRunnable,
     Processes,
@@ -17,7 +16,6 @@ from vibepy_studio.internals.processes import (
 
 __all__ = [
     "AlreadyStarted",
-    "ChildFailure",
     "Completed",
     "DescribeFailed",
     "NotRunnable",

@@ -23,7 +23,6 @@ from vibepy_studio.internals.processes import (
     reported,
     run,
 )
-from vibepy_studio.models import category
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -212,10 +211,5 @@ def test_reported_reads_the_last_report_among_other_lines() -> None:
     found = reported(text)
     assert found is not None
     assert found.code == "tool.not_found"
-    assert found.category == "caller"
+    assert found.category == ErrorCategory.CALLER
     assert reported("nothing here") is None
-
-
-def test_category_of_a_report_the_framework_does_not_know_is_execution() -> None:
-    assert category("caller") == ErrorCategory.CALLER
-    assert category("weird") == ErrorCategory.EXECUTION

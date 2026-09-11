@@ -10,10 +10,16 @@ scattered declarations.
 """
 
 import json
+import logging
+import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
+
+from pydantic import BaseModel, TypeAdapter, ValidationError
+
+logger = logging.getLogger(__name__)
 
 UNHANDLED_CODE = "app.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
@@ -353,4 +359,56 @@ def report_line(info: ErrorInfo, /) -> str:
             }
         )
         + "\n"
+    )
+
+
+def report(error: Exception, /) -> None:
+    """Write one failure where whatever started this process can read it."""
+    sys.stderr.write(report_line(to_error_info(error)))
+
+
+class _Report(BaseModel):
+    """One report line, as read rather than as written.
+
+    `code` is required, because that is what distinguishes a report from any
+    other line a command's standard error carries. The rest carry defaults, so a
+    line written by an older version of the format still reads.
+
+    `category` is read as a string and typed afterwards: a value this framework
+    does not know is a fact about the writer, not a parse failure.
+    """
+
+    code: str
+    category: str = "execution"
+    message: str = ""
+    details: dict[str, str] = {}
+
+
+_REPORT = TypeAdapter(_Report)
+
+
+def read_report_line(line: str, /) -> ErrorInfo | None:
+    """Read one line as the failure `report_line` writes, or `None` if it is not one.
+
+    Reading belongs beside writing. There are three writers -- `describe`,
+    `serve` and `invoke` -- and one format; a reader kept outside the framework
+    would be a second statement of that format, free to drift from it.
+
+    A category this framework does not know is read as `EXECUTION`: a host
+    still learns that something failed, and learns it from the same shape.
+    """
+    try:
+        parsed = _REPORT.validate_json(line)
+    except ValidationError:
+        return None
+    try:
+        category = ErrorCategory(parsed.category)
+    except ValueError:
+        logger.debug("a report named an unknown category: %s", parsed.category)
+        category = ErrorCategory.EXECUTION
+    return ErrorInfo(
+        code=parsed.code,
+        category=category,
+        message=parsed.message,
+        details=parsed.details,
     )

@@ -23,8 +23,7 @@ from vibepy_core.errors import (
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
     InvokeRequestInvalidError,
-    report_line,
-    to_error_info,
+    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -35,11 +34,6 @@ class _Request(BaseModel):
 
     config: dict[str, object] = {}
     input: dict[str, object] = {}
-
-
-def _reported(error: Exception, /) -> None:
-    """Write one failure where whatever started this process can read it."""
-    sys.stderr.write(report_line(to_error_info(error)))
 
 
 async def _invoke(
@@ -69,20 +63,20 @@ def main(argv: Sequence[str], /) -> int:
     try:
         request = _Request.model_validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
-        _reported(InvokeRequestInvalidError())
+        report(InvokeRequestInvalidError())
         logger.debug("the request on standard input was unreadable", exc_info=invalid)
         return 1
     try:
         entrypoint = load_app(str(parsed.app_name))
     except (AppNotDeclaredError, AppEntrypointUnloadableError, AppEntrypointInvalidError) as error:
-        _reported(error)
+        report(error)
         return 1
     try:
         result = asyncio.run(_invoke(entrypoint, str(parsed.tool_name), request))
     except Exception as error:
         # The window reports its own failure (ADR-030): any exception the
         # lifespan or handler raises is normalized and written the same way.
-        _reported(error)
+        report(error)
         logger.debug("the invocation failed", exc_info=error)
         return 1
     sys.stdout.write(json.dumps(result.model_dump(mode="json")) + "\n")

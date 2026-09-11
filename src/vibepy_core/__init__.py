@@ -35,6 +35,8 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
+    read_report_line,
+    report,
     report_line,
     to_error_info,
 )
@@ -101,6 +103,8 @@ __all__ = [
     "discover_apps",
     "load_app",
     "page_runtime_for",
+    "read_report_line",
+    "report",
     "report_line",
     "to_error_info",
     "tool_runtime_for",

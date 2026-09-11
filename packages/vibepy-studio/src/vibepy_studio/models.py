@@ -4,13 +4,9 @@ Also holds the shape `python -m vibepy_core.describe` writes, which both roles
 read and authoring publishes.
 """
 
-import logging
-
 from pydantic import BaseModel
 
-from vibepy_core import ErrorCategory
-
-logger = logging.getLogger(__name__)
+from vibepy_core import ErrorCategory, ErrorInfo
 
 
 class Diagnostic(BaseModel):
@@ -57,28 +53,11 @@ class Described(BaseModel):
     pages: list[DescribedPage] = []
 
 
-# Imported here, below the models above, rather than at module top: `describing`
-# (inside `vibepy_studio.internals`) imports `Described` from this module, and
-# `vibepy_studio.internals` is a package whose `__init__` runs before any of its
-# submodules — including `processes` — become importable. Importing `ChildFailure`
-# before `Described` exists would make that a circular import.
-from vibepy_studio.internals.processes import ChildFailure  # noqa: E402
-
-
-def category(reported: str, /) -> ErrorCategory:
-    """Return the category a child named, or execution when it named one we do not know."""
-    try:
-        return ErrorCategory(reported)
-    except ValueError:
-        logger.debug("a child reported an unknown category: %s", reported)
-        return ErrorCategory.EXECUTION
-
-
-def diagnostic_of(reported: ChildFailure, /, **details: str) -> Diagnostic:
+def diagnostic_of(reported: ErrorInfo, /, **details: str) -> Diagnostic:
     """Carry a failure a child reported, with its own code and category, plus `details`."""
     return Diagnostic(
         code=reported.code,
-        category=category(reported.category),
+        category=reported.category,
         message=reported.message,
         details={**details, **reported.details},
     )

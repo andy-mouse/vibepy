@@ -18,7 +18,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from vibepy_core.errors import ErrorInfo, read_report_line
 
 logger = logging.getLogger(__name__)
 
@@ -53,36 +53,10 @@ READY_TIMEOUT = 30.0
 READY_INTERVAL = 0.1
 
 
-class _Failure(BaseModel):
-    """One JSON object a child wrote about its own failure.
-
-    `code` is required, because that is what distinguishes a reported failure
-    from any other line the child's standard error carries.
-    """
-
-    code: str
-    category: str = "execution"
-    message: str = ""
-    details: dict[str, str] = {}
-
-
-_FAILURE = TypeAdapter(_Failure)
-
-
-@dataclass(frozen=True)
-class ChildFailure:
-    """What a child said about its own failure, in the framework's shape."""
-
-    code: str
-    category: str
-    message: str
-    details: dict[str, str]
-
-
 class StartFailed(Exception):
     """A started App never answered. Carries what the child did."""
 
-    def __init__(self, reason: str, *, reported: ChildFailure | None = None) -> None:
+    def __init__(self, reason: str, *, reported: ErrorInfo | None = None) -> None:
         """Record `reason` and what the child, if any, `reported`."""
         super().__init__(reason)
         self.reason = reason
@@ -103,15 +77,8 @@ def _log_path(logs: Path, known_as: str, /) -> Path:
     return logs / f"{known_as}.log"
 
 
-def _reported(path: Path, /) -> ChildFailure | None:
-    """Return the failure a child described, found by parsing its log, not its position.
-
-    `_reported` is only ever asked about a child that failed to start, so the
-    file is one start's worth of output: the report is one line among it, and
-    a traceback the framework writes after the report is as much a part of
-    that output as the report itself. Reading the whole file and scanning in
-    reverse finds the report regardless of what follows it.
-    """
+def _reported(path: Path, /) -> ErrorInfo | None:
+    """Read the child's log and return what `reported` finds in it."""
     try:
         written = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
@@ -172,7 +139,7 @@ async def run(command: Sequence[str], /, *, stdin: str | None = None) -> Complet
     )
 
 
-def reported(text: str, /) -> ChildFailure | None:
+def reported(text: str, /) -> ErrorInfo | None:
     """Return the failure a child described in `text`, found by parsing, not position.
 
     The report is one line among whatever else the child wrote, and a traceback
@@ -180,16 +147,9 @@ def reported(text: str, /) -> ChildFailure | None:
     Scanning in reverse finds the report regardless of what follows it.
     """
     for line in reversed(text.splitlines()):
-        try:
-            parsed = _FAILURE.validate_json(line)
-        except ValidationError:
-            continue
-        return ChildFailure(
-            code=parsed.code,
-            category=parsed.category,
-            message=parsed.message,
-            details=parsed.details,
-        )
+        found = read_report_line(line)
+        if found is not None:
+            return found
     return None
 
 
