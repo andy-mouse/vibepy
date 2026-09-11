@@ -21,6 +21,7 @@ class Mark:
     label: str
     done: bool
     symbol: str
+    tone: str
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,17 @@ def _mark_symbol(index: int, row: AppRow, /, *, needs_configuration: bool) -> st
     return "✓"
 
 
+def _mark_tone(index: int, row: AppRow, /, *, stage: int, needs_configuration: bool) -> str:
+    """Name what a step is, so the screen never has to work it out again."""
+    if index == 3 and row.state == "running":
+        return "live"
+    if index == 2 and needs_configuration:
+        return "required"
+    if index == 1 and row.available_version is not None:
+        return "update"
+    return "done" if index <= stage else "plain"
+
+
 def row_view(row: AppRow, /, *, declares_fields: bool) -> RowView:
     """Describe one row: its rail, its actions, its diagnostic.
 
@@ -76,6 +88,7 @@ def row_view(row: AppRow, /, *, declares_fields: bool) -> RowView:
             label=label,
             done=index <= stage,
             symbol=_mark_symbol(index, row, needs_configuration=needs_configuration),
+            tone=_mark_tone(index, row, stage=stage, needs_configuration=needs_configuration),
         )
         for index, label in enumerate(STAGES)
     )

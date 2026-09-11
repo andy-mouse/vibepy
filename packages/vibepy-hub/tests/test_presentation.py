@@ -83,6 +83,28 @@ def test_a_newer_version_replaces_start_with_update() -> None:
     assert update.tool == "update_app" and update.primary is True
 
 
+def test_each_rail_step_names_its_own_tone() -> None:
+    assert [m.tone for m in row_view(running(), declares_fields=True).marks] == [
+        "done",
+        "done",
+        "done",
+        "live",
+    ]
+    assert [m.tone for m in row_view(installed(), declares_fields=True).marks] == [
+        "done",
+        "done",
+        "required",
+        "plain",
+    ]
+    offered = installed(configured=True, available_version="2.0.0")
+    assert [m.tone for m in row_view(offered, declares_fields=True).marks] == [
+        "done",
+        "update",
+        "done",
+        "plain",
+    ]
+
+
 def test_a_row_with_a_diagnostic_offers_uninstall_only() -> None:
     broken = installed().model_copy(
         update={

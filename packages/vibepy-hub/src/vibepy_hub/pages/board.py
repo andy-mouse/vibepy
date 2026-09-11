@@ -47,6 +47,15 @@ SUBTITLE = (
 CONFIG_NOTE = (
     "Declared by the App itself. A secret is write-only: it is stored and never shown back."
 )
+TONE_CLASSES = {
+    "done": "is-done",
+    "live": "is-live",
+    "required": "is-required",
+    "update": "is-update",
+    "plain": "",
+}
+"""What each rail tone looks like. `presentation.py` decides the tone; this only paints it."""
+
 SUMMARY_LABELS = ("Available", "Installed", "Running")
 COLUMN_LABELS = ("App", "Lifecycle", "Action")
 
@@ -248,7 +257,7 @@ async def board(ctx: PageContext) -> None:
         if isinstance(request, list):
             missing[view.app_name] = request
             message.content = escape(_lacking_line(request))
-            lacking.set_visibility(bool(request))
+            lacking.set_visibility(True)
             for name, row in rows.items():
                 row.classes(add="is-invalid" if name in request else "", remove="is-invalid")
             return
@@ -266,6 +275,12 @@ async def board(ctx: PageContext) -> None:
         lacking = missing.get(view.app_name, [])
         with ui.element("div").classes("hub-config"):
             _text("p", f"What {view.title} requires", "hub-config-head")
+            if not described.fields:
+                # No fields means nothing a Save could send, so only Cancel is offered.
+                _text("p", "Nothing to configure", "hub-config-note")
+                with ui.element("div").classes("hub-config-actions"):
+                    _button("Cancel", "hub-quiet", on_click=lambda: toggle_config(view))
+                return
             _text("p", CONFIG_NOTE, "hub-config-note")
             inputs: dict[str, ui.input] = {}
             rows: dict[str, ui.element] = {}
@@ -335,16 +350,9 @@ async def board(ctx: PageContext) -> None:
                         on_click=_on_click(action, view) if action.enabled else None,
                     )
             with ui.element("div").classes("hub-rail"):
-                for index, mark in enumerate(view.marks):
+                for mark in view.marks:
                     stage = ui.element("div").classes("hub-stage")
-                    if mark.done:
-                        stage.classes("is-done")
-                    if mark.symbol == "!" and index == 2:
-                        stage.classes("is-required")
-                    if mark.symbol == "↑" and index == 1:
-                        stage.classes("is-update")
-                    if index == 3 and mark.done:
-                        stage.classes("is-running")
+                    stage.classes(TONE_CLASSES[mark.tone])
                     with stage:
                         _text("span", mark.symbol, "hub-stage-node")
                         _text("span", mark.label)

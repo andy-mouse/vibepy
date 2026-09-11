@@ -330,9 +330,11 @@
   color: light-dark(#ffffff, #10282b);
 }
 
-.vibepy-hub .hub-stage.is-running { color: light-dark(#126c65, #78ded5); }
-.vibepy-hub .hub-stage.is-running .hub-stage-node {
+.vibepy-hub .hub-stage.is-live { color: light-dark(#126c65, #78ded5); }
+.vibepy-hub .hub-stage.is-live .hub-stage-node {
   border-color: light-dark(#188279, #61c9c0);
+  background: light-dark(#188279, #61c9c0);
+  color: light-dark(#ffffff, #10282b);
   box-shadow: 0 0 0 5px light-dark(#d9efec, #204743);
 }
 
@@ -551,7 +553,9 @@
    dropped into someone else's document; this is a whole page drawn by NiceGUI,
    so the ground beneath the shell and NiceGUI's own wrappers are set here. */
 
-body {
+/* Quasar sets `body.body--light { background: #fff }`, which outweighs a bare
+   `body`, so the ground is claimed at the same specificity it uses. */
+body, body.body--light, body.body--dark {
   color-scheme: light dark;
   margin: 0;
   background: light-dark(#eaf1f1, #0b1518);
