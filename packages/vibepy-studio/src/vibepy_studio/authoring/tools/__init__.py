@@ -8,8 +8,9 @@ from vibepy_studio.authoring.tools.inspection import (
     inspect_app,
     inspect_framework,
 )
+from vibepy_studio.authoring.tools.invocation import INVOCATION_TOOLS, invoke_tool
 from vibepy_studio.internals import StudioDeps
 
-AUTHORING_TOOLS: Sequence[Tool[StudioDeps]] = [*INSPECTION_TOOLS]
+AUTHORING_TOOLS: Sequence[Tool[StudioDeps]] = [*INSPECTION_TOOLS, *INVOCATION_TOOLS]
 
-__all__ = ["AUTHORING_TOOLS", "inspect_app", "inspect_framework"]
+__all__ = ["AUTHORING_TOOLS", "inspect_app", "inspect_framework", "invoke_tool"]
