@@ -9,7 +9,7 @@ from vibepy_studio.internals.processes import Processes
 
 @dataclass
 class StudioDeps:
-    """What one Studio window owns."""
+    """Its root directory, its child processes, and the port its proxy listens on."""
 
     root: Path
     processes: Processes

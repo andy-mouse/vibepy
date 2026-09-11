@@ -69,7 +69,8 @@ framework's own public constants (`APP_GROUP`, `ERROR_CATALOG`,
 `ErrorCategory`), `vibepy_studio.authoring.internals` and
 `vibepy_studio.authoring.models`, `vibepy_studio.authoring.tools.inspection`
 because invocation reuses `uv_unavailable`, and `vibepy_studio.internals` for
-the shared runner and reader, which are themselves async.
+the shared runner, which is async, and the shared reader, which is a
+synchronous parse over already-read text with no I/O of its own.
 """
 
 BLOCKING_METHODS = frozenset(

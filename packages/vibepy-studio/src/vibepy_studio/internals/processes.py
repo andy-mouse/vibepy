@@ -151,8 +151,9 @@ async def run(command: Sequence[str], /, *, stdin: str | None = None) -> Complet
     """Run one command to completion and return what it left.
 
     Every child receives `child_environment()`, so what describes Studio's own
-    process describes no child. Both streams are read apart: a reader that wants
-    them merged joins them, and one that wants a report finds it on standard error.
+    process describes no child. Standard output and standard error are returned
+    apart, unmerged, so a report a child wrote to standard error stays separate
+    from what it wrote to standard output.
     """
     if not await asyncio.to_thread(is_runnable, command[0]):
         raise NotRunnable(command[0])

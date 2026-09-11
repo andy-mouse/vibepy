@@ -23,7 +23,6 @@ async def test_a_python_that_is_not_there_is_not_runnable() -> None:
         await describe(["no-such-python"])
 
 
-@pytest.mark.integration
 async def test_a_python_without_the_framework_fails_to_describe() -> None:
     with pytest.raises(DescribeFailed) as failed:
         await describe([sys.executable, "-S", "-c", "import sys; sys.exit(2)", "--"])

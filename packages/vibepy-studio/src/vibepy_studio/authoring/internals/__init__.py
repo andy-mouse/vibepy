@@ -1,4 +1,4 @@
-"""Locating a source project and naming the environment it runs in."""
+"""Authoring's support for finding a project and running inside its environment."""
 
 from vibepy_studio.authoring.internals.projects import declared_name, locate, python
 

@@ -1,7 +1,7 @@
 """Writing a file whole, so that nothing reads half of one.
 
-Two of Studio's files are read by something other than Studio while Studio
-is writing them: its state file, which a second window reads, and the routing
+Two of Studio's files are read by something other than Studio while it is
+writing them: its state file, which a second window reads, and the routing
 files, which the proxy watches. Both need the same guarantee, and it was
 written twice before it was written here -- once with a staged name unique to
 the write and once without, which is what re-deriving one argument in two
