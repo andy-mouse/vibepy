@@ -32,7 +32,8 @@ From `docs/roadmap.md`, verbatim:
 | An MCP server declares its configuration as `environmentVariables[]` (name, required, secret) and `packageArguments[]`, one entry per value | MCP Registry, `server.json` reference |
 | Config in the environment; one variable is one independent control, not a grouped blob | <https://12factor.net/config> |
 | Environment variables are a last resort for secrets, when mounted files or a secret store are not possible | OWASP Secrets Management Cheat Sheet, §5.1 |
-| Field-per-variable reading of a settings model: case-insensitive names, `env_prefix`, complex fields decoded as JSON; applies to `BaseSettings` only | pydantic-settings documentation |
+| `BaseSettings` reads one variable per field: "the `_env_prefix` keyword argument on instantiation", "environment variable names are case-insensitive", complex types and sub-models "by treating the environment variable's value as a JSON-encoded string", init kwargs over env over dotenv over secrets over defaults; unrelated variables are not picked up | pydantic-settings documentation, <https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/> |
+| `BaseSettings` is a `BaseModel`: `model_validate`, `model_json_schema` and `SecretStr` behave as ADR-022 relies on | pydantic-settings API, `BaseSettings(BaseModel)` |
 
 ## Problem
 
@@ -76,41 +77,70 @@ Why this and not the alternatives, recorded in ADR-033:
 
 ### Reading rule
 
-`vibepy_core/app/config.py`, public through `vibepy_core`:
+The reading is pydantic-settings', not the framework's. pydantic-settings is Pydantic's own
+answer to the question ADR-022 left open — where a declared model's values come from — and it
+covers the whole of this decision: one variable per field, a prefix given at instantiation,
+case-insensitive names (which is also what Windows does), complex fields and sub-models as JSON,
+`SecretStr` from a string, and a defined priority of sources.
+
+To use it as documented, an App's configuration model subclasses `BaseSettings`:
 
 ```python
-def config_from_environment(
-    model: type[BaseModel], environ: Mapping[str, str], /
-) -> dict[str, object]: ...
+class AppDefinition[DepsT, ConfigT: BaseSettings]:
+    config: type[ConfigT]
 
+class NoConfig(BaseSettings): ...
+```
+
+A window instantiates the declaration rather than validating a mapping against it:
+
+```python
+definition.config(_env_prefix="VIBEPY_", **raw)
+```
+
+`raw` is what a caller hands the window explicitly — a test literal, a deprecated stdin object —
+and by the library's documented priority it stands above the environment, field by field.
+A `ValidationError` is `AppConfigInvalidError`, code `config.invalid`, naming every field that
+failed, exactly as today; a missing variable is a missing field. No dotenv file and no secrets
+directory are configured, so the sources in play are the two above and the model's defaults.
+
+`BaseSettings` is a `BaseModel`, so `model_json_schema` still projects the declaration, `describe`
+still writes `config_schema`, and `SecretStr` still masks itself. `inspect_app`'s `config_schema`
+therefore lists field names, and the schema a host reads is the list of variables it sets. A
+model that declares a validation alias on a field names the variable by that alias, as the
+library documents; no framework rule is added for it.
+
+`vibepy-core` depends on `pydantic-settings>=2.15`. It is a Pydantic project, depends on
+`pydantic` and `python-dotenv`, and is the library the framework's own configuration model
+already comes from; ADR-033 records the dependency.
+
+#### Rendering, on the parent side
+
+The library reads; nothing in it writes. A parent that starts a framework process renders its
+held values into variables, and that rule is written once:
+
+```python
 def environment_for(config: Mapping[str, object], /) -> dict[str, str]: ...
 ```
 
-`config_from_environment` walks `model.model_fields`; for each field whose variable is present it
-takes the string, decoding it as JSON when the field's annotation is a Pydantic model, a mapping
-or a sequence other than `str` — pydantic-settings' documented rule for complex fields. Scalars
-are handed to the model as strings, and `model_validate` coerces them (`"8080"` to `int`,
-a path string to `Path`, a string to `SecretStr`). A missing variable is a missing field, which
-the model's own validation reports as `config.invalid` naming the field, as it does today. A
-complex field whose value is not JSON is `config.invalid` naming the field.
+in `vibepy_core/app/config.py`, public through `vibepy_core`: a `str` value verbatim, anything
+else `json.dumps`, each under `VIBEPY_<FIELD>` with the field name upper-cased. It is the inverse
+of the library's documented decoding and lives beside the contract it inverts.
 
-`environment_for` is the inverse the parent side uses: a `str` value verbatim, anything else
-`json.dumps`. It exists so that the rendering rule is written once, in the package that owns
-the reading rule, rather than in each of Studio's launchers.
+### Compatibility of the narrowed bound
 
-pydantic-settings is not adopted: its environment source applies to `BaseSettings` subclasses,
-and an App's configuration is a plain `BaseModel` by ADR-022's public contract. The framework
-writes the reader, and its argument is the library's own rule.
-
-Field names are the variable names. A configuration model that declares an alias on a field is
-not supported by this milestone, and `inspect_app`'s `config_schema` lists field names, so the
-schema a host reads is the list of variables it sets.
+`ConfigT: BaseModel` becomes `ConfigT: BaseSettings`. Every configuration model in this
+repository — `StudioConfig`, `TodoConfig`, `NotesConfig`, `TimerConfig`, `NoConfig`, the test
+models — changes its base class, a one-word edit each. No App exists outside this repository, so
+no deprecation period is owed for the bound itself (as M12 said of the Hub's rename); the public
+API section below states the change.
 
 ### What changes for the existing commands
 
-`serve` and `invoke` read the environment first. Their stdin configuration is **deprecated, not
-removed**: a `config` object on stdin is still read, merged beneath the environment field by
-field, and logs one deprecation record when it is non-empty. `invoke`'s stdin keeps its shape,
+`serve` and `invoke` take the environment as their configuration channel. Their stdin
+configuration is **deprecated, not removed**: a `config` object on stdin is still read and handed
+to the window as explicit values — above the environment, in the library's order — and logs one
+deprecation record when it is non-empty. `invoke`'s stdin keeps its shape,
 `{"config": {...}, "input": {...}}`; `input` is per-call data and stays where it is. The
 `packaging.md` contract is edited accordingly and names the deprecation; removal is a later
 milestone's.
@@ -134,8 +164,7 @@ the process alive.
 argv: app_name
 environ: VIBEPY_<FIELD> per declared field
   -> load_app(app_name)
-  -> config_from_environment(entrypoint.definition.config, os.environ)
-  -> build_mcp_server(definition, lifespan, config=config)
+  -> build_mcp_server(definition, lifespan, config={})   # the window reads the environment
   -> async with stdio_server() as (read, write):
          await server.run(read, write, server.create_initialization_options())
 ```
@@ -186,7 +215,7 @@ VIBEPY_PROXY_PORT = "8080"
 ```text
 agent platform (Codex, Claude Code)
   spawns: python -m vibepy_core.mcp vibepy-studio      env: VIBEPY_ROOT, VIBEPY_PROXY_PORT
-    -> load_app, config_from_environment, build_mcp_server
+    -> load_app, build_mcp_server; the window reads VIBEPY_* as it opens
     -> stdio_server: stdout = wire, fd 1 = stderr for everything else
     -> Server.run enters studio_lifespan (the window)
 agent: tools/list  -> to_mcp_tool(...) per declared Tool: inspect_framework, inspect_app,
@@ -212,7 +241,7 @@ One file per subject; success and failure paths of a subject share its file.
 
 | File | Subject |
 | --- | --- |
-| `tests/test_app_config.py` | `config_from_environment`: scalars coerced (`int`, `Path`, `SecretStr`), a complex field decoded from JSON, a missing field and a non-JSON complex value each `config.invalid` naming the field, an unrelated variable ignored; `environment_for` round-trips through it |
+| `tests/test_app_config.py` | a window over a `BaseSettings` declaration reads `VIBEPY_*`: scalars coerced (`int`, `Path`, `SecretStr`), a sub-model from JSON, an explicit value standing above the environment, a missing field `config.invalid` naming it, an unrelated `VIBEPY_` variable ignored; `environment_for` renders what such a window reads back |
 | `tests/test_mcp_command.py` | the command as a real process through `Client(StdioServerParameters(...))`: `vibepy-todo` with `VIBEPY_*` set lists its declared Tools and a `create_todo` call returns `structuredContent` equal to the output model; an unknown App name, and a missing `VIBEPY_ROOT`, each one stderr report and exit 1 |
 | `tests/test_serve_command.py`, `tests/test_invoke_command.py` | configuration through the environment; one test each that stdin configuration still works and is logged as deprecated |
 | `tests/test_dual_channel.py` | unchanged in assertion; it is in-process |
@@ -226,9 +255,11 @@ passes, as it is for the M12 tests.
 
 ## Compatibility
 
-`config_from_environment`, `environment_for` and `vibepy_core.mcp` are additions to the public
-API. Configuration on stdin for `serve` and `invoke` is deprecated and still honoured. Nothing is
-removed. The `[agent]` extra's contents do not change; `vibepy-studio` now requires it.
+`environment_for` and `vibepy_core.mcp` are additions to the public API. `ConfigT`'s bound
+narrows from `BaseModel` to `BaseSettings`; `NoConfig` follows. Configuration on stdin for
+`serve` and `invoke` is deprecated and still honoured. Nothing else is removed. `vibepy-core`
+gains `pydantic-settings`; the `[agent]` extra's contents do not change; `vibepy-studio` now
+requires it.
 
 ## Documentation
 
@@ -239,12 +270,13 @@ removed. The `[agent]` extra's contents do not change; `vibepy-studio` now requi
   command; "Authoring MCP" section states what exists
 - `docs/architecture/lifecycle.md`, `docs/architecture/adapters.md`: the stdio process is
   `vibepy_core.mcp`; the Hub hands configuration through the environment
-- `docs/architecture/app-model.md`: where the raw mapping comes from, one line pointing at
-  packaging
+- `docs/architecture/app-model.md`: `ConfigT: BaseSettings`, and where the values come from —
+  one line pointing at packaging
 - `docs/decisions/ADR-033-configuration-reaches-a-process-through-the-environment.md`: the
-  decision above with its alternatives and the OWASP counter-argument; an amendment beneath
-  ADR-026's status noting that its stdin sentence is superseded; ADR-022's open question is
-  answered by reference, its body untouched
+  decision above with its alternatives, the OWASP counter-argument and the new dependency; an
+  amendment beneath ADR-026's status noting that its stdin sentence is superseded; ADR-022's
+  open question is answered by reference and its `BaseModel` bound is amended beneath its status,
+  its body untouched
 - `vibepy_studio/internals/processes.py`: the `Processes.start` docstring's stdin rationale is
   replaced, since the mechanism it explains is gone
 - this folder is deleted on integration
@@ -253,5 +285,6 @@ removed. The `[agent]` extra's contents do not change; `vibepy-studio` now requi
 
 Per-channel exposure — the consumption Tools remain visible over MCP (M14). Streamable HTTP.
 Removing stdin configuration (a later milestone, after this deprecation). Scrubbing `VIBEPY_*`
-from a command's own environment before it spawns children. Configuration models with field
-aliases. Adopting pydantic-settings. A `server.json` registry manifest for Studio.
+from a command's own environment before it spawns children. Dotenv files and a secrets
+directory, which the library offers and no host here needs. A `server.json` registry manifest
+for Studio.
