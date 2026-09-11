@@ -88,8 +88,10 @@ becomes `wheel: Path`.
 
 ## Installation
 
-`install_app` installs the candidate wheel with `uv pip install`. Because `declares_app` is a
-fact, `hub.no_app_declared` is answered before an environment is created. Everything after the
+`install_app` installs the candidate wheel with `uv pip install --find-links <source>`, so the
+wheel's dependencies — the framework first — resolve from the same folder: a wheelhouse carries
+the framework's wheel beside the Apps', which is what makes it installable offline. Because
+`declares_app` is a fact, `hub.no_app_declared` is answered before an environment is created. Everything after the
 install — `describe`, `write_facts`, port and route — is unchanged, except that a port already
 held in state for this name is reused rather than allocated, which is what lets an update keep
 its address.
@@ -200,8 +202,9 @@ the change is made without a deprecation period and said so in the commit.
 
 - `docs/architecture/lifecycle.md`: the Hub Tool table gains `describe_config` and `update_app`;
   the source is one folder of wheels.
-- `docs/architecture/packaging.md`: "a static reading is a hint" describes a source folder and is
-  no longer true of the source the Hub reads; the sentence is corrected.
+- `docs/architecture/packaging.md`: the isolation table's third row says the Hub installs with
+  `uv venv` then `uv pip install` per App; it stays true and is left alone. "A static reading is
+  a hint" lives in `vibepy_hub/internals/projects.py` and its tests, which this replaces.
 - `vibepy_hub/models.py`: the code table.
 - No ADR.
 
