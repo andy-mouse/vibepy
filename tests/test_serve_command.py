@@ -104,7 +104,7 @@ class Reported(TypedDict):
     details: dict[str, str]
 
 
-def _reported(stderr: bytes, /) -> Reported:
+def reported_failure(stderr: bytes, /) -> Reported:
     """The last failure the child described, out of everything it wrote."""
     for line in reversed(stderr.decode(errors="replace").splitlines()):
         try:
@@ -135,7 +135,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     )
 
     assert finished.returncode != 0
-    reported = _reported(finished.stderr)
+    reported = reported_failure(finished.stderr)
     assert reported["code"] == "config.invalid"
     assert reported["category"] == "caller"
     assert "db_path" in reported["details"]["fields"]
@@ -159,7 +159,7 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
     )
 
     assert finished.returncode != 0
-    reported = _reported(finished.stderr)
+    reported = reported_failure(finished.stderr)
     assert reported["code"] == "app.unhandled"
     assert reported["category"] == "execution"
 

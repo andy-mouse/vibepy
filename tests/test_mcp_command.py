@@ -10,7 +10,7 @@ from mcp.client import Client
 from mcp.client.stdio import StdioServerParameters
 from mcp.types import TextContent
 
-from test_serve_command import child_environment
+from test_serve_command import child_environment, reported_failure
 from vibepy_core import environment_for
 
 
@@ -47,17 +47,6 @@ async def test_a_call_returns_structured_content_over_stdio(tmp_path: Path) -> N
     assert json.loads(block.text)["title"] == "milk"
 
 
-def _reported(stderr: bytes, /) -> dict[str, object]:
-    for line in reversed(stderr.decode(errors="replace").splitlines()):
-        try:
-            parsed: object = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict) and "code" in parsed:
-            return parsed  # pyright: ignore[reportUnknownVariableType]
-    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
-
-
 @pytest.mark.integration
 def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     finished = subprocess.run(
@@ -70,7 +59,7 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
 
     assert finished.returncode == 1
     assert finished.stdout == b""
-    assert _reported(finished.stderr)["code"] == "package.app_not_declared"
+    assert reported_failure(finished.stderr)["code"] == "package.app_not_declared"
 
 
 @pytest.mark.integration
@@ -88,6 +77,6 @@ def test_a_window_that_will_not_open_ends_the_process() -> None:
 
     assert finished.returncode == 1
     assert finished.stdout == b""
-    reported = _reported(finished.stderr)
+    reported = reported_failure(finished.stderr)
     assert reported["code"] == "config.invalid"
     assert reported["category"] == "caller"

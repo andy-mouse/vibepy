@@ -12,7 +12,6 @@ import asyncio
 import logging
 import sys
 from collections.abc import Sequence
-from typing import cast
 
 from mcp.server.stdio import stdio_server
 
@@ -29,20 +28,19 @@ from vibepy_core.errors import (
 
 
 def _unwrapped(error: Exception, /) -> Exception:
-    """Unwrap the single failure inside an anyio `TaskGroup`'s `ExceptionGroup`.
+    """Unwrap the single failure inside an anyio task group's `ExceptionGroup`.
 
     `stdio_server` and the session it opens run inside task groups, so a
-    window that refuses during `Server.run` reaches this process wrapped one or
-    more times. Unwrapping is safe here because there is exactly one leaf: the
-    window opens a single dependency. A group with more than one leaf is left
-    wrapped and reported as itself, as `app.unhandled`.
+    window that refuses during `Server.run` reaches this process wrapped one
+    or more times. A group with more than one leaf is left wrapped and
+    reported as itself, as `app.unhandled`.
     """
-    while isinstance(error, ExceptionGroup):
-        exceptions = cast("tuple[Exception, ...]", error.exceptions)
-        if len(exceptions) != 1:
+    while isinstance(error, BaseExceptionGroup):
+        group = error.subgroup(Exception)
+        if group is None or len(group.exceptions) != 1:
             break
-        error = exceptions[0]
-    return cast(Exception, error)
+        error = group.exceptions[0]
+    return error
 
 
 async def _serve(entrypoint: AppEntrypoint[object, AppConfig], /) -> None:
