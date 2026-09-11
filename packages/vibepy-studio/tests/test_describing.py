@@ -13,7 +13,11 @@ async def test_the_running_environment_describes_its_apps_with_their_tools() -> 
     described = await describe([sys.executable])
     todo = next(entry for entry in described if entry.app_name == "todo-app")
     assert todo.distribution == "vibepy-todo"
-    assert sorted(tool.name for tool in todo.tools) == ["create_todo", "list_todos"]
+    assert sorted(tool.name for tool in todo.tools) == [
+        "complete_todo",
+        "create_todo",
+        "list_todos",
+    ]
     assert "properties" in next(t for t in todo.tools if t.name == "create_todo").input_schema
     assert [page.route for page in todo.pages] == ["/todos"]
 

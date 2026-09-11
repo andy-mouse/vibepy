@@ -17,7 +17,11 @@ async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: 
     assert inspected.diagnostic is None, inspected.diagnostic
     assert [app.app_name for app in inspected.apps] == ["todo-app"]
     todo = inspected.apps[0]
-    assert sorted(tool.name for tool in todo.tools) == ["create_todo", "list_todos"]
+    assert sorted(tool.name for tool in todo.tools) == [
+        "complete_todo",
+        "create_todo",
+        "list_todos",
+    ]
     assert [page.route for page in todo.pages] == ["/todos"]
     assert set(todo.config_schema["properties"]) == {"db_path", "db_key"}  # type: ignore[index]
 

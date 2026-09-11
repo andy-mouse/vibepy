@@ -24,6 +24,10 @@ class EmptyInput(BaseModel):
     pass
 
 
+class CompleteTodoInput(BaseModel):
+    id: int
+
+
 class Todo(BaseModel):
     id: int
     title: str
@@ -49,6 +53,15 @@ def list_todos_definition() -> ToolDefinition[EmptyInput, TodoList]:
         description="List every todo",
         input_model=EmptyInput,
         output_model=TodoList,
+    )
+
+
+def complete_todo_definition() -> ToolDefinition[CompleteTodoInput, Todo]:
+    return ToolDefinition(
+        name="complete_todo",
+        description="Mark a todo done",
+        input_model=CompleteTodoInput,
+        output_model=Todo,
     )
 
 
@@ -155,10 +168,20 @@ class TodoFixture:
         self.contexts.append(ctx)
         return TodoList(todos=list(self.todos))
 
+    async def complete_todo(self, ctx: ToolContext[None], payload: CompleteTodoInput) -> Todo:
+        self.contexts.append(ctx)
+        for index, todo in enumerate(self.todos):
+            if todo.id == payload.id:
+                completed = todo.model_copy(update={"done": True})
+                self.todos[index] = completed
+                return completed
+        raise ValueError(f"no todo has id {payload.id}")
+
     def tools(self) -> list[Tool[None]]:
         return [
             Tool(definition=create_todo_definition(), handler=self.create_todo),
             Tool(definition=list_todos_definition(), handler=self.list_todos),
+            Tool(definition=complete_todo_definition(), handler=self.complete_todo),
         ]
 
 
@@ -185,8 +208,12 @@ async def test_framework_tools_appear_in_mcp_discovery() -> None:
     async with server_for(fixture.tools()) as server, Client(server) as client:
         listed = await client.list_tools()
 
-    assert [tool.name for tool in listed.tools] == ["create_todo", "list_todos"]
-    assert [tool.description for tool in listed.tools] == ["Create a todo", "List every todo"]
+    assert [tool.name for tool in listed.tools] == ["create_todo", "list_todos", "complete_todo"]
+    assert [tool.description for tool in listed.tools] == [
+        "Create a todo",
+        "List every todo",
+        "Mark a todo done",
+    ]
 
 
 async def test_discovered_schemas_are_the_projected_schemas() -> None:

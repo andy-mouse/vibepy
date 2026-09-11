@@ -26,6 +26,7 @@ from pydantic import BaseModel, SecretStr, TypeAdapter
 from vibepy_core import (
     AppDefinition,
     AppEntrypoint,
+    ErrorCategory,
     Page,
     PageContext,
     PageDefinition,
@@ -53,6 +54,10 @@ class CreateTodoInput(BaseModel):
     title: str
 
 
+class CompleteTodoInput(BaseModel):
+    id: int
+
+
 class EmptyInput(BaseModel):
     pass
 
@@ -65,6 +70,20 @@ class Todo(BaseModel):
 
 class TodoList(BaseModel):
     todos: list[Todo]
+
+
+class TodoDiagnostic(BaseModel):
+    """ADR-029's four fields, for this App's own expected failures."""
+
+    code: str
+    category: ErrorCategory
+    message: str
+    details: dict[str, str] = {}
+
+
+class Completion(BaseModel):
+    todo: Todo | None = None
+    diagnostic: TodoDiagnostic | None = None
 
 
 class _Stored(BaseModel):
@@ -116,6 +135,23 @@ class TodoStore:
         with self._writing:
             return self._read()
 
+    def complete(self, todo_id: int) -> Todo | None:
+        """Mark one todo done, under the same lock `create` writes behind.
+
+        A read-modify-write like `create`: reading and storing must not
+        interleave with another write, or a concurrent call could overwrite
+        this one's change.
+        """
+        with self._writing:
+            todos = self._read()
+            for index, todo in enumerate(todos):
+                if todo.id == todo_id:
+                    completed = todo.model_copy(update={"done": True})
+                    todos[index] = completed
+                    self._write(todos)
+                    return completed
+        return None
+
     def _read(self) -> list[Todo]:
         if not self.db_path.is_file():
             return []
@@ -149,6 +185,20 @@ async def create_todo(ctx: ToolContext[TodoStore], payload: CreateTodoInput) -> 
 
 async def list_todos(ctx: ToolContext[TodoStore], _payload: EmptyInput) -> TodoList:
     return TodoList(todos=await asyncio.to_thread(ctx.dependencies.list_all))
+
+
+async def complete_todo(ctx: ToolContext[TodoStore], payload: CompleteTodoInput) -> Completion:
+    completed = await asyncio.to_thread(ctx.dependencies.complete, payload.id)
+    if completed is None:
+        return Completion(
+            diagnostic=TodoDiagnostic(
+                code="todo.not_found",
+                category=ErrorCategory.CALLER,
+                message=f"no todo has id {payload.id}",
+                details={"id": str(payload.id)},
+            )
+        )
+    return Completion(todo=completed)
 
 
 async def todos_page(ctx: PageContext) -> None:
@@ -197,6 +247,15 @@ TODO_APP: AppDefinition[TodoStore, TodoConfig] = AppDefinition(
                 output_model=TodoList,
             ),
             handler=list_todos,
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="complete_todo",
+                description="Mark a todo done",
+                input_model=CompleteTodoInput,
+                output_model=Completion,
+            ),
+            handler=complete_todo,
         ),
     ],
     pages=[
