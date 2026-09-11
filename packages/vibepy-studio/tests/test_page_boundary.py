@@ -13,7 +13,7 @@ import pytest
 
 from test_no_blocking_handlers import imported
 
-PAGES = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "pages"
+PAGES = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "consumption" / "pages"
 
 FORBIDDEN_IMPORTS = frozenset(
     {

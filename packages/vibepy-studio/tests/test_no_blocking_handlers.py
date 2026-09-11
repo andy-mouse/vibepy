@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "tools"
+TOOLS = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "consumption" / "tools"
 
 ALLOWED_IMPORTS = frozenset(
     {
@@ -40,6 +40,7 @@ ALLOWED_IMPORTS = frozenset(
         "vibepy_core.tool",
         "vibepy_studio.consumption.internals",
         "vibepy_studio.consumption.models",
+        "vibepy_studio.models",
     }
 )
 """What a Tool module may import.
