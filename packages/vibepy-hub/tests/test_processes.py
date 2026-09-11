@@ -147,10 +147,29 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
 
     assert processes.running("todo-app") is False
     try:
-        await asyncio.open_connection("127.0.0.1", port)
+        reader, writer = await asyncio.open_connection("127.0.0.1", port)
     except OSError:
         return
-    pytest.fail(await _who_holds(port, child.pid))
+    writer.write(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+    try:
+        answer = repr(await asyncio.wait_for(reader.read(200), timeout=5.0))
+    except (OSError, TimeoutError) as error:
+        answer = f"no answer: {error!r}"
+    writer.close()
+    started = asyncio.get_running_loop().time()
+    refused_after = "never within 5s"
+    while asyncio.get_running_loop().time() - started < 5.0:
+        try:
+            _, again = await asyncio.open_connection("127.0.0.1", port)
+        except OSError:
+            refused_after = f"{asyncio.get_running_loop().time() - started:.3f}s"
+            break
+        again.close()
+        await asyncio.sleep(0.01)
+    pytest.fail(
+        f"first connect answered {answer}; refused after {refused_after}\n\n"
+        + await _who_holds(port, child.pid)
+    )
 
 
 @pytest.mark.integration
