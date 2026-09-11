@@ -1,8 +1,6 @@
 # ADR-032: Authoring is Studio's Agent channel
 
-Status: Accepted
-
-Supersedes the distribution table of ADR-025.
+Status: Accepted; supersedes the distribution table of ADR-025
 
 ## Context
 
