@@ -114,8 +114,17 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     await processes.aclose()
 
     assert processes.running("todo-app") is False
-    with pytest.raises(OSError):
-        await asyncio.open_connection("127.0.0.1", port)
+    # Windows keeps a killed process's listening socket for a moment, accepting
+    # and then resetting connections before it refuses them; the promise is that
+    # the port is given up, not that the kernel is done in the same instant.
+    async with asyncio.timeout(OWNED_TIMEOUT):
+        while True:
+            try:
+                _, writer = await asyncio.open_connection("127.0.0.1", port)
+            except OSError:
+                break
+            writer.transport.abort()
+            await asyncio.sleep(0.05)
 
 
 @pytest.mark.integration
