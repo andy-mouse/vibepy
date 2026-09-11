@@ -45,6 +45,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "VibepyError",
         "describe_app",
         "discover_apps",
+        "load_app",
         "page_runtime_for",
         "report_line",
         "to_error_info",

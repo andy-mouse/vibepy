@@ -136,3 +136,51 @@ def test_an_object_merely_carrying_a_describe_attribute_is_rejected() -> None:
 
     with pytest.raises(AppEntrypointInvalidError):
         describe_app(ref)
+
+
+def test_load_app_returns_the_declared_entrypoint() -> None:
+    from vibepy_core.app import load_app
+
+    loaded = load_app("todo-app")
+    assert loaded.definition.app_id == "todo-app"
+
+
+def test_load_app_refuses_an_app_this_environment_does_not_declare() -> None:
+    from vibepy_core.app import load_app
+    from vibepy_core.errors import AppNotDeclaredError
+
+    with pytest.raises(AppNotDeclaredError) as raised:
+        load_app("no-such-app")
+    assert raised.value.details() == {"app_name": "no-such-app"}
+
+
+def test_load_app_reports_an_entrypoint_that_will_not_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vibepy_core.app import load_app
+
+    write_distribution(
+        tmp_path,
+        distribution="ghost-app",
+        version="0.1",
+        entries=[("ghost", "ghost_app.entry:APP")],
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))  # type: ignore[reportUnknownMemberType]
+    with pytest.raises(AppEntrypointUnloadableError):
+        load_app("ghost")
+
+
+def test_load_app_reports_an_entrypoint_that_is_not_an_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from vibepy_core.app import load_app
+
+    write_distribution(
+        tmp_path,
+        distribution="impostor-app",
+        version="0.1",
+        entries=[("impostor", "impostor_fixture:IMPOSTOR")],
+    )
+    monkeypatch.syspath_prepend(str(tmp_path))  # type: ignore[reportUnknownMemberType]
+    with pytest.raises(AppEntrypointInvalidError):
+        load_app("impostor")

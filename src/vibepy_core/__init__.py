@@ -12,6 +12,7 @@ from vibepy_core.app import (
     ToolDescription,
     describe_app,
     discover_apps,
+    load_app,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -98,6 +99,7 @@ __all__ = [
     "VibepyError",
     "describe_app",
     "discover_apps",
+    "load_app",
     "page_runtime_for",
     "report_line",
     "to_error_info",
