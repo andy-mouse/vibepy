@@ -1,14 +1,26 @@
 """Describing the framework, and describing what a project declares."""
 
+import asyncio
 import logging
 from collections.abc import Sequence
 from importlib.metadata import version
+from pathlib import Path
 
-from vibepy_core import APP_GROUP, ERROR_CATALOG
+from packaging.utils import canonicalize_name
+
+from vibepy_core import APP_GROUP, ERROR_CATALOG, ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.authoring.models import ErrorCode, FrameworkDescription
-from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Empty
+from vibepy_studio.authoring.internals import declared_name, locate, python
+from vibepy_studio.authoring.models import (
+    AppInspection,
+    ErrorCode,
+    FrameworkDescription,
+    InspectedApp,
+    InspectRequest,
+    diagnostic_of,
+)
+from vibepy_studio.internals import DescribeFailed, NotRunnable, StudioDeps, describe
+from vibepy_studio.models import Diagnostic, Empty
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +39,73 @@ async def inspect_framework(_ctx: ToolContext[StudioDeps], _payload: Empty) -> F
     )
 
 
+def _not_a_project(project: Path, reason: str, /) -> AppInspection:
+    """Answer with the caller error naming why `project` is not a project."""
+    return AppInspection(
+        apps=[],
+        diagnostic=Diagnostic(
+            code="authoring.project_not_found",
+            category=ErrorCategory.CALLER,
+            message=f"{project} {reason}",
+            details={"project": str(project)},
+        ),
+    )
+
+
+def _failed(project: Path, failed: DescribeFailed, /) -> Diagnostic:
+    """Use a child's own report when it made one, else the environment as the failure."""
+    if failed.reported is not None:
+        return diagnostic_of(failed.reported, project=str(project))
+    return Diagnostic(
+        code="authoring.environment_failed",
+        category=ErrorCategory.EXECUTION,
+        message=failed.output,
+        details={"project": str(project)},
+    )
+
+
+def uv_unavailable(project: Path, /) -> Diagnostic:
+    """Say uv is not runnable from this process."""
+    return Diagnostic(
+        code="authoring.uv_unavailable",
+        category=ErrorCategory.EXECUTION,
+        message="uv is not available to Studio; install uv and put it on PATH",
+        details={"project": str(project)},
+    )
+
+
+async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) -> AppInspection:
+    """Describe the Apps a source project declares, read in that project's environment."""
+    project = await asyncio.to_thread(locate, payload.project)
+    if project is None:
+        return _not_a_project(payload.project, "holds no pyproject.toml")
+    name = await asyncio.to_thread(declared_name, project)
+    if name is None:
+        return _not_a_project(project, "declares no [project] name")
+    try:
+        described = await describe(python(project))
+    except NotRunnable:
+        return AppInspection(apps=[], diagnostic=uv_unavailable(project))
+    except DescribeFailed as failed:
+        return AppInspection(apps=[], diagnostic=_failed(project, failed))
+    own = [
+        InspectedApp.model_validate(entry.model_dump())
+        for entry in described
+        if canonicalize_name(entry.distribution) == name
+    ]
+    if not own:
+        return AppInspection(
+            apps=[],
+            diagnostic=Diagnostic(
+                code="authoring.no_apps_declared",
+                category=ErrorCategory.DECLARATION,
+                message=f"{name!r} declares no App in the {APP_GROUP!r} entry point group",
+                details={"project": str(project), "distribution": name},
+            ),
+        )
+    return AppInspection(apps=own)
+
+
 INSPECTION_TOOLS: Sequence[Tool[StudioDeps]] = [
     Tool(
         definition=ToolDefinition(
@@ -39,5 +118,16 @@ INSPECTION_TOOLS: Sequence[Tool[StudioDeps]] = [
             output_model=FrameworkDescription,
         ),
         handler=inspect_framework,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="inspect_app",
+            description=(
+                "Describe the Apps a source project declares, read in the project's own environment"
+            ),
+            input_model=InspectRequest,
+            output_model=AppInspection,
+        ),
+        handler=inspect_app,
     ),
 ]

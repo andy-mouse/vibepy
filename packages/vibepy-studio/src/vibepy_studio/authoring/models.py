@@ -19,7 +19,8 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory
-from vibepy_studio.models import Diagnostic
+from vibepy_studio.internals.processes import ChildFailure
+from vibepy_studio.models import Diagnostic, category
 
 
 class ErrorCode(BaseModel):
@@ -97,3 +98,13 @@ class Invocation(BaseModel):
 
     output: dict[str, object] | None = None
     diagnostic: Diagnostic | None = None
+
+
+def diagnostic_of(reported: ChildFailure, /, **details: str) -> Diagnostic:
+    """Carry a failure a child reported, with its own code and category, plus `details`."""
+    return Diagnostic(
+        code=reported.code,
+        category=category(reported.category),
+        message=reported.message,
+        details={**details, **reported.details},
+    )
