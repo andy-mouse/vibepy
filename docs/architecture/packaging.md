@@ -58,7 +58,12 @@ class AppRef:
 def discover_apps(*, path: Sequence[Path] | None = None) -> tuple[AppRef, ...]: ...
 
 def describe_app(ref: AppRef, /) -> AppDescription: ...
+
+def load_app(app_name: str, /) -> AppEntrypoint: ...
 ```
+
+`load_app` imports by name in the running interpreter; it is what `serve` and `invoke` call, and
+a host reaches it only through them.
 
 `discover_apps` reads metadata. An `AppRef` carries where an App is declared and no imported
 object, and `path` points the search at an environment other than the running interpreter's.
@@ -112,8 +117,25 @@ error for every failure it reports, and a window that will not open reports itse
 so this process's standard error carries one such object for any failure of starting. See
 `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
-Both commands exist for one reason. Reading a declaration and running one both import, and an
+All three commands exist for one reason. Reading a declaration and running one both import, and an
 import belongs on the App's side of a process boundary.
+
+## Invoking one Tool
+
+```text
+python -m vibepy_core.invoke <app-name> <tool-name>
+```
+
+Run with an App environment's own interpreter, it opens the channel-neutral invocation window
+once, invokes one Tool through `ToolRuntime`, and closes the window. Standard input carries one
+JSON object of `config` and `input`; standard output receives the Tool's output as one JSON
+object. This is how a host verifies that a Tool behaves without importing the App, and why the
+verification runs the same path both channels run.
+
+All three commands report a failure the same way: one line of `code`, `category`, `message` and
+`details` on standard error and exit 1, produced by `report_line` in `vibepy_core.errors`. A
+lifespan or handler that raises is reported as `app.unhandled`, as ADR-030 has a window report its
+own failure.
 
 ## What an environment holds
 
@@ -127,9 +149,10 @@ alone holds neither NiceGUI nor FastAPI. It does not hold *nothing* of the web: 
 SDK requires of itself is that SDK's own declaration and is not narrowed here, and MCP requires
 starlette and uvicorn.
 
-What an App declares is what it offers rather than what it imports today. The Hub declares
-`[web]` because it is consumed through a Page (`docs/roadmap.md` M11), and declaring a channel
-before its Pages exist is a statement about the App, not a guarantee about its imports.
+What an App declares is what it offers rather than what it imports today. Studio declares `[web]`
+because its consumption role is a Page (`docs/roadmap.md` M11); its authoring role is Tools and
+needs no channel of its own, and declaring a channel before its Pages exist is a statement about
+the App, not a guarantee about its imports.
 
 ## The isolation invariant
 

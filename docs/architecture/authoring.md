@@ -27,28 +27,43 @@ The framework should provide deterministic feedback surfaces for agents:
 
 Diagnostics should be machine-readable whenever practical.
 
-## Authoring core before Authoring MCP
+## Authoring Core
 
-Authoring semantics should exist as a channel-neutral Python service/API before being exposed through MCP.
+Authoring is the Agent channel of Studio, the platform-tier App that also carries consumption; see
+`docs/decisions/ADR-032-authoring-is-studios-agent-channel.md`. Its capabilities are Tools, so
+they are channel-neutral like every Tool and reach an agent through MCP as any App's Tools do.
 
-Conceptual capabilities:
+The App being authored is a source project: a directory holding a `pyproject.toml`, with no wheel
+and no installation. Studio never imports it. It runs the framework's own commands in the
+project's environment — `uv run --project <dir> python -m vibepy_core.describe|invoke` — and
+reads what they write; `docs/architecture/packaging.md` owns those commands. The Apps a project
+answers for are those its `[project].name` declares.
 
-- inspect_framework
-- inspect_app
-- validate_app
-- validate_package
-- invoke_tool
-- run_conformance_tests
-- get_app_errors
-- get_runtime_logs
-- package_app
+| Tool | Answers |
+| --- | --- |
+| `inspect_framework` | what `vibepy_core` asserts about itself: version, entry point group, channel extras, error catalogue. Read by import; carries no documentation |
+| `inspect_app` | the project's Apps with every Tool schema, Page and configuration schema — or the framework's own diagnostic when the declaration will not load |
+| `invoke_tool` | one Tool of one App, invoked once through the framework's invocation window, with configuration supplied by the caller |
 
-Installing, starting and stopping an App are not authoring capabilities. They belong to the
-package layer, which declares them as Tools of its own; see `docs/architecture/lifecycle.md`.
+Inspection and validation are one Tool: what the framework validates today is that a declaration
+loads, and that is the failure path of describing. A failure the project's environment reports
+travels with its own code and category; authoring's own diagnostics are the `authoring.*`
+vocabulary that `vibepy_studio/authoring/models.py` defines.
+
+Studio keeps no authoring state. The Web channel of a project is opened by the agent with
+`python -m vibepy_core.serve` under `uv run`; the Agent channel's server command is
+`docs/roadmap.md` M13's.
+
+| Conceptual capability | Where it lives |
+| --- | --- |
+| inspect_framework, inspect_app, validate_app, invoke_tool | Studio, M12 (`validate_app` is `inspect_app`'s failure path until M16) |
+| validate_package, package_app | `uv build`, the agent's own; M9's `describe` reads the result |
+| run_conformance_tests | M16 |
+| get_app_errors, get_runtime_logs | M15 |
 
 ## Authoring MCP
 
-Authoring MCP is an adapter over the Authoring core.
+Authoring MCP is Studio's Agent channel served over MCP (`docs/roadmap.md` M13).
 
 It should not duplicate Codex's native file/code editing capabilities.
 
