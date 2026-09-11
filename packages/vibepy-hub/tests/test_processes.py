@@ -93,6 +93,38 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
     await processes.aclose()
 
 
+async def _who_holds(port: int, child_pid: int, /) -> str:
+    """Diagnostic for CI: which process still answers on a killed child's port."""
+    if sys.platform == "win32":
+        commands = [
+            ["netstat", "-ano"],
+            ["tasklist", "/FI", "IMAGENAME eq python.exe", "/V"],
+            [
+                "wmic",
+                "process",
+                "where",
+                "name='python.exe'",
+                "get",
+                "ProcessId,ParentProcessId,CommandLine",
+            ],
+        ]
+    else:
+        commands = [["lsof", "-nP", "-i", f":{port}"], ["ps", "-ef"]]
+    parts = [
+        f"port {port} still answers; killed child pid {child_pid}; sys.executable {sys.executable}"
+    ]
+    for command in commands:
+        proc = await asyncio.create_subprocess_exec(
+            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
+        )
+        out, _ = await proc.communicate()
+        text = out.decode(errors="replace")
+        if command[0] == "netstat":
+            text = "\n".join(line for line in text.splitlines() if f":{port}" in line)
+        parts.append(f"$ {' '.join(command)}\n{text}")
+    return "\n\n".join(parts)
+
+
 @pytest.mark.integration
 async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     """`aclose` is what `entry.py` promises: a window leaves no child behind.
@@ -110,12 +142,16 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
         port=port,
     )
     assert processes.running("todo-app") is True
+    child = await _owned_once_it_exists(processes, "todo-app")
 
     await processes.aclose()
 
     assert processes.running("todo-app") is False
-    with pytest.raises(OSError):
+    try:
         await asyncio.open_connection("127.0.0.1", port)
+    except OSError:
+        return
+    pytest.fail(await _who_holds(port, child.pid))
 
 
 @pytest.mark.integration
