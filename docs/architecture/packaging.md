@@ -136,9 +136,9 @@ non-ASCII value never meets the platform default encoding of a pipe on Windows â
 commands rely on.
 
 All three commands report a failure the same way: one line of `code`, `category`, `message` and
-`details` on standard error and exit 1, produced by `report_line` in `vibepy_core.errors`. A
-lifespan or handler that raises is reported as `app.unhandled`, as ADR-030 has a window report its
-own failure.
+`details` on standard error and exit 1, written by `report`, shaped by `report_line` and read back
+by `read_report_line`, all in `vibepy_core.errors`. A lifespan or handler that raises is reported
+as `app.unhandled`, as ADR-030 has a window report its own failure.
 
 ## What an environment holds
 
