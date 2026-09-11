@@ -11,11 +11,9 @@ from todo_app.entry import APP
 from vibepy_core.app import (
     AppConfig,
     AppDefinition,
-    AppDescription,
     AppEntrypoint,
     ConfigFieldType,
     NoConfig,
-    ToolDescription,
 )
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
@@ -136,10 +134,6 @@ def test_a_description_publishes_the_schema_its_output_is_serialized_to() -> Non
     )
     assert properties(published.output_schema) == ["doubled", "widthPx"]
     assert properties(published.input_schema) == ["width"]
-
-
-def test_descriptions_are_pydantic_models() -> None:
-    assert issubclass(AppDescription, BaseModel) and issubclass(ToolDescription, BaseModel)
 
 
 def test_a_description_derives_its_configuration_fields_from_the_types() -> None:

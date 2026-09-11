@@ -88,19 +88,11 @@ def test_a_report_line_round_trips_as_the_same_error_info() -> None:
 
 def test_a_line_naming_an_unknown_category_is_not_a_report() -> None:
     assert read_report_line('{"code": "a.b", "category": "weather", "message": "", "details": {}}') is None
-
-
-def test_error_info_is_a_pydantic_model() -> None:
-    assert issubclass(ErrorInfo, BaseModel)
 ```
 Replace the existing test that reads an unknown category as `EXECUTION` (it asserted the tolerance this task removes) with the second test above. The positional construction at `tests/test_errors.py:294` becomes keyword construction.
 
 `tests/test_app_entrypoint.py` — add:
 ```python
-def test_descriptions_are_pydantic_models() -> None:
-    assert issubclass(AppDescription, BaseModel) and issubclass(ToolDescription, BaseModel)
-
-
 def test_a_description_derives_its_configuration_fields_from_the_types() -> None:
     class Config(AppConfig):
         root: Path

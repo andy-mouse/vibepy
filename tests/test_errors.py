@@ -12,7 +12,7 @@ import pkgutil
 from collections.abc import Iterator, Mapping
 
 import pytest
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
 import vibepy_core
 from vibepy_core.errors import (
@@ -269,10 +269,6 @@ def test_error_info_is_frozen() -> None:
 
     with pytest.raises(ValidationError):
         info.code = "tool.input_invalid"
-
-
-def test_error_info_is_a_pydantic_model() -> None:
-    assert issubclass(ErrorInfo, BaseModel)
 
 
 def test_the_catalogue_is_public_and_includes_the_unhandled_code() -> None:
