@@ -19,10 +19,10 @@ from contextlib import asynccontextmanager
 from mcp import types
 from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
-from pydantic import BaseModel
 
 from vibepy_core.adapters.mcp.projection import to_mcp_tool
 from vibepy_core.app.composition import Lifespan, tool_runtime_for
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import (
     ToolInputValidationError,
@@ -63,7 +63,7 @@ def _failure(error: Exception) -> types.CallToolResult:
     )
 
 
-def build_mcp_server[DepsT, ConfigT: BaseModel](
+def build_mcp_server[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,

@@ -2,6 +2,7 @@
 
 from vibepy_core.app import (
     APP_GROUP,
+    AppConfig,
     AppDefinition,
     AppDescription,
     AppEntrypoint,
@@ -12,6 +13,7 @@ from vibepy_core.app import (
     ToolDescription,
     describe_app,
     discover_apps,
+    environment_for,
     load_app,
     page_runtime_for,
     tool_runtime_for,
@@ -61,6 +63,7 @@ from vibepy_core.tool import (
 __all__ = [
     "APP_GROUP",
     "ERROR_CATALOG",
+    "AppConfig",
     "AppConfigInvalidError",
     "AppDefinition",
     "AppDescription",
@@ -101,6 +104,7 @@ __all__ = [
     "VibepyError",
     "describe_app",
     "discover_apps",
+    "environment_for",
     "load_app",
     "page_runtime_for",
     "read_report_line",

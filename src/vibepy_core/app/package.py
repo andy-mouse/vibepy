@@ -13,8 +13,7 @@ from importlib.metadata import EntryPoint, distributions
 from pathlib import Path
 from typing import TypeGuard
 
-from pydantic import BaseModel
-
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppDescription, AppEntrypoint
 from vibepy_core.app.group import APP_GROUP
 from vibepy_core.errors import (
@@ -60,7 +59,7 @@ def discover_apps(*, path: Sequence[Path] | None = None) -> tuple[AppRef, ...]:
     return tuple(sorted(refs, key=lambda ref: (ref.app_name, ref.distribution)))
 
 
-def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:
+def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, AppConfig]]:
     """Whether what a reference resolved to is a composition root.
 
     A runtime check cannot see type arguments, and this module never constructs
@@ -70,7 +69,7 @@ def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseMode
     return isinstance(value, AppEntrypoint)
 
 
-def _load(ref: AppRef, /) -> AppEntrypoint[object, BaseModel]:
+def _load(ref: AppRef, /) -> AppEntrypoint[object, AppConfig]:
     """Import one declared entrypoint and check it is one."""
     reference = f"{ref.module}:{ref.attr}"
     entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)
@@ -92,7 +91,7 @@ def describe_app(ref: AppRef, /) -> AppDescription:
     return _load(ref).describe()
 
 
-def load_app(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
+def load_app(app_name: str, /) -> AppEntrypoint[object, AppConfig]:
     """Load the App this interpreter's environment declares under `app_name`.
 
     This imports, so it belongs in the App's own environment: `serve` and

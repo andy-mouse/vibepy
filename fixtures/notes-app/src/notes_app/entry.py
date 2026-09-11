@@ -15,10 +15,10 @@ from contextlib import asynccontextmanager
 
 from pydantic import BaseModel, SecretStr
 
-from vibepy_core import AppDefinition, AppEntrypoint, Tool, ToolContext, ToolDefinition
+from vibepy_core import AppConfig, AppDefinition, AppEntrypoint, Tool, ToolContext, ToolDefinition
 
 
-class NotesConfig(BaseModel):
+class NotesConfig(AppConfig):
     """What the Notes App requires of its host."""
 
     api_base_url: str

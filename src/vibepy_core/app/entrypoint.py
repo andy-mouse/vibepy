@@ -3,9 +3,10 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
 
-from pydantic import BaseModel, JsonValue
+from pydantic import JsonValue
 
 from vibepy_core.app.composition import Lifespan
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 
 
@@ -45,7 +46,7 @@ class AppDescription:
 
 
 @dataclass(frozen=True)
-class AppEntrypoint[DepsT, ConfigT: BaseModel]:
+class AppEntrypoint[DepsT, ConfigT: AppConfig]:
     """What a package names: one definition and the lifespan that resources it."""
 
     definition: AppDefinition[DepsT, ConfigT]

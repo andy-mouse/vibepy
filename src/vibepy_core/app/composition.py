@@ -11,8 +11,9 @@ declarations alone, so they are made once, before the resource is acquired.
 from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
-from pydantic import BaseModel, ValidationError
+from pydantic import ValidationError
 
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import (
     AppConfigInvalidError,
@@ -31,7 +32,7 @@ It receives the App's validated configuration and nothing else.
 """
 
 
-def tool_registry_for[DepsT, ConfigT: BaseModel](
+def tool_registry_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> ToolRegistry[DepsT]:
     """Fill a ToolRegistry from declarations. Reads no resource.
@@ -50,7 +51,7 @@ def tool_registry_for[DepsT, ConfigT: BaseModel](
     return registry
 
 
-def page_registry_for[DepsT, ConfigT: BaseModel](
+def page_registry_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> PageRegistry:
     """Fill a PageRegistry from declarations. Reads no resource.
@@ -70,23 +71,24 @@ def page_registry_for[DepsT, ConfigT: BaseModel](
     return registry
 
 
-def _validated[DepsT, ConfigT: BaseModel](
+def _validated[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT], raw: Mapping[str, object], /
 ) -> ConfigT:
-    """Validate raw configuration against what the App declared.
+    """Instantiate the App's configuration from explicit values and the environment.
 
-    Raised before a lifespan is entered, so a window that cannot run acquires
-    nothing.
+    Explicit values stand above the environment field by field, in the
+    library's documented order. Raised before a lifespan is entered, so a
+    window that cannot run acquires nothing.
     """
     try:
-        return definition.config.model_validate(dict(raw))
+        return definition.config(**raw)
     except ValidationError as error:
         fields = [".".join(str(part) for part in entry["loc"]) for entry in error.errors()]
         raise AppConfigInvalidError(definition.app_id, fields) from error
 
 
 @asynccontextmanager
-async def tool_runtime_for[DepsT, ConfigT: BaseModel](
+async def tool_runtime_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,
@@ -109,7 +111,7 @@ async def tool_runtime_for[DepsT, ConfigT: BaseModel](
 
 
 @asynccontextmanager
-async def page_runtime_for[DepsT, ConfigT: BaseModel](
+async def page_runtime_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,

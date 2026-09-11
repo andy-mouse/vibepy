@@ -16,6 +16,7 @@ from collections.abc import Sequence
 from pydantic import BaseModel, ValidationError
 
 from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppEntrypoint
 from vibepy_core.app.package import load_app
 from vibepy_core.errors import (
@@ -37,7 +38,7 @@ class _Request(BaseModel):
 
 
 async def _invoke(
-    entrypoint: AppEntrypoint[object, BaseModel], tool_name: str, request: _Request, /
+    entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: _Request, /
 ) -> BaseModel:
     """Open the window, invoke once, close the window."""
     async with tool_runtime_for(

@@ -3,22 +3,15 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from pydantic import BaseModel
-
+from vibepy_core.app.config import AppConfig, NoConfig
 from vibepy_core.page.model import Page
 from vibepy_core.tool.runtime import Tool
 
-
-class NoConfig(BaseModel):
-    """The configuration of an App that requires nothing of its host.
-
-    Declared explicitly rather than defaulted, so that one validation path serves
-    every App and the framework never guesses that an App needs nothing.
-    """
+__all__ = ["AppConfig", "AppDefinition", "NoConfig"]
 
 
 @dataclass(frozen=True)
-class AppDefinition[DepsT, ConfigT: BaseModel]:
+class AppDefinition[DepsT, ConfigT: AppConfig]:
     """Everything a channel needs to know about an App without running it.
 
     ``DepsT`` is the app's own type for its application-scoped resource. The
@@ -28,9 +21,9 @@ class AppDefinition[DepsT, ConfigT: BaseModel]:
 
     An App whose Tools need no resource declares ``AppDefinition[None, ...]``.
 
-    ``config`` is the opposite kind of type: one the framework validates against
-    and projects. It is what this App requires of its host, and it is readable
-    without acquiring anything.
+    ``config`` is the opposite kind of type: an `AppConfig` subclass the
+    framework instantiates and projects. It is what this App requires of its
+    host, and it is readable without acquiring anything.
     """
 
     app_id: str

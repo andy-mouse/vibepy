@@ -12,9 +12,10 @@ import sys
 from collections.abc import Mapping, Sequence
 
 import uvicorn
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.adapters.nicegui import build_web_app
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppEntrypoint
 from vibepy_core.app.package import load_app
 from vibepy_core.errors import (
@@ -66,7 +67,7 @@ one JSON object and a reader of this process's standard error parses it as such.
 
 
 def _serve(
-    entrypoint: AppEntrypoint[object, BaseModel], config: Mapping[str, object], port: int, /
+    entrypoint: AppEntrypoint[object, AppConfig], config: Mapping[str, object], port: int, /
 ) -> None:
     """Serve one App for as long as its window is open."""
     served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)

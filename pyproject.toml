@@ -5,6 +5,7 @@ description = "Agent-native application framework exposing Tools through Web and
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9",
+    "pydantic-settings>=2.15",
 ]
 
 [project.optional-dependencies]

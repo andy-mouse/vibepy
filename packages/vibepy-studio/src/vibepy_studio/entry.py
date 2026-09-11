@@ -10,9 +10,9 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import Field
 
-from vibepy_core import AppDefinition, AppEntrypoint
+from vibepy_core import AppConfig, AppDefinition, AppEntrypoint
 from vibepy_studio.authoring.tools import AUTHORING_TOOLS
 from vibepy_studio.consumption.internals import write_install_config
 from vibepy_studio.consumption.pages.board import BOARD
@@ -22,7 +22,7 @@ from vibepy_studio.internals import Processes, StudioDeps
 logger = logging.getLogger(__name__)
 
 
-class StudioConfig(BaseModel):
+class StudioConfig(AppConfig):
     """What Studio requires of its host.
 
     The root is declared rather than assumed, so a test supplies a temporary
