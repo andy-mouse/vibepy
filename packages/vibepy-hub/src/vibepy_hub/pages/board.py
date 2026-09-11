@@ -40,10 +40,7 @@ STYLESHEET = Path(__file__).with_name("board.css").read_text(encoding="utf-8")
 
 EYEBROW = "App control board"
 TITLE = "Your apps"
-SUBTITLE = (
-    "Install, update, configure, and run your apps from one place. "
-    "Each app declares what it needs before it starts."
-)
+SUBTITLE = "Install, configure, and run your team's apps from one place."
 CONFIG_NOTE = (
     "Declared by the App itself. A secret is write-only: it is stored and never shown back."
 )
