@@ -9,6 +9,7 @@ runs it.
 import argparse
 import logging
 import sys
+import warnings
 from collections.abc import Mapping, Sequence
 
 import uvicorn
@@ -29,7 +30,8 @@ from vibepy_core.errors import (
 logger = logging.getLogger(__name__)
 
 _CONFIG = TypeAdapter(dict[str, object])
-"""Standard input is one JSON object of configuration, validated as such."""
+"""Standard input may carry one JSON object of configuration, the deprecated
+channel; the window reads the environment."""
 
 _LOG_CONFIG: dict[str, object] = {
     "version": 1,
@@ -78,7 +80,10 @@ def _serve(
 
 
 def main(argv: Sequence[str], /) -> int:
-    """Read configuration from standard input and serve one App.
+    """Read configuration from the environment and serve one App.
+
+    `VIBEPY_<FIELD>` per declared field. A JSON object on standard input is
+    still read as explicit values above the environment, and is deprecated.
 
     Exits 1 for a failure of the command itself: an App this environment does
     not declare, a declaration that will not load, or configuration that is not
@@ -95,6 +100,12 @@ def main(argv: Sequence[str], /) -> int:
         report(ServeConfigInvalidError())
         logger.debug("configuration on standard input was unreadable", exc_info=invalid)
         return 1
+    if config:
+        warnings.warn(
+            "Configuration on standard input is deprecated; set VIBEPY_<FIELD> variables",
+            DeprecationWarning,
+            stacklevel=1,
+        )
     try:
         entrypoint = load_app(str(parsed.app_name))
     except (

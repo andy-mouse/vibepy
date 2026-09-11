@@ -13,6 +13,8 @@ from urllib.request import urlopen
 
 import pytest
 
+from vibepy_core import environment_for
+
 
 def child_environment() -> dict[str, str]:
     """The environment a served App is entitled to.
@@ -48,18 +50,22 @@ def wait_for(url: str, process: "subprocess.Popen[bytes]", *, timeout: float = 3
     raise AssertionError(f"{url} did not answer within {timeout}s")
 
 
+def todo_environment(tmp_path: Path) -> dict[str, str]:
+    """The Todo App's configuration, as a served App reads it."""
+    return {
+        **child_environment(),
+        **environment_for({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}),
+    }
+
+
 @pytest.mark.integration
 def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
-    config = json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"})
     process = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
-        stdin=subprocess.PIPE,
-        env=child_environment(),
+        stdin=subprocess.DEVNULL,
+        env=todo_environment(tmp_path),
     )
-    assert process.stdin is not None
-    process.stdin.write(config.encode())
-    process.stdin.close()
     try:
         body = wait_for(f"http://127.0.0.1:{port}/todos", process)
     finally:
@@ -73,7 +79,7 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     """`packaging.md`: a failure writes the framework's code and message."""
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "absent", "--port", str(free_port())],
-        input=b"{}",
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
         env=child_environment(),
@@ -118,7 +124,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     """
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
-        input=b"{}",
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
         env=child_environment(),
@@ -142,10 +148,10 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
 
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "studio", "--port", str(free_port())],
-        input=json.dumps({"root": str(blocking / "root")}).encode(),
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
-        env=child_environment(),
+        env={**child_environment(), **environment_for({"root": str(blocking / "root")})},
     )
 
     assert finished.returncode != 0
@@ -168,3 +174,26 @@ def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> No
     reported = _reported(finished.stderr)
     assert reported["code"] == "serve.config_invalid"
     assert reported["category"] == "caller"
+
+
+@pytest.mark.integration
+def test_configuration_on_standard_input_still_works_and_is_deprecated(tmp_path: Path) -> None:
+    port = free_port()
+    process = subprocess.Popen(
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=child_environment(),
+    )
+    assert process.stdin is not None and process.stderr is not None
+    process.stdin.write(
+        json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}).encode()
+    )
+    process.stdin.close()
+    try:
+        body = wait_for(f"http://127.0.0.1:{port}/todos", process)
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+    assert "<html" in body.lower()
+    assert "DeprecationWarning" in process.stderr.read().decode(errors="replace")
