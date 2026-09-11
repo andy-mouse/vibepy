@@ -51,6 +51,115 @@
 
 ---
 
+### Task 0: A shape that crosses a process boundary is one pydantic model, owned by core
+
+Done first, so that every field M14 adds lands on a derived surface once, instead of on three hand-written copies that a later task would then remove.
+
+**Files:**
+- Modify: `src/vibepy_core/errors.py` (`ErrorInfo` → `BaseModel`; delete `_Report`, `_REPORT`; `report_line`, `read_report_line`), `src/vibepy_core/adapters/mcp/server.py` (`_payload`), `src/vibepy_core/app/entrypoint.py` (`ToolDescription`, `PageDescription`, `AppDescription` → `BaseModel`), `src/vibepy_core/app/package.py` (new `DescribedApp`), `src/vibepy_core/describe.py`, `src/vibepy_core/app/__init__.py`, `src/vibepy_core/__init__.py`
+- Modify (Studio, delete the copies): `packages/vibepy-studio/src/vibepy_studio/models.py` (`Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`, `diagnostic_of`), `internals/describing.py`, `authoring/models.py`, `operating/models.py`, `operating/pages/board.py`, `operating/pages/presentation.py`, `operating/tools/{configuration,installation,packages,runtime}.py`
+- Test: `tests/test_errors.py`, `tests/test_describe_command.py`, `tests/test_app_entrypoint.py`, `packages/vibepy-studio/tests/test_installation.py`, `test_presentation.py`, `tests_support.py`
+
+**Interfaces:**
+- Produces:
+  - `class ErrorInfo(BaseModel): code: str; category: ErrorCategory; message: str; details: dict[str, str] = {}` (frozen: `model_config = ConfigDict(frozen=True)`)
+  - `report_line(info) -> str` = `info.model_dump_json() + "\n"`; `read_report_line(line) -> ErrorInfo | None` = `ErrorInfo.model_validate_json(line)` or `None` on `ValidationError`
+  - `class ToolDescription(BaseModel): name, description, input_schema: dict[str, JsonValue], output_schema: dict[str, JsonValue]` (Task 2 adds `read_only`, `channels`, `required_roles`)
+  - `class PageDescription(BaseModel): name, route, title`
+  - `class AppDescription(BaseModel): app_id, name, version, config_schema: dict[str, JsonValue], tools: list[ToolDescription], pages: list[PageDescription]`
+  - `class DescribedApp(AppDescription): app_name: str; distribution: str; distribution_version: str` — the `describe` command's per-App entry, in `vibepy_core/app/package.py` beside `AppRef`, built by `described(ref: AppRef) -> DescribedApp`
+  - Studio imports `ErrorInfo` where it had `Diagnostic`, `DescribedApp` where it had `Described`.
+
+- [ ] **Step 1: Write the failing tests**
+
+`tests/test_errors.py` — add:
+```python
+def test_a_report_line_round_trips_as_the_same_error_info() -> None:
+    info = to_error_info(ToolNotFoundError("x"))
+    assert read_report_line(report_line(info)) == info
+
+
+def test_a_line_naming_an_unknown_category_is_not_a_report() -> None:
+    assert read_report_line('{"code": "a.b", "category": "weather", "message": "", "details": {}}') is None
+
+
+def test_error_info_is_a_pydantic_model() -> None:
+    assert issubclass(ErrorInfo, BaseModel)
+```
+Replace the existing test that reads an unknown category as `EXECUTION` (it asserted the tolerance this task removes) with the second test above. The positional construction at `tests/test_errors.py:294` becomes keyword construction.
+
+`tests/test_app_entrypoint.py` — add:
+```python
+def test_descriptions_are_pydantic_models() -> None:
+    assert issubclass(AppDescription, BaseModel) and issubclass(ToolDescription, BaseModel)
+```
+
+`tests/test_describe_command.py` — replace the local `Described` TypedDict and `described_app` helper with `DescribedApp.model_validate` over each entry of `json.loads(result.stdout)`; assertions keep their meaning (`app_name`, `distribution`, `distribution_version`, `app_id`, tool names, page routes).
+
+- [ ] **Step 2: Run** the three files — FAIL.
+
+- [ ] **Step 3: Implement core**
+
+`errors.py`:
+```python
+class ErrorInfo(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    code: str
+    category: ErrorCategory
+    message: str
+    details: dict[str, str] = {}
+
+
+def report_line(info: ErrorInfo, /) -> str:
+    return info.model_dump_json() + "\n"
+
+
+def read_report_line(line: str, /) -> ErrorInfo | None:
+    try:
+        return ErrorInfo.model_validate_json(line)
+    except ValidationError:
+        return None
+```
+Delete `_Report`, `_REPORT` and the `TypeAdapter` import. `to_error_info` passes `details=dict(error.details())`.
+
+`adapters/mcp/server.py`: `_payload(error) -> dict[str, object]` returns `to_error_info(error).model_dump(mode="json")`.
+
+`app/entrypoint.py`: the three descriptions become `BaseModel`s with the fields above (`tuple[...]` → `list[...]`, `Mapping` → `dict`); `describe()` constructs them by keyword as today.
+
+`app/package.py`:
+```python
+class DescribedApp(AppDescription):
+    """One entry of what `describe` writes: the declaration's identity, and its description."""
+
+    app_name: str
+    distribution: str
+    distribution_version: str
+
+
+def described(ref: AppRef, /) -> DescribedApp:
+    """Load one declared entrypoint and describe it with its identity."""
+    description = _load(ref).describe()
+    return DescribedApp(
+        app_name=ref.app_name,
+        distribution=ref.distribution,
+        distribution_version=ref.distribution_version,
+        **description.model_dump(),
+    )
+```
+Keep `describe_app(ref) -> AppDescription` as it is (Studio and tests use it). `describe.py` writes `TypeAdapter(list[DescribedApp]).dump_json([described(ref) for ref in discover_apps()])` — one `TypeAdapter` for the list, which is the documented use. Export `DescribedApp`, `described` from `vibepy_core.app` and `vibepy_core`.
+
+- [ ] **Step 4: Implement Studio**
+- `internals/describing.py`: `_DESCRIBED = TypeAdapter(list[DescribedApp])`; every `Described` annotation → `DescribedApp`.
+- `models.py`: delete `Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`. `diagnostic_of(reported: ErrorInfo, /, **details) -> ErrorInfo` becomes `reported.model_copy(update={"details": {**details, **reported.details}})`; keep it only if a caller merges details, else delete and use the `ErrorInfo` directly.
+- Every `Diagnostic(` construction (`authoring/models.py`, `operating/models.py`, `operating/tools/*`) → `ErrorInfo(`; every `Diagnostic` annotation → `ErrorInfo`; `board.py`/`presentation.py` read the same four fields.
+- `authoring/models.py`: `AppInspection.apps: list[DescribedApp]`.
+
+- [ ] **Step 5: Run** `make lint typecheck test` — PASS. (Studio's integration tests exercise `describe` and the report path end to end.)
+- [ ] **Step 6: Commit** — `A shape that crosses a process boundary is one pydantic model: ErrorInfo and the App description are written and read as the same type in core, and Studio's copies are gone`.
+
+---
+
 ### Task 1: `Principal` and `Channel`
 
 **Files:**
@@ -202,8 +311,18 @@ class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
 
 Do **not** set `channels` on Studio Tools yet (Task 9).
 
-- [ ] **Step 5: Run** `uv run pytest -q -m "not integration"` then `uv run pyright` — PASS. (Studio's integration tests still pass; nothing reads the new fields yet.)
-- [ ] **Step 6: Commit** — `A Tool declares whether it reads, where it is exposed and what roles it requires`.
+- [ ] **Step 5: Describe the new fields.** `ToolDescription` (core, `app/entrypoint.py`) gains `read_only: bool`, `channels: list[Channel]`, `required_roles: list[str]`; `describe()` fills them from the declaration (`sorted(definition.channels)`, `sorted(definition.required_roles)`). Test, in `tests/test_app_entrypoint.py`:
+
+```python
+def test_a_description_carries_a_tools_side_effects_exposure_and_roles() -> None:
+    described = entrypoint_with(ToolDefinition(..., read_only=True, channels=frozenset({Channel.AGENT}), required_roles=frozenset({"manager"}))).describe()
+    tool = described.tools[0]
+    assert (tool.read_only, tool.channels, tool.required_roles) == (True, [Channel.AGENT], ["manager"])
+```
+(use the file's existing entrypoint-building helper for `entrypoint_with`). Because Task 0 made the description the one model both `describe` and Studio use, nothing else changes for these fields to reach an agent through `inspect_app`.
+
+- [ ] **Step 6: Run** `uv run pytest -q -m "not integration"` then `uv run pyright` — PASS.
+- [ ] **Step 7: Commit** — `A Tool declares whether it reads, where it is exposed and what roles it requires, and its description says so`.
 
 ---
 
@@ -1044,7 +1163,7 @@ from contextlib import asynccontextmanager
 from pydantic import BaseModel
 
 from vibepy_core import (
-    AppDefinition, AppEntrypoint, ErrorCategory, NoConfig, Tool, ToolContext, ToolDefinition,
+    AppDefinition, AppEntrypoint, ErrorCategory, ErrorInfo, NoConfig, Tool, ToolContext, ToolDefinition,
 )
 
 
@@ -1053,15 +1172,6 @@ class Expense(BaseModel):
     submitter: str
     amount: int
     status: str
-
-
-class Failure(BaseModel):
-    """An expected failure, as data, in ErrorInfo's shape (ADR-029)."""
-
-    code: str
-    category: ErrorCategory
-    message: str
-    details: dict[str, str]
 
 
 class Submission(BaseModel):
@@ -1074,7 +1184,7 @@ class Approval(BaseModel):
 
 class Decision(BaseModel):
     expense: Expense | None = None
-    failure: Failure | None = None
+    failure: ErrorInfo | None = None
 
 
 class Nothing(BaseModel):
@@ -1097,10 +1207,10 @@ class Ledger:
     def approve(self, approver: str, expense_id: int) -> Decision:
         row = self._rows.get(expense_id)
         if row is None:
-            return Decision(failure=Failure(code="expense.not_found", category=ErrorCategory.CALLER,
+            return Decision(failure=ErrorInfo(code="expense.not_found", category=ErrorCategory.CALLER,
                                             message=f"No expense {expense_id}", details={"id": str(expense_id)}))
         if row.submitter == approver:
-            return Decision(failure=Failure(code="expense.self_approval", category=ErrorCategory.CALLER,
+            return Decision(failure=ErrorInfo(code="expense.self_approval", category=ErrorCategory.CALLER,
                                             message="An expense is not approved by its submitter",
                                             details={"id": str(expense_id), "submitter": approver}))
         approved = row.model_copy(update={"status": "approved"})
@@ -1170,6 +1280,7 @@ Format with `uv run ruff format`. `pyproject.toml`: add `"vibepy-expense"` to `[
 - [ ] **Step 4: `adapters.md`.** MCP: `list_tools` projects Tools whose `channels` contains `AGENT`, `readOnlyHint` for `read_only`; `build_mcp_server(..., principal=)`; a hidden Tool called by name is `tool.forbidden` as an `isError` result. NiceGUI: `build_web_app(..., principal=)`, `register_pages(..., principal=)`, the builder renders as that principal.
 - [ ] **Step 5: `packaging.md`.** "Invoking one Tool": the new arguments, that the command stands in for a host and is told its channel and principal, and the trust model sentence. "Running a channel"/"Opening the Agent channel": `serve` invokes as `operator`, `mcp` as `agent`, both without roles.
 - [ ] **Step 6: `authoring.md`.** `invoke_tool` forwards the agent's channel and principal; the capability table notes which Tools are on which channel; the sentence deferring exposure to M14 becomes the outcome.
+- [ ] **Step 6b: `errors.md` and `packaging.md`.** `ErrorInfo` is a pydantic model, the one form every writer dumps and every reader validates, an App's expected failure included (ADR-029's "same fields" becomes "the same type"); `describe` writes `DescribedApp` entries. In `tool-model.md`, one sentence where ToolDefinition is described: boundary shapes are pydantic, in-process declarations are dataclasses.
 - [ ] **Step 7: ADR-034**, Nygard format, `Status: Accepted`. Context: nothing refuses; Studio's operating Tools reach agents; neither channel authenticates; MCP's authorization is HTTP-only and stdio trusts its launcher; OWASP's two levels. Decision: the framework decides operation-level authorization in ToolRuntime, from the declaration (`channels`, `required_roles`), the principal and the channel, before input validation; the App's policy runs after and can only refuse; record-level rules are the handler's. Alternatives considered: authorizing after input validation (leaks schema, invites record-level checks into the framework); exposure as a policy check with no declaration (discovery would still list the Tool); an App-level list of Tools per channel (a name written twice); a chain of policies (no need yet, `runtime.md`'s rule); a principal bound to the window (undone by the first login). Consequences: hosts name principals; `kind`'s absence; `read_only` as the vocabulary and its projection; what changes when authentication arrives.
 - [ ] **Step 8: Docstring pass.** Every new public class/function/module from Tasks 1–10 gets a docstring in the repository's voice (a sentence on what it is, then why it is shaped so, citing the document that owns the rule). Update `ToolRuntime.invoke`'s Raises to include `ToolForbiddenError`.
 - [ ] **Step 9: Gate.** `make lint typecheck test` — PASS. Paste the summary line of each into the commit message body.
@@ -1181,6 +1292,6 @@ Format with `uv run ruff format`. `pyproject.toml`: add `"vibepy-expense"` to `[
 
 Two review rounds (branch review, then cross-check against the spec), the structural audit, then `--no-ff` merge into `main`, delete `docs/milestones/M14/` on integration, and do not push until the owner says so.
 
-## Open item for the owner
+## Resolved during planning
 
-`describe` / `inspect_app` do not yet report `read_only`, `channels` or `required_roles`; an agent inspecting an App cannot see its exposure. The spec is silent. Decide whether `ToolDescription` grows these fields in M14 or in T4 (which reshapes that surface anyway).
+The description surface was a hand-written copy of the declaration, so M14's new fields would have been absent from what an agent sees. The owner decided (2026-09-12) to fix the cause inside M14 and first: Task 0.
