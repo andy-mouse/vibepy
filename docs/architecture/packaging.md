@@ -226,7 +226,7 @@ SDK requires of itself is that SDK's own declaration and is not narrowed here, a
 starlette and uvicorn.
 
 What an App declares is what it offers rather than what it imports today. Studio declares `[web]`
-because its consumption role is a Page (`docs/roadmap.md` M11); its authoring role is Tools and
+because its operating role is a Page (`docs/roadmap.md` M11); its authoring role is Tools and
 needs no channel of its own, and declaring a channel before its Pages exist is a statement about
 the App, not a guarantee about its imports.
 

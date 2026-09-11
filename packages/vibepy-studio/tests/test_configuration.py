@@ -7,8 +7,8 @@ from pathlib import Path
 import pytest
 
 from tests_support import studio
-from vibepy_studio.consumption.internals.state import STATE_FILE
-from vibepy_studio.consumption.models import AppListing, ConfigDescription, HeldConfig, RunningApp
+from vibepy_studio.operating.internals.state import STATE_FILE
+from vibepy_studio.operating.models import AppListing, ConfigDescription, HeldConfig, RunningApp
 
 TOKEN = "s3cret-token-value"
 

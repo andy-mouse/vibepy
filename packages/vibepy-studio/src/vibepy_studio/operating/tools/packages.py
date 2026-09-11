@@ -5,15 +5,15 @@ from pathlib import Path
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.consumption.internals import (
+from vibepy_studio.internals import StudioDeps
+from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.operating.internals import (
     candidates,
     read_state,
     readable,
     update_state,
 )
-from vibepy_studio.consumption.models import CandidateRow, SourceListing, SourcePath
-from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.operating.models import CandidateRow, SourceListing, SourcePath
 
 
 async def _listing(deps: StudioDeps, /) -> SourceListing:

@@ -15,13 +15,14 @@ from pathlib import Path
 from nicegui import ui
 
 from vibepy_core import Page, PageContext, PageDefinition
-from vibepy_studio.consumption.models import (
+from vibepy_studio.models import Diagnostic
+from vibepy_studio.operating.models import (
     AppListing,
     ConfigDescription,
     Installation,
     SourceListing,
 )
-from vibepy_studio.consumption.pages.presentation import (
+from vibepy_studio.operating.pages.presentation import (
     Action,
     RowView,
     row_view,
@@ -29,7 +30,6 @@ from vibepy_studio.consumption.pages.presentation import (
     sort_rows,
     summary,
 )
-from vibepy_studio.models import Diagnostic
 
 logger = logging.getLogger(__name__)
 

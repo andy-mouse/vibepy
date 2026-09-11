@@ -14,10 +14,10 @@ from pydantic import Field
 
 from vibepy_core import AppConfig, AppDefinition, AppEntrypoint
 from vibepy_studio.authoring.tools import AUTHORING_TOOLS
-from vibepy_studio.consumption.internals import write_install_config
-from vibepy_studio.consumption.pages.board import BOARD
-from vibepy_studio.consumption.tools import HUB_TOOLS
 from vibepy_studio.internals import Processes, StudioDeps
+from vibepy_studio.operating.internals import write_install_config
+from vibepy_studio.operating.pages.board import BOARD
+from vibepy_studio.operating.tools import HUB_TOOLS
 
 logger = logging.getLogger(__name__)
 

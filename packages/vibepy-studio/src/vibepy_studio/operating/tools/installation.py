@@ -13,7 +13,9 @@ from packaging.version import Version
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.consumption.internals import (
+from vibepy_studio.internals import StudioDeps
+from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.operating.internals import (
     Candidate,
     HubState,
     InstallFailed,
@@ -37,14 +39,12 @@ from vibepy_studio.consumption.internals import (
     write_facts,
     write_route,
 )
-from vibepy_studio.consumption.models import (
+from vibepy_studio.operating.models import (
     AppListing,
     AppName,
     AppRow,
     Installation,
 )
-from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic, Empty
 
 logger = logging.getLogger(__name__)
 

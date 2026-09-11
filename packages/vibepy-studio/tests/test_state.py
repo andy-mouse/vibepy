@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 
 from tests_support import studio
-from vibepy_studio.consumption.internals.state import STATE_FILE, HubState, read_state, write_state
-from vibepy_studio.consumption.models import HeldConfig
+from vibepy_studio.operating.internals.state import STATE_FILE, HubState, read_state, write_state
+from vibepy_studio.operating.models import HeldConfig
 
 
 @pytest.mark.apps("vibepy-notes", "vibepy-todo")

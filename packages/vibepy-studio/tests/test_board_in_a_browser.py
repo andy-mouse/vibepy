@@ -20,8 +20,8 @@ from selenium.webdriver.common.keys import Keys
 from tests_support import studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
-from vibepy_studio.consumption.pages.board import REFRESH_SECONDS
 from vibepy_studio.entry import APP, STUDIO_APP
+from vibepy_studio.operating.pages.board import REFRESH_SECONDS
 
 GROUND = "rgb(234, 241, 241)"
 """What `board.css` paints behind the shell in light mode."""

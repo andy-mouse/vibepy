@@ -14,7 +14,6 @@ from pydantic import JsonValue
 
 from tests_support import free_port
 from vibepy_core import ErrorCategory
-from vibepy_studio.consumption.internals import interpreter
 from vibepy_studio.internals.processes import (
     AlreadyStarted,
     NotRunnable,
@@ -25,6 +24,7 @@ from vibepy_studio.internals.processes import (
     reported,
     run,
 )
+from vibepy_studio.operating.internals import interpreter
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""

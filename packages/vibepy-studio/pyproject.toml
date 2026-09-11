@@ -1,7 +1,7 @@
 [project]
 name = "vibepy-studio"
 version = "0.1.0"
-description = "The App that covers an App's whole life: consumption through its board, authoring through its Tools"
+description = "The App that covers an App's whole life: operation through its board, authoring through its Tools"
 requires-python = ">=3.12"
 dependencies = [
     "vibepy-core[web,agent]",

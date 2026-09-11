@@ -1,7 +1,7 @@
 """Reading what an environment declares, without importing any of it.
 
 `python -m vibepy_core.describe` is run with the environment's own Python and its
-output read here. The consumption role passes an installed environment's
+output read here. The operating role passes an installed environment's
 interpreter; the authoring role passes `uv run --project <dir> python`. Both get
 the whole shape the command writes.
 """

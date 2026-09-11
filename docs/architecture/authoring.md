@@ -29,7 +29,7 @@ Diagnostics should be machine-readable whenever practical.
 
 ## Authoring Core
 
-Authoring is the Agent channel of Studio, the platform-tier App that also carries consumption; see
+Authoring is the Agent channel of Studio, the platform-tier App that also carries operation; see
 `docs/decisions/ADR-032-authoring-is-studios-agent-channel.md`. Its capabilities are Tools, so
 they are channel-neutral like every Tool and reach an agent through MCP as any App's Tools do.
 

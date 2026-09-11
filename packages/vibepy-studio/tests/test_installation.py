@@ -11,15 +11,16 @@ from pydantic import SecretStr, ValidationError
 from tests_support import studio, write_wheel
 from todo_app.entry import TodoStore
 from vibepy_core.errors import ToolInputValidationError
-from vibepy_studio.consumption.internals import (
+from vibepy_studio.models import Diagnostic
+from vibepy_studio.operating.internals import (
     AppNameInvalid,
     InstallFailed,
     read_facts,
     read_state,
     remove_environment,
 )
-from vibepy_studio.consumption.internals import environment as hub_environment
-from vibepy_studio.consumption.models import (
+from vibepy_studio.operating.internals import environment as hub_environment
+from vibepy_studio.operating.models import (
     AppFacts,
     AppListing,
     AppName,
@@ -27,7 +28,6 @@ from vibepy_studio.consumption.models import (
     RunningApp,
     SourceListing,
 )
-from vibepy_studio.models import Diagnostic
 
 
 def environment(root: Path, app_name: str, /) -> Path:
@@ -316,7 +316,7 @@ async def test_a_distribution_declaring_two_apps_is_refused(
             ),
         )
 
-    monkeypatch.setattr("vibepy_studio.consumption.tools.installation.describe", describes_two)
+    monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)})
@@ -340,7 +340,7 @@ async def test_a_failed_description_leaves_no_environment_behind(
     async def refuse(env: Path, /) -> Path:
         raise InstallFailed("purelib", "the interpreter did not answer")
 
-    monkeypatch.setattr("vibepy_studio.consumption.tools.installation.purelib", refuse)
+    monkeypatch.setattr("vibepy_studio.operating.tools.installation.purelib", refuse)
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)})
@@ -419,7 +419,7 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
             ),
         )
 
-    monkeypatch.setattr("vibepy_studio.consumption.tools.installation.describe", describes_two)
+    monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)})

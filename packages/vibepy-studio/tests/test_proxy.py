@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from tests_support import first_frame, free_port, served_body, studio, traefik
-from vibepy_studio.consumption.models import RunningApp
+from vibepy_studio.operating.models import RunningApp
 
 SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 """Where NiceGUI mounts socket.io (`nicegui/nicegui.py`, `app.mount('/_nicegui_ws/', ...)`)."""

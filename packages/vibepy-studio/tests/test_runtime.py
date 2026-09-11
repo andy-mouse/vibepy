@@ -13,7 +13,7 @@ import pytest
 
 from tests_support import studio
 from vibepy_core.errors import ErrorCategory
-from vibepy_studio.consumption.models import AppListing, RunningApp
+from vibepy_studio.operating.models import AppListing, RunningApp
 
 
 @pytest.mark.apps("vibepy-todo")

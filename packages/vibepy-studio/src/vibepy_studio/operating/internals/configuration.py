@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy_studio.consumption.models import AppFacts, ConfigField
+from vibepy_studio.operating.models import AppFacts, ConfigField
 
 logger = logging.getLogger(__name__)
 

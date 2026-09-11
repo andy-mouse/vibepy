@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from tests_support import write_wheel
-from vibepy_studio.consumption.internals import candidates, readable
+from vibepy_studio.operating.internals import candidates, readable
 
 
 async def test_each_wheel_is_a_candidate_named_by_its_distribution(tmp_path: Path) -> None:
