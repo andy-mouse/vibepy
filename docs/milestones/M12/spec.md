@@ -132,6 +132,10 @@ App — through a command run in the App's own environment — with uv supplying
 uv run --project <absolute project dir> python -m vibepy_core.describe
 ```
 
+The Apps returned are those the project itself declares: the entries whose distribution is the
+project's `[project].name`. In a standalone project that is everything the command writes; in a
+workspace, where members share one environment, it is what keeps the answer about this project.
+
 Inspection and validation are one Tool. What core validates today is that a declaration loads
 (entry point resolves, is an `AppEntrypoint`, its Tools and Pages register without conflict), and
 that is exactly the failure path of describing. A separate `validate_app` arrives with M16's
@@ -233,6 +237,13 @@ library's.
 `vibepy_core/app/package.py`, exported from `vibepy_core`; `serve` and `invoke` both call it.
 Raises `AppNotDeclaredError`, `AppEntrypointUnloadableError`, `AppEntrypointInvalidError`.
 
+### `describe` reports the one shape
+
+`python -m vibepy_core.describe` writes `code` and `message` on failure; `serve` writes `code`,
+`category`, `message` and `details`. ADR-030 names one shape, and Studio now reads both commands
+with one reader, so `describe` writes the same four fields. The JSON line is produced by one
+function in `errors.py`, `report_line(info: ErrorInfo) -> str`, used by all three commands.
+
 ### `ERROR_CATALOG`
 
 `errors.py`'s private code-to-category table becomes public, `app.unhandled` included, exported
@@ -255,9 +266,8 @@ One runner, one describer and one failure reader serve both roles. Consumption's
 alone — no stdin, both streams merged — and authoring needs stdin written and stderr read apart.
 Rather than a second runner beside it, `internals/processes.py` gains
 `run(command, /, *, stdin: str | None = None) -> Completed` (return code, stdout, stderr; the
-runnable check moves with it). Every child it starts receives `child_environment()`: Studio's own
-`VIRTUAL_ENV` and `PYTHONPATH` would otherwise reach `uv run`, which reads `VIRTUAL_ENV` and would
-be told the project's environment is Studio's. `installer._run` becomes a call to it that keeps its
+runnable check moves with it). Every child it starts receives `child_environment()`, so Studio's
+own `VIRTUAL_ENV` and `PYTHONPATH` describe no child. `installer._run` becomes a call to it that keeps its
 own contract: merged streams in the `InstallFailed` message. The reader of a child's failure report —
 today `processes._Failure`/`ChildFailure` bound to a log file, with `tools/runtime._category`
 beside it — becomes one public reader of text (`ChildFailure | None`) and one `category(str)` in
@@ -273,14 +283,15 @@ One file per subject; success and failure paths of a subject share its file.
 | `tests/test_app_package.py` | `load_app`'s three failures, with `impostor_fixture` and `write_distribution` |
 | `tests/test_errors.py` | the catalogue through `ERROR_CATALOG` |
 | `packages/vibepy-studio/tests/test_inspect_framework.py` | version equals `importlib.metadata`'s; catalogue equals core's |
-| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields three Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; `fixtures/broken-app` yields `package.entrypoint_unloadable` as data; with `VIRTUAL_ENV` set to Studio's own environment the project's is still the one used |
-| `packages/vibepy-studio/tests/test_invoke_tool.py` | `create_todo` then `list_todos` against `fixtures/todo-app` returns what was created — each call its own window, state surviving in the App's store; `tool.input_invalid` and `config.invalid` as data |
+| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields three Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; a project declaring no dependencies yields `authoring.environment_failed` (its environment holds no `vibepy_core`) |
+| `packages/vibepy-studio/tests/test_invoke_tool.py` | `create_todo` then `list_todos` against `fixtures/todo-app` returns what was created — each call its own window, state surviving in the App's store; `tool.not_found`, `tool.input_invalid` and `config.invalid` arrive as data with the child's own code and category, which is the shared failure reader's proof |
 | existing Hub tests | moved under `packages/vibepy-studio/tests/`, renamed imports, same assertions |
 
-`fixtures/broken-app` is a new workspace member whose entry point names an attribute that does
-not exist. Fixtures are workspace members so that `uv run --project` resolves against the root
-environment and needs no network; a project generated under `tmp_path` would need uv to resolve
-`vibepy-core` and is not used.
+Fixture projects are workspace members, so `uv run --project` resolves them against the root
+environment and needs no network. No broken fixture is added: `uv run --project` on a member
+installs that member into the shared environment, and a member that cannot load would then reach
+`tests/test_app_distributions.py`, which walks every App the environment declares. A tmp project
+that depends on nothing exercises the environment-failure path without uv resolving anything.
 
 ## Compatibility
 
