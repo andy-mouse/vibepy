@@ -85,16 +85,23 @@ is starting and stopping that process, and no window is reached from outside its
 ### This layer's capabilities
 
 Because the layer is an App rather than a capability inside the framework, its capabilities are
-Tools, which makes them reachable from either channel and neutral between them. Eight exist, as
+Tools, which makes them reachable from either channel and neutral between them. Ten exist, as
 the Hub declares them.
 
 | Tools | What they act on |
 | --- | --- |
-| `register_package_source`, `remove_package_source` | where the Hub looks for Apps |
-| `list_apps` | what is known, what is installed, what is running |
-| `install_app`, `remove_app` | an environment of its own per App, created and destroyed |
-| `configure_app` | the values an App runs with |
+| `register_package_source`, `remove_package_source` | the one folder of wheels the Hub installs from |
+| `list_apps` | what is offered, what is installed, what is running, and what is newer |
+| `install_app`, `update_app`, `remove_app` | an environment of its own per App: created, remade at a newer version, destroyed |
+| `describe_config`, `configure_app` | the values an App runs with, read and written |
 | `start_app`, `stop_app` | the Web channel window of an installed App |
+
+An update keeps what the Hub holds for an App — its configuration values, its port, its route —
+and remakes only the environment. A running App is refused rather than restarted.
+
+The Hub's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
+`list_apps` and redraws on a timer, so what it shows is Hub Core's state rather than the last thing
+that tab did.
 
 ### How an installed App is described
 

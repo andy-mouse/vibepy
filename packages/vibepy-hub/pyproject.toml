@@ -1,7 +1,7 @@
 [project]
 name = "vibepy-hub"
 version = "0.1.0"
-description = "Headless control plane for installed Vibepy Apps"
+description = "Control plane for installed Vibepy Apps, with a board over it"
 requires-python = ">=3.12"
 dependencies = [
     "vibepy-core[web]",

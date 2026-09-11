@@ -119,10 +119,10 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
         )
     env = environment(deps.root, payload.app_name)
     if env in await environments(deps.root):
-        # What installing over an installation means is not this stage's to
-        # decide, and no milestone owns updating an App. Saying so is the whole
-        # of it: the caller removes the App and installs it again, which is two
-        # operations that already exist and mean what they say.
+        # Installing over an installation is refused rather than given a meaning
+        # of its own: `update_app` is the operation that remakes an environment
+        # while keeping what the Hub holds, and `remove_app` is the one that
+        # discards it.
         return Installation(
             app=AppRow(app_name=payload.app_name, state="installed"),
             diagnostic=Diagnostic(
@@ -229,7 +229,12 @@ async def _install_offered(deps: HubDeps, app_name: str, offered: Candidate, /) 
 
 
 async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
-    """Every App this Hub can act on, installed or merely offered."""
+    """Return every App this Hub can act on, installed or merely offered.
+
+    An installed row's `distribution_version` is the version it runs at;
+    `available_version` is set only when the source offers a different one, which
+    is what `update_app` would install.
+    """
     deps = ctx.dependencies
     rows = await _installed(deps)
     source = (await read_state(deps.root)).source
