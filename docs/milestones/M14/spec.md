@@ -29,7 +29,10 @@ From `docs/roadmap.md`, verbatim:
 | Authorization is defined for HTTP transports; a stdio implementation "SHOULD NOT follow this specification, and instead retrieve credentials from the environment" | MCP specification 2025-06-18, Authorization, Protocol Requirements |
 | Servers "MUST implement proper access controls" | MCP specification 2025-06-18, Tools, Security Considerations |
 | Access control is checked server-side, on every request, "for the specific object or functionality being accessed"; access to a type of object is not access to every object of that type | OWASP Authorization Cheat Sheet |
-| Clients "MUST consider tool annotations to be untrusted unless they come from trusted servers" | MCP specification 2025-06-18, Tools, Data Types |
+| `ToolAnnotations`: `readOnlyHint` (default false, "does not modify its environment"), `destructiveHint` (default true) and `idempotentHint` (default false) "meaningful only when `readOnlyHint == false`", `openWorldHint` (default true); all are hints, and "clients should never make tool use decisions based on ToolAnnotations received from untrusted servers" | MCP specification 2025-06-18, `schema.ts`, `ToolAnnotations` |
+| A *safe* method is one whose semantics are read-only; an *idempotent* method may be repeated with the same effect | RFC 9110, §9.2.1 and §9.2.2 |
+| Codex asks before an MCP tool call unless `readOnlyHint` is true: a tool without annotations is treated as destructive (`destructive_hint.unwrap_or(true)`); `writes` mode "prompts for tools that aren't marked read-only" | `openai/codex`, `codex-rs/core/src/mcp_tool_call.rs`, `requires_mcp_tool_approval`; Codex config reference, `mcp_servers.<id>.default_tools_approval_mode` |
+| Claude Code reads no standard annotation for permissions; it reads `_meta["anthropic/requiresUserInteraction"]` | <https://code.claude.com/docs/en/mcp> |
 
 ## Problem
 
@@ -69,16 +72,12 @@ Role-based access control is the standard split: the host asserts identity, the 
 roles an operation requires, and the framework compares the two without interpreting either. The
 framework never names a role. `id` is what a handler uses for record-level decisions ("mine").
 
-### Exposure, kind and required roles are declared on the Tool
+### Exposure, side-effect semantics and required roles are declared on the Tool
 
 ```python
 class Channel(StrEnum):
     WEB = "web"
     AGENT = "agent"
-
-class ToolKind(StrEnum):
-    QUERY = "query"
-    COMMAND = "command"
 
 @dataclass(frozen=True)
 class ToolDefinition[InputT, OutputT]:
@@ -86,7 +85,7 @@ class ToolDefinition[InputT, OutputT]:
     description: str
     input_model: type[InputT]
     output_model: type[OutputT]
-    kind: ToolKind                                       # required, no default
+    read_only: bool                                      # required, no default
     channels: frozenset[Channel] = frozenset(Channel)    # both
     required_roles: frozenset[str] = frozenset()         # anyone
 ```
@@ -95,15 +94,39 @@ The facts about a Tool sit on the Tool. A channel enumerates from the declaratio
 filtering by `channels` at the adapter is one more read of the same object, and the list an agent
 sees and the map a call resolves in cannot disagree.
 
-`kind` has no default because a default would classify every existing Tool silently. Every Tool in
-this repository is classified by hand in this milestone. `kind` is not a permission and does not
-refuse anything in M14; it is what a policy, an audit record (M15) or a confirmation flow reads.
-The MCP specification says the same of its own hints: they inform a client and secure nothing.
+`read_only` is the framework's side-effect vocabulary, and it is HTTP's before it is MCP's: RFC
+9110 classifies methods as *safe* and *idempotent*, and MCP's `readOnlyHint`/`idempotentHint` carry
+the same two notions onto Tools, "meaningful only when `readOnlyHint == false`" for the second. The
+vocabulary therefore crosses protocols without translation — a REST adapter would read the same
+field — where Query/Command, the design vocabulary `docs/roadmap.md` also names, would be
+translated at every channel. A `bool` rather than a two-valued enum because the name says all the
+enum would. `destructive` and `idempotent` are not declared: they qualify a Tool that is not
+read-only, which is the structure the specification gives them, and they join beside `read_only`
+when a milestone needs them (M20 names idempotency).
+
+`read_only` has no default because a default would classify every existing Tool silently. Every
+Tool in this repository is classified by hand in this milestone. `read_only` is not a permission
+and refuses nothing; it is what a policy, an audit record (M15) and the Agent channel's projection
+read.
 
 `channels` defaults to both because a Tool native to both channels is the premise of the
 framework, not a decision hidden in a default. `required_roles` empty means anyone.
 
-`Channel` and `ToolKind` are closed enums, so a branch over either ends with `assert_never`.
+`Channel` is a closed enum, so a branch over it ends with `assert_never`.
+
+### The Agent channel projects `read_only` as `readOnlyHint`, and nothing else
+
+`to_mcp_tool` sets `annotations.readOnlyHint = True` for a read-only Tool and sets no other
+annotation. This is the standard's own mechanism for what the declaration says, and it has a
+measured effect: Codex asks the user before every MCP tool call whose annotations do not say
+read-only, so without it the M18 authoring loop prompts on every `inspect_app`. A Tool that is not
+read-only carries no annotation and is treated by Codex as possibly destructive, which is the right
+answer for `remove_app` and an honest one for `submit_expense`: `destructiveHint: false` would
+claim a distinction the declaration does not make. Claude Code reads its own `_meta` key instead,
+which is platform-specific metadata and belongs to M19.
+
+The annotation secures nothing — the specification says so — and nothing here relies on it.
+Refusal is ToolRuntime's.
 
 ### Authorization is operation-level, decided in ToolRuntime before input validation
 
@@ -205,12 +228,12 @@ agent verifies through Studio is authorized exactly as the agent's own call woul
 
 ### Studio's exposure, as ADR-032 deferred it
 
-| Tools | `channels` | `kind` |
+| Tools | `channels` | `read_only` |
 | --- | --- | --- |
-| `inspect_framework`, `inspect_app` | `{AGENT}` | QUERY |
-| `invoke_tool` | `{AGENT}` | COMMAND |
-| `list_apps`, `describe_config` | `{WEB}` | QUERY |
-| `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | `{WEB}` | COMMAND |
+| `inspect_framework`, `inspect_app` | `{AGENT}` | True |
+| `invoke_tool` | `{AGENT}` | False (it runs a Tool that may write) |
+| `list_apps`, `describe_config` | `{WEB}` | True |
+| `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | `{WEB}` | False |
 
 No Studio Tool declares `required_roles`: exposure already isolates operating from the agent, and
 every Web caller in M14 is the operator. A role the framework's host would have to grant is a role
@@ -218,19 +241,19 @@ the framework names, which the model forbids.
 
 ### Fixtures
 
-Every Tool in `todo-app`, `notes-app` and `timer-app` gets a `kind`. Reads are QUERY
-(`list_todos`, `measure_note`, `elapsed`), writes are COMMAND. `channels` stays at its
+Every Tool in `todo-app`, `notes-app` and `timer-app` declares `read_only`: True for
+`list_todos`, `measure_note` and `elapsed`, False for `create_todo` and `complete_todo`. `channels` stays at its
 default, which is each App's present truth.
 
 `fixtures/expense-app` is added, the App `docs/roadmap.md` assigns to actor/role. Tools and no
 Pages, depending on `vibepy-core[agent]` as Notes does; a lifespan yielding an in-memory store;
 configuration `NoConfig`.
 
-| Tool | `kind` | `required_roles` | Behaviour |
+| Tool | `read_only` | `required_roles` | Behaviour |
 | --- | --- | --- | --- |
-| `submit_expense` | COMMAND | — | records `(id, submitter=ctx.principal.id, amount, status="submitted")` |
-| `approve_expense` | COMMAND | `{"manager"}` | sets `status="approved"`; when `submitter == ctx.principal.id` returns an expected failure `expense.self_approval` as data, unchanged store |
-| `list_expenses` | QUERY | — | every record |
+| `submit_expense` | False | — | records `(id, submitter=ctx.principal.id, amount, status="submitted")` |
+| `approve_expense` | False | `{"manager"}` | sets `status="approved"`; when `submitter == ctx.principal.id` returns an expected failure `expense.self_approval` as data, unchanged store |
+| `list_expenses` | True | — | every record |
 
 The fixture shows the two levels side by side: the role gate is the framework's and fires before
 the handler, the self-approval rule is the App's and fires inside it. `vibepy-expense` joins the
@@ -271,8 +294,9 @@ ToolRuntime.invoke(name, raw_input, *, principal)
 ```
 
 Steps 2 and 3 run before step 5's validation, and a handler is unreachable without them. Discovery
-filters by the same declaration: `list_tools` projects Tools whose `channels` contains `AGENT`,
-`register_pages` is unaffected (Pages have no exposure; the Tools they call do).
+reads the same declaration: `list_tools` projects Tools whose `channels` contains `AGENT`, with
+`readOnlyHint` for those declaring `read_only`; `register_pages` is unaffected (Pages have no
+exposure; the Tools they call do).
 
 ## Testing
 
@@ -281,10 +305,10 @@ One file per subject; success and failure paths of a subject share its file.
 | File | Subject |
 | --- | --- |
 | `tests/test_tool_authorization.py` | ToolRuntime: a Tool not exposed on the runtime's channel is `tool.forbidden` with `not_exposed`; a role-gated Tool with a principal lacking the role is `tool.forbidden` with `role_required`, and with the role runs; an App policy's refusal is `tool.forbidden` with its reason; in every refusal the handler did not run; a refusal with invalid input is `tool.forbidden`, not `tool.input_invalid`; an App policy that raises nothing cannot admit a Tool the default refused; a Tool with no `required_roles` runs for a principal with no roles |
-| `tests/test_tool_core.py` | ToolContext carries `principal` and `channel`; `ToolDefinition` requires `kind`; existing assertions with `channel` and `principal` supplied |
+| `tests/test_tool_core.py` | ToolContext carries `principal` and `channel`; `ToolDefinition` requires `read_only`; existing assertions with `channel` and `principal` supplied |
 | `tests/test_page_core.py` | `render(name, principal=)` binds the principal: the ToolContext a Page's call reaches carries it; a Page handler sees a `ToolInvoker` of the unchanged shape |
 | `tests/test_channel_neutrality.py` | one Tool declared for both channels yields the same output through both; the same Tool with `channels={AGENT}` is listed by the MCP adapter and refused through a Page, with the handler untouched |
-| `tests/test_mcp_adapter.py` | `list_tools` omits a Tool without `AGENT`; calling it by name yields `isError` with the `tool.forbidden` payload; the principal the host passed reaches the handler |
+| `tests/test_mcp_adapter.py` | `list_tools` omits a Tool without `AGENT`; a read-only Tool is projected with `annotations.readOnlyHint` true and a Tool that is not carries no annotations; calling it by name yields `isError` with the `tool.forbidden` payload; the principal the host passed reaches the handler |
 | `tests/test_nicegui_adapter.py` | the principal the host passed reaches a Page's Tool call |
 | `tests/test_invoke_command.py` | `--channel`, `--principal` required (argparse exit 2 with usage); against `expense-app`: `approve_expense` as `alice` is one stderr report `tool.forbidden` `role_required` and exit 1; with `--role manager` on another's expense exits 0 with `status: approved`; on one's own expense exits 0 with `expense.self_approval` in the output; `--channel web` on `measure_note` still runs (default `channels`) |
 | `tests/test_errors.py` | `tool.forbidden` is in the catalogue as `caller`; `details` carries the four keys |
@@ -298,26 +322,27 @@ their assertions.
 
 ## Compatibility
 
-Pre-production; no shims. `ToolDefinition.kind` is a new required field, `ToolRuntime.invoke`
+Pre-production; no shims. `ToolDefinition.read_only` is a new required field, `ToolRuntime.invoke`
 gains a required keyword, `tool_runtime_for` and the two builders gain required keywords,
 `PageRuntime.render` gains a required keyword, and `vibepy_core.invoke` gains two required
 arguments. Every App in this repository is updated in the same change. Additions to the public
-API: `Principal`, `Channel`, `ToolKind`, `ToolPolicy`, `AuthorizationRequest`,
+API: `Principal`, `Channel`, `ToolPolicy`, `AuthorizationRequest`,
 `ToolForbiddenError`, `PrincipalToolInvoker`, `AppDefinition.policy`, `ToolContext.principal`,
 `ToolContext.channel`.
 
 ## Documentation
 
-- `docs/architecture/tool-model.md`: `kind`, `channels`, `required_roles` move from "future
-  metadata" to the definition; "Query and command" in the present tense, stating that `kind`
-  refuses nothing; ToolRuntime's steps gain the two policy steps; a "Authorization" section owning
+- `docs/architecture/tool-model.md`: `read_only`, `channels`, `required_roles` move from "future
+  metadata" to the definition; "Query and command" becomes "Side-effect semantics", in the present
+  tense, owning the vocabulary and its RFC 9110/MCP lineage and stating that `read_only` refuses
+  nothing; ToolRuntime's steps gain the two policy steps; a "Authorization" section owning
   the two levels, the default policy, the narrowing rule and `Principal`
 - `docs/architecture/runtime.md`: ToolContext's current fields; "authorization" leaves the future
   list; channel as window property, principal as invocation property
 - `docs/architecture/page-model.md`: `render` takes a principal, PageContext's invoker is bound to
   it, `PrincipalToolInvoker`
-- `docs/architecture/adapters.md`: discovery filters by `channels`; the host passes the principal,
-  the adapter carries it
+- `docs/architecture/adapters.md`: discovery filters by `channels` and projects `read_only` as
+  `readOnlyHint`; the host passes the principal, the adapter carries it
 - `docs/architecture/packaging.md`: `invoke`'s arguments and trust model; `serve` and `mcp` name
   their principal
 - `docs/architecture/authoring.md`: `invoke_tool` forwards the agent's channel and principal;
@@ -336,6 +361,6 @@ API: `Principal`, `Channel`, `ToolKind`, `ToolPolicy`, `AuthorizationRequest`,
 
 Authentication on either channel, and a per-session principal on the Web channel. Streamable HTTP
 and MCP OAuth. Impersonation through `invoke_tool` (an authoring request that names a principal
-other than the agent's). Refusals or confirmations driven by `kind`. Audit of refusals (M15).
-Exposure of Pages. Customer. Projecting `kind` as MCP `readOnlyHint`/`destructiveHint`
-annotations.
+other than the agent's). Refusals or confirmations driven by `read_only`. `destructive`,
+`idempotent` and their annotations (M20). Platform-specific `_meta` such as
+`anthropic/requiresUserInteraction` (M19). Audit of refusals (M15). Exposure of Pages. Customer.
