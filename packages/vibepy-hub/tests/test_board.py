@@ -25,8 +25,9 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
         register_pages(HUB_APP, pages)
         await user.open("/")
         await user.should_see("No folder registered")
+        await user.should_see("No package folder selected")
 
-        user.find("package folder").type(str(source))
+        user.find(marker="package-folder").type(str(source))
         user.find("Register").click()
         await user.should_see("demo-app")
         await user.should_see("v1.2.3")
@@ -58,11 +59,11 @@ async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -
         await user.open("/")
         user.find("Configure").click()
         await user.should_see("api_base_url")
-        user.find("api_base_url").type("https://notes.internal")
+        user.find(marker="field-vibepy-notes-api_base_url").type("https://notes.internal")
         user.find("Save").click()
         await user.should_see("Missing required field: api_token")
 
-        entry = user.find(kind=ui.input, content="api_base_url").elements.pop()
+        entry = user.find(kind=ui.input, marker="field-vibepy-notes-api_base_url").elements.pop()
         assert entry.value == "https://notes.internal"
 
 
@@ -74,8 +75,8 @@ async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path
         await user.open("/")
         user.find("Configure").click()
         await user.should_see("api_base_url")
-        user.find("api_base_url").type("https://notes.internal")
-        user.find("api_token").type("k")
+        user.find(marker="field-vibepy-notes-api_base_url").type("https://notes.internal")
+        user.find(marker="field-vibepy-notes-api_token").type("k")
         user.find("Save").click()
         await user.should_see("Notes configured")
 
@@ -109,3 +110,17 @@ async def test_install_moves_a_row_to_installed(
 
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-notes"] == ["installed"]
+
+
+@pytest.mark.apps("vibepy-timer")
+@pytest.mark.integration
+async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
+    user: User, installed: Path
+) -> None:
+    async with hub_pages(installed) as pages:
+        register_pages(HUB_APP, pages)
+        await user.open("/")
+        await user.should_see("Timer")
+        user.find("Configure").click()
+        await user.should_see("Nothing to configure")
+        await user.should_not_see("Save")
