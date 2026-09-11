@@ -242,6 +242,10 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     unreadable = source is not None and not await readable(source)
     if source is not None and not unreadable:
         for row in await candidates(source):
+            if not row.declares_app:
+                # The wheelhouse also carries the framework and its dependencies,
+                # resolved via `--find-links`; those are not Apps to offer.
+                continue
             held = rows.get(row.name)
             if held is not None:
                 if held.distribution_version is not None and Version(row.version) > Version(

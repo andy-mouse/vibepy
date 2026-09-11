@@ -26,6 +26,7 @@ from vibepy_hub.models import (
     Diagnostic,
     Installation,
     RunningApp,
+    SourceListing,
 )
 
 
@@ -147,6 +148,26 @@ async def test_a_wheel_that_declares_no_app_is_refused_before_an_environment_exi
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.no_app_declared"
     assert not environment(root, "plain-package").exists()
+
+
+async def test_list_apps_offers_only_wheels_that_declare_an_app(tmp_path: Path) -> None:
+    """The wheelhouse also carries the framework and its dependencies, resolved
+    via `--find-links`; `list_apps` must not offer those as Apps."""
+    source = tmp_path / "wheels"
+    write_wheel(source, name="demo-app", version="1.0.0", declares=True)
+    write_wheel(source, name="some-library", version="1.0.0", declares=False)
+
+    async with hub(tmp_path / "hub") as tools:
+        registered = await tools.invoke("register_package_source", {"path": str(source)})
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(registered, SourceListing)
+    assert sorted((row.name, row.declares_app) for row in registered.candidates) == [
+        ("demo-app", True),
+        ("some-library", False),
+    ]
+    assert isinstance(listed, AppListing)
+    assert [row.app_name for row in listed.apps] == ["demo-app"]
 
 
 @pytest.mark.integration
