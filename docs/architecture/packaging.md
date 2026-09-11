@@ -117,8 +117,8 @@ error for every failure it reports, and a window that will not open reports itse
 so this process's standard error carries one such object for any failure of starting. See
 `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
-All three commands exist for one reason. Reading a declaration and running one both import, and an
-import belongs on the App's side of a process boundary.
+All three commands exist for one reason. Reading a declaration, running one and invoking a Tool all
+import, and an import belongs on the App's side of a process boundary.
 
 ## Invoking one Tool
 
@@ -130,7 +130,10 @@ Run with an App environment's own interpreter, it opens the channel-neutral invo
 once, invokes one Tool through `ToolRuntime`, and closes the window. Standard input carries one
 JSON object of `config` and `input`; standard output receives the Tool's output as one JSON
 object. This is how a host verifies that a Tool behaves without importing the App, and why the
-verification runs the same path both channels run.
+verification runs the same path both channels run. The request written to the child's stdin and
+everything the child writes back are `json.dumps` with its default `ensure_ascii=True`, so a
+non-ASCII value never meets the platform default encoding of a pipe on Windows — a property the
+commands rely on.
 
 All three commands report a failure the same way: one line of `code`, `category`, `message` and
 `details` on standard error and exit 1, produced by `report_line` in `vibepy_core.errors`. A
