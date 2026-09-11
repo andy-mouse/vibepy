@@ -80,7 +80,10 @@ Avoid generic Tools such as:
 - create_method
 - edit_python
 
-The Authoring MCP should provide framework-specific introspection, validation, testing, packaging, and diagnostics.
+The Authoring MCP should provide framework-specific introspection, validation, testing and
+diagnostics. Building a package is not among them: an App is a standard distribution and
+`uv build` is the agent's own command, as the table above records. What the framework owns is
+reading and validating what a build produced.
 
 ## North-star dogfooding test
 
