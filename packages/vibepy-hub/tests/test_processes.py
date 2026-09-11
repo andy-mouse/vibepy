@@ -93,37 +93,6 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
     await processes.aclose()
 
 
-async def _who_holds(port: int, child_pid: int, /) -> str:
-    """Diagnostic for CI: which process still answers on a killed child's port."""
-    if sys.platform == "win32":
-        commands = [
-            ["netstat", "-ano"],
-            ["tasklist", "/FI", "IMAGENAME eq python.exe", "/V"],
-            [
-                "powershell",
-                "-NoProfile",
-                "-Command",
-                "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' } "
-                "| Select-Object ProcessId,ParentProcessId,CommandLine | Format-List",
-            ],
-        ]
-    else:
-        commands = [["lsof", "-nP", "-i", f":{port}"], ["ps", "-ef"]]
-    parts = [
-        f"port {port} still answers; killed child pid {child_pid}; sys.executable {sys.executable}"
-    ]
-    for command in commands:
-        proc = await asyncio.create_subprocess_exec(
-            *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-        )
-        out, _ = await proc.communicate()
-        text = out.decode(errors="replace")
-        if command[0] == "netstat":
-            text = "\n".join(line for line in text.splitlines() if f":{port}" in line)
-        parts.append(f"$ {' '.join(command)}\n{text}")
-    return "\n\n".join(parts)
-
-
 @pytest.mark.integration
 async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     """`aclose` is what `entry.py` promises: a window leaves no child behind.
@@ -141,50 +110,21 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
         port=port,
     )
     assert processes.running("todo-app") is True
-    child = await _owned_once_it_exists(processes, "todo-app")
 
     await processes.aclose()
 
     assert processes.running("todo-app") is False
-    try:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection("127.0.0.1", port), timeout=30.0
-        )
-    except TimeoutError:
-        pytest.fail("first connect neither succeeded nor was refused within 30s")
-    except OSError:
-        return
-    steps: list[str] = ["first connect succeeded"]
-    try:
-        async with asyncio.timeout(10.0):
-            writer.write(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+    # Windows keeps a killed process's listening socket for a moment, accepting
+    # and then resetting connections before it refuses them; the promise is that
+    # the port is given up, not that the kernel is done in the same instant.
+    async with asyncio.timeout(OWNED_TIMEOUT):
+        while True:
             try:
-                steps.append(f"answered {(await reader.read(200))!r}")
-            except OSError as error:
-                steps.append(f"no answer: {error!r}")
-    except TimeoutError:
-        steps.append("no answer within 10s")
-    writer.transport.abort()
-    loop = asyncio.get_running_loop()
-    started = loop.time()
-    try:
-        async with asyncio.timeout(10.0):
-            while True:
-                try:
-                    _, again = await asyncio.open_connection("127.0.0.1", port)
-                except OSError:
-                    steps.append(f"refused after {loop.time() - started:.3f}s")
-                    break
-                again.transport.abort()
-                await asyncio.sleep(0.01)
-    except TimeoutError:
-        steps.append("still accepting after 10s")
-    try:
-        async with asyncio.timeout(60.0):
-            steps.append(await _who_holds(port, child.pid))
-    except TimeoutError:
-        steps.append("diagnostic commands did not finish within 60s")
-    pytest.fail("\n\n".join(steps))
+                _, writer = await asyncio.open_connection("127.0.0.1", port)
+            except OSError:
+                break
+            writer.transport.abort()
+            await asyncio.sleep(0.05)
 
 
 @pytest.mark.integration
