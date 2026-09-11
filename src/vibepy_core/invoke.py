@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import sys
+import warnings
 from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
@@ -31,7 +32,11 @@ logger = logging.getLogger(__name__)
 
 
 class _Request(BaseModel):
-    """What standard input carries: the App's configuration and the Tool's input."""
+    """What standard input carries: the Tool's input and configuration.
+
+    Configuration on standard input is deprecated; it is read as explicit
+    values above the environment.
+    """
 
     config: dict[str, object] = {}
     input: dict[str, object] = {}
@@ -67,6 +72,12 @@ def main(argv: Sequence[str], /) -> int:
         report(InvokeRequestInvalidError())
         logger.debug("the request on standard input was unreadable", exc_info=invalid)
         return 1
+    if request.config:
+        warnings.warn(
+            "`config` on standard input is deprecated; set VIBEPY_<FIELD> variables",
+            DeprecationWarning,
+            stacklevel=1,
+        )
     try:
         entrypoint = load_app(str(parsed.app_name))
     except (AppNotDeclaredError, AppEntrypointUnloadableError, AppEntrypointInvalidError) as error:
