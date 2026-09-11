@@ -100,12 +100,11 @@ async def _who_holds(port: int, child_pid: int, /) -> str:
             ["netstat", "-ano"],
             ["tasklist", "/FI", "IMAGENAME eq python.exe", "/V"],
             [
-                "wmic",
-                "process",
-                "where",
-                "name='python.exe'",
-                "get",
-                "ProcessId,ParentProcessId,CommandLine",
+                "powershell",
+                "-NoProfile",
+                "-Command",
+                "Get-CimInstance Win32_Process | Where-Object { $_.Name -like 'python*' } "
+                "| Select-Object ProcessId,ParentProcessId,CommandLine | Format-List",
             ],
         ]
     else:
