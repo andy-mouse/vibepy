@@ -69,7 +69,7 @@ Roles are the first axis, because the two roles are the two channels' users.
 vibepy_studio/
 ├─ entry.py                  # one App: STUDIO_APP, CONSUMPTION_TOOLS + AUTHORING_TOOLS
 ├─ models.py                 # shared: Diagnostic, Empty
-├─ internals/                # shared: files, processes (incl. run), deps
+├─ internals/                # shared: files, processes (run, ChildFailure), describing, deps
 ├─ consumption/              # humans, Web channel — the Hub as it is, moved
 │  ├─ models.py
 │  ├─ tools/    packages, installation, configuration, runtime
@@ -149,8 +149,11 @@ class AppInspection(BaseModel):
     diagnostic: Diagnostic | None = None
 ```
 
-`inspect_app` has its own reader of what `describe` writes. The consumption reader
-(`_Described`) keeps only what installation needs; authoring needs every Tool schema.
+Running `describe` and reading what it writes is one shared operation,
+`internals/describing.describe(python: Sequence[str])`: consumption passes an installed
+environment's interpreter, authoring passes `uv run --project <dir> python`, and both receive the
+full shape the command writes (`Described`, every Tool schema included). Consumption's `_Described`,
+which read only what installation needs, is replaced by deriving `AppFacts` from `Described`.
 
 ### `invoke_tool`
 
@@ -235,17 +238,21 @@ agent -> Studio Tool (inspect_app | invoke_tool)
       -> internals/processes.run(["uv", "run", "--project", dir, "python", "-m", "vibepy_core.<cmd>", ...], stdin=json)
          -> uv syncs the project's environment and runs the command in it
          -> the command imports the App there, reports on stdout (result) or stderr (one JSON object)
-      -> stdout parsed into InspectedApp[] | output; stderr's JSON object into Diagnostic;
-         unparsable stderr into authoring.environment_failed
+      -> stdout parsed into Described[] | output; stderr's JSON object read by the shared
+         ChildFailure reader into Diagnostic; unparsable stderr into authoring.environment_failed
       -> result returned as data
 ```
 
-One runner serves both roles. Consumption's `_run` in `installer.py` was shaped for installation
+One runner, one describer and one failure reader serve both roles. Consumption's `_run` in `installer.py` was shaped for installation
 alone — no stdin, both streams merged — and authoring needs stdin written and stderr read apart.
 Rather than a second runner beside it, `internals/processes.py` gains
 `run(command, /, *, stdin: str | None = None) -> Completed` (return code, stdout, stderr; the
 runnable check moves with it), and `installer._run` becomes a call to it that keeps its own
-contract: merged streams in the `InstallFailed` message. Consumption tests do not change.
+contract: merged streams in the `InstallFailed` message. The reader of a child's failure report —
+today `processes._Failure`/`ChildFailure` bound to a log file, with `tools/runtime._category`
+beside it — becomes one public reader of text (`ChildFailure | None`) and one `category(str)` in
+shared `internals/processes.py`; the log-file path and stderr both call it. Consumption tests do
+not change.
 
 ## Testing
 
