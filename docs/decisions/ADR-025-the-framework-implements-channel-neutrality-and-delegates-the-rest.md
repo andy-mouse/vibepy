@@ -1,6 +1,6 @@
 # ADR-025: The framework implements channel neutrality and delegates the rest
 
-Status: Accepted
+Status: Accepted; distribution table superseded by ADR-032
 
 ## Context
 
