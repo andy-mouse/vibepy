@@ -543,6 +543,9 @@
   .vibepy-hub .hub-summary-item { padding: 0; }
   .vibepy-hub .hub-registry { align-items: flex-start; flex-direction: column; }
   .vibepy-hub .hub-board-head { display: none; }
+  /* One scroll region, not two nested ones: below this width `hub-main` owns
+     the scroll and the list grows to whatever it holds. */
+  .vibepy-hub .hub-board { flex: none; min-height: 0; overflow-y: visible; }
   .vibepy-hub .hub-app-row {
     grid-template-columns: 1fr;
     gap: 24px;
