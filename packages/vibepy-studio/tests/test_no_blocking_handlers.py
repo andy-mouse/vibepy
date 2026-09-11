@@ -27,7 +27,8 @@ from pathlib import Path
 
 import pytest
 
-TOOLS = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "consumption" / "tools"
+_SRC = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio"
+TOOLS = (_SRC / "consumption" / "tools", _SRC / "authoring" / "tools")
 
 ALLOWED_IMPORTS = frozenset(
     {
@@ -41,6 +42,15 @@ ALLOWED_IMPORTS = frozenset(
         "vibepy_studio.consumption.internals",
         "vibepy_studio.consumption.models",
         "vibepy_studio.models",
+        "asyncio",
+        "json",
+        "importlib.metadata",
+        "pydantic",
+        "vibepy_core",
+        "vibepy_studio.authoring.internals",
+        "vibepy_studio.authoring.models",
+        "vibepy_studio.authoring.tools.inspection",
+        "vibepy_studio.internals",
     }
 )
 """What a Tool module may import.
@@ -50,6 +60,16 @@ its internals, and `AGENTS.md` has a handler reach them through its ToolContext.
 So the surface is closed rather than filtered: a blocking function cannot arrive
 here, because the module holding it is not on this list. Widening it is a
 decision about the architecture, which is why it is spelled out and not derived.
+
+The authoring role widens it: `asyncio` to wrap blocking calls (the very
+mechanism the guard exists for), `json` to serialise a request (no I/O),
+`importlib.metadata` only behind `asyncio.to_thread`, `pydantic` for
+`TypeAdapter` parsing a child's output (no I/O), `vibepy_core` for the
+framework's own public constants (`APP_GROUP`, `ERROR_CATALOG`,
+`ErrorCategory`), `vibepy_studio.authoring.internals` and
+`vibepy_studio.authoring.models`, `vibepy_studio.authoring.tools.inspection`
+because invocation reuses `uv_unavailable`, and `vibepy_studio.internals` for
+the shared runner and reader, which are themselves async.
 """
 
 BLOCKING_METHODS = frozenset(
@@ -86,6 +106,7 @@ def unreachable(source: str, /) -> set[str]:
         for module in imported(source)
         if module not in ALLOWED_IMPORTS
         and not module.startswith("vibepy_studio.consumption.tools.")
+        and not module.startswith("vibepy_studio.authoring.tools.")
     }
 
 
@@ -119,13 +140,22 @@ def blocking_calls(source: str, /) -> list[str]:
     return found
 
 
-@pytest.mark.parametrize("module", sorted(TOOLS.glob("*.py")), ids=lambda path: path.name)
-def test_a_tool_module_imports_only_what_a_handler_may_reach(module: Path) -> None:
+_MODULES = sorted(
+    (directory.parent.name, path) for directory in TOOLS for path in directory.glob("*.py")
+)
+
+
+@pytest.mark.parametrize(
+    ("role", "module"), _MODULES, ids=[f"{role}/{path.name}" for role, path in _MODULES]
+)
+def test_a_tool_module_imports_only_what_a_handler_may_reach(role: str, module: Path) -> None:
     assert unreachable(module.read_text(encoding="utf-8")) == set()
 
 
-@pytest.mark.parametrize("module", sorted(TOOLS.glob("*.py")), ids=lambda path: path.name)
-def test_a_tool_module_makes_no_blocking_call(module: Path) -> None:
+@pytest.mark.parametrize(
+    ("role", "module"), _MODULES, ids=[f"{role}/{path.name}" for role, path in _MODULES]
+)
+def test_a_tool_module_makes_no_blocking_call(role: str, module: Path) -> None:
     assert blocking_calls(module.read_text(encoding="utf-8")) == []
 
 
