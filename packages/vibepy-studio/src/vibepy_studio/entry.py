@@ -21,24 +21,24 @@ logger = logging.getLogger(__name__)
 
 
 class StudioConfig(BaseModel):
-    """What the Hub requires of its host.
+    """What Studio requires of its host.
 
     The root is declared rather than assumed, so a test supplies a temporary
-    directory and two Hubs never share one. `proxy_port` is declared for the
-    same reason and one more: it is part of every address the Hub answers with,
-    and a Hub that assumed it would publish addresses reaching nothing, or
+    directory and two Studios never share one. `proxy_port` is declared for the
+    same reason and one more: it is part of every address Studio answers with,
+    and a Studio that assumed it would publish addresses reaching nothing, or
     something else, without ever being told.
     """
 
     root: Path
     proxy_port: int = Field(default=8080, ge=1, le=65535)
-    """Bounded because the Hub never learns that the proxy failed to bind: it
+    """Bounded because Studio never learns that the proxy failed to bind: it
     owns no proxy, so a port that cannot be one has to be refused here."""
 
 
 @asynccontextmanager
 async def studio_lifespan(config: StudioConfig) -> AsyncGenerator[StudioDeps]:
-    """Acquire the Hub's resource for the life of one window."""
+    """Acquire Studio's resource for the life of one window."""
     await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
     await write_install_config(config.root, proxy_port=config.proxy_port)
     processes = Processes(logs=config.root / "logs")

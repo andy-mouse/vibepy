@@ -31,7 +31,7 @@ from vibepy_studio.models import Diagnostic
 
 
 def environment(root: Path, app_name: str, /) -> Path:
-    """Where the Hub's declared root holds one App, as the spec describes it."""
+    """Where Studio's declared root holds one App, as the spec describes it."""
     return root / "envs" / app_name
 
 
@@ -228,7 +228,7 @@ def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
     """The boundary's constraint, which is platform-independent.
 
     A backslash and a colon are legal in a POSIX filename and are separators on
-    Windows, so the field refuses them on both rather than only where the Hub
+    Windows, so the field refuses them on both rather than only where Studio
     happens to run.
     """
     with pytest.raises(ValidationError):

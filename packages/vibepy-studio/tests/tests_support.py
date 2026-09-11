@@ -1,4 +1,4 @@
-"""What more than one Hub test needs."""
+"""What more than one Studio test needs."""
 
 import asyncio
 import base64
@@ -47,7 +47,7 @@ TRAEFIK = (
 def studio(
     root: Path, /, *, proxy_port: int = 8080
 ) -> AbstractAsyncContextManager[ToolRuntime[StudioDeps]]:
-    """One Hub window over a temporary root, published at one proxy port."""
+    """One Studio window over a temporary root, published at one proxy port."""
     return tool_runtime_for(
         STUDIO_APP, APP.lifespan, config={"root": str(root), "proxy_port": proxy_port}
     )
@@ -71,7 +71,7 @@ async def traefik(config: Path, *, port: int, host: str, path: str) -> AsyncGene
     (<https://github.com/traefik/traefik/issues/10458>). Its API does answer
     which routers are loaded, but must be enabled, and the documentation says
     enabling it "is not recommended" because it exposes every configuration
-    element -- and the configuration this runs against is the one the Hub
+    element -- and the configuration this runs against is the one Studio
     writes, so enabling it would mean shaping a product's output for a test.
 
     So readiness is the whole fact the test depends on, asked of the thing

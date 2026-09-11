@@ -1,6 +1,6 @@
 """Writing a file whole, so that nothing reads half of one.
 
-Two of the Hub's files are read by something other than the Hub while the Hub
+Two of Studio's files are read by something other than Studio while Studio
 is writing them: its state file, which a second window reads, and the routing
 files, which the proxy watches. Both need the same guarantee, and it was
 written twice before it was written here -- once with a staged name unique to
@@ -33,7 +33,7 @@ def write_whole(path: Path, text: str, /, *, staging: Path, owner_only: bool = F
     caller's fact: a routing file is staged outside the directory the proxy
     watches, so a file the provider was never meant to read does not appear
     there at all. The staged name belongs to this write, so two writers of one
-    destination cannot take each other's file -- the Hub serializes no Tool
+    destination cannot take each other's file -- Studio serializes no Tool
     invocation.
 
     `owner_only` restricts the file and the directory it lands in to their

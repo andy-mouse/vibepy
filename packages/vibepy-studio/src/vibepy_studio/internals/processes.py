@@ -38,12 +38,12 @@ DESCRIBES_THIS_PROCESS = frozenset(
         "NICEGUI_SCREEN_TEST_PORT",
     }
 )
-"""Variables that describe the Hub's own process rather than the App's.
+"""Variables that describe Studio's own process rather than the App's.
 
 A launcher hands a child the environment the child is entitled to. Passing on
-what describes the launcher misdescribes the child: an App told it runs in the
-Hub's virtual environment, or that it is running the Hub's current test, behaves
-as something it is not. Removing them is what keeps the isolation the Hub exists
+what describes the launcher misdescribes the child: an App told it runs in
+Studio's virtual environment, or that it is running Studio's current test, behaves
+as something it is not. Removing them is what keeps the isolation Studio exists
 to provide.
 """
 

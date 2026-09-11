@@ -22,7 +22,7 @@ SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
 async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     """Traefik's documentation does not say it carries a WebSocket, and a
     NiceGUI Page does not work without one. This settles it, and settles it
-    against the configuration the Hub itself wrote rather than one composed
+    against the configuration Studio itself wrote rather than one composed
     here."""
     proxy_port = free_port()
 

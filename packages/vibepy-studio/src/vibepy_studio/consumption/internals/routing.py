@@ -1,7 +1,7 @@
 """Where an App is reached, and what the proxy in front of it is told.
 
-This is the Hub's whole knowledge of Traefik. A different proxy replaces this
-module and nothing else. The Hub writes files here and never signals, starts or
+This is Studio's whole knowledge of Traefik. A different proxy replaces this
+module and nothing else. Studio writes files here and never signals, starts or
 observes the proxy.
 """
 
@@ -117,7 +117,7 @@ def _remove_route(root: Path, app_name: str, /) -> None:
 def _replace(root: Path, path: Path, document: object, /) -> None:
     """Write one of the proxy's files whole.
 
-    Staged in the Hub's root rather than beside its destination, because the
+    Staged in Studio's root rather than beside its destination, because the
     destination is inside the directory the provider watches. `write_whole`
     owns the rest, and says why.
     """

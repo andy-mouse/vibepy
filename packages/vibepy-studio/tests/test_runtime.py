@@ -1,9 +1,9 @@
 """An installed App starts, answers, and stops.
 
 These run inside pytest and start Apps without hiding anything from them. That
-is itself the contract: the Hub composes a child's environment rather than
-passing on its own, so a served App is never told it is running the Hub's
-current test or living in the Hub's virtual environment.
+is itself the contract: Studio composes a child's environment rather than
+passing on its own, so a served App is never told it is running Studio's
+current test or living in Studio's virtual environment.
 """
 
 import asyncio
@@ -154,7 +154,7 @@ async def test_starting_a_running_app_says_it_is_already_running(
 async def test_two_overlapping_starts_answer_once(tmp_path: Path, installed: Path) -> None:
     """`hub.already_running` covers a child that is still starting.
 
-    Two callers reaching `start_app` at once is what the Hub is built for:
+    Two callers reaching `start_app` at once is what Studio is built for:
     ToolRuntime permits concurrent invocations and does not serialize them. The
     claim is observable here, through Tools, so it needs no reach into
     `Processes`: one App runs, the other is told so, and the window closes over

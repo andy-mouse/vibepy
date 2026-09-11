@@ -1,4 +1,4 @@
-"""What the Hub's tests are given, and how often each of it is built.
+"""What Studio's tests are given, and how often each of it is built.
 
 pytest's guidance is that a resource which is expensive to build belongs to a
 broader scope than the test that uses it, and that `tmp_path_factory` is where
@@ -9,17 +9,17 @@ applies that guidance to virtual environments: one is built a session and each
 test is handed a copy of it, with nothing inside rewritten
 (<https://github.com/pypa/pip/blob/main/tests/lib/venv.py>).
 
-Here the expensive resource is a Hub root with the fixture Apps installed. It
+Here the expensive resource is a Studio root with the fixture Apps installed. It
 is built once, by the same `install_app` a user calls, so what a test is handed
 is what installing produces and not a second construction that could drift.
 Each test receives a hardlinked copy: the same inodes, so nothing is assessed
 or compiled a second time.
 
 Two things in a root name the root's own path. `traefik.yml` is rewritten by
-the Hub every time a window opens, so a copy is corrected the moment a test
+Studio every time a window opens, so a copy is corrected the moment a test
 opens it. Each environment's facts file records `purelib` as an absolute path,
 and that one the copy rewrites. An environment's `pyvenv.cfg` records the base
-interpreter, which is outside the root and does not move; the Hub reaches an
+interpreter, which is outside the root and does not move; Studio reaches an
 environment only through its interpreter and `-m`, so no installed script's
 shebang is ever read.
 
@@ -58,7 +58,7 @@ def wheelhouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 @pytest.fixture(scope="session")
 def template_root(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) -> Path:
-    """Build a Hub root with every fixture App installed, once for the session.
+    """Build a Studio root with every fixture App installed, once for the session.
 
     Built through the Hub's own Tools rather than the installer's functions, so
     the root holds exactly what a user's install leaves: environments, facts,
@@ -93,7 +93,7 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
 
     Hardlinked rather than copied: the bytes are already on the disk and
     already assessed, and a second inode for each would be the cost the
-    template exists to avoid. The only thing rewritten is the one path the Hub
+    template exists to avoid. The only thing rewritten is the one path Studio
     recorded inside the root, each environment's `purelib`.
     """
     # pytest leaves `FixtureRequest.node` unannotated; a function-scoped

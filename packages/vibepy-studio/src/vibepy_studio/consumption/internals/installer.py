@@ -4,7 +4,7 @@
 wheel, resolved against the wheelhouse it sits in.
 
 Describing runs in that environment's interpreter, because reading a declaration
-imports it and the Hub must not import an App.
+imports it and Studio must not import an App.
 """
 
 import asyncio
@@ -36,7 +36,7 @@ class InstallFailed(Exception):
 
 
 class AppNameInvalid(Exception):
-    """An App name does not address a directory inside this Hub's environments."""
+    """An App name does not address a directory inside this Studio's environments."""
 
     def __init__(self, app_name: str) -> None:
         """Record `app_name` for the message."""
@@ -45,7 +45,7 @@ class AppNameInvalid(Exception):
 
 
 def environment(root: Path, app_name: str, /) -> Path:
-    """Where this Hub keeps one App's environment.
+    """Where Studio keeps one App's environment.
 
     The name is refused unless the join names a direct child of the environments
     directory. A Tool input is already constrained to one segment; this is the
@@ -80,7 +80,7 @@ async def purelib(env: Path, /) -> Path:
 
     Asked of that environment rather than derived from this one. A virtual
     environment takes its version from the base Python that created it, so a
-    path built from the Hub's own version is a guess that fails as soon as the
+    path built from Studio's own version is a guess that fails as soon as the
     two differ. `sysconfig.get_path("purelib")` is the interpreter's own answer.
     """
     written = await _run(

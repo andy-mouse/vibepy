@@ -1,6 +1,6 @@
 """Reading an App's projected configuration schema, and holding values against it.
 
-The Hub never imports an App, so what it knows about configuration is the JSON
+Studio never imports an App, so what it knows about configuration is the JSON
 Schema the App's declaration projects. This module reads as much of that schema
 as the control plane needs and nothing more.
 """

@@ -73,7 +73,7 @@ async def write_state(root: Path, state: HubState, /) -> None:
     (<https://git-scm.com/docs/git-credential-store>).
 
     `os.chmod` carries these bits on POSIX. On Windows it sets only the read-only
-    flag, so a Hub root there is protected by the directory's own access control
+    flag, so a Studio root there is protected by the directory's own access control
     rather than by this call.
     """
     await asyncio.to_thread(_write_state, root, state)

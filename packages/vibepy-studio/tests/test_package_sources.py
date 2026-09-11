@@ -27,7 +27,7 @@ async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None
 
 
 async def test_registering_a_second_folder_replaces_the_first(tmp_path: Path) -> None:
-    """One folder is registered at a time: the Hub has one wheelhouse, not a search path."""
+    """One folder is registered at a time: Studio has one wheelhouse, not a search path."""
     first = tmp_path / "first"
     second = tmp_path / "second"
     write_wheel(first, name="one", version="1.0.0", declares=True)
