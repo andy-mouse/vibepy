@@ -38,7 +38,11 @@ def test_a_description_carries_the_configuration_schema() -> None:
 def test_a_description_carries_every_tool_with_both_schemas() -> None:
     description = APP.describe()
 
-    assert [tool.name for tool in description.tools] == ["create_todo", "list_todos"]
+    assert [tool.name for tool in description.tools] == [
+        "create_todo",
+        "list_todos",
+        "complete_todo",
+    ]
     create = description.tools[0]
     assert create.description == "Create a todo"
     assert properties(create.input_schema) == ["title"]

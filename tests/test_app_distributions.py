@@ -20,7 +20,17 @@ import pytest
 from pydantic import SecretStr
 
 from timer_app.entry import TIMER_APP, Elapsed, timer_lifespan
-from todo_app.entry import TodoConfig, TodoStore, TodoStoreUnreadable
+from todo_app.entry import (
+    TODO_APP,
+    Completion,
+    Todo,
+    TodoConfig,
+    TodoList,
+    TodoStore,
+    TodoStoreUnreadable,
+    todo_lifespan,
+)
+from vibepy_core import ErrorCategory
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.package import AppRef, describe_app, discover_apps
 
@@ -102,3 +112,42 @@ def test_a_file_stamped_under_another_key_is_refused(tmp_path: Path) -> None:
 
     with pytest.raises(TodoStoreUnreadable):
         TodoStore(path, SecretStr("two")).list_all()
+
+
+async def test_a_completed_todo_is_done_in_a_later_window(tmp_path: Path) -> None:
+    """`complete_todo` persists, so a second window over the same store sees it.
+
+    Two separate windows prove the change reached the store rather than only
+    an in-memory value the first window happened to hold.
+    """
+    config = {"db_path": tmp_path / "todo.json", "db_key": "k"}
+
+    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
+        created = Todo.model_validate(await tools.invoke("create_todo", {"title": "buy milk"}))
+        assert created.done is False
+        completed = Completion.model_validate(
+            await tools.invoke("complete_todo", {"id": created.id})
+        )
+
+    assert completed.diagnostic is None
+    assert completed.todo is not None
+    assert completed.todo.done is True
+
+    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
+        listed = TodoList.model_validate(await tools.invoke("list_todos", {}))
+
+    assert [todo.done for todo in listed.todos if todo.id == created.id] == [True]
+
+
+async def test_completing_an_unknown_id_answers_a_diagnostic(tmp_path: Path) -> None:
+    """An unknown id is the App's expected failure, and travels as data (ADR-029)."""
+    config = {"db_path": tmp_path / "todo.json", "db_key": "k"}
+
+    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
+        completed = Completion.model_validate(await tools.invoke("complete_todo", {"id": 1}))
+
+    assert completed.todo is None
+    assert completed.diagnostic is not None
+    assert completed.diagnostic.code == "todo.not_found"
+    assert completed.diagnostic.category == ErrorCategory.CALLER
+    assert completed.diagnostic.details == {"id": "1"}
