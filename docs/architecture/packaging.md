@@ -122,7 +122,8 @@ variables a host sets.
 
 Configuration on standard input is **deprecated** for `serve` and `invoke`. It is still read and
 still honoured, as explicit values above the environment, and each command says so once when it
-is non-empty. Removal belongs to a later milestone.
+is non-empty, with one `DeprecationWarning` emitted through the `warnings` module, which is what
+a caller filters. Removal belongs to a later milestone.
 
 ## Running a channel
 
@@ -191,7 +192,7 @@ takes `command`, `args` and `env` under `[mcp_servers.<name>]`
 ```toml
 [mcp_servers.vibepy-studio]
 command = "<studio environment>/bin/python"
-args = ["-m", "vibepy_core.mcp", "vibepy-studio"]
+args = ["-m", "vibepy_core.mcp", "studio"]
 [mcp_servers.vibepy-studio.env]
 VIBEPY_ROOT = "/Users/me/.vibepy/studio"
 VIBEPY_PROXY_PORT = "8080"
@@ -203,7 +204,7 @@ Claude Code takes the same three keys in `.mcp.json`
 ```json
 { "mcpServers": { "vibepy-studio": {
     "command": "<studio environment>/bin/python",
-    "args": ["-m", "vibepy_core.mcp", "vibepy-studio"],
+    "args": ["-m", "vibepy_core.mcp", "studio"],
     "env": { "VIBEPY_ROOT": "/Users/me/.vibepy/studio", "VIBEPY_PROXY_PORT": "8080" } } } }
 ```
 

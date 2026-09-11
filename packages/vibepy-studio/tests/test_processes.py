@@ -20,6 +20,7 @@ from vibepy_studio.internals.processes import (
     Processes,
     StartFailed,
     _reported,  # pyright: ignore[reportPrivateUsage]
+    child_environment,
     reported,
     run,
 )
@@ -200,6 +201,16 @@ async def test_run_hands_the_child_standard_input() -> None:
 async def test_run_refuses_a_program_that_is_not_there() -> None:
     with pytest.raises(NotRunnable):
         await run(["no-such-program-anywhere"])
+
+
+def test_child_environment_drops_vibepy_prefixed_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIBEPY_SOMETHING", "parent-only")
+    monkeypatch.setenv("AN_UNRELATED_VARIABLE", "survives")
+    env = child_environment()
+    assert "VIBEPY_SOMETHING" not in env
+    assert env.get("AN_UNRELATED_VARIABLE") == "survives"
 
 
 def test_reported_reads_the_last_report_among_other_lines() -> None:

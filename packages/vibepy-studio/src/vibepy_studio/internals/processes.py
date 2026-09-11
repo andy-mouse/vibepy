@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from vibepy_core import environment_for
+from vibepy_core.app.config import ENV_PREFIX
 from vibepy_core.errors import ErrorInfo, read_report_line
 
 logger = logging.getLogger(__name__)
@@ -45,7 +46,8 @@ A launcher hands a child the environment the child is entitled to. Passing on
 what describes the launcher misdescribes the child: an App told it runs in
 Studio's virtual environment, or that it is running Studio's current test, behaves
 as something it is not. Removing them is what keeps the isolation Studio exists
-to provide.
+to provide. A parent's own configuration belongs to the same category: it
+describes the parent, not the child it starts.
 """
 
 STOP_TIMEOUT = 10.0
@@ -87,8 +89,16 @@ def _reported(path: Path, /) -> ErrorInfo | None:
 
 
 def child_environment() -> dict[str, str]:
-    """Return the environment a started App is entitled to."""
-    return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
+    """Return the environment a started App is entitled to.
+
+    Also drops every `VIBEPY_`-prefixed variable: that is Studio's own rendered
+    configuration, which describes Studio's process, not the child's.
+    """
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name not in DESCRIBES_THIS_PROCESS and not name.startswith(ENV_PREFIX)
+    }
 
 
 @dataclass(frozen=True)

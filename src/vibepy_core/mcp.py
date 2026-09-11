@@ -27,8 +27,6 @@ from vibepy_core.errors import (
     report,
 )
 
-logger = logging.getLogger(__name__)
-
 
 def _unwrapped(error: Exception, /) -> Exception:
     """Unwrap the single failure inside an anyio `TaskGroup`'s `ExceptionGroup`.
@@ -79,7 +77,6 @@ def main(argv: Sequence[str], /) -> int:
     except Exception as error:
         # The window reports its own failure (ADR-030); the SDK's task groups wrap it.
         report(_unwrapped(error))
-        logger.debug("the Agent channel did not open or did not stay open", exc_info=error)
         return 1
     return 0
 

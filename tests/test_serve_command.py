@@ -14,6 +14,7 @@ from urllib.request import urlopen
 import pytest
 
 from vibepy_core import environment_for
+from vibepy_core.app.config import ENV_PREFIX
 
 
 def child_environment() -> dict[str, str]:
@@ -23,10 +24,13 @@ def child_environment() -> dict[str, str]:
     running, and NiceGUI reads that variable to decide it is under test. The
     server is a separate process running no test, so handing it that marker
     would describe it falsely.
+
+    Also drops `VIBEPY_`-prefixed variables: a developer's exported `VIBEPY_*`
+    must not leak into the child under test.
     """
     env = dict(os.environ)
     env.pop("PYTEST_CURRENT_TEST", None)
-    return env
+    return {name: value for name, value in env.items() if not name.startswith(ENV_PREFIX)}
 
 
 def free_port() -> int:
