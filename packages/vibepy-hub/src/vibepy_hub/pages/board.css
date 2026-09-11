@@ -10,7 +10,9 @@
 .vibepy-hub {
   color-scheme: light dark;
   width: 100%;
-  min-height: 760px;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
   padding: 22px;
   box-sizing: border-box;
   background: transparent;
@@ -22,7 +24,11 @@
 
 .vibepy-hub .hub-shell {
   max-width: 1180px;
-  min-height: 716px;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
   overflow: hidden;
   border: 1px solid light-dark(#c8d6d9, #34484e);
@@ -32,6 +38,7 @@
 }
 
 .vibepy-hub .hub-topbar {
+  flex: none;
   height: 72px;
   display: flex;
   align-items: center;
@@ -102,11 +109,21 @@
   color: light-dark(#a83f3d, #ff9d96);
 }
 
+/* The board's head keeps its place and the list scrolls under it. Below the
+   height that leaves the list something to show, the whole of `hub-main`
+   scrolls instead, so nothing is squeezed to nothing and no part of the board
+   becomes unreachable. */
 .vibepy-hub .hub-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
   padding: 42px 44px 50px;
 }
 
 .vibepy-hub .hub-heading-row {
+  flex: none;
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -161,6 +178,7 @@
 }
 
 .vibepy-hub .hub-registry {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -209,7 +227,9 @@
 }
 
 .vibepy-hub .hub-board {
-  overflow: hidden;
+  flex: 1 1 auto;
+  min-height: 180px;
+  overflow-y: auto;
   border: 1px solid light-dark(#cbd8da, #34474c);
   border-radius: 14px;
   background: light-dark(#ffffff, #17262b);
@@ -247,6 +267,9 @@
 }
 
 .vibepy-hub .hub-board-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   min-height: 48px;
   border-bottom: 1px solid light-dark(#dce5e7, #2e4146);
   background: light-dark(#edf3f4, #132126);
@@ -533,7 +556,7 @@
 
 @media (max-width: 480px) {
   .vibepy-hub { padding: 0; }
-  .vibepy-hub .hub-shell { min-height: 100vh; border: 0; border-radius: 0; }
+  .vibepy-hub .hub-shell { border: 0; border-radius: 0; }
   .vibepy-hub .hub-topbar .hub-primary { padding-inline: 11px; }
   .vibepy-hub .hub-main { padding-inline: 16px; }
   .vibepy-hub .hub-summary-value { font-size: 18px; }
@@ -558,6 +581,7 @@
 body, body.body--light, body.body--dark {
   color-scheme: light dark;
   margin: 0;
+  overflow: hidden;
   background: light-dark(#eaf1f1, #0b1518);
 }
 
