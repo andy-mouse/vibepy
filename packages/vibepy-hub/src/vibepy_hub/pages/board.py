@@ -131,7 +131,14 @@ async def board(ctx: PageContext) -> None:
             _text("p", question).style("margin: 0")
             with ui.element("div").classes("hub-dialog-actions"):
                 _button("Cancel", "hub-quiet", on_click=lambda: dialog.submit(False))
-                _button(label, "hub-primary", on_click=lambda: dialog.submit(True))
+                # The dialog repeats the word on the button that raised it, so
+                # a test reaches the dialog's own answer by a marker.
+                _button(
+                    label,
+                    "hub-primary",
+                    marker="dialog-confirm",
+                    on_click=lambda: dialog.submit(True),
+                )
         answered = bool(await dialog)
         dialogs.clear()
         return answered

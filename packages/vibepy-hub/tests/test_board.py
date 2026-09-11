@@ -90,10 +90,13 @@ async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path
 
 @pytest.mark.integration
 async def test_install_invokes_the_tool_and_shows_its_answer(user: User, tmp_path: Path) -> None:
-    # A wheel that declares an App and holds no code: `install_app` runs for
-    # real and answers a diagnostic, which is what the board has to show. What
-    # a real distribution installs is `test_installation.py`'s subject, and
-    # building an environment here would buy this test nothing.
+    # A wheel that declares an App and brings no framework with it. `uv pip
+    # install` succeeds; the description step is what fails, because the
+    # environment it lands in has no `vibepy_core` for `python -m
+    # vibepy_core.describe` to run. That is still this test's subject: the
+    # board has to put whatever `install_app` answers on the screen, and a
+    # diagnostic is the answer that is cheap to arrange. What a real
+    # distribution installs is `test_installation.py`'s subject.
     source = tmp_path / "wheels"
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
     root = tmp_path / "hub"
@@ -119,3 +122,34 @@ async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
         user.find("Configure").click()
         await user.should_see("Nothing to configure")
         await user.should_not_see("Save")
+
+
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_configure_opens_a_panel_and_cancel_closes_it(user: User, installed: Path) -> None:
+    async with hub_pages(installed) as pages:
+        register_pages(HUB_APP, pages)
+        await user.open("/")
+        await user.should_see("Notes")
+        user.find("Configure").click()
+        await user.should_see("api_base_url")
+
+        user.find("Cancel").click()
+        await user.should_not_see("api_base_url")
+
+
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_unregistering_is_confirmed_in_a_dialog(user: User, installed: Path) -> None:
+    async with hub_pages(installed) as pages:
+        register_pages(HUB_APP, pages)
+        await user.open("/")
+        await user.should_see("Notes")
+        user.find("Unregister").click()
+        await user.should_see("Unregister this package folder?")
+
+        user.find(marker="dialog-confirm").click()
+        # The dialog says the installed Apps stay, so what the answer changes
+        # is the source card and nothing else on the board.
+        await user.should_see("No folder registered")
+        await user.should_see("Notes")
