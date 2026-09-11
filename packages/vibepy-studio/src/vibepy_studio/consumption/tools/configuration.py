@@ -6,7 +6,6 @@ from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.consumption.internals import (
     HubState,
-    StudioDeps,
     config_fields,
     held_secrets,
     installed_facts,
@@ -21,6 +20,7 @@ from vibepy_studio.consumption.models import (
     ConfigureRequest,
     HeldConfig,
 )
+from vibepy_studio.internals import StudioDeps
 from vibepy_studio.models import Diagnostic
 
 

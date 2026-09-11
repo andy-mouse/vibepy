@@ -11,7 +11,6 @@ of its own here.
 from collections.abc import Sequence
 
 from vibepy_core.tool import Tool
-from vibepy_studio.consumption.internals import StudioDeps
 from vibepy_studio.consumption.tools.configuration import (
     CONFIGURATION_TOOLS,
     configure_app,
@@ -30,6 +29,7 @@ from vibepy_studio.consumption.tools.packages import (
     remove_package_source,
 )
 from vibepy_studio.consumption.tools.runtime import RUNTIME_TOOLS, start_app, stop_app
+from vibepy_studio.internals import StudioDeps
 
 HUB_TOOLS: Sequence[Tool[StudioDeps]] = [
     *PACKAGE_SOURCE_TOOLS,

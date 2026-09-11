@@ -6,13 +6,13 @@ from pathlib import Path
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.consumption.internals import (
-    StudioDeps,
     candidates,
     read_state,
     readable,
     update_state,
 )
 from vibepy_studio.consumption.models import CandidateRow, SourceListing, SourcePath
+from vibepy_studio.internals import StudioDeps
 from vibepy_studio.models import Diagnostic, Empty
 
 

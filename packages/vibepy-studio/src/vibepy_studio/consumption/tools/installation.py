@@ -17,7 +17,6 @@ from vibepy_studio.consumption.internals import (
     Candidate,
     HubState,
     InstallFailed,
-    StudioDeps,
     address,
     allocate,
     candidates,
@@ -44,6 +43,7 @@ from vibepy_studio.consumption.models import (
     AppRow,
     Installation,
 )
+from vibepy_studio.internals import StudioDeps
 from vibepy_studio.models import Diagnostic, Empty
 
 logger = logging.getLogger(__name__)

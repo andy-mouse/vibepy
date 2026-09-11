@@ -40,19 +40,13 @@ from vibepy_studio.consumption.internals.state import (
     write_state,
 )
 from vibepy_studio.consumption.internals.wheels import Candidate, candidates, readable
-from vibepy_studio.internals.deps import StudioDeps
-from vibepy_studio.internals.processes import AlreadyStarted, Processes, StartFailed
 
 __all__ = [
     "APP_GROUP",
-    "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
     "HubState",
     "InstallFailed",
-    "Processes",
-    "StartFailed",
-    "StudioDeps",
     "address",
     "allocate",
     "candidates",

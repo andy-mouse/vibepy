@@ -16,8 +16,8 @@ from urllib.request import Request, urlopen
 
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
-from vibepy_studio.consumption.internals import StudioDeps
 from vibepy_studio.entry import APP, STUDIO_APP
+from vibepy_studio.internals import StudioDeps
 
 REPO = Path(__file__).resolve().parents[3]
 FIXTURES = REPO / "fixtures"

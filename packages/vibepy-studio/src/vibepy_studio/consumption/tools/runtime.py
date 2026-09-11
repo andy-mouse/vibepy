@@ -5,9 +5,6 @@ from collections.abc import Sequence
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.consumption.internals import (
-    AlreadyStarted,
-    StartFailed,
-    StudioDeps,
     address,
     environment,
     installed_facts,
@@ -15,6 +12,7 @@ from vibepy_studio.consumption.internals import (
     read_state,
 )
 from vibepy_studio.consumption.models import AppName, RunningApp, StartRequest
+from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
 from vibepy_studio.models import Diagnostic, diagnostic_of
 
 
