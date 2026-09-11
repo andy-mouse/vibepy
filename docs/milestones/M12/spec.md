@@ -69,7 +69,7 @@ Roles are the first axis, because the two roles are the two channels' users.
 vibepy_studio/
 ├─ entry.py                  # one App: STUDIO_APP, CONSUMPTION_TOOLS + AUTHORING_TOOLS
 ├─ models.py                 # shared: Diagnostic, Empty
-├─ internals/                # shared: files, processes, deps
+├─ internals/                # shared: files, processes (incl. run), deps
 ├─ consumption/              # humans, Web channel — the Hub as it is, moved
 │  ├─ models.py
 │  ├─ tools/    packages, installation, configuration, runtime
@@ -78,7 +78,7 @@ vibepy_studio/
 └─ authoring/                # agents, Agent channel — new
    ├─ models.py              # requests, results, the authoring.* vocabulary
    ├─ tools/    inspection, invocation
-   └─ internals/ projects   (running the two commands under uv: stdin in, stdout and stderr apart)
+   └─ internals/ projects   (running the two commands under uv)
 ```
 
 `consumption/` is a move with no behaviour change. Its tests move with it and keep passing
@@ -232,7 +232,7 @@ from `vibepy_core`. The existing catalogue test asserts through the public name.
 ```text
 agent -> Studio Tool (inspect_app | invoke_tool)
       -> authoring/internals/projects: absolute path, pyproject.toml present?
-      -> authoring/internals/projects: ["uv", "run", "--project", dir, "python", "-m", "vibepy_core.<cmd>", ...], stdin=json
+      -> internals/processes.run(["uv", "run", "--project", dir, "python", "-m", "vibepy_core.<cmd>", ...], stdin=json)
          -> uv syncs the project's environment and runs the command in it
          -> the command imports the App there, reports on stdout (result) or stderr (one JSON object)
       -> stdout parsed into InspectedApp[] | output; stderr's JSON object into Diagnostic;
@@ -240,8 +240,12 @@ agent -> Studio Tool (inspect_app | invoke_tool)
       -> result returned as data
 ```
 
-Authoring runs its commands with a runner of its own: it writes stdin and reads stdout and
-stderr apart, which consumption's `_run` (no stdin, streams merged) does not. Neither is moved.
+One runner serves both roles. Consumption's `_run` in `installer.py` was shaped for installation
+alone — no stdin, both streams merged — and authoring needs stdin written and stderr read apart.
+Rather than a second runner beside it, `internals/processes.py` gains
+`run(command, /, *, stdin: str | None = None) -> Completed` (return code, stdout, stderr; the
+runnable check moves with it), and `installer._run` becomes a call to it that keeps its own
+contract: merged streams in the `InstallFailed` message. Consumption tests do not change.
 
 ## Testing
 
@@ -285,4 +289,4 @@ no deprecation period is owed. Consumption Tool names and schemas are unchanged.
 
 `validate_package`, `package_app` (`uv build` is the agent's), `run_app`, per-channel exposure
 (M14), logs and errors observation (M15), conformance (M16), Studio's MCP server command (M13),
-child-process timeout policy (M20; neither runner is bounded today).
+child-process timeout policy (M20; the runner is not bounded today).
