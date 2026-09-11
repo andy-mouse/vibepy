@@ -30,22 +30,21 @@ from vibepy_core.errors import (
 logger = logging.getLogger(__name__)
 
 
-def _unwrapped(error: BaseException, /) -> Exception:
+def _unwrapped(error: Exception, /) -> Exception:
     """Unwrap the single failure inside an anyio `TaskGroup`'s `ExceptionGroup`.
 
     `stdio_server` and the session it opens run inside task groups, so a
     window that refuses during `Server.run` reaches this process wrapped one or
     more times. Unwrapping is safe here because there is exactly one leaf: the
-    window opens a single dependency.
+    window opens a single dependency. A group with more than one leaf is left
+    wrapped and reported as itself, as `app.unhandled`.
     """
     while isinstance(error, ExceptionGroup):
-        exceptions = cast("tuple[BaseException, ...]", error.exceptions)
+        exceptions = cast("tuple[Exception, ...]", error.exceptions)
         if len(exceptions) != 1:
             break
         error = exceptions[0]
-    if isinstance(error, Exception):
-        return cast(Exception, error)
-    return RuntimeError(str(error))
+    return cast(Exception, error)
 
 
 async def _serve(entrypoint: AppEntrypoint[object, AppConfig], /) -> None:
@@ -75,16 +74,12 @@ def main(argv: Sequence[str], /) -> int:
     except (AppNotDeclaredError, AppEntrypointUnloadableError, AppEntrypointInvalidError) as error:
         report(error)
         return 1
-    failure: Exception | None = None
     try:
         asyncio.run(_serve(entrypoint))
-    except* Exception as group:
-        # The window reports its own failure (ADR-030); the SDK's task groups
-        # wrap it, so this unwraps it back to the single failure that occurred.
-        failure = _unwrapped(group)
-    if failure is not None:
-        report(failure)
-        logger.debug("the Agent channel did not open or did not stay open", exc_info=failure)
+    except Exception as error:
+        # The window reports its own failure (ADR-030); the SDK's task groups wrap it.
+        report(_unwrapped(error))
+        logger.debug("the Agent channel did not open or did not stay open", exc_info=error)
         return 1
     return 0
 
