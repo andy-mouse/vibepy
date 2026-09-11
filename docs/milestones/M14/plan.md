@@ -57,7 +57,8 @@ Done first, so that every field M14 adds lands on a derived surface once, instea
 
 **Files:**
 - Modify: `src/vibepy_core/errors.py` (`ErrorInfo` → `BaseModel`; delete `_Report`, `_REPORT`; `report_line`, `read_report_line`), `src/vibepy_core/adapters/mcp/server.py` (`_payload`), `src/vibepy_core/app/entrypoint.py` (`ToolDescription`, `PageDescription`, `AppDescription` → `BaseModel`), `src/vibepy_core/app/package.py` (new `DescribedApp`), `src/vibepy_core/describe.py`, `src/vibepy_core/app/__init__.py`, `src/vibepy_core/__init__.py`
-- Modify (Studio, delete the copies): `packages/vibepy-studio/src/vibepy_studio/models.py` (`Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`, `diagnostic_of`), `internals/describing.py`, `authoring/models.py`, `operating/models.py`, `operating/pages/board.py`, `operating/pages/presentation.py`, `operating/tools/{configuration,installation,packages,runtime}.py`
+- Modify: `src/vibepy_core/app/config.py` (`ConfigFieldType`, `ConfigFieldDescription`, `config_fields_of`)
+- Modify (Studio, delete the copies): `packages/vibepy-studio/src/vibepy_studio/models.py` (`Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`, `diagnostic_of`), `internals/describing.py`, `operating/internals/configuration.py` (`_SchemaField`, `_ConfigSchema`, `_kind`), `authoring/models.py`, `operating/models.py`, `operating/pages/board.py`, `operating/pages/presentation.py`, `operating/tools/{configuration,installation,packages,runtime}.py`
 - Test: `tests/test_errors.py`, `tests/test_describe_command.py`, `tests/test_app_entrypoint.py`, `packages/vibepy-studio/tests/test_installation.py`, `test_presentation.py`, `tests_support.py`
 
 **Interfaces:**
@@ -66,7 +67,8 @@ Done first, so that every field M14 adds lands on a derived surface once, instea
   - `report_line(info) -> str` = `info.model_dump_json() + "\n"`; `read_report_line(line) -> ErrorInfo | None` = `ErrorInfo.model_validate_json(line)` or `None` on `ValidationError`
   - `class ToolDescription(BaseModel): name, description, input_schema: dict[str, JsonValue], output_schema: dict[str, JsonValue]` (Task 2 adds `read_only`, `channels`, `required_roles`)
   - `class PageDescription(BaseModel): name, route, title`
-  - `class AppDescription(BaseModel): app_id, name, version, config_schema: dict[str, JsonValue], tools: list[ToolDescription], pages: list[PageDescription]`
+  - `class ConfigFieldType(StrEnum): STRING="string"; PATH="path"; INTEGER="integer"; SECRET="secret"; OTHER="other"` and `class ConfigFieldDescription(BaseModel): name: str; type: ConfigFieldType; required: bool` (in `app/config.py`, with `config_fields_of(model: type[AppConfig]) -> list[ConfigFieldDescription]` deriving them: for each `name, field in model.model_fields.items()`, `type` from the annotation — `SecretStr` → SECRET, `Path` → PATH, `int` → INTEGER, `str` → STRING, else OTHER; `required = field.is_required()`)
+  - `class AppDescription(BaseModel): app_id, name, version, config_schema: dict[str, JsonValue], config_fields: list[ConfigFieldDescription], tools: list[ToolDescription], pages: list[PageDescription]`
   - `class DescribedApp(AppDescription): app_name: str; distribution: str; distribution_version: str` — the `describe` command's per-App entry, in `vibepy_core/app/package.py` beside `AppRef`, built by `described(ref: AppRef) -> DescribedApp`
   - Studio imports `ErrorInfo` where it had `Diagnostic`, `DescribedApp` where it had `Described`.
 
@@ -92,7 +94,24 @@ Replace the existing test that reads an unknown category as `EXECUTION` (it asse
 ```python
 def test_descriptions_are_pydantic_models() -> None:
     assert issubclass(AppDescription, BaseModel) and issubclass(ToolDescription, BaseModel)
+
+
+def test_a_description_derives_its_configuration_fields_from_the_types() -> None:
+    class Config(AppConfig):
+        root: Path
+        token: SecretStr
+        port: int = 8080
+        note: str | None = None
+
+    fields = {f.name: (f.type, f.required) for f in entrypoint_with_config(Config).describe().config_fields}
+    assert fields == {
+        "root": (ConfigFieldType.PATH, True),
+        "token": (ConfigFieldType.SECRET, True),
+        "port": (ConfigFieldType.INTEGER, False),
+        "note": (ConfigFieldType.OTHER, False),
+    }
 ```
+(`entrypoint_with_config` builds an `AppEntrypoint` over a definition with that config; add it beside the file's existing helpers.)
 
 `tests/test_describe_command.py` — replace the local `Described` TypedDict and `described_app` helper with `DescribedApp.model_validate` over each entry of `json.loads(result.stdout)`; assertions keep their meaning (`app_name`, `distribution`, `distribution_version`, `app_id`, tool names, page routes).
 
@@ -154,6 +173,7 @@ Keep `describe_app(ref) -> AppDescription` as it is (Studio and tests use it). `
 - `models.py`: delete `Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`. `diagnostic_of(reported: ErrorInfo, /, **details) -> ErrorInfo` becomes `reported.model_copy(update={"details": {**details, **reported.details}})`; keep it only if a caller merges details, else delete and use the `ErrorInfo` directly.
 - Every `Diagnostic(` construction (`authoring/models.py`, `operating/models.py`, `operating/tools/*`) → `ErrorInfo(`; every `Diagnostic` annotation → `ErrorInfo`; `board.py`/`presentation.py` read the same four fields.
 - `authoring/models.py`: `AppInspection.apps: list[DescribedApp]`.
+- `operating/internals/configuration.py`: delete `_SchemaField`, `_ConfigSchema`, `_kind`; `config_fields(...)`, `secret_fields(...)` and `is_configured` read `AppFacts.config_fields` (a `list[ConfigFieldDescription]` carried beside `config_schema`, filled from the `DescribedApp` Studio already reads) — `secret_fields` is `[f.name for f in fields if f.type is ConfigFieldType.SECRET]`. Delete Studio's `ConfigField`; `ConfigDescription.fields: list[ConfigFieldDescription]`. The board renders `field.type.value`.
 
 - [ ] **Step 5: Run** `make lint typecheck test` — PASS. (Studio's integration tests exercise `describe` and the report path end to end.)
 - [ ] **Step 6: Commit** — `A shape that crosses a process boundary is one pydantic model: ErrorInfo and the App description are written and read as the same type in core, and Studio's copies are gone`.

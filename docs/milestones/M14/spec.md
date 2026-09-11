@@ -294,9 +294,18 @@ docstring says "this is what crosses a process boundary". The rule is applied:
 - `TypeAdapter` over the dataclasses is not the fix: pydantic documents it for types that must stay
   non-pydantic, and these types exist to cross a boundary.
 
+- Studio's `_ConfigSchema`/`_SchemaField`/`_kind` are the same defect in a third form: they decode
+  pydantic's JSON Schema projection to recover facts (`format: password` means secret) that the
+  App's environment knows as types. `AppDescription` gains `config_fields:
+  list[ConfigFieldDescription]` — `name`, `type: ConfigFieldType` (a closed enum: `string`, `path`,
+  `integer`, `secret`, `other`), `required` — derived in `describe()` from `model_fields` and their
+  annotations (`SecretStr` is secret, `Path` is path, `int` is integer, `str` is string). Studio's
+  `config_fields(schema)`, `secret_fields(schema)`, `is_configured`'s schema read and its own
+  `ConfigField` model are replaced by reading that list. `config_schema` stays beside it as the
+  standard form an agent reads; both are derived from one class in one place.
+
 In-process declarations — `ToolDefinition`, `AppDefinition`, `ToolContext`, `Principal`,
-`AuthorizationRequest` — stay dataclasses. Studio's `_ConfigSchema` stays: it reads a slice of a
-standard (JSON Schema), not a copy of a framework shape.
+`AuthorizationRequest` — stay dataclasses.
 
 ### Error
 
@@ -367,7 +376,8 @@ gains a required keyword, `tool_runtime_for` and the two builders gain required 
 `PageRuntime.render` gains a required keyword, and `vibepy_core.invoke` gains two required
 arguments. Every App in this repository is updated in the same change. Additions to the public
 API: `Principal`, `Channel`, `ToolPolicy`, `AuthorizationRequest`,
-`ToolForbiddenError`, `PrincipalToolInvoker`, `DescribedApp`, `AppDefinition.policy`,
+`ToolForbiddenError`, `PrincipalToolInvoker`, `DescribedApp`, `ConfigFieldDescription`,
+`ConfigFieldType`, `AppDescription.config_fields`, `AppDefinition.policy`,
 `ToolContext.principal`, `ToolContext.channel`, `ToolDescription.{read_only,channels,required_roles}`.
 `ErrorInfo`, `ToolDescription`, `PageDescription`, `AppDescription` change from dataclass to
 `BaseModel`; construction by keyword is unchanged, `dataclasses.asdict` on them is not. The
@@ -411,4 +421,4 @@ Authentication on either channel, and a per-session principal on the Web channel
 and MCP OAuth. Impersonation through `invoke_tool` (an authoring request that names a principal
 other than the agent's). Refusals or confirmations driven by `read_only`. `destructive`,
 `idempotent` and their annotations (M20). Platform-specific `_meta` such as
-`anthropic/requiresUserInteraction` (M19). Audit of refusals (M15). Exposure of Pages. Customer. Reading more of a configuration schema than `_ConfigSchema` does.
+`anthropic/requiresUserInteraction` (M19). Audit of refusals (M15). Exposure of Pages. Customer.
