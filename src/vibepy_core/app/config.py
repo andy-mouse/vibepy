@@ -11,6 +11,7 @@ declaration reads the same variables wherever it is instantiated. See
 import json
 from collections.abc import Mapping
 
+from pydantic import JsonValue
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_PREFIX = "VIBEPY_"
@@ -36,12 +37,11 @@ class NoConfig(AppConfig):
     """
 
 
-def environment_for(config: Mapping[str, object], /) -> dict[str, str]:
+def environment_for(config: Mapping[str, JsonValue], /) -> dict[str, str]:
     """Render held configuration values into the variables a window reads.
 
     The inverse of the library's decoding: a string verbatim, anything else as
-    JSON, which is how pydantic-settings reads a complex field. Values are JSON
-    values, as a host holds them.
+    JSON, which is how pydantic-settings reads a complex field.
     """
     return {
         f"{ENV_PREFIX}{name.upper()}": value if isinstance(value, str) else json.dumps(value)

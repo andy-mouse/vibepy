@@ -17,6 +17,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import JsonValue
+
 from vibepy_core import environment_for
 from vibepy_core.app.config import ENV_PREFIX
 from vibepy_core.errors import ErrorInfo, read_report_line
@@ -289,7 +291,7 @@ class Processes:
         *,
         app_name: str,
         interpreter: Path,
-        config: Mapping[str, object],
+        config: Mapping[str, JsonValue],
         known_as: str,
         port: int,
     ) -> None:

@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Annotated
 
 from packaging.utils import canonicalize_name
-from pydantic import AfterValidator, BaseModel, BeforeValidator
+from pydantic import AfterValidator, BaseModel, BeforeValidator, JsonValue
 
 from vibepy_studio.models import Diagnostic
 
@@ -182,7 +182,7 @@ class ConfigureRequest(BaseModel):
     """An App to configure, with the values to hold for it."""
 
     app_name: AppNameField
-    values: dict[str, object] = {}
+    values: dict[str, JsonValue] = {}
 
 
 class HeldConfig(BaseModel):
@@ -234,7 +234,7 @@ class StartRequest(BaseModel):
     """An App to start, with the secret values its declaration requires."""
 
     app_name: AppNameField
-    secrets: dict[str, object] = {}
+    secrets: dict[str, JsonValue] = {}
 
 
 class RunningApp(BaseModel):

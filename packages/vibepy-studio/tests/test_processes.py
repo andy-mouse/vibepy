@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 from tests_support import free_port
 from vibepy_core import ErrorCategory
@@ -136,7 +137,7 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
     """One name holds one child, and the start that was refused started nothing."""
     processes = Processes(logs=tmp_path / "logs")
     first, second = free_port(), free_port()
-    config: dict[str, object] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    config: dict[str, JsonValue] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
     await processes.start(
         app_name="todo-app",
         interpreter=Path(sys.executable),

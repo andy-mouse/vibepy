@@ -16,7 +16,7 @@ is not restated here.
 
 from pathlib import Path
 
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from vibepy_core.app.group import APP_GROUP
 from vibepy_core.errors import ErrorCategory, ErrorInfo
@@ -58,8 +58,8 @@ class InvokeRequest(BaseModel):
     project: Path
     app: str
     tool: str
-    input: dict[str, object] = {}
-    config: dict[str, object] = {}
+    input: dict[str, JsonValue] = {}
+    config: dict[str, JsonValue] = {}
 
 
 class Invocation(BaseModel):
