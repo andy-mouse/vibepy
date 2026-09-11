@@ -131,8 +131,10 @@ def save_request(
     """Build what a Save sends to `configure_app`, or the required fields it still lacks.
 
     An empty secret is omitted, which the Hub reads as "keep what is held": a
-    screen must not be able to blank a stored secret. A required field with no
-    value and no held secret is named, and every such field is named at once.
+    screen must not be able to blank a stored secret. A non-secret field absent
+    from the mapping is also not sent, letting the Hub preserve what it holds.
+    A required field with no value and no held secret is named, and every such
+    field is named at once.
     """
     values: dict[str, object] = {}
     for field in fields:
