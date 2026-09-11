@@ -166,7 +166,7 @@ class AppRow(BaseModel):
     distribution_version: str | None = None
     """The installed or offered wheel's version. What the board shows and `update_app` compares."""
     available_version: str | None = None
-    """The version the source offers when it is not the installed one; `update_app` installs it."""
+    """The version the source offers when newer than the installed one; `update_app` installs it."""
     state: str
     url: str | None = None
     configured: bool = False

@@ -104,7 +104,7 @@ its route, and the data the App wrote elsewhere. Refusals, all `caller`:
 | --- | --- |
 | `hub.not_installed` | no environment |
 | `hub.candidate_absent` | the source offers no wheel of this name |
-| `hub.up_to_date` | the offered wheel's version equals the installed `distribution_version` |
+| `hub.up_to_date` | the offered wheel's version is not higher than the installed `distribution_version` |
 | `hub.already_running` | the App is running; the user stops it first |
 
 The update itself is remove-environment then the install path above. If the install fails, the
@@ -116,7 +116,7 @@ operation to a user and two to the Hub, which is what `update_app` exists to hid
 which `vibepy_core.describe` already reports beside the App's own `version`. The two differ: an
 App declares its version in its definition, a wheel carries its distribution's, and what an update
 changes is the second. The board shows the second. `AppRow` gains `available_version: str | None`,
-set only for an installed App whose candidate wheel's version differs from its `distribution_version`. `list_apps` already reads both; today it discards the
+set only for an installed App whose candidate wheel's version is higher than its `distribution_version`. `list_apps` already reads both; today it discards the
 candidate once the App is installed.
 
 `AppListing` gains `source: Path | None`, the registered folder. The board shows the folder and

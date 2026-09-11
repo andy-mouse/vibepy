@@ -9,6 +9,7 @@ import logging
 from collections.abc import Sequence
 
 from packaging.utils import canonicalize_name
+from packaging.version import Version
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
@@ -243,9 +244,8 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
         for row in await candidates(source):
             held = rows.get(row.name)
             if held is not None:
-                if (
-                    held.distribution_version is not None
-                    and held.distribution_version != row.version
+                if held.distribution_version is not None and Version(row.version) > Version(
+                    held.distribution_version
                 ):
                     rows[row.name] = held.model_copy(update={"available_version": row.version})
                 continue
@@ -331,11 +331,12 @@ async def update_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installatio
             state="installed",
             version=facts.distribution_version,
         )
-    if offered.version == facts.distribution_version:
+    if Version(offered.version) <= Version(facts.distribution_version):
         return _refused(
             payload.app_name,
             "hub.up_to_date",
-            f"{payload.app_name!r} is already at {facts.distribution_version}",
+            f"the offered version {offered.version} is not newer than "
+            f"{facts.distribution_version}, which is already installed",
             state="installed",
             version=facts.distribution_version,
         )

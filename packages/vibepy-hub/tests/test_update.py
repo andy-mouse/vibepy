@@ -21,6 +21,35 @@ def newer_wheelhouse(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path)
     return out
 
 
+@pytest.fixture(scope="session")
+def older_wheelhouse(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) -> Path:
+    """The session wheelhouse plus a Todo one version down, built once."""
+    out = tmp_path_factory.mktemp("older")
+    for wheel in wheelhouse.glob("*.whl"):
+        shutil.copy(wheel, out / wheel.name)
+    bumped_fixture_wheel(FIXTURES / "todo-app", out, version="0.0.1")
+    return out
+
+
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_an_older_wheel_is_not_offered_as_an_update(
+    installed: Path, older_wheelhouse: Path
+) -> None:
+    async with hub(installed) as tools:
+        await tools.invoke("register_package_source", {"path": str(older_wheelhouse)})
+        listed = await tools.invoke("list_apps", {})
+        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
+
+    assert isinstance(listed, AppListing)
+    row = next(row for row in listed.apps if row.app_name == "vibepy-todo")
+    assert row.distribution_version == "0.1.0"
+    assert row.available_version is None
+    assert isinstance(answered, Installation)
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.up_to_date"
+
+
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_a_newer_wheel_shows_as_an_available_version(
