@@ -45,6 +45,7 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "pre-commit>=4.6.2",
+    "selenium>=4.30",
 ]
 
 [tool.uv.sources]
@@ -123,6 +124,11 @@ addopts = [
     # top-level conftest, not in a package's own.
     "-p",
     "nicegui.testing.user_plugin",
+    # The screen plugin beside it: NiceGUI documents the two fixtures as a pair,
+    # and its `--driver Chrome` belongs to `pytest-selenium`, which is not here
+    # -- the plugin builds its own headless Chrome and reads no such option.
+    "-p",
+    "nicegui.testing.screen_plugin",
 ]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
@@ -135,6 +141,7 @@ pythonpath = ["tests", "packages/vibepy-hub/tests"]
 markers = [
     "integration: crosses into a real distribution or child process",
     "apps(*names): the fixture Apps a test's copy of the template root holds",
+    "browser: drives a real browser through NiceGUI's screen fixture",
 ]
 strict_markers = true
 asyncio_mode = "auto"
