@@ -53,7 +53,7 @@ remains a platform-tier App (ADR-024): built on the framework, never depended on
 | `app_id` `"vibepy-hub"` (also the MCP server name, `adapters/mcp/server.py`) | `"vibepy-studio"` |
 | entry point `hub = "vibepy_hub.entry:APP"` | `studio = "vibepy_studio.entry:APP"` |
 | `HubConfig`, `HubDeps` | `StudioConfig`, `StudioDeps` |
-| `HubState`, the `hub.*` diagnostic vocabulary, the `board` Page, its "Hub" heading | unchanged; the consumption role is named `hub` |
+| `HubState`, the `hub.*` diagnostic vocabulary, the `board` Page, its "Hub" heading | unchanged; "Hub" is the consumption role's name to humans |
 | `make hub`, `scripts/run_hub.py`, launch entry `hub` | `make studio`, `scripts/run_studio.py`, `studio` |
 
 The word "Hub" carries two meanings in the code today and the rename separates them: where it
@@ -68,16 +68,17 @@ path reference is corrected as a broken reference.
 
 ### Package layout
 
-Roles are the first axis, because the two roles are the two channels' users. The consumption role
-is named `hub`, which is what its vocabulary (`hub.*`), its state (`HubState`) and its board
-already call it; the authoring role is `authoring`, matching `authoring.*`.
+Roles are the first axis, because the two roles are the two channels' users. The folders are named
+for the roles, `consumption` and `authoring`. "Hub" stays the name the consumption role shows
+humans — its board, its `hub.*` vocabulary, its `HubState` — which is a different layer from the
+role and not a mismatch with it.
 
 ```text
 vibepy_studio/
 ├─ entry.py                  # one App: STUDIO_APP, HUB_TOOLS + AUTHORING_TOOLS
 ├─ models.py                 # shared: Diagnostic, Empty
 ├─ internals/                # shared: files, processes (run, ChildFailure), describing, deps
-├─ hub/                      # humans, Web channel — the Hub as it is, moved
+├─ consumption/              # humans, Web channel — the Hub as it is, moved
 │  ├─ models.py
 │  ├─ tools/    packages, installation, configuration, runtime
 │  ├─ internals/ installer, wheels, routing, state, configuration
@@ -88,13 +89,13 @@ vibepy_studio/
    └─ internals/ projects   (running the two commands under uv)
 ```
 
-`hub/` is a move with no behaviour change. Its tests move with it and keep passing
+`consumption/` is a move with no behaviour change. Its tests move with it and keep passing
 before any authoring code lands.
 
 ## Authoring capabilities
 
 Three Tools, in `AUTHORING_TOOLS`, channel-neutral like every Tool. Until M14 introduces per-channel
-exposure they appear on both of Studio's channels, as the hub Tools do.
+exposure they appear on both of Studio's channels, as the consumption Tools do.
 
 | Tool | Input | Output |
 | --- | --- | --- |
@@ -157,9 +158,9 @@ class AppInspection(BaseModel):
 ```
 
 Running `describe` and reading what it writes is one shared operation,
-`internals/describing.describe(python: Sequence[str])`: the hub role passes an installed
+`internals/describing.describe(python: Sequence[str])`: consumption passes an installed
 environment's interpreter, authoring passes `uv run --project <dir> python`, and both receive the
-full shape the command writes (`Described`, every Tool schema included). The hub role's `_Described`,
+full shape the command writes (`Described`, every Tool schema included). Consumption's `_Described`,
 which read only what installation needs, is replaced by deriving `AppFacts` from `Described`.
 
 ### `invoke_tool`
@@ -250,7 +251,7 @@ agent -> Studio Tool (inspect_app | invoke_tool)
       -> result returned as data
 ```
 
-One runner, one describer and one failure reader serve both roles. The hub role's `_run` in `installer.py` was shaped for installation
+One runner, one describer and one failure reader serve both roles. Consumption's `_run` in `installer.py` was shaped for installation
 alone — no stdin, both streams merged — and authoring needs stdin written and stderr read apart.
 Rather than a second runner beside it, `internals/processes.py` gains
 `run(command, /, *, stdin: str | None = None) -> Completed` (return code, stdout, stderr; the
@@ -260,7 +261,7 @@ be told the project's environment is Studio's. `installer._run` becomes a call t
 own contract: merged streams in the `InstallFailed` message. The reader of a child's failure report —
 today `processes._Failure`/`ChildFailure` bound to a log file, with `tools/runtime._category`
 beside it — becomes one public reader of text (`ChildFailure | None`) and one `category(str)` in
-shared `internals/processes.py`; the log-file path and stderr both call it. Hub tests do not change.
+shared `internals/processes.py`; the log-file path and stderr both call it. Consumption tests do not change.
 
 ## Testing
 
@@ -284,7 +285,7 @@ environment and needs no network; a project generated under `tmp_path` would nee
 ## Compatibility
 
 `vibepy-hub` and `vibepy_hub` cease to exist. No installation outside this repository exists, so
-no deprecation period is owed. Hub Tool names and schemas are unchanged. `load_app` and
+no deprecation period is owed. Consumption Tool names and schemas are unchanged. `load_app` and
 `ERROR_CATALOG` are additions to the public API; `vibepy_core.invoke` is a new command.
 
 ## Documentation
@@ -295,7 +296,7 @@ no deprecation period is owed. Hub Tool names and schemas are unchanged. `load_a
   milestone each belongs to
 - `docs/architecture/packaging.md`: the `invoke` command, `load_app`, no third distribution
 - `docs/architecture/lifecycle.md`, `docs/architecture/app-model.md`: module paths; "Hub" stays
-  where the hub role is meant
+  where the consumption role is meant
 - `docs/decisions/ADR-032-authoring-is-studios-agent-channel.md`; ADR-025 status line;
   ADR-031 path reference
 - this folder is deleted on integration
