@@ -25,6 +25,7 @@ from vibepy_hub.internals import (
     environment,
     environments,
     install,
+    installed_facts,
     is_configured,
     purelib,
     read_facts,
@@ -143,19 +144,27 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"wheel": str(offered.wheel)},
             ),
         )
+    return await _install_offered(deps, payload.app_name, offered)
+
+
+async def _install_offered(deps: HubDeps, app_name: str, offered: Candidate, /) -> Installation:
+    """Create the environment, describe it, keep its facts, give it an address.
+
+    Shared by installing and updating: an update is this, over an environment that
+    was removed while the Hub kept everything else it held for the App.
+    """
+    env = environment(deps.root, app_name)
     try:
         await install(wheel=offered.wheel, source=offered.wheel.parent, env=env)
         described = await describe(env)
         metadata = await purelib(env)
         mine = [
-            facts
-            for facts in described
-            if str(canonicalize_name(facts.distribution)) == payload.app_name
+            facts for facts in described if str(canonicalize_name(facts.distribution)) == app_name
         ]
         if not mine:
             await remove_environment(env)
             return Installation(
-                app=AppRow(app_name=payload.app_name, state="available"),
+                app=AppRow(app_name=app_name, state="available"),
                 diagnostic=Diagnostic(
                     code="hub.no_app_declared",
                     category=ErrorCategory.DECLARATION,
@@ -166,13 +175,13 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
         if len(mine) > 1:
             await remove_environment(env)
             return Installation(
-                app=AppRow(app_name=payload.app_name, state="available"),
+                app=AppRow(app_name=app_name, state="available"),
                 diagnostic=Diagnostic(
                     code="hub.multiple_apps_declared",
                     category=ErrorCategory.DECLARATION,
-                    message=f"{payload.app_name!r} declares more than one App",
+                    message=f"{app_name!r} declares more than one App",
                     details={
-                        "app_name": payload.app_name,
+                        "app_name": app_name,
                         "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
                     },
                 ),
@@ -182,7 +191,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
     except InstallFailed as failure:
         await remove_environment(env)
         return Installation(
-            app=AppRow(app_name=payload.app_name, state="available"),
+            app=AppRow(app_name=app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.install_failed",
                 category=ErrorCategory.EXECUTION,
@@ -198,22 +207,22 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
     if facts.has_pages:
 
         def hold(state: HubState) -> HubState:
-            if payload.app_name in state.ports:
+            if app_name in state.ports:
                 return state
             return state.model_copy(
-                update={"ports": {**state.ports, payload.app_name: allocate(state.ports.values())}}
+                update={"ports": {**state.ports, app_name: allocate(state.ports.values())}}
             )
 
-        port = (await update_state(deps, hold)).ports[payload.app_name]
-        await write_route(deps.root, payload.app_name, port=port)
+        port = (await update_state(deps, hold)).ports[app_name]
+        await write_route(deps.root, app_name, port=port)
     return Installation(
         app=AppRow(
-            app_name=payload.app_name,
+            app_name=app_name,
             name=facts.name,
             version=facts.version,
             distribution_version=facts.distribution_version,
             state="installed",
-            url=address(payload.app_name, deps.proxy_port) if facts.has_pages else None,
+            url=address(app_name, deps.proxy_port) if facts.has_pages else None,
             has_pages=facts.has_pages,
         )
     )
@@ -227,7 +236,13 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     unreadable = source is not None and not await readable(source)
     if source is not None and not unreadable:
         for row in await candidates(source):
-            if row.name in rows:
+            held = rows.get(row.name)
+            if held is not None:
+                if (
+                    held.distribution_version is not None
+                    and held.distribution_version != row.version
+                ):
+                    rows[row.name] = held.model_copy(update={"available_version": row.version})
                 continue
             rows[row.name] = AppRow(
                 app_name=row.name,
@@ -277,6 +292,67 @@ async def remove_app(ctx: ToolContext[HubDeps], payload: AppName) -> AppListing:
     return await list_apps(ctx, Empty())
 
 
+async def update_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installation:
+    """Replace an installed App with the version its source offers, keeping what the Hub holds.
+
+    Configuration values, the port, the route and the data the App wrote elsewhere
+    all survive: only the environment is remade. A running App is refused rather
+    than restarted, because a restart policy is a decision this Tool does not own,
+    and the user has Stop.
+    """
+    deps = ctx.dependencies
+    facts = await installed_facts(deps.root, payload.app_name)
+    if facts is None:
+        return _refused(
+            payload.app_name,
+            "hub.not_installed",
+            f"{payload.app_name!r} is not installed",
+            state="available",
+        )
+    if deps.processes.running(payload.app_name):
+        return _refused(
+            payload.app_name,
+            "hub.already_running",
+            f"{payload.app_name!r} is running; stop it first",
+            state="running",
+            version=facts.distribution_version,
+        )
+    offered = await _offered(deps, payload.app_name)
+    if offered is None:
+        return _refused(
+            payload.app_name,
+            "hub.candidate_absent",
+            f"The registered source offers no {payload.app_name!r}",
+            state="installed",
+            version=facts.distribution_version,
+        )
+    if offered.version == facts.distribution_version:
+        return _refused(
+            payload.app_name,
+            "hub.up_to_date",
+            f"{payload.app_name!r} is already at {facts.distribution_version}",
+            state="installed",
+            version=facts.distribution_version,
+        )
+    await remove_environment(environment(deps.root, payload.app_name))
+    return await _install_offered(deps, payload.app_name, offered)
+
+
+def _refused(
+    app_name: str, code: str, message: str, /, *, state: str, version: str | None = None
+) -> Installation:
+    """Say an update did not happen, and why. Every refusal here is the caller's to act on."""
+    return Installation(
+        app=AppRow(app_name=app_name, state=state, distribution_version=version),
+        diagnostic=Diagnostic(
+            code=code,
+            category=ErrorCategory.CALLER,
+            message=message,
+            details={"app_name": app_name},
+        ),
+    )
+
+
 INSTALLATION_TOOLS: Sequence[Tool[HubDeps]] = [
     Tool(
         definition=ToolDefinition(
@@ -304,5 +380,14 @@ INSTALLATION_TOOLS: Sequence[Tool[HubDeps]] = [
             output_model=AppListing,
         ),
         handler=remove_app,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="update_app",
+            description="Replace an installed App with the version its source offers",
+            input_model=AppName,
+            output_model=Installation,
+        ),
+        handler=update_app,
     ),
 ]
