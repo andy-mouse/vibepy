@@ -6,7 +6,7 @@ read and authoring publishes.
 
 from pydantic import BaseModel
 
-from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 
 
 class Diagnostic(BaseModel):
@@ -48,9 +48,9 @@ class Described(BaseModel):
     app_id: str
     name: str
     version: str
-    config_schema: dict[str, object] = {}
-    tools: list[DescribedTool] = []
-    pages: list[DescribedPage] = []
+    config_schema: dict[str, object]
+    tools: list[DescribedTool]
+    pages: list[DescribedPage]
 
 
 def diagnostic_of(reported: ErrorInfo, /, **details: str) -> Diagnostic:

@@ -18,8 +18,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from vibepy_core import ErrorCategory, ErrorInfo
 from vibepy_core.app.group import APP_GROUP
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_studio.models import Described, Diagnostic, diagnostic_of
 
 
