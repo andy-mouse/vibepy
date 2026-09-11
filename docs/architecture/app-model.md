@@ -30,7 +30,7 @@ dependency type:
 
 ```python
 @dataclass(frozen=True)
-class AppDefinition[DepsT, ConfigT: BaseModel]:
+class AppDefinition[DepsT, ConfigT: AppConfig]:
     app_id: str
     name: str
     version: str
@@ -44,10 +44,12 @@ that its Tools require one of that type; it does not declare where one comes fro
 Tools need no resource declares `AppDefinition[None, ...]`; no default is provided, because the
 framework does not guess that an App is stateless.
 
-`config` is the other kind of type: a Pydantic model stating what this App requires of its host.
-It is readable without acquiring anything, and it is required — an App that requires nothing
-declares `NoConfig`, an empty model. See
-`docs/decisions/ADR-022-configuration-is-a-declaration.md`.
+`config` is the other kind of type: an `AppConfig` subclass stating what this App requires of its
+host. It is readable without acquiring anything, and it is required — an App that requires
+nothing declares `NoConfig`, an empty one. Where the values come from is the environment a
+process runs in, which `docs/architecture/packaging.md` owns. See
+`docs/decisions/ADR-022-configuration-is-a-declaration.md` and
+`docs/decisions/ADR-033-configuration-reaches-a-process-through-the-environment.md`.
 
 A definition contains no live connections, no request state, no UI sessions and no running
 adapters, and no factory for any of them. It is a value, so a later milestone can read it without
@@ -62,7 +64,7 @@ therefore no state to inspect and no error to raise for reaching one.
 ```python
 type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 
-def tool_runtime_for[DepsT, ConfigT: BaseModel](
+def tool_runtime_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,
@@ -70,7 +72,7 @@ def tool_runtime_for[DepsT, ConfigT: BaseModel](
     config: Mapping[str, object],
 ) -> AbstractAsyncContextManager[ToolRuntime[DepsT]]: ...
 
-def page_runtime_for[DepsT, ConfigT: BaseModel](
+def page_runtime_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,
@@ -83,9 +85,9 @@ def page_runtime_for[DepsT, ConfigT: BaseModel](
 Tools through it. The Agent channel adds nothing to it and hands it to its server's lifespan.
 `page_runtime_for` is the Web channel's window, and it is that same window with a PageRegistry
 over it, so configuration is validated once and a resource acquired once. Registries are built
-from declarations alone, so they are made before the resource is acquired. `config` is a raw mapping the window validates
-against the declaration before it enters the lifespan, so a window that cannot run acquires
-nothing; the lifespan receives the validated model. Two windows over one definition are
+from declarations alone, so they are made before the resource is acquired. `config` is a raw mapping of explicit values; the window
+instantiates the declaration with it, so the declaration's own reading of the environment fills
+in the rest and a window that cannot run acquires nothing. The lifespan receives the instance. Two windows over one definition are
 isolated by default: each enters its own lifespan.
 
 The resource itself is never exposed. A Tool handler receives it through its ToolContext, and
@@ -99,10 +101,8 @@ A definition and a lifespan meet in an entrypoint, and nowhere else. That entryp
 metadata rather than framework behaviour, which is where ADR-010 already places one.
 
 An installed App has one entrypoint per channel it offers. The Web channel's is what the operator
-runs: `python -m vibepy_core.serve`, which `docs/architecture/packaging.md` owns. The Agent
-channel has no command today — nothing in this repository declares a console script, and an
-Agent-only App is therefore reachable only by a host that opens the channel itself. An App
-declaring no Pages has no Web channel.
+runs: `python -m vibepy_core.serve`, and the Agent channel's is `python -m vibepy_core.mcp`;
+`docs/architecture/packaging.md` owns both. An App declaring no Pages has no Web channel.
 
 ## State ownership
 

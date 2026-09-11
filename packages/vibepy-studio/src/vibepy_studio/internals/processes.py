@@ -10,7 +10,6 @@ first answer can leave one this window cannot release.
 """
 
 import asyncio
-import json
 import logging
 import os
 import shutil
@@ -18,6 +17,10 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import JsonValue
+
+from vibepy_core import environment_for
+from vibepy_core.app.config import ENV_PREFIX
 from vibepy_core.errors import ErrorInfo, read_report_line
 
 logger = logging.getLogger(__name__)
@@ -45,7 +48,8 @@ A launcher hands a child the environment the child is entitled to. Passing on
 what describes the launcher misdescribes the child: an App told it runs in
 Studio's virtual environment, or that it is running Studio's current test, behaves
 as something it is not. Removing them is what keeps the isolation Studio exists
-to provide.
+to provide. A parent's own configuration belongs to the same category: it
+describes the parent, not the child it starts.
 """
 
 STOP_TIMEOUT = 10.0
@@ -87,8 +91,16 @@ def _reported(path: Path, /) -> ErrorInfo | None:
 
 
 def child_environment() -> dict[str, str]:
-    """Return the environment a started App is entitled to."""
-    return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
+    """Return the environment a started App is entitled to.
+
+    Also drops every `VIBEPY_`-prefixed variable: that is Studio's own rendered
+    configuration, which describes Studio's process, not the child's.
+    """
+    return {
+        name: value
+        for name, value in os.environ.items()
+        if name not in DESCRIBES_THIS_PROCESS and not name.startswith(ENV_PREFIX)
+    }
 
 
 @dataclass(frozen=True)
@@ -114,11 +126,14 @@ def is_runnable(program: str, /) -> bool:
     return shutil.which(program) is not None or Path(program).is_file()
 
 
-async def run(command: Sequence[str], /, *, stdin: str | None = None) -> Completed:
+async def run(
+    command: Sequence[str], /, *, stdin: str | None = None, env: Mapping[str, str] | None = None
+) -> Completed:
     """Run one command to completion and return what it left.
 
-    Every child receives `child_environment()`, so what describes Studio's own
-    process describes no child. Standard output and standard error are returned
+    Every child receives `child_environment()` with `env` laid over it, so what
+    describes Studio's own process describes no child and what the caller hands
+    the child reaches it. Standard output and standard error are returned
     apart, unmerged, so a report a child wrote to standard error stays separate
     from what it wrote to standard output.
     """
@@ -129,7 +144,7 @@ async def run(command: Sequence[str], /, *, stdin: str | None = None) -> Complet
         stdin=asyncio.subprocess.DEVNULL if stdin is None else asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
-        env=child_environment(),
+        env={**child_environment(), **(env or {})},
     )
     out, err = await process.communicate(None if stdin is None else stdin.encode())
     return Completed(
@@ -276,11 +291,11 @@ class Processes:
         *,
         app_name: str,
         interpreter: Path,
-        config: Mapping[str, object],
+        config: Mapping[str, JsonValue],
         known_as: str,
         port: int,
     ) -> None:
-        """Serve one App on the port it was given, handing it its configuration on stdin.
+        """Serve one App on the port it was given, in an environment of its own.
 
         `app_name` is the name the App declares itself under, which is what its
         environment answers to; `known_as` is what this Hub filed it under. The
@@ -291,8 +306,9 @@ class Processes:
         cannot reach a second caller in between. The entry holds nothing until
         the child exists.
 
-        Standard input carries the configuration so that a secret reaches the
-        child without a file, an environment variable or an argument vector.
+        The configuration reaches the child as `VIBEPY_<FIELD>` variables,
+        rendered by `environment_for`, laid over the environment the child is
+        entitled to (`docs/architecture/packaging.md`, Configuration).
 
         The child's standard error goes to a file of its own, which is what a
         process supervisor does (<http://supervisord.org/configuration.html>). A
@@ -312,26 +328,16 @@ class Processes:
                 app_name,
                 "--port",
                 str(port),
-                stdin=asyncio.subprocess.PIPE,
+                stdin=asyncio.subprocess.DEVNULL,
                 stderr=handle,
-                env=child_environment(),
+                env={**child_environment(), **environment_for(config)},
             )
         finally:
             await asyncio.to_thread(handle.close)
         child = _Child(process=process)
         self._running[known_as] = child
         try:
-            if process.stdin is not None:
-                process.stdin.write(json.dumps(dict(config)).encode())
-                await process.stdin.drain()
-                process.stdin.close()
             await self._wait_until_answering(process, port)
-        except OSError as broken:
-            await self._release(known_as)
-            raise StartFailed(
-                f"the App did not take its configuration: {broken}",
-                reported=await asyncio.to_thread(_reported, path),
-            ) from broken
         except StartFailed as failure:
             await self._release(known_as)
             raise StartFailed(

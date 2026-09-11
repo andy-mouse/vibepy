@@ -24,6 +24,7 @@ from nicegui import ui
 from pydantic import BaseModel, SecretStr, TypeAdapter
 
 from vibepy_core import (
+    AppConfig,
     AppDefinition,
     AppEntrypoint,
     ErrorCategory,
@@ -38,7 +39,7 @@ from vibepy_core import (
 APP_ID = "todo-app"
 
 
-class TodoConfig(BaseModel):
+class TodoConfig(AppConfig):
     """What the Todo App requires of its host.
 
     `db_key` is a secret by type, so a Host can tell it from an ordinary string

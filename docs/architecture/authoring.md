@@ -56,7 +56,7 @@ vocabulary that `vibepy_studio/authoring/models.py` defines.
 
 Studio keeps no authoring state. The Web channel of a project is opened by the agent with
 `python -m vibepy_core.serve` under `uv run`; the Agent channel's server command is
-`docs/roadmap.md` M13's.
+`python -m vibepy_core.mcp`.
 
 | Conceptual capability | Where it lives |
 | --- | --- |
@@ -67,7 +67,10 @@ Studio keeps no authoring state. The Web channel of a project is opened by the a
 
 ## Authoring MCP
 
-Authoring MCP is Studio's Agent channel served over MCP (`docs/roadmap.md` M13).
+Authoring MCP is Studio's Agent channel served over MCP. It exists: an agent platform launches
+`python -m vibepy_core.mcp studio`, the entry-point name the App is declared under, with
+Studio's own interpreter and reaches these Tools as it reaches any App's. The configuration that
+command takes, and what each platform's own file looks like, are `docs/architecture/packaging.md`'s.
 
 It should not duplicate Codex's native file/code editing capabilities.
 

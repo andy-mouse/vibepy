@@ -20,6 +20,7 @@ from nicegui import ui
 from pydantic import BaseModel
 
 from vibepy_core import (
+    AppConfig,
     AppDefinition,
     AppEntrypoint,
     Page,
@@ -31,7 +32,7 @@ from vibepy_core import (
 )
 
 
-class TimerConfig(BaseModel):
+class TimerConfig(AppConfig):
     """This App requires nothing of its host."""
 
 

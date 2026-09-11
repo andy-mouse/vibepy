@@ -5,6 +5,7 @@ description = "Agent-native application framework exposing Tools through Web and
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.9",
+    "pydantic-settings>=2.15",
 ]
 
 [project.optional-dependencies]
@@ -81,9 +82,10 @@ convention = "pep257"
 # The two headline invariants, enforced by the linter rather than by a test of
 # our own: no MCP type reaches the core Tool model and no Web type reaches the
 # core Page model. A channel's own adapter and the command that opens the Web
-# channel are exempt below, because being a channel component is their job.
+# channel and the command that opens the Agent channel are exempt below,
+# because being a channel component is their job.
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
-"mcp".msg = "The core declares no channel. Only vibepy_core.adapters.mcp may import the MCP SDK."
+"mcp".msg = "The core declares no channel. Only vibepy_core.adapters.mcp and vibepy_core.mcp may import the MCP SDK."
 "nicegui".msg = "The core declares no channel. Only vibepy_core.adapters.nicegui and vibepy_core.serve may import NiceGUI."
 
 [tool.ruff.lint.per-file-ignores]
@@ -92,6 +94,7 @@ convention = "pep257"
 "!src/vibepy_core/**" = ["TID251"]
 "src/vibepy_core/adapters/**" = ["TID251"]
 "src/vibepy_core/serve.py" = ["TID251"]
+"src/vibepy_core/mcp.py" = ["TID251"]
 # Docstrings are documentation of a public surface. A test module and a fixture
 # App are neither: their module docstrings state what the file covers, and
 # PEP 8 asks for docstrings on public API, which these are not.

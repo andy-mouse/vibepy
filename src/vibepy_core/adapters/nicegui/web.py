@@ -16,14 +16,14 @@ Registering routes is not running a server.
 from collections.abc import Awaitable, Callable
 
 from nicegui import ui
-from pydantic import BaseModel
 
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy_core.page.runtime import PageRuntime
 
 
-def register_pages[DepsT, ConfigT: BaseModel](
+def register_pages[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT], pages: PageRuntime, /
 ) -> None:
     """Project every declared Page of one App onto a NiceGUI route.

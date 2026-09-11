@@ -13,7 +13,7 @@ import logging
 from collections.abc import Callable
 from pathlib import Path
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, JsonValue, ValidationError
 
 from vibepy_studio.internals.deps import StudioDeps
 from vibepy_studio.internals.files import write_whole
@@ -36,7 +36,7 @@ class HubState(BaseModel):
     wheelhouse, and two folders offering one App is a mistake to prevent rather than a case to
     explain."""
 
-    config: dict[str, dict[str, object]] = {}
+    config: dict[str, dict[str, JsonValue]] = {}
     ports: dict[str, int] = {}
     """The port each installed App serves on, allocated when it was installed."""
 

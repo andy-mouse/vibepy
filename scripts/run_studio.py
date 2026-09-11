@@ -1,20 +1,22 @@
 """Run Studio's board for development: its Web window and the proxy in front of it.
 
 `python -m vibepy_core.serve studio` opens the window and reads its configuration from
-standard input; Studio writes the proxy's install configuration as that window
-opens, and Traefik is started against it once the file is there. Without the
-proxy the board is reachable but the address of every App it starts is not, so
+`VIBEPY_ROOT` and `VIBEPY_PROXY_PORT`; Studio writes the proxy's install configuration
+as that window opens, and Traefik is started against it once the file is there. Without
+the proxy the board is reachable but the address of every App it starts is not, so
 the two are one command here. Stop it with Ctrl-C and both processes go with it.
 """
 
 import argparse
-import json
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
 
 from fetch_traefik import TOOLS, VERSION
+
+from vibepy_core import environment_for
 
 REPO = Path(__file__).resolve().parents[1]
 TRAEFIK = TOOLS / (f"traefik-{VERSION}.exe" if sys.platform == "win32" else f"traefik-{VERSION}")
@@ -34,12 +36,9 @@ def main() -> int:
 
     studio = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "studio", "--port", str(args.port)],
-        stdin=subprocess.PIPE,
-        text=True,
+        stdin=subprocess.DEVNULL,
+        env={**os.environ, **environment_for({"root": str(root), "proxy_port": args.proxy_port})},
     )
-    assert studio.stdin is not None
-    studio.stdin.write(json.dumps({"root": str(root), "proxy_port": args.proxy_port}))
-    studio.stdin.close()
 
     install_config = root / "traefik.yml"
     proxy: subprocess.Popen[bytes] | None = None

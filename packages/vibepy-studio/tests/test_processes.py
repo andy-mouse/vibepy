@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 from tests_support import free_port
 from vibepy_core import ErrorCategory
@@ -20,6 +21,7 @@ from vibepy_studio.internals.processes import (
     Processes,
     StartFailed,
     _reported,  # pyright: ignore[reportPrivateUsage]
+    child_environment,
     reported,
     run,
 )
@@ -71,12 +73,11 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
+async def test_a_child_that_cannot_run_the_command_is_a_start_failure(
     tmp_path: Path,
 ) -> None:
     """An environment without the framework cannot run the command at all, so
-    the child is gone before it reads a configuration large enough to fill the
-    pipe. That used to escape as `BrokenPipeError`."""
+    the child exits before it answers."""
     env = tmp_path / "bare"
     made = await asyncio.create_subprocess_exec(
         "uv", "venv", str(env), stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
@@ -88,7 +89,7 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
         await processes.start(
             app_name="gone",
             interpreter=interpreter(env),
-            config={"payload": "x" * 500_000},
+            config={"db_path": "x", "db_key": "k"},
             known_as="gone",
             port=free_port(),
         )
@@ -136,7 +137,7 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
     """One name holds one child, and the start that was refused started nothing."""
     processes = Processes(logs=tmp_path / "logs")
     first, second = free_port(), free_port()
-    config: dict[str, object] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    config: dict[str, JsonValue] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
     await processes.start(
         app_name="todo-app",
         interpreter=Path(sys.executable),
@@ -201,6 +202,16 @@ async def test_run_hands_the_child_standard_input() -> None:
 async def test_run_refuses_a_program_that_is_not_there() -> None:
     with pytest.raises(NotRunnable):
         await run(["no-such-program-anywhere"])
+
+
+def test_child_environment_drops_vibepy_prefixed_variables(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("VIBEPY_SOMETHING", "parent-only")
+    monkeypatch.setenv("AN_UNRELATED_VARIABLE", "survives")
+    env = child_environment()
+    assert "VIBEPY_SOMETHING" not in env
+    assert env.get("AN_UNRELATED_VARIABLE") == "survives"
 
 
 def test_reported_reads_the_last_report_among_other_lines() -> None:

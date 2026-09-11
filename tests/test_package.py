@@ -5,6 +5,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy_core.__all__ == [
         "APP_GROUP",
         "ERROR_CATALOG",
+        "AppConfig",
         "AppConfigInvalidError",
         "AppDefinition",
         "AppDescription",
@@ -29,7 +30,6 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "PageRouteConflictError",
         "PageRouteInvalidError",
         "PageRuntime",
-        "ServeConfigInvalidError",
         "Tool",
         "ToolContext",
         "ToolDefinition",
@@ -45,6 +45,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "VibepyError",
         "describe_app",
         "discover_apps",
+        "environment_for",
         "load_app",
         "page_runtime_for",
         "read_report_line",

@@ -19,17 +19,17 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 from nicegui import ui
-from pydantic import BaseModel
 
 from vibepy_core.adapters.nicegui.web import register_pages
 from vibepy_core.app.composition import Lifespan, page_runtime_for
+from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import to_error_info
 
 logger = logging.getLogger(__name__)
 
 
-def build_web_app[DepsT, ConfigT: BaseModel](
+def build_web_app[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT],
     lifespan: Lifespan[DepsT, ConfigT],
     /,

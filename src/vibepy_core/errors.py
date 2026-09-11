@@ -255,24 +255,14 @@ class AppNotDeclaredError(VibepyError):
         return {"app_name": self.app_name}
 
 
-class ServeConfigInvalidError(VibepyError):
-    """Standard input did not carry one JSON object of configuration."""
-
-    code = "serve.config_invalid"
-
-    def __init__(self) -> None:
-        """State that standard input was not one JSON object."""
-        super().__init__("Configuration on standard input is not a JSON object")
-
-
 class InvokeRequestInvalidError(VibepyError):
-    """Standard input did not carry one JSON object of `config` and `input`."""
+    """Standard input did not carry one JSON object of `input`."""
 
     code = "invoke.request_invalid"
 
     def __init__(self) -> None:
-        """State that standard input was not one JSON object of config and input."""
-        super().__init__("The request on standard input is not a JSON object of config and input")
+        """State that standard input was not one JSON object of `input`."""
+        super().__init__("The request on standard input is not a JSON object of input")
 
 
 ERROR_CATALOG: Mapping[str, ErrorCategory] = {
@@ -288,7 +278,6 @@ ERROR_CATALOG: Mapping[str, ErrorCategory] = {
     AppEntrypointUnloadableError.code: ErrorCategory.DECLARATION,
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
     AppNotDeclaredError.code: ErrorCategory.CALLER,
-    ServeConfigInvalidError.code: ErrorCategory.CALLER,
     InvokeRequestInvalidError.code: ErrorCategory.CALLER,
     UNHANDLED_CODE: ErrorCategory.EXECUTION,
 }

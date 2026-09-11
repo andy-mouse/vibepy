@@ -13,6 +13,9 @@ from urllib.request import urlopen
 
 import pytest
 
+from vibepy_core import environment_for
+from vibepy_core.app.config import ENV_PREFIX
+
 
 def child_environment() -> dict[str, str]:
     """The environment a served App is entitled to.
@@ -21,10 +24,13 @@ def child_environment() -> dict[str, str]:
     running, and NiceGUI reads that variable to decide it is under test. The
     server is a separate process running no test, so handing it that marker
     would describe it falsely.
+
+    Also drops `VIBEPY_`-prefixed variables: a developer's exported `VIBEPY_*`
+    must not leak into the child under test.
     """
     env = dict(os.environ)
     env.pop("PYTEST_CURRENT_TEST", None)
-    return env
+    return {name: value for name, value in env.items() if not name.startswith(ENV_PREFIX)}
 
 
 def free_port() -> int:
@@ -48,18 +54,22 @@ def wait_for(url: str, process: "subprocess.Popen[bytes]", *, timeout: float = 3
     raise AssertionError(f"{url} did not answer within {timeout}s")
 
 
+def todo_environment(tmp_path: Path) -> dict[str, str]:
+    """The Todo App's configuration, as a served App reads it."""
+    return {
+        **child_environment(),
+        **environment_for({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}),
+    }
+
+
 @pytest.mark.integration
 def test_a_declared_page_is_served(tmp_path: Path) -> None:
     port = free_port()
-    config = json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"})
     process = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
-        stdin=subprocess.PIPE,
-        env=child_environment(),
+        stdin=subprocess.DEVNULL,
+        env=todo_environment(tmp_path),
     )
-    assert process.stdin is not None
-    process.stdin.write(config.encode())
-    process.stdin.close()
     try:
         body = wait_for(f"http://127.0.0.1:{port}/todos", process)
     finally:
@@ -73,7 +83,7 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     """`packaging.md`: a failure writes the framework's code and message."""
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "absent", "--port", str(free_port())],
-        input=b"{}",
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
         env=child_environment(),
@@ -94,7 +104,7 @@ class Reported(TypedDict):
     details: dict[str, str]
 
 
-def _reported(stderr: bytes, /) -> Reported:
+def reported_failure(stderr: bytes, /) -> Reported:
     """The last failure the child described, out of everything it wrote."""
     for line in reversed(stderr.decode(errors="replace").splitlines()):
         try:
@@ -118,14 +128,14 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
     """
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
-        input=b"{}",
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
         env=child_environment(),
     )
 
     assert finished.returncode != 0
-    reported = _reported(finished.stderr)
+    reported = reported_failure(finished.stderr)
     assert reported["code"] == "config.invalid"
     assert reported["category"] == "caller"
     assert "db_path" in reported["details"]["fields"]
@@ -142,29 +152,33 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
 
     finished = subprocess.run(
         [sys.executable, "-m", "vibepy_core.serve", "studio", "--port", str(free_port())],
-        input=json.dumps({"root": str(blocking / "root")}).encode(),
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         check=False,
-        env=child_environment(),
+        env={**child_environment(), **environment_for({"root": str(blocking / "root")})},
     )
 
     assert finished.returncode != 0
-    reported = _reported(finished.stderr)
+    reported = reported_failure(finished.stderr)
     assert reported["code"] == "app.unhandled"
     assert reported["category"] == "execution"
 
 
 @pytest.mark.integration
-def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> None:
-    finished = subprocess.run(
-        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
-        input=b"[]",
-        capture_output=True,
-        check=False,
-        env=child_environment(),
+def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
+    """Standard input is left open and nothing is ever written to it. The
+    command reads none of it, so the App is served regardless; a command that
+    read stdin would hang here, as it hung a terminal.
+    """
+    port = free_port()
+    process = subprocess.Popen(
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
+        stdin=subprocess.PIPE,
+        env=todo_environment(tmp_path),
     )
-
-    assert finished.returncode == 1
-    reported = _reported(finished.stderr)
-    assert reported["code"] == "serve.config_invalid"
-    assert reported["category"] == "caller"
+    try:
+        body = wait_for(f"http://127.0.0.1:{port}/todos", process)
+    finally:
+        process.terminate()
+        process.wait(timeout=10)
+    assert "<html" in body.lower()

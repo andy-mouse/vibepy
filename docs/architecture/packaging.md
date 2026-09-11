@@ -27,7 +27,7 @@ ADR-021 keeps the factory out of the declaration, so the pairing needs an object
 
 ```python
 @dataclass(frozen=True)
-class AppEntrypoint[DepsT, ConfigT: BaseModel]:
+class AppEntrypoint[DepsT, ConfigT: AppConfig]:
     definition: AppDefinition[DepsT, ConfigT]
     lifespan: Lifespan[DepsT, ConfigT]
 
@@ -62,7 +62,7 @@ def describe_app(ref: AppRef, /) -> AppDescription: ...
 def load_app(app_name: str, /) -> AppEntrypoint: ...
 ```
 
-`load_app` imports by name in the running interpreter; it is what `serve` and `invoke` call, and
+`load_app` imports by name in the running interpreter; it is what `serve`, `invoke` and `mcp` call, and
 a host reaches it only through them.
 
 `discover_apps` reads metadata. An `AppRef` carries where an App is declared and no imported
@@ -95,6 +95,34 @@ This is how a Host reads an App it must not import. The Host runs the command wi
 environment's interpreter and parses the result; the import happens on the far side of a process
 boundary, where the App's dependencies belong.
 
+## Configuration
+
+An App declares what it requires of its host as a type
+(`docs/architecture/app-model.md`); this is where the values come from. A framework command
+reads them from its own environment, one variable per declared field, named `VIBEPY_<FIELD>`
+with the field name upper-cased.
+
+```text
+StudioConfig(root: Path, proxy_port: int)   ->   VIBEPY_ROOT=/…   VIBEPY_PROXY_PORT=8080
+```
+
+The reading is pydantic-settings', through the `AppConfig` base every declaration subclasses: a
+scalar is coerced to its declared type, a complex field or sub-model is read as JSON, and a
+`SecretStr` is built from the string. A value a caller hands the window explicitly — a test
+literal — stands above the environment, field by field.
+A field with no value and no default is `config.invalid` naming that field, as is a key the App
+does not declare. See
+`docs/decisions/ADR-033-configuration-reaches-a-process-through-the-environment.md`.
+
+A parent that starts a framework process renders the values it holds into those variables with
+`environment_for`, the inverse of that reading: a string verbatim, anything else as JSON.
+
+`config_schema`, which `describe` projects from the declaration, is therefore the list of
+variables a host sets.
+
+The environment is the only configuration channel. No command reads configuration from standard
+input.
+
 ## Running a channel
 
 ```text
@@ -102,9 +130,8 @@ python -m vibepy_core.serve <app-name> --port <n>
 ```
 
 Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
-is the served application's own lifespan, and one JSON object of configuration is read from
-standard input. A configuration therefore reaches a running App without a file, an environment
-variable or an argument vector.
+is the served application's own lifespan. Its configuration is its environment's, as Configuration
+above owns; it reads nothing from standard input.
 
 The window is the lifespan and not a startup hook because ASGI already decides what a window
 that cannot open means: a server that sees `lifespan.startup.failed` logs the message and exits
@@ -117,8 +144,9 @@ error for every failure it reports, and a window that will not open reports itse
 so this process's standard error carries one such object for any failure of starting. See
 `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
-All three commands exist for one reason. Reading a declaration, running one and invoking a Tool all
-import, and an import belongs on the App's side of a process boundary.
+All four commands exist for one reason. Reading a declaration, running one, invoking a Tool and
+opening the Agent channel all import, and an import belongs on the App's side of a process
+boundary.
 
 ## Invoking one Tool
 
@@ -128,14 +156,59 @@ python -m vibepy_core.invoke <app-name> <tool-name>
 
 Run with an App environment's own interpreter, it opens the channel-neutral invocation window
 once, invokes one Tool through `ToolRuntime`, and closes the window. Standard input carries one
-JSON object of `config` and `input`; standard output receives the Tool's output as one JSON
+JSON object whose `input` is the Tool's input, and nothing else; any other key is
+`invoke.request_invalid`. Standard output receives the Tool's output as one JSON
 object. This is how a host verifies that a Tool behaves without importing the App, and why the
 verification runs the same path both channels run. The request written to the child's stdin and
 everything the child writes back are `json.dumps` with its default `ensure_ascii=True`, so a
 non-ASCII value never meets the platform default encoding of a pipe on Windows — a property the
 commands rely on.
 
-All three commands report a failure the same way: one line of `code`, `category`, `message` and
+## Opening the Agent channel
+
+```text
+python -m vibepy_core.mcp <app-name>
+```
+
+Run with an App environment's own interpreter, it opens that App's Agent channel over stdio and
+keeps it open for as long as the client keeps the process alive. The adapter builds the SDK
+server and this command runs it, which is the division
+`docs/architecture/adapters.md` states.
+
+Standard output belongs to the MCP SDK and carries MCP messages and nothing else, as the
+transport requires; the framework's own records go to standard error. There is no configuration
+on standard input here — standard input is the wire — so this command has only the one channel
+Configuration above owns.
+
+A failure of the command itself, and a window that will not open, are each one report line on
+standard error and exit 1, as everywhere else.
+
+An agent platform is configured with the command, its arguments and the App's variables. Codex
+takes `command`, `args` and `env` under `[mcp_servers.<name>]`
+(<https://learn.chatgpt.com/docs/extend/mcp?surface=cli>):
+
+```toml
+[mcp_servers.vibepy-studio]
+command = "<studio environment>/bin/python"
+args = ["-m", "vibepy_core.mcp", "studio"]
+[mcp_servers.vibepy-studio.env]
+VIBEPY_ROOT = "/Users/me/.vibepy/studio"
+VIBEPY_PROXY_PORT = "8080"
+```
+
+Claude Code takes the same three keys in `.mcp.json`
+(<https://code.claude.com/docs/en/mcp>):
+
+```json
+{ "mcpServers": { "vibepy-studio": {
+    "command": "<studio environment>/bin/python",
+    "args": ["-m", "vibepy_core.mcp", "studio"],
+    "env": { "VIBEPY_ROOT": "/Users/me/.vibepy/studio", "VIBEPY_PROXY_PORT": "8080" } } } }
+```
+
+## How a failure is reported
+
+All four commands report a failure the same way: one line of `code`, `category`, `message` and
 `details` on standard error and exit 1, written by `report`, shaped by `report_line` and read back
 by `read_report_line`, all in `vibepy_core.errors`. A lifespan or handler that raises is reported
 as `app.unhandled`, as ADR-030 has a window report its own failure.
