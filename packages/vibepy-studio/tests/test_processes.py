@@ -177,6 +177,7 @@ def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None
     assert failure.code == "config.invalid"
 
 
+@pytest.mark.integration
 async def test_run_returns_both_streams_and_the_exit_code() -> None:
     completed = await run(
         [
@@ -190,6 +191,7 @@ async def test_run_returns_both_streams_and_the_exit_code() -> None:
     assert completed.stderr.strip() == "err"
 
 
+@pytest.mark.integration
 async def test_run_hands_the_child_standard_input() -> None:
     completed = await run(
         [sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"], stdin="hello"
