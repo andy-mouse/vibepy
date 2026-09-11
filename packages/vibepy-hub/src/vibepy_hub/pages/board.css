@@ -1,6 +1,6 @@
-/* Quasar sizes bare headings; the mockup states what it wants and leaves the
-   rest to the browser. This stands before the mockup's own rules so that any
-   heading the mockup does speak about still wins. */
+/* Quasar sizes bare headings; this stylesheet states what it wants and leaves
+   the rest to the browser. This stands before the board's own rules so that any
+   heading they do speak about still wins. */
 .vibepy-hub h1,
 .vibepy-hub h2 {
   line-height: normal;
@@ -549,9 +549,9 @@
   .vibepy-hub *::after { transition: none !important; }
 }
 
-/* What the page, rather than the mockup, has to say. The mockup is a fragment
-   dropped into someone else's document; this is a whole page drawn by NiceGUI,
-   so the ground beneath the shell and NiceGUI's own wrappers are set here. */
+/* What the page around the shell has to say: this is a whole page drawn by
+   NiceGUI, so the ground beneath the shell and NiceGUI's own wrappers are set
+   here. */
 
 /* Quasar sets `body.body--light { background: #fff }`, which outweighs a bare
    `body`, so the ground is claimed at the same specificity it uses. */
@@ -568,15 +568,14 @@ body, body.body--light, body.body--dark {
 
 /* A row's children are built in the order a reader reaches for them -- the
    buttons before the rail, so that "Configure" is found before "Configured" --
-   and placed in the order the mockup draws them. */
+   and placed in the order the board shows them. */
 .vibepy-hub .hub-app-row > .hub-rail { order: 2; }
 .vibepy-hub .hub-app-row > .hub-actions { order: 3; }
 .vibepy-hub .hub-app-row > .hub-diagnostic { order: 4; }
 .vibepy-hub .hub-app-row > .hub-config { order: 5; }
 
-/* The package folder is typed here rather than picked, so the registry card
-   carries an input the mockup has no equivalent of. It wears the same clothes
-   as a configuration field's input. */
+/* The package folder is typed into the registry card. Its input wears the same
+   clothes as a configuration field's input. */
 .vibepy-hub .hub-registry-entry {
   min-width: 260px;
   padding: 0;
@@ -621,7 +620,7 @@ body, body.body--light, body.body--dark {
   border-color: light-dark(#c98b87, #8f5450);
 }
 
-/* A confirmation is a Quasar dialog, dressed in the mockup's palette so it does
+/* A confirmation is a Quasar dialog, dressed in the board's palette so it does
    not arrive from another design. */
 .hub-dialog {
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;

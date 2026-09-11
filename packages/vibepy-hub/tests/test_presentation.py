@@ -1,4 +1,4 @@
-"""The board's rules, as the mockup states them, with no screen involved."""
+"""The board's rules, with no screen involved."""
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_hub.models import AppRow, ConfigField, Diagnostic

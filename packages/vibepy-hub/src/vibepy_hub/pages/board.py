@@ -3,7 +3,7 @@
 A Page over Tools. It reads `list_apps` and draws; every button invokes one Tool
 and redraws; a timer redraws on its own so a child that died or an action taken
 elsewhere reaches the screen. The rules of what to draw are `presentation.py`'s,
-and what it looks like is `board.css`, which is the mockup's own stylesheet.
+and what it looks like is `board.css`.
 """
 
 import logging
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 REFRESH_SECONDS = 3.0
 
 STYLESHEET = Path(__file__).with_name("board.css").read_text(encoding="utf-8")
-"""The mockup's stylesheet, scoped to the board's own root rather than to the mockup's."""
+"""The board's stylesheet, scoped to the board's root element."""
 
 EYEBROW = "App control board"
 TITLE = "Your apps"
@@ -61,7 +61,7 @@ COLUMN_LABELS = ("App", "Lifecycle", "Action")
 
 
 def _text(tag: str, value: str, classes: str = "") -> ui.html:
-    """Write one piece of text into the tag the mockup wraps it in."""
+    """Write one piece of text into the tag the stylesheet dresses it as."""
     element = ui.html(escape(value), tag=tag)
     return element.classes(classes) if classes else element
 
@@ -74,9 +74,9 @@ def _button(
     on_click: Callable[[], object] | None = None,
     marker: str | None = None,
 ) -> ui.html:
-    """Draw one of the mockup's buttons; no handler means the button is disabled.
+    """Draw one button; no handler means the button is disabled.
 
-    A plain `<button>` rather than a `ui.button`: the mockup's CSS dresses the
+    A plain `<button>` rather than a `ui.button`: the stylesheet dresses the
     element itself, and a Quasar button would arrive already dressed.
     """
     button = _text("button", label, style).props("type=button")
@@ -335,7 +335,7 @@ async def board(ctx: PageContext) -> None:
             # The buttons are built before the rail: a rail label and a button
             # can carry the same word ("Configured", "Configure"), and what a
             # reader -- or a test -- reaches for by that word is the button. The
-            # stylesheet puts them back in the order the mockup draws them.
+            # stylesheet puts them back in the order the board shows them.
             with ui.element("div").classes("hub-actions"):
                 for action in view.actions:
                     style = "hub-primary" if action.primary else "hub-secondary"

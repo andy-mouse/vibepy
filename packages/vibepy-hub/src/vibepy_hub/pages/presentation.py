@@ -1,7 +1,7 @@
 """The board's rules, stated once and away from the screen.
 
 Everything here is a function of Tool output. It imports no Web technology, so
-the rules the mockup states — which actions a state gets, when Start is
+the board's rules — which actions a state gets, when Start is
 disabled, what a save sends — are checked without rendering anything.
 """
 
