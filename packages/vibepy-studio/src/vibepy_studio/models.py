@@ -5,6 +5,7 @@ import logging
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory
+from vibepy_studio.internals.processes import ChildFailure
 
 logger = logging.getLogger(__name__)
 
@@ -29,3 +30,13 @@ def category(reported: str, /) -> ErrorCategory:
     except ValueError:
         logger.debug("a child reported an unknown category: %s", reported)
         return ErrorCategory.EXECUTION
+
+
+def diagnostic_of(reported: ChildFailure, /, **details: str) -> Diagnostic:
+    """Carry a failure a child reported, with its own code and category, plus `details`."""
+    return Diagnostic(
+        code=reported.code,
+        category=category(reported.category),
+        message=reported.message,
+        details={**details, **reported.details},
+    )

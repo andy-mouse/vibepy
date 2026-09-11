@@ -46,10 +46,8 @@ ALLOWED_IMPORTS = frozenset(
         "json",
         "importlib.metadata",
         "pydantic",
-        "vibepy_core",
         "vibepy_studio.authoring.internals",
         "vibepy_studio.authoring.models",
-        "vibepy_studio.authoring.tools.inspection",
         "vibepy_studio.internals",
     }
 )
@@ -60,17 +58,17 @@ its internals, and `AGENTS.md` has a handler reach them through its ToolContext.
 So the surface is closed rather than filtered: a blocking function cannot arrive
 here, because the module holding it is not on this list. Widening it is a
 decision about the architecture, which is why it is spelled out and not derived.
+`vibepy_core` itself is not on the list: its root package re-exports
+`discover_apps`, `describe_app` and `load_app`, all blocking, so a bare
+`vibepy_core` import would defeat the guard.
 
 The authoring role widens it: `asyncio` to wrap blocking calls (the very
 mechanism the guard exists for), `json` to serialise a request (no I/O),
 `importlib.metadata` only behind `asyncio.to_thread`, `pydantic` for
-`TypeAdapter` parsing a child's output (no I/O), `vibepy_core` for the
-framework's own public constants (`APP_GROUP`, `ERROR_CATALOG`,
-`ErrorCategory`), `vibepy_studio.authoring.internals` and
-`vibepy_studio.authoring.models`, `vibepy_studio.authoring.tools.inspection`
-because invocation reuses `uv_unavailable`, and `vibepy_studio.internals` for
-the shared runner, which is async, and the shared reader, which is a
-synchronous parse over already-read text with no I/O of its own.
+`TypeAdapter` parsing a child's output (no I/O), `vibepy_studio.authoring.internals`
+and `vibepy_studio.authoring.models`, and `vibepy_studio.internals` for the
+shared runner, which is async, and the shared reader, which is a synchronous
+parse over already-read text with no I/O of its own.
 """
 
 BLOCKING_METHODS = frozenset(
@@ -170,3 +168,9 @@ def test_the_import_surface_sees_a_module_a_handler_may_not_reach() -> None:
 
 def test_the_call_guard_sees_a_blocking_method() -> None:
     assert blocking_calls("async def h(p):\n    return p.is_dir()\n") == ["is_dir"]
+
+
+def test_the_import_surface_sees_vibepy_core_itself_as_unreachable() -> None:
+    """The route a widened guard would have missed: `vibepy_core`'s root
+    re-exports `discover_apps`, a blocking function, under a bare import."""
+    assert unreachable("from vibepy_core import discover_apps\n") != set()

@@ -4,31 +4,25 @@ import asyncio
 import json
 import logging
 from collections.abc import Sequence
-from pathlib import Path
 
 from pydantic import TypeAdapter, ValidationError
 
-from vibepy_core import ErrorCategory
+from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
-from vibepy_studio.authoring.models import Invocation, InvokeRequest, diagnostic_of
-from vibepy_studio.authoring.tools.inspection import uv_unavailable
+from vibepy_studio.authoring.models import (
+    Invocation,
+    InvokeRequest,
+    environment_failed,
+    uv_unavailable,
+)
 from vibepy_studio.internals import NotRunnable, StudioDeps, reported, run
-from vibepy_studio.models import Diagnostic
+from vibepy_studio.models import Diagnostic, diagnostic_of
 
 logger = logging.getLogger(__name__)
 
 _OUTPUT = TypeAdapter(dict[str, object])
 """The command writes one JSON object: the Tool's output model, dumped."""
-
-
-def _environment_failed(project: Path, output: str, /) -> Diagnostic:
-    return Diagnostic(
-        code="authoring.environment_failed",
-        category=ErrorCategory.EXECUTION,
-        message=output,
-        details={"project": str(project)},
-    )
 
 
 async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
@@ -59,13 +53,13 @@ async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> 
                 )
             )
         return Invocation(
-            diagnostic=_environment_failed(project, (completed.stdout + completed.stderr).strip())
+            diagnostic=environment_failed(project, (completed.stdout + completed.stderr).strip())
         )
     try:
         return Invocation(output=_OUTPUT.validate_json(completed.stdout))
     except ValidationError as invalid:
         logger.debug("the child wrote something other than one object", exc_info=invalid)
-        return Invocation(diagnostic=_environment_failed(project, completed.stdout.strip()))
+        return Invocation(diagnostic=environment_failed(project, completed.stdout.strip()))
 
 
 INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [

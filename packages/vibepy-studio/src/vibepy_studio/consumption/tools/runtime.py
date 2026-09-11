@@ -15,7 +15,7 @@ from vibepy_studio.consumption.internals import (
     read_state,
 )
 from vibepy_studio.consumption.models import AppName, RunningApp, StartRequest
-from vibepy_studio.models import Diagnostic, category
+from vibepy_studio.models import Diagnostic, diagnostic_of
 
 
 def _refusal(
@@ -113,12 +113,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
             app_name=payload.app_name,
             state="installed",
             url=where,
-            diagnostic=Diagnostic(
-                code=reported.code,
-                category=category(reported.category),
-                message=reported.message,
-                details={"app_name": payload.app_name, **reported.details},
-            ),
+            diagnostic=diagnostic_of(reported, app_name=payload.app_name),
         )
     return RunningApp(app_name=payload.app_name, url=where, state="running")
 

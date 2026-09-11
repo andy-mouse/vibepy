@@ -19,8 +19,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory
-from vibepy_studio.internals.processes import ChildFailure
-from vibepy_studio.models import Diagnostic, category
+from vibepy_studio.models import Diagnostic
 
 
 class ErrorCode(BaseModel):
@@ -100,11 +99,21 @@ class Invocation(BaseModel):
     diagnostic: Diagnostic | None = None
 
 
-def diagnostic_of(reported: ChildFailure, /, **details: str) -> Diagnostic:
-    """Carry a failure a child reported, with its own code and category, plus `details`."""
+def uv_unavailable(project: Path, /) -> Diagnostic:
+    """Say uv is not runnable from this process."""
     return Diagnostic(
-        code=reported.code,
-        category=category(reported.category),
-        message=reported.message,
-        details={**details, **reported.details},
+        code="authoring.uv_unavailable",
+        category=ErrorCategory.EXECUTION,
+        message="uv is not available to Studio; install uv and put it on PATH",
+        details={"project": str(project)},
+    )
+
+
+def environment_failed(project: Path, output: str, /) -> Diagnostic:
+    """Say uv exited non-zero and the child made no framework report of its own."""
+    return Diagnostic(
+        code="authoring.environment_failed",
+        category=ErrorCategory.EXECUTION,
+        message=output,
+        details={"project": str(project)},
     )

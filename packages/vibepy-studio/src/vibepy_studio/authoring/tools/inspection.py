@@ -8,19 +8,20 @@ from pathlib import Path
 
 from packaging.utils import canonicalize_name
 
-from vibepy_core import APP_GROUP, ERROR_CATALOG, ErrorCategory
+from vibepy_core.errors import ERROR_CATALOG, ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.authoring.internals import declared_name, locate, python
+from vibepy_studio.authoring.internals import APP_GROUP, declared_name, locate, python
 from vibepy_studio.authoring.models import (
     AppInspection,
     ErrorCode,
     FrameworkDescription,
     InspectedApp,
     InspectRequest,
-    diagnostic_of,
+    environment_failed,
+    uv_unavailable,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, StudioDeps, describe
-from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.models import Diagnostic, Empty, diagnostic_of
 
 logger = logging.getLogger(__name__)
 
@@ -56,22 +57,7 @@ def _failed(project: Path, failed: DescribeFailed, /) -> Diagnostic:
     """Use a child's own report when it made one, else the environment as the failure."""
     if failed.reported is not None:
         return diagnostic_of(failed.reported, project=str(project))
-    return Diagnostic(
-        code="authoring.environment_failed",
-        category=ErrorCategory.EXECUTION,
-        message=failed.output,
-        details={"project": str(project)},
-    )
-
-
-def uv_unavailable(project: Path, /) -> Diagnostic:
-    """Say uv is not runnable from this process."""
-    return Diagnostic(
-        code="authoring.uv_unavailable",
-        category=ErrorCategory.EXECUTION,
-        message="uv is not available to Studio; install uv and put it on PATH",
-        details={"project": str(project)},
-    )
+    return environment_failed(project, failed.output)
 
 
 async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) -> AppInspection:
