@@ -283,7 +283,7 @@ One file per subject; success and failure paths of a subject share its file.
 | `tests/test_app_package.py` | `load_app`'s three failures, with `impostor_fixture` and `write_distribution` |
 | `tests/test_errors.py` | the catalogue through `ERROR_CATALOG` |
 | `packages/vibepy-studio/tests/test_inspect_framework.py` | version equals `importlib.metadata`'s; catalogue equals core's |
-| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields three Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; a project declaring no dependencies yields `authoring.environment_failed` (its environment holds no `vibepy_core`) |
+| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields its two Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; a project declaring no dependencies yields `authoring.environment_failed` (its environment holds no `vibepy_core`) |
 | `packages/vibepy-studio/tests/test_invoke_tool.py` | `create_todo` then `list_todos` against `fixtures/todo-app` returns what was created — each call its own window, state surviving in the App's store; `tool.not_found`, `tool.input_invalid` and `config.invalid` arrive as data with the child's own code and category, which is the shared failure reader's proof |
 | existing Hub tests | moved under `packages/vibepy-studio/tests/`, renamed imports, same assertions |
 
