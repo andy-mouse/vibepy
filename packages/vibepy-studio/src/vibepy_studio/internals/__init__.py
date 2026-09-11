@@ -1,13 +1,7 @@
 """What both of Studio's roles share, behind no Tool of its own."""
 
 from vibepy_studio.internals.deps import StudioDeps
-from vibepy_studio.internals.describing import (
-    Described,
-    DescribedPage,
-    DescribedTool,
-    DescribeFailed,
-    describe,
-)
+from vibepy_studio.internals.describing import DescribeFailed, describe
 from vibepy_studio.internals.processes import (
     AlreadyStarted,
     ChildFailure,
@@ -26,9 +20,6 @@ __all__ = [
     "ChildFailure",
     "Completed",
     "DescribeFailed",
-    "Described",
-    "DescribedPage",
-    "DescribedTool",
     "NotRunnable",
     "Processes",
     "StartFailed",

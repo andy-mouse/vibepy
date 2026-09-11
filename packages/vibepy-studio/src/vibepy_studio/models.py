@@ -1,11 +1,14 @@
-"""What both of Studio's roles say the same way: a diagnostic, and an empty input."""
+"""What both of Studio's roles say the same way: a diagnostic, and an empty input.
+
+Also holds the shape `python -m vibepy_core.describe` writes, which both roles
+read and authoring publishes.
+"""
 
 import logging
 
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory
-from vibepy_studio.internals.processes import ChildFailure
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +24,45 @@ class Diagnostic(BaseModel):
 
 class Empty(BaseModel):
     """The input of a Tool that takes nothing."""
+
+
+class DescribedTool(BaseModel):
+    """One Tool, as `describe` writes it."""
+
+    name: str
+    description: str
+    input_schema: dict[str, object]
+    output_schema: dict[str, object]
+
+
+class DescribedPage(BaseModel):
+    """One Page, as `describe` writes it."""
+
+    name: str
+    route: str
+    title: str
+
+
+class Described(BaseModel):
+    """One entry of what `describe` writes: the declaration's identity and its description."""
+
+    app_name: str
+    distribution: str
+    distribution_version: str
+    app_id: str
+    name: str
+    version: str
+    config_schema: dict[str, object] = {}
+    tools: list[DescribedTool] = []
+    pages: list[DescribedPage] = []
+
+
+# Imported here, below the models above, rather than at module top: `describing`
+# (inside `vibepy_studio.internals`) imports `Described` from this module, and
+# `vibepy_studio.internals` is a package whose `__init__` runs before any of its
+# submodules — including `processes` — become importable. Importing `ChildFailure`
+# before `Described` exists would make that a circular import.
+from vibepy_studio.internals.processes import ChildFailure  # noqa: E402
 
 
 def category(reported: str, /) -> ErrorCategory:

@@ -19,7 +19,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory
-from vibepy_studio.models import Diagnostic
+from vibepy_studio.models import Described, Diagnostic
 
 
 class ErrorCode(BaseModel):
@@ -44,41 +44,10 @@ class InspectRequest(BaseModel):
     project: Path
 
 
-class InspectedTool(BaseModel):
-    """One Tool a project declares."""
-
-    name: str
-    description: str
-    input_schema: dict[str, object]
-    output_schema: dict[str, object]
-
-
-class InspectedPage(BaseModel):
-    """One Page a project declares."""
-
-    name: str
-    route: str
-    title: str
-
-
-class InspectedApp(BaseModel):
-    """One App a project declares, as its own environment describes it."""
-
-    app_name: str
-    distribution: str
-    distribution_version: str
-    app_id: str
-    name: str
-    version: str
-    config_schema: dict[str, object]
-    tools: list[InspectedTool]
-    pages: list[InspectedPage]
-
-
 class AppInspection(BaseModel):
     """What a project declares, or why that could not be read."""
 
-    apps: list[InspectedApp]
+    apps: list[Described]
     diagnostic: Diagnostic | None = None
 
 

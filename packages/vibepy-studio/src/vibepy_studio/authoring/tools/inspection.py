@@ -15,7 +15,6 @@ from vibepy_studio.authoring.models import (
     AppInspection,
     ErrorCode,
     FrameworkDescription,
-    InspectedApp,
     InspectRequest,
     environment_failed,
     uv_unavailable,
@@ -74,14 +73,7 @@ async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) ->
         return AppInspection(apps=[], diagnostic=uv_unavailable(project))
     except DescribeFailed as failed:
         return AppInspection(apps=[], diagnostic=_failed(project, failed))
-    # `Described` is what the command writes and `InspectedApp` is what this Tool
-    # publishes; they share every field today, and the bridge is validated so a
-    # field one gains and the other lacks fails here rather than silently.
-    own = [
-        InspectedApp.model_validate(entry.model_dump())
-        for entry in described
-        if canonicalize_name(entry.distribution) == name
-    ]
+    own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
         return AppInspection(
             apps=[],

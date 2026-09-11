@@ -9,43 +9,12 @@ the whole shape the command writes.
 import logging
 from collections.abc import Sequence
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from vibepy_studio.internals.processes import ChildFailure, reported, run
+from vibepy_studio.models import Described
 
 logger = logging.getLogger(__name__)
-
-
-class DescribedTool(BaseModel):
-    """One Tool, as `describe` writes it."""
-
-    name: str
-    description: str
-    input_schema: dict[str, object]
-    output_schema: dict[str, object]
-
-
-class DescribedPage(BaseModel):
-    """One Page, as `describe` writes it."""
-
-    name: str
-    route: str
-    title: str
-
-
-class Described(BaseModel):
-    """One entry of what `describe` writes: the declaration's identity and its description."""
-
-    app_name: str
-    distribution: str
-    distribution_version: str
-    app_id: str
-    name: str
-    version: str
-    config_schema: dict[str, object] = {}
-    tools: list[DescribedTool] = []
-    pages: list[DescribedPage] = []
-
 
 _DESCRIBED = TypeAdapter(list[Described])
 
