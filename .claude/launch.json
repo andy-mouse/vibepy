@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hub",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "scripts/run_hub.py"],
+      "port": 8765
+    }
+  ]
+}
