@@ -141,7 +141,7 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
     blocking.write_text("not a directory", encoding="utf-8")
 
     finished = subprocess.run(
-        [sys.executable, "-m", "vibepy_core.serve", "hub", "--port", str(free_port())],
+        [sys.executable, "-m", "vibepy_core.serve", "studio", "--port", str(free_port())],
         input=json.dumps({"root": str(blocking / "root")}).encode(),
         capture_output=True,
         check=False,

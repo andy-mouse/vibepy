@@ -1,0 +1,24 @@
+[project]
+name = "vibepy-studio"
+version = "0.1.0"
+description = "The App that covers an App's whole life: consumption through its board, authoring through its Tools"
+requires-python = ">=3.12"
+dependencies = [
+    "vibepy-core[web]",
+    "pydantic>=2.9",
+    "packaging>=24.0",
+    "pyyaml>=6.0",
+]
+
+[project.entry-points."vibepy.apps"]
+studio = "vibepy_studio.entry:APP"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vibepy_studio"]
+
+[tool.uv.sources]
+vibepy-core = { workspace = true }
