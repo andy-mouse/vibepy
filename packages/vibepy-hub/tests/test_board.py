@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+from nicegui import ui
 from nicegui.testing import User
 
 from tests_support import hub, write_wheel
@@ -47,6 +48,22 @@ async def test_install_moves_a_row_to_installed_and_opens_its_configuration(
 
         user.find("Save").click()
         await user.should_see("Missing required fields: api_base_url, api_token")
+
+
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -> None:
+    async with hub_pages(installed) as pages:
+        register_pages(HUB_APP, pages)
+        await user.open("/")
+        user.find("Configure").click()
+        await user.should_see("api_base_url")
+        user.find("api_base_url").type("https://notes.internal")
+        user.find("Save").click()
+        await user.should_see("Missing required field: api_token")
+
+        entry = user.find(kind=ui.input, content="api_base_url").elements.pop()
+        assert entry.value == "https://notes.internal"
 
 
 @pytest.mark.apps("vibepy-notes")

@@ -40,8 +40,8 @@ async def board(ctx: PageContext) -> None:
     missing: dict[str, list[str]] = {}
     busy: list[None] = []
     """One entry per action in flight; the clock skips a redraw while it is not empty."""
-    editing: list[ui.input] = []
-    """The inputs a redraw would destroy, refilled by each draw."""
+    editing: list[tuple[ui.input, str]] = []
+    """Each drawn input beside the value its draw seeded it with, refilled by each draw."""
     dialogs = ui.column()
     """Where a confirmation lives: outside the part a redraw rebuilds.
 
@@ -111,7 +111,7 @@ async def board(ctx: PageContext) -> None:
         with ui.card().classes("w-full"), ui.row().classes("items-center gap-4"):
             if listed.source is None:
                 entry = ui.input(label="package folder").classes("grow")
-                editing.append(entry)
+                editing.append((entry, ""))
                 ui.button("Register", on_click=lambda: register(entry.value))
             else:
                 ui.label(str(listed.source)).classes("grow")
@@ -157,12 +157,23 @@ async def board(ctx: PageContext) -> None:
             missing.pop(view.app_name, None)
         content.refresh()
 
-    async def save(view: RowView, described: ConfigDescription, entered: dict[str, str]) -> None:
-        """Send what the form holds to `configure_app`, or name what it lacks."""
+    async def save(
+        view: RowView,
+        described: ConfigDescription,
+        inputs: dict[str, ui.input],
+        lacking: ui.label,
+    ) -> None:
+        """Send what the form holds to `configure_app`, or name what it lacks.
+
+        Naming what it lacks writes into the panel's own line rather than
+        redrawing: a redraw reseeds every input from what the Hub holds, which
+        never includes a secret and never includes what was just typed.
+        """
+        entered = {name: str(entry.value) for name, entry in inputs.items()}
         request = save_request(described.fields, entered, described.secrets_set)
         if isinstance(request, list):
             missing[view.app_name] = request
-            content.refresh()
+            lacking.text = _lacking_line(request)
             return
         async with working():
             answer = await call("configure_app", {"app_name": view.app_name, "values": request})
@@ -180,7 +191,7 @@ async def board(ctx: PageContext) -> None:
                 ui.label("Nothing to configure")
                 ui.button("Cancel", on_click=lambda: toggle_config(view)).props("flat")
                 return
-            entered: dict[str, str] = {}
+            inputs: dict[str, ui.input] = {}
             for field in described.fields:
                 secret = field.type == "secret"
                 held = secret and field.name in described.secrets_set
@@ -190,19 +201,16 @@ async def board(ctx: PageContext) -> None:
                     placeholder="•••••••• (set)" if held else "",
                     value="" if secret else str(described.values.get(field.name, "")),
                 ).classes("w-full")
-                editing.append(entry)
-                entry.bind_value_to(entered, field.name)
-                entered[field.name] = str(entry.value)
+                editing.append((entry, str(entry.value)))
+                inputs[field.name] = entry
                 ui.label(f"{field.type} · {'required' if field.required else 'optional'}").classes(
                     "text-xs"
                 )
-            lacking = missing.get(view.app_name, [])
-            if lacking:
-                noun = "field" if len(lacking) == 1 else "fields"
-                ui.label(f"Missing required {noun}: {', '.join(lacking)}").classes("text-negative")
+            lacking = ui.label(_lacking_line(missing.get(view.app_name, [])))
+            lacking.classes("text-negative")
             with ui.row():
                 ui.button("Cancel", on_click=lambda: toggle_config(view)).props("flat")
-                ui.button("Save", on_click=lambda: save(view, described, entered))
+                ui.button("Save", on_click=lambda: save(view, described, inputs, lacking))
 
     def _on_click(action: Action, view: RowView) -> Callable[[], Awaitable[None]]:
         """Bind one button to one row's action, so a loop's variable cannot leak."""
@@ -257,12 +265,20 @@ async def board(ctx: PageContext) -> None:
         typing with it. What is on the clock is the state of other windows,
         which can wait until the user is not writing.
         """
-        if busy or any(entry.value for entry in editing):
+        if busy or any(entry.value != seeded for entry, seeded in editing):
             return
         content.refresh()
 
     await content()
     ui.timer(REFRESH_SECONDS, unattended)
+
+
+def _lacking_line(lacking: list[str]) -> str:
+    """Name the required fields a save left empty, or say nothing."""
+    if not lacking:
+        return ""
+    noun = "field" if len(lacking) == 1 else "fields"
+    return f"Missing required {noun}: {', '.join(lacking)}"
 
 
 def _said(tool: str, answer: object) -> str:
