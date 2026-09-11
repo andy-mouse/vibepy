@@ -131,8 +131,20 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 details={"app_name": payload.app_name},
             ),
         )
+    if not offered.declares_app:
+        return Installation(
+            app=AppRow(
+                app_name=payload.app_name, state="available", distribution_version=offered.version
+            ),
+            diagnostic=Diagnostic(
+                code="hub.no_app_declared",
+                category=ErrorCategory.DECLARATION,
+                message=f"{offered.wheel.name} declares no App",
+                details={"wheel": str(offered.wheel)},
+            ),
+        )
     try:
-        await install(folder=offered.wheel, env=env)
+        await install(wheel=offered.wheel, source=offered.wheel.parent, env=env)
         described = await describe(env)
         metadata = await purelib(env)
         mine = [
@@ -186,13 +198,10 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
     if facts.has_pages:
 
         def hold(state: HubState) -> HubState:
+            if payload.app_name in state.ports:
+                return state
             return state.model_copy(
-                update={
-                    "ports": {
-                        **state.ports,
-                        payload.app_name: allocate(state.ports.values()),
-                    }
-                }
+                update={"ports": {**state.ports, payload.app_name: allocate(state.ports.values())}}
             )
 
         port = (await update_state(deps, hold)).ports[payload.app_name]

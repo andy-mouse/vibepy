@@ -1,7 +1,7 @@
 """Creating an App's environment, and asking that environment what it holds.
 
-`uv venv` with `uv pip install` gives an App an environment of its own for a
-local folder, while leaving the environment's path to the Hub.
+`uv venv` with `uv pip install` gives an App an environment of its own for one
+wheel, resolved against the wheelhouse it sits in.
 
 Describing runs in that environment's interpreter, because reading a declaration
 imports it and the Hub must not import an App.
@@ -108,8 +108,12 @@ async def _run(command: Sequence[str], /) -> str:
     return written
 
 
-async def install(*, folder: Path, env: Path) -> None:
-    """Create an environment of its own for one App and install it there.
+async def install(*, wheel: Path, source: Path, env: Path) -> None:
+    """Create an environment of its own for one App and install one wheel there.
+
+    `--find-links` names the wheelhouse the wheel came from, so its dependencies --
+    the framework first -- resolve from the same folder. That is what a wheelhouse
+    is for, and what lets an in-house Hub install with no index reachable.
 
     The link mode is stated rather than defaulted. uv links from its cache with
     `clone` on macOS and Linux and `hardlink` on Windows
@@ -133,7 +137,9 @@ async def install(*, folder: Path, env: Path) -> None:
             "hardlink",
             "--python",
             str(interpreter(env)),
-            str(folder),
+            "--find-links",
+            str(source),
+            str(wheel),
         ]
     )
 

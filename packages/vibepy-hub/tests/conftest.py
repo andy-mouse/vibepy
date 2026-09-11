@@ -130,8 +130,3 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
 
     asyncio.run(prune())
     return root
-
-
-pytest_plugins = ["nicegui.testing.user_plugin"]
-"""The Hub has a Page from this milestone on, and its tests drive it as
-`tests/test_nicegui_adapter.py` drives one: through the User fixture."""
