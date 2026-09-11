@@ -3,6 +3,7 @@
 A Tool handler reaches them through its ToolContext and nothing else does.
 """
 
+from vibepy_core.app.group import APP_GROUP
 from vibepy_studio.consumption.internals.configuration import (
     config_fields,
     held_secrets,
@@ -38,7 +39,7 @@ from vibepy_studio.consumption.internals.state import (
     update_state,
     write_state,
 )
-from vibepy_studio.consumption.internals.wheels import APP_GROUP, Candidate, candidates, readable
+from vibepy_studio.consumption.internals.wheels import Candidate, candidates, readable
 from vibepy_studio.internals.deps import StudioDeps
 from vibepy_studio.internals.processes import AlreadyStarted, Processes, StartFailed
 

@@ -13,8 +13,9 @@ from vibepy_core.app.entrypoint import (
     PageDescription,
     ToolDescription,
 )
+from vibepy_core.app.group import APP_GROUP
 from vibepy_core.app.model import AppDefinition, NoConfig
-from vibepy_core.app.package import APP_GROUP, AppRef, describe_app, discover_apps, load_app
+from vibepy_core.app.package import AppRef, describe_app, discover_apps, load_app
 
 __all__ = [
     "APP_GROUP",

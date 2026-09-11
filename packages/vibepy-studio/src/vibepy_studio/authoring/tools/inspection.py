@@ -8,9 +8,10 @@ from pathlib import Path
 
 from packaging.utils import canonicalize_name
 
+from vibepy_core.app.group import APP_GROUP
 from vibepy_core.errors import ERROR_CATALOG, ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.authoring.internals import APP_GROUP, declared_name, locate, python
+from vibepy_studio.authoring.internals import declared_name, locate, python
 from vibepy_studio.authoring.models import (
     AppInspection,
     ErrorCode,

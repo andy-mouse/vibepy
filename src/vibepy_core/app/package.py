@@ -16,6 +16,7 @@ from typing import TypeGuard
 from pydantic import BaseModel
 
 from vibepy_core.app.entrypoint import AppDescription, AppEntrypoint
+from vibepy_core.app.group import APP_GROUP
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
@@ -23,13 +24,6 @@ from vibepy_core.errors import (
 )
 
 logger = logging.getLogger(__name__)
-
-APP_GROUP = "vibepy.apps"
-"""The entry point group an App declares itself in.
-
-A group name is metadata read as a string and imports nothing, so it claims no
-distribution name on any index.
-"""
 
 
 @dataclass(frozen=True)

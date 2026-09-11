@@ -16,9 +16,9 @@ from pathlib import Path
 from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 from packaging.version import Version
 
-logger = logging.getLogger(__name__)
+from vibepy_core.app.group import APP_GROUP
 
-APP_GROUP = "vibepy.apps"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
