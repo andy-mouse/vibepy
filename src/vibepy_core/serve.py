@@ -7,7 +7,6 @@ runs it.
 """
 
 import argparse
-import json
 import logging
 import sys
 from collections.abc import Mapping, Sequence
@@ -26,6 +25,7 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     ServeConfigInvalidError,
     VibepyError,
+    report_line,
     to_error_info,
 )
 
@@ -71,18 +71,7 @@ one JSON object and a reader of this process's standard error parses it as such.
 
 def _reported(error: VibepyError, /) -> None:
     """Write one failure of the command where whatever started it can read it."""
-    info = to_error_info(error)
-    sys.stderr.write(
-        json.dumps(
-            {
-                "code": info.code,
-                "category": info.category,
-                "message": info.message,
-                "details": dict(info.details),
-            }
-        )
-        + "\n"
-    )
+    sys.stderr.write(report_line(to_error_info(error)))
 
 
 def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:

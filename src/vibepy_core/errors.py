@@ -9,6 +9,7 @@ property of the code, and one table is easier to keep exhaustive than eight
 scattered declarations.
 """
 
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -258,7 +259,17 @@ class ServeConfigInvalidError(VibepyError):
         super().__init__("Configuration on standard input is not a JSON object")
 
 
-_CATEGORIES: Mapping[str, ErrorCategory] = {
+class InvokeRequestInvalidError(VibepyError):
+    """Standard input did not carry one JSON object of `config` and `input`."""
+
+    code = "invoke.request_invalid"
+
+    def __init__(self) -> None:
+        """State that standard input was not one JSON object of config and input."""
+        super().__init__("The request on standard input is not a JSON object of config and input")
+
+
+ERROR_CATALOG: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
     ToolOutputValidationError.code: ErrorCategory.EXECUTION,
@@ -272,7 +283,14 @@ _CATEGORIES: Mapping[str, ErrorCategory] = {
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
     AppNotDeclaredError.code: ErrorCategory.CALLER,
     ServeConfigInvalidError.code: ErrorCategory.CALLER,
+    InvokeRequestInvalidError.code: ErrorCategory.CALLER,
+    UNHANDLED_CODE: ErrorCategory.EXECUTION,
 }
+"""Every framework code and its category, `app.unhandled` included.
+
+Public so that a reader outside the framework — an authoring Tool describing
+the framework to an agent — states the same catalogue this module classifies by.
+"""
 
 
 @dataclass(frozen=True)
@@ -303,7 +321,7 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
     if isinstance(error, VibepyError):
         code: object = getattr(error, "code", None)
         if isinstance(code, str):
-            category = _CATEGORIES.get(code)
+            category = ERROR_CATALOG.get(code)
             if category is not None:
                 return ErrorInfo(
                     code=code,
@@ -316,4 +334,23 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
         category=ErrorCategory.EXECUTION,
         message=str(error),
         details={},
+    )
+
+
+def report_line(info: ErrorInfo, /) -> str:
+    """One failure as the line a command writes to standard error.
+
+    `describe`, `serve` and `invoke` write it, and a host reads all three with
+    one reader, which is why the shape lives here and not in each command.
+    """
+    return (
+        json.dumps(
+            {
+                "code": info.code,
+                "category": info.category,
+                "message": info.message,
+                "details": dict(info.details),
+            }
+        )
+        + "\n"
     )

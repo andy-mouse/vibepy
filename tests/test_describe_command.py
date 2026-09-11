@@ -107,7 +107,10 @@ def test_an_unloadable_declaration_fails_with_the_framework_code(tmp_path: Path)
     result = run_describe(tmp_path)
 
     assert result.returncode == 1
-    assert "package.entrypoint_unloadable" in result.stderr
+    reported = json.loads(result.stderr)
+    assert reported["code"] == "package.entrypoint_unloadable"
+    assert reported["category"] == "declaration"
+    assert set(reported) == {"code", "category", "message", "details"}
 
 
 @pytest.mark.integration

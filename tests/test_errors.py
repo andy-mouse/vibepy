@@ -7,6 +7,7 @@ this file.
 """
 
 import importlib
+import json
 import pkgutil
 from collections.abc import Iterator, Mapping
 from dataclasses import FrozenInstanceError
@@ -15,6 +16,7 @@ import pytest
 
 import vibepy_core
 from vibepy_core.errors import (
+    ERROR_CATALOG,
     UNHANDLED_CODE,
     AppConfigInvalidError,
     AppEntrypointInvalidError,
@@ -22,6 +24,7 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
+    InvokeRequestInvalidError,
     PageNameConflictError,
     PageNotFoundError,
     PageRouteConflictError,
@@ -32,6 +35,7 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
+    report_line,
     to_error_info,
 )
 
@@ -161,6 +165,12 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         ErrorCategory.CALLER,
         {},
     ),
+    (
+        InvokeRequestInvalidError(),
+        "invoke.request_invalid",
+        ErrorCategory.CALLER,
+        {},
+    ),
 ]
 
 
@@ -265,6 +275,23 @@ def test_error_info_is_frozen() -> None:
 
     with pytest.raises(FrozenInstanceError):
         info.code = "tool.input_invalid"  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def test_the_catalogue_is_public_and_includes_the_unhandled_code() -> None:
+    assert ERROR_CATALOG["app.unhandled"] == ErrorCategory.EXECUTION
+    for _error, code, category, _ in CASES:
+        assert ERROR_CATALOG[code] == category
+
+
+def test_a_report_line_is_one_json_object_of_the_four_fields() -> None:
+    line = report_line(to_error_info(ToolNotFoundError("create_todo")))
+    assert line.endswith("\n")
+    assert json.loads(line) == {
+        "code": "tool.not_found",
+        "category": "caller",
+        "message": str(ToolNotFoundError("create_todo")),
+        "details": {"tool_name": "create_todo"},
+    }
 
 
 def test_a_category_reads_as_its_own_value() -> None:

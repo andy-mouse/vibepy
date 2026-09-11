@@ -1,0 +1,7 @@
+entryPoints:
+  web:
+    address: :8080
+providers:
+  file:
+    directory: /Users/andy.warhol/my-projects/vibepy/.hub-dev/routes
+    watch: true
