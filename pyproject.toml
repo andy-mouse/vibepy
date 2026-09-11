@@ -35,7 +35,7 @@ packages = ["src/vibepy_core"]
 [dependency-groups]
 dev = [
     "vibepy-core[web,agent]",
-    "vibepy-hub",
+    "vibepy-studio",
     "vibepy-todo",
     "vibepy-notes",
     "vibepy-timer",
@@ -49,7 +49,7 @@ dev = [
 ]
 
 [tool.uv.sources]
-vibepy-hub = { workspace = true }
+vibepy-studio = { workspace = true }
 vibepy-todo = { workspace = true }
 vibepy-notes = { workspace = true }
 vibepy-timer = { workspace = true }
@@ -119,7 +119,7 @@ testpaths = ["tests", "packages"]
 addopts = [
     "--import-mode=importlib",
     "--durations=15",
-    # Registered here, once, because two test trees (root and vibepy-hub) need
+    # Registered here, once, because two test trees (root and vibepy-studio) need
     # NiceGUI's User fixture and pytest allows `pytest_plugins` only at the
     # top-level conftest, not in a package's own.
     "-p",
@@ -132,7 +132,7 @@ addopts = [
 ]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
-pythonpath = ["tests", "packages/vibepy-hub/tests"]
+pythonpath = ["tests", "packages/vibepy-studio/tests"]
 # `integration` names the tests whose subject crosses into a real distribution
 # or a real child process -- the ones that build an environment or start an
 # App. It selects and never excuses: `make test` runs everything. Strict, so a

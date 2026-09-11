@@ -1,4 +1,4 @@
-.PHONY: install tools hub lint format typecheck test
+.PHONY: install tools studio lint format typecheck test
 
 install:
 	uv sync
@@ -11,10 +11,10 @@ install:
 tools:
 	uv run python scripts/fetch_traefik.py
 
-# The Hub's board and the proxy in front of it, for looking at it. Not part of
+# Studio's board and the proxy in front of it, for looking at it. Not part of
 # the gate: the suite starts its own windows against roots of its own.
-hub:
-	uv run python scripts/run_hub.py
+studio:
+	uv run python scripts/run_studio.py
 
 lint:
 	uv run ruff check .

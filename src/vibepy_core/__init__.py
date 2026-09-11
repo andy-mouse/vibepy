@@ -12,16 +12,19 @@ from vibepy_core.app import (
     ToolDescription,
     describe_app,
     discover_apps,
+    load_app,
     page_runtime_for,
     tool_runtime_for,
 )
 from vibepy_core.errors import (
+    ERROR_CATALOG,
     AppConfigInvalidError,
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
+    InvokeRequestInvalidError,
     PageNameConflictError,
     PageNotFoundError,
     PageRouteConflictError,
@@ -32,6 +35,9 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
+    read_report_line,
+    report,
+    report_line,
     to_error_info,
 )
 from vibepy_core.page import (
@@ -54,6 +60,7 @@ from vibepy_core.tool import (
 
 __all__ = [
     "APP_GROUP",
+    "ERROR_CATALOG",
     "AppConfigInvalidError",
     "AppDefinition",
     "AppDescription",
@@ -64,6 +71,7 @@ __all__ = [
     "AppRef",
     "ErrorCategory",
     "ErrorInfo",
+    "InvokeRequestInvalidError",
     "Lifespan",
     "NoConfig",
     "Page",
@@ -93,7 +101,11 @@ __all__ = [
     "VibepyError",
     "describe_app",
     "discover_apps",
+    "load_app",
     "page_runtime_for",
+    "read_report_line",
+    "report",
+    "report_line",
     "to_error_info",
     "tool_runtime_for",
 ]

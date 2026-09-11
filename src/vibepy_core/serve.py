@@ -7,26 +7,22 @@ runs it.
 """
 
 import argparse
-import json
 import logging
 import sys
 from collections.abc import Mapping, Sequence
-from importlib.metadata import EntryPoint
-from typing import TypeGuard
 
 import uvicorn
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from vibepy_core.adapters.nicegui import build_web_app
 from vibepy_core.app.entrypoint import AppEntrypoint
-from vibepy_core.app.package import APP_GROUP, discover_apps
+from vibepy_core.app.package import load_app
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
     ServeConfigInvalidError,
-    VibepyError,
-    to_error_info,
+    report,
 )
 
 logger = logging.getLogger(__name__)
@@ -69,49 +65,6 @@ one JSON object and a reader of this process's standard error parses it as such.
 """
 
 
-def _reported(error: VibepyError, /) -> None:
-    """Write one failure of the command where whatever started it can read it."""
-    info = to_error_info(error)
-    sys.stderr.write(
-        json.dumps(
-            {
-                "code": info.code,
-                "category": info.category,
-                "message": info.message,
-                "details": dict(info.details),
-            }
-        )
-        + "\n"
-    )
-
-
-def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:
-    """Whether what a reference resolved to is a composition root.
-
-    A runtime check cannot see type arguments, and this command never constructs
-    a definition or calls a lifespan itself, so the widest pair is a sound
-    reading of what was found.
-    """
-    return isinstance(value, AppEntrypoint)
-
-
-def _entrypoint(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
-    """Resolve one declared App, importing only that one."""
-    for ref in discover_apps():
-        if ref.app_name != app_name:
-            continue
-        reference = f"{ref.module}:{ref.attr}"
-        entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)
-        try:
-            loaded: object = entry.load()
-        except (ImportError, AttributeError) as error:
-            raise AppEntrypointUnloadableError(app_name, reference) from error
-        if not _is_entrypoint(loaded):
-            raise AppEntrypointInvalidError(app_name, reference, type(loaded).__name__)
-        return loaded
-    raise AppNotDeclaredError(app_name)
-
-
 def _serve(
     entrypoint: AppEntrypoint[object, BaseModel], config: Mapping[str, object], port: int, /
 ) -> None:
@@ -138,17 +91,17 @@ def main(argv: Sequence[str], /) -> int:
     try:
         config: Mapping[str, object] = _CONFIG.validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
-        _reported(ServeConfigInvalidError())
+        report(ServeConfigInvalidError())
         logger.debug("configuration on standard input was unreadable", exc_info=invalid)
         return 1
     try:
-        entrypoint = _entrypoint(str(parsed.app_name))
+        entrypoint = load_app(str(parsed.app_name))
     except (
         AppNotDeclaredError,
         AppEntrypointUnloadableError,
         AppEntrypointInvalidError,
     ) as error:
-        _reported(error)
+        report(error)
         return 1
     _serve(entrypoint, config, int(parsed.port))
     return 0

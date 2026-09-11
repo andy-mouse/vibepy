@@ -76,8 +76,8 @@ role and not a mismatch with it.
 ```text
 vibepy_studio/
 ├─ entry.py                  # one App: STUDIO_APP, HUB_TOOLS + AUTHORING_TOOLS
-├─ models.py                 # shared: Diagnostic, Empty
-├─ internals/                # shared: files, processes (run, ChildFailure), describing, deps
+├─ models.py                 # shared: Diagnostic, Empty, Described (what describe writes), diagnostic_of
+├─ internals/                # shared: files, processes (run, reported), describing, deps
 ├─ consumption/              # humans, Web channel — the Hub as it is, moved
 │  ├─ models.py
 │  ├─ tools/    packages, installation, configuration, runtime
@@ -145,7 +145,7 @@ conformance checks, when there is something to validate that describing does not
 class InspectRequest(BaseModel):
     project: Path
 
-class InspectedApp(BaseModel):
+class Described(BaseModel):         # shared: the one shape `describe` writes, read by both roles
     app_name: str
     distribution: str
     distribution_version: str
@@ -153,11 +153,11 @@ class InspectedApp(BaseModel):
     name: str
     version: str
     config_schema: dict[str, object]
-    tools: list[InspectedTool]      # name, description, input_schema, output_schema
-    pages: list[InspectedPage]      # name, route, title
+    tools: list[DescribedTool]      # name, description, input_schema, output_schema
+    pages: list[DescribedPage]      # name, route, title
 
 class AppInspection(BaseModel):
-    apps: list[InspectedApp]
+    apps: list[Described]
     diagnostic: Diagnostic | None = None
 ```
 
@@ -257,8 +257,9 @@ agent -> Studio Tool (inspect_app | invoke_tool)
       -> internals/processes.run(["uv", "run", "--project", dir, "python", "-m", "vibepy_core.<cmd>", ...], stdin=json)
          -> uv syncs the project's environment and runs the command in it
          -> the command imports the App there, reports on stdout (result) or stderr (one JSON object)
-      -> stdout parsed into Described[] | output; stderr's JSON object read by the shared
-         ChildFailure reader into Diagnostic; unparsable stderr into authoring.environment_failed
+      -> stdout parsed into Described[] | output; stderr's report line read by core's
+         read_report_line into ErrorInfo, then diagnostic_of into Diagnostic; unparsable stderr
+         into authoring.environment_failed
       -> result returned as data
 ```
 
@@ -268,10 +269,14 @@ Rather than a second runner beside it, `internals/processes.py` gains
 `run(command, /, *, stdin: str | None = None) -> Completed` (return code, stdout, stderr; the
 runnable check moves with it). Every child it starts receives `child_environment()`, so Studio's
 own `VIRTUAL_ENV` and `PYTHONPATH` describe no child. `installer._run` becomes a call to it that keeps its
-own contract: merged streams in the `InstallFailed` message. The reader of a child's failure report —
-today `processes._Failure`/`ChildFailure` bound to a log file, with `tools/runtime._category`
-beside it — becomes one public reader of text (`ChildFailure | None`) and one `category(str)` in
-shared `internals/processes.py`; the log-file path and stderr both call it. Consumption tests do not change.
+own contract: merged streams in the `InstallFailed` message. The reader of a child's failure report
+becomes core's own: `read_report_line(line) -> ErrorInfo | None` beside `report_line` in
+`vibepy_core.errors` (one format, three writers, one reader; an unknown category reads as
+execution), and Studio's `reported(text)` scans lines in reverse through it; the log-file path and
+stderr both call that. A failure therefore has two shapes, not four: core's `ErrorInfo` and
+Studio's pydantic `Diagnostic`, built by one `diagnostic_of(ErrorInfo, **details)` in shared
+`models.py`. Every `authoring.*` diagnostic is built by a constructor in `authoring/models.py`,
+beside the table that states it. Consumption tests do not change.
 
 ## Testing
 
@@ -283,7 +288,7 @@ One file per subject; success and failure paths of a subject share its file.
 | `tests/test_app_package.py` | `load_app`'s three failures, with `impostor_fixture` and `write_distribution` |
 | `tests/test_errors.py` | the catalogue through `ERROR_CATALOG` |
 | `packages/vibepy-studio/tests/test_inspect_framework.py` | version equals `importlib.metadata`'s; catalogue equals core's |
-| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields three Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; a project declaring no dependencies yields `authoring.environment_failed` (its environment holds no `vibepy_core`) |
+| `packages/vibepy-studio/tests/test_inspect_app.py` | `fixtures/todo-app` yields its two Tools, one Page, its config schema; a directory without `pyproject.toml` yields `authoring.project_not_found`; a project declaring no dependencies yields `authoring.environment_failed` (its environment holds no `vibepy_core`) |
 | `packages/vibepy-studio/tests/test_invoke_tool.py` | `create_todo` then `list_todos` against `fixtures/todo-app` returns what was created — each call its own window, state surviving in the App's store; `tool.not_found`, `tool.input_invalid` and `config.invalid` arrive as data with the child's own code and category, which is the shared failure reader's proof |
 | existing Hub tests | moved under `packages/vibepy-studio/tests/`, renamed imports, same assertions |
 

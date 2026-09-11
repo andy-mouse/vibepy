@@ -951,7 +951,7 @@ async def test_the_running_environment_describes_its_apps_with_their_tools() -> 
     described = await describe([sys.executable])
     todo = next(entry for entry in described if entry.app_name == "todo-app")
     assert todo.distribution == "vibepy-todo"
-    assert sorted(tool.name for tool in todo.tools) == ["complete_todo", "create_todo", "list_todos"]
+    assert sorted(tool.name for tool in todo.tools) == ["create_todo", "list_todos"]
     assert "properties" in next(t for t in todo.tools if t.name == "create_todo").input_schema
     assert [page.route for page in todo.pages] == ["/todos"]
 
@@ -1342,7 +1342,7 @@ async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: 
     assert inspected.diagnostic is None, inspected.diagnostic
     assert [app.app_name for app in inspected.apps] == ["todo-app"]
     todo = inspected.apps[0]
-    assert sorted(tool.name for tool in todo.tools) == ["complete_todo", "create_todo", "list_todos"]
+    assert sorted(tool.name for tool in todo.tools) == ["create_todo", "list_todos"]
     assert [page.route for page in todo.pages] == ["/todos"]
     assert set(todo.config_schema["properties"]) == {"db_path", "db_key"}  # type: ignore[index]
 

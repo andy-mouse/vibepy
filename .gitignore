@@ -5,5 +5,5 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 .tools/
-.hub-dev/
+.studio-dev/
 screenshots/

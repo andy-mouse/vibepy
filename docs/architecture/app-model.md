@@ -21,7 +21,7 @@ exact contents, so a name that is not exported there is not public. The subpacka
 working for anything already written against them. A module whose handlers must never reach a
 blocking call (`docs/architecture/runtime.md` says why) imports the narrower subpackage instead of
 the root that re-exports it; the Hub's Tool modules are that case, held by
-`packages/vibepy-hub/tests/test_no_blocking_handlers.py`.
+`packages/vibepy-studio/tests/test_no_blocking_handlers.py`.
 
 ## AppDefinition
 

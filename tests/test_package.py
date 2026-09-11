@@ -4,6 +4,7 @@ import vibepy_core
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy_core.__all__ == [
         "APP_GROUP",
+        "ERROR_CATALOG",
         "AppConfigInvalidError",
         "AppDefinition",
         "AppDescription",
@@ -14,6 +15,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "AppRef",
         "ErrorCategory",
         "ErrorInfo",
+        "InvokeRequestInvalidError",
         "Lifespan",
         "NoConfig",
         "Page",
@@ -43,7 +45,11 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "VibepyError",
         "describe_app",
         "discover_apps",
+        "load_app",
         "page_runtime_for",
+        "read_report_line",
+        "report",
+        "report_line",
         "to_error_info",
         "tool_runtime_for",
     ]

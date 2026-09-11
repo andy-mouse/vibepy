@@ -1,0 +1,28 @@
+"""What both of Studio's roles share, behind no Tool of its own."""
+
+from vibepy_studio.internals.deps import StudioDeps
+from vibepy_studio.internals.describing import DescribeFailed, describe
+from vibepy_studio.internals.processes import (
+    AlreadyStarted,
+    Completed,
+    NotRunnable,
+    Processes,
+    StartFailed,
+    child_environment,
+    reported,
+    run,
+)
+
+__all__ = [
+    "AlreadyStarted",
+    "Completed",
+    "DescribeFailed",
+    "NotRunnable",
+    "Processes",
+    "StartFailed",
+    "StudioDeps",
+    "child_environment",
+    "describe",
+    "reported",
+    "run",
+]

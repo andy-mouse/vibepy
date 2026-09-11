@@ -7,6 +7,7 @@ this file.
 """
 
 import importlib
+import json
 import pkgutil
 from collections.abc import Iterator, Mapping
 from dataclasses import FrozenInstanceError
@@ -15,6 +16,7 @@ import pytest
 
 import vibepy_core
 from vibepy_core.errors import (
+    ERROR_CATALOG,
     UNHANDLED_CODE,
     AppConfigInvalidError,
     AppEntrypointInvalidError,
@@ -22,6 +24,7 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     ErrorCategory,
     ErrorInfo,
+    InvokeRequestInvalidError,
     PageNameConflictError,
     PageNotFoundError,
     PageRouteConflictError,
@@ -32,6 +35,8 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
+    read_report_line,
+    report_line,
     to_error_info,
 )
 
@@ -161,6 +166,12 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         ErrorCategory.CALLER,
         {},
     ),
+    (
+        InvokeRequestInvalidError(),
+        "invoke.request_invalid",
+        ErrorCategory.CALLER,
+        {},
+    ),
 ]
 
 
@@ -267,7 +278,45 @@ def test_error_info_is_frozen() -> None:
         info.code = "tool.input_invalid"  # pyright: ignore[reportAttributeAccessIssue]
 
 
+def test_the_catalogue_is_public_and_includes_the_unhandled_code() -> None:
+    assert ERROR_CATALOG["app.unhandled"] == ErrorCategory.EXECUTION
+    for _error, code, category, _ in CASES:
+        assert ERROR_CATALOG[code] == category
+
+
+def test_a_report_line_is_one_json_object_of_the_four_fields() -> None:
+    line = report_line(to_error_info(ToolNotFoundError("create_todo")))
+    assert line.endswith("\n")
+    assert json.loads(line) == {
+        "code": "tool.not_found",
+        "category": "caller",
+        "message": str(ToolNotFoundError("create_todo")),
+        "details": {"tool_name": "create_todo"},
+    }
+
+
 def test_a_category_reads_as_its_own_value() -> None:
     """The value crosses a channel boundary as a string."""
     assert ErrorCategory.CALLER == "caller"
     assert ErrorInfo("tool.not_found", ErrorCategory.CALLER, "m", {}).category == "caller"
+
+
+def test_a_report_line_reads_back_as_the_failure_it_was_written_from() -> None:
+    """One format, three writers, one reader: what core writes, core reads."""
+    info = to_error_info(ToolNotFoundError("create_todo"))
+    assert read_report_line(report_line(info)) == info
+
+
+def test_a_category_a_report_names_that_the_framework_does_not_know_is_execution() -> None:
+    known = read_report_line('{"code": "tool.not_found", "category": "caller", "message": "m"}')
+    assert known is not None
+    assert known.category == ErrorCategory.CALLER
+
+    unknown = read_report_line('{"code": "app.unhandled", "category": "weird", "message": "m"}')
+    assert unknown is not None
+    assert unknown.category == ErrorCategory.EXECUTION
+
+
+def test_a_line_that_is_not_a_report_reads_as_nothing() -> None:
+    assert read_report_line("Traceback (most recent call last):") is None
+    assert read_report_line('{"category": "caller"}') is None

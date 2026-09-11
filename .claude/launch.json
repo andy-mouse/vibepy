@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "hub",
+      "name": "studio",
       "runtimeExecutable": "uv",
-      "runtimeArgs": ["run", "python", "scripts/run_hub.py"],
+      "runtimeArgs": ["run", "python", "scripts/run_studio.py"],
       "port": 8765
     }
   ]

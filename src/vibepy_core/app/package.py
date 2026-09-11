@@ -11,18 +11,19 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from importlib.metadata import EntryPoint, distributions
 from pathlib import Path
+from typing import TypeGuard
+
+from pydantic import BaseModel
 
 from vibepy_core.app.entrypoint import AppDescription, AppEntrypoint
-from vibepy_core.errors import AppEntrypointInvalidError, AppEntrypointUnloadableError
+from vibepy_core.app.group import APP_GROUP
+from vibepy_core.errors import (
+    AppEntrypointInvalidError,
+    AppEntrypointUnloadableError,
+    AppNotDeclaredError,
+)
 
 logger = logging.getLogger(__name__)
-
-APP_GROUP = "vibepy.apps"
-"""The entry point group an App declares itself in.
-
-A group name is metadata read as a string and imports nothing, so it claims no
-distribution name on any index.
-"""
 
 
 @dataclass(frozen=True)
@@ -59,18 +60,50 @@ def discover_apps(*, path: Sequence[Path] | None = None) -> tuple[AppRef, ...]:
     return tuple(sorted(refs, key=lambda ref: (ref.app_name, ref.distribution)))
 
 
-def describe_app(ref: AppRef, /) -> AppDescription:
-    """Load one declared entrypoint and project it.
+def _is_entrypoint(value: object, /) -> TypeGuard[AppEntrypoint[object, BaseModel]]:
+    """Whether what a reference resolved to is a composition root.
 
-    This imports, so it belongs in the App's own environment. A host that cannot
-    import an App runs `python -m vibepy_core.describe` in that environment instead.
+    A runtime check cannot see type arguments, and this module never constructs
+    a definition or calls a lifespan itself, so the widest pair is a sound
+    reading of what was found.
     """
+    return isinstance(value, AppEntrypoint)
+
+
+def _load(ref: AppRef, /) -> AppEntrypoint[object, BaseModel]:
+    """Import one declared entrypoint and check it is one."""
     reference = f"{ref.module}:{ref.attr}"
     entry = EntryPoint(name=ref.app_name, value=reference, group=APP_GROUP)
     try:
         loaded: object = entry.load()
     except (ImportError, AttributeError) as error:
         raise AppEntrypointUnloadableError(ref.app_name, reference) from error
-    if not isinstance(loaded, AppEntrypoint):
+    if not _is_entrypoint(loaded):
         raise AppEntrypointInvalidError(ref.app_name, reference, type(loaded).__name__)
-    return loaded.describe()
+    return loaded
+
+
+def describe_app(ref: AppRef, /) -> AppDescription:
+    """Load one declared entrypoint and project it.
+
+    This imports, so it belongs in the App's own environment. A host that cannot
+    import an App runs `python -m vibepy_core.describe` in that environment instead.
+    """
+    return _load(ref).describe()
+
+
+def load_app(app_name: str, /) -> AppEntrypoint[object, BaseModel]:
+    """Load the App this interpreter's environment declares under `app_name`.
+
+    This imports, so it belongs in the App's own environment: `serve` and
+    `invoke` call it there, and a host reaches it only through them.
+
+    Raises:
+        AppNotDeclaredError: nothing in this environment declares `app_name`.
+        AppEntrypointUnloadableError: the reference does not import.
+        AppEntrypointInvalidError: the reference is not an `AppEntrypoint`.
+    """
+    for ref in discover_apps():
+        if ref.app_name == app_name:
+            return _load(ref)
+    raise AppNotDeclaredError(app_name)

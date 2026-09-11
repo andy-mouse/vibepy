@@ -11,7 +11,7 @@ import sys
 from dataclasses import asdict
 
 from vibepy_core.app.package import describe_app, discover_apps
-from vibepy_core.errors import VibepyError, to_error_info
+from vibepy_core.errors import VibepyError, report
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +34,7 @@ def main() -> int:
             for ref in discover_apps()
         ]
     except VibepyError as error:
-        info = to_error_info(error)
-        sys.stderr.write(json.dumps({"code": info.code, "message": info.message}) + "\n")
+        report(error)
         return 1
     sys.stdout.write(json.dumps(described) + "\n")
     return 0
