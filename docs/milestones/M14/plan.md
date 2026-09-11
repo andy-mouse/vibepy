@@ -57,7 +57,7 @@ Done first, so that every field M14 adds lands on a derived surface once, instea
 
 **Files:**
 - Modify: `src/vibepy_core/errors.py` (`ErrorInfo` → `BaseModel`; delete `_Report`, `_REPORT`; `report_line`, `read_report_line`), `src/vibepy_core/adapters/mcp/server.py` (`_payload`), `src/vibepy_core/app/entrypoint.py` (`ToolDescription`, `PageDescription`, `AppDescription` → `BaseModel`), `src/vibepy_core/app/package.py` (new `DescribedApp`), `src/vibepy_core/describe.py`, `src/vibepy_core/app/__init__.py`, `src/vibepy_core/__init__.py`
-- Modify: `src/vibepy_core/app/config.py` (`ConfigFieldType`, `ConfigFieldDescription`, `config_fields_of`)
+- Modify: `src/vibepy_core/app/config.py` (`ConfigFieldType`, `ConfigFieldDescription`, `config_fields_of`), `src/vibepy_core/adapters/nicegui/application.py` (`_report`), `src/vibepy_core/invoke.py` (`InvocationRequest`)
 - Modify (Studio, delete the copies): `packages/vibepy-studio/src/vibepy_studio/models.py` (`Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`, `diagnostic_of`), `internals/describing.py`, `operating/internals/configuration.py` (`_SchemaField`, `_ConfigSchema`, `_kind`), `authoring/models.py`, `operating/models.py`, `operating/pages/board.py`, `operating/pages/presentation.py`, `operating/tools/{configuration,installation,packages,runtime}.py`
 - Test: `tests/test_errors.py`, `tests/test_describe_command.py`, `tests/test_app_entrypoint.py`, `packages/vibepy-studio/tests/test_installation.py`, `test_presentation.py`, `tests_support.py`
 
@@ -70,9 +70,14 @@ Done first, so that every field M14 adds lands on a derived surface once, instea
   - `class ConfigFieldType(StrEnum): STRING="string"; PATH="path"; INTEGER="integer"; SECRET="secret"; OTHER="other"` and `class ConfigFieldDescription(BaseModel): name: str; type: ConfigFieldType; required: bool` (in `app/config.py`, with `config_fields_of(model: type[AppConfig]) -> list[ConfigFieldDescription]` deriving them: for each `name, field in model.model_fields.items()`, `type` from the annotation — `SecretStr` → SECRET, `Path` → PATH, `int` → INTEGER, `str` → STRING, else OTHER; `required = field.is_required()`)
   - `class AppDescription(BaseModel): app_id, name, version, config_schema: dict[str, JsonValue], config_fields: list[ConfigFieldDescription], tools: list[ToolDescription], pages: list[PageDescription]`
   - `class DescribedApp(AppDescription): app_name: str; distribution: str; distribution_version: str` — the `describe` command's per-App entry, in `vibepy_core/app/package.py` beside `AppRef`, built by `described(ref: AppRef) -> DescribedApp`
-  - Studio imports `ErrorInfo` where it had `Diagnostic`, `DescribedApp` where it had `Described`.
+  - `class InvocationRequest(BaseModel): model_config = ConfigDict(extra="forbid"); input: dict[str, JsonValue] = {}` in `vibepy_core/invoke.py`, exported from `vibepy_core`; replaces `_Request`
+  - Studio imports `ErrorInfo` where it had `Diagnostic`, `DescribedApp` where it had `Described`, `InvocationRequest` where it built `{"input": …}`; `AppFacts(described: DescribedApp, purelib: Path | None = None)` with `has_pages` a `@property` over `described.pages`.
 
 - [ ] **Step 1: Write the failing tests**
+
+`tests/test_nicegui_adapter.py` (or `tests/test_serve_command.py`, wherever the window-failure log is asserted today) — the logged line parses with `read_report_line` into the `ErrorInfo` of the failure.
+
+`packages/vibepy-studio/tests/test_installation.py` — an installed App's facts carry its described Tools: `facts.described.tools[0].name == "create_todo"` for the Todo fixture.
 
 `tests/test_errors.py` — add:
 ```python
@@ -144,6 +149,10 @@ Delete `_Report`, `_REPORT` and the `TypeAdapter` import. `to_error_info` passes
 
 `adapters/mcp/server.py`: `_payload(error) -> dict[str, object]` returns `to_error_info(error).model_dump(mode="json")`.
 
+`adapters/nicegui/application.py::_report`: `logger.error(to_error_info(failure).model_dump_json())`; drop the `json` import.
+
+`invoke.py`: rename `_Request` to `InvocationRequest`, export it; nothing else changes here (Task 8 adds the arguments).
+
 `app/entrypoint.py`: the three descriptions become `BaseModel`s with the fields above (`tuple[...]` → `list[...]`, `Mapping` → `dict`); `describe()` constructs them by keyword as today.
 
 `app/package.py`:
@@ -173,6 +182,8 @@ Keep `describe_app(ref) -> AppDescription` as it is (Studio and tests use it). `
 - `models.py`: delete `Diagnostic`, `Described`, `DescribedTool`, `DescribedPage`. `diagnostic_of(reported: ErrorInfo, /, **details) -> ErrorInfo` becomes `reported.model_copy(update={"details": {**details, **reported.details}})`; keep it only if a caller merges details, else delete and use the `ErrorInfo` directly.
 - Every `Diagnostic(` construction (`authoring/models.py`, `operating/models.py`, `operating/tools/*`) → `ErrorInfo(`; every `Diagnostic` annotation → `ErrorInfo`; `board.py`/`presentation.py` read the same four fields.
 - `authoring/models.py`: `AppInspection.apps: list[DescribedApp]`.
+- `authoring/tools/invocation.py`: `stdin=InvocationRequest(input=payload.input).model_dump_json()`.
+- `operating/models.py`: `AppFacts` becomes `described: DescribedApp`, `purelib: Path | None = None`, `@property has_pages -> bool: return bool(self.described.pages)`; delete the eight copied fields and their docstrings (the "only writer" rationale moves to the class docstring). `installer.py` builds `AppFacts(described=entry)`. The 25 reads `facts.app_id`, `facts.name`, `facts.version`, `facts.distribution_version`, `facts.config_schema`, `facts.declared_name`, `facts.distribution` in `operating/internals/configuration.py`, `operating/tools/{configuration,installation,runtime}.py` and Studio tests become `facts.described.app_id`, …, `facts.described.app_name`, `facts.described.distribution`. Existing `facts.json` files are not migrated: pre-production.
 - `operating/internals/configuration.py`: delete `_SchemaField`, `_ConfigSchema`, `_kind`; `config_fields(...)`, `secret_fields(...)` and `is_configured` read `AppFacts.config_fields` (a `list[ConfigFieldDescription]` carried beside `config_schema`, filled from the `DescribedApp` Studio already reads) — `secret_fields` is `[f.name for f in fields if f.type is ConfigFieldType.SECRET]`. Delete Studio's `ConfigField`; `ConfigDescription.fields: list[ConfigFieldDescription]`. The board renders `field.type.value`.
 
 - [ ] **Step 5: Run** `make lint typecheck test` — PASS. (Studio's integration tests exercise `describe` and the report path end to end.)

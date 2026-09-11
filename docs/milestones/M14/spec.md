@@ -291,6 +291,19 @@ docstring says "this is what crosses a process boundary". The rule is applied:
   `distribution_version`, and the `AppDescription` fields), written with `model_dump_json` and
   read by Studio with `model_validate`. Studio's `Described`, `DescribedTool`, `DescribedPage`
   are deleted in favour of the core models.
+- The same shape is written by hand in three more places, found by enumerating every point where a
+  value leaves or enters a process: the Web window's failure log (`application.py::_report` builds
+  `ErrorInfo`'s dict a third time) becomes `info.model_dump_json()`; the `invoke` command's stdin
+  request is a core model `InvocationRequest` (`input: dict[str, JsonValue] = {}`, `extra="forbid"`)
+  that the command validates and Studio's `invoke_tool` dumps, replacing the hand-built
+  `{"input": …}` and the private `_Request`; and Studio's `AppFacts`, which copied eight fields of
+  a described App into itself (and had already drifted: no `tools`, no `pages`), embeds
+  `described: DescribedApp` beside its own `purelib`, `has_pages` becoming a read of
+  `described.pages`.
+- What is *not* a copy, and stays: the `invoke` command's stdout (the App's own output model,
+  relayed), configuration in the environment (already core's, ADR-033), Studio's `HubState` (its
+  own state, one model), the Traefik files Studio writes (an external tool's format, authored not
+  copied) and `pyproject.toml` read through `tomllib` (an external standard).
 - `TypeAdapter` over the dataclasses is not the fix: pydantic documents it for types that must stay
   non-pydantic, and these types exist to cross a boundary.
 
@@ -376,7 +389,7 @@ gains a required keyword, `tool_runtime_for` and the two builders gain required 
 `PageRuntime.render` gains a required keyword, and `vibepy_core.invoke` gains two required
 arguments. Every App in this repository is updated in the same change. Additions to the public
 API: `Principal`, `Channel`, `ToolPolicy`, `AuthorizationRequest`,
-`ToolForbiddenError`, `PrincipalToolInvoker`, `DescribedApp`, `ConfigFieldDescription`,
+`ToolForbiddenError`, `PrincipalToolInvoker`, `DescribedApp`, `InvocationRequest`, `ConfigFieldDescription`,
 `ConfigFieldType`, `AppDescription.config_fields`, `AppDefinition.policy`,
 `ToolContext.principal`, `ToolContext.channel`, `ToolDescription.{read_only,channels,required_roles}`.
 `ErrorInfo`, `ToolDescription`, `PageDescription`, `AppDescription` change from dataclass to
