@@ -193,8 +193,9 @@ environ: VIBEPY_<FIELD> per declared field
   the same way, and exits 1; that is ADR-030 applied to this channel.
 - There is no `--config` argument and no stdin configuration: this command has one
   configuration channel, the one every command now shares.
-- No new failure code. `serve.config_invalid` and `invoke.request_invalid` stay for their stdin
-  shapes; the environment has no shape of its own to be invalid, only fields.
+- No new failure code. `serve.config_invalid` is deleted with the channel that produced it;
+  `invoke.request_invalid` stays for `invoke`'s stdin shape; the environment has no shape of its
+  own to be invalid, only fields.
 
 `pyproject.toml`'s per-file ignore names `src/vibepy_core/mcp.py` beside `serve.py`: the command
 that opens a channel is a channel component. `packages/vibepy-studio/pyproject.toml` depends on
