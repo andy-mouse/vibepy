@@ -32,7 +32,7 @@ owns the fact."""
 async def inspect_framework(_ctx: ToolContext[StudioDeps], _payload: Empty) -> FrameworkDescription:
     """Say what the framework this Studio is built on asserts about itself."""
     return FrameworkDescription(
-        framework_version=version("vibepy-core"),
+        framework_version=await asyncio.to_thread(version, "vibepy-core"),
         entry_point_group=APP_GROUP,
         channel_extras=list(CHANNEL_EXTRAS),
         error_catalog=[ErrorCode(code=code, category=cat) for code, cat in ERROR_CATALOG.items()],
