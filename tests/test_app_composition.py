@@ -58,6 +58,7 @@ def journal_definition(log: list[str]) -> AppDefinition[Journal, NoConfig]:
                     description="Read the journal",
                     input_model=EmptyInput,
                     output_model=Entry,
+                    read_only=True,
                 ),
                 handler=read,
             )
@@ -239,6 +240,7 @@ async def test_two_tools_declaring_one_name_do_not_open_a_window() -> None:
                 description=description,
                 input_model=EmptyInput,
                 output_model=Entry,
+                read_only=True,
             ),
             handler=read,
         )

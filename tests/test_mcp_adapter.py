@@ -44,6 +44,7 @@ def create_todo_definition() -> ToolDefinition[CreateTodoInput, Todo]:
         description="Create a todo",
         input_model=CreateTodoInput,
         output_model=Todo,
+        read_only=False,
     )
 
 
@@ -53,6 +54,7 @@ def list_todos_definition() -> ToolDefinition[EmptyInput, TodoList]:
         description="List every todo",
         input_model=EmptyInput,
         output_model=TodoList,
+        read_only=True,
     )
 
 
@@ -62,6 +64,7 @@ def complete_todo_definition() -> ToolDefinition[CompleteTodoInput, Todo]:
         description="Mark a todo done",
         input_model=CompleteTodoInput,
         output_model=Todo,
+        read_only=False,
     )
 
 
@@ -82,6 +85,7 @@ def measured_definition() -> ToolDefinition[Measured, Measured]:
         description="Carries a computed member",
         input_model=Measured,
         output_model=Measured,
+        read_only=False,
     )
 
 
@@ -110,6 +114,7 @@ def test_the_published_output_schema_names_properties_as_the_payload_does() -> N
             description="Serializes under an alias",
             input_model=EmptyInput,
             output_model=Renamed,
+            read_only=False,
         )
     )
 
@@ -293,6 +298,7 @@ class BrokenFixture:
                     description="Always raises",
                     input_model=EmptyInput,
                     output_model=Todo,
+                    read_only=False,
                 ),
                 handler=self.explode,
             ),
@@ -302,6 +308,7 @@ class BrokenFixture:
                     description="Returns invalid output",
                     input_model=EmptyInput,
                     output_model=Todo,
+                    read_only=False,
                 ),
                 handler=self.lie,
             ),
@@ -380,6 +387,7 @@ async def test_an_app_defined_error_answers_with_a_result_not_a_protocol_error()
                 description="Raises an App-defined subclass of the public base",
                 input_model=EmptyInput,
                 output_model=Todo,
+                read_only=False,
             ),
             handler=raises,
         )

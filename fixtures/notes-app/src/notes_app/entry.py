@@ -56,6 +56,7 @@ NOTES_APP: AppDefinition[None, NotesConfig] = AppDefinition(
                 description="Measure a note",
                 input_model=NoteInput,
                 output_model=Note,
+                read_only=True,
             ),
             handler=measure_note,
         )

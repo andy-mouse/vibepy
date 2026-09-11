@@ -7,6 +7,7 @@ from pydantic import BaseModel, JsonValue
 from vibepy_core.app.composition import Lifespan
 from vibepy_core.app.config import AppConfig, ConfigFieldDescription, config_fields_of
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.channel import Channel
 
 
 class ToolDescription(BaseModel):
@@ -16,6 +17,9 @@ class ToolDescription(BaseModel):
     description: str
     input_schema: dict[str, JsonValue]
     output_schema: dict[str, JsonValue]
+    read_only: bool
+    channels: list[Channel]
+    required_roles: list[str]
 
 
 class PageDescription(BaseModel):
@@ -68,6 +72,9 @@ class AppEntrypoint[DepsT, ConfigT: AppConfig]:
                     description=tool.definition.description,
                     input_schema=tool.definition.input_schema(),
                     output_schema=tool.definition.output_schema(),
+                    read_only=tool.definition.read_only,
+                    channels=sorted(tool.definition.channels),
+                    required_roles=sorted(tool.definition.required_roles),
                 )
                 for tool in self.definition.tools
             ],

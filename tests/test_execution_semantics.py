@@ -93,6 +93,7 @@ MEET = Tool(
         description="Wait for a concurrent invocation, then report this one's identity",
         input_model=EmptyInput,
         output_model=Meeting,
+        read_only=False,
     ),
     handler=meet,
 )
@@ -103,6 +104,7 @@ READ_LOG = Tool(
         description="Report the arrival and departure log",
         input_model=EmptyInput,
         output_model=LogSnapshot,
+        read_only=True,
     ),
     handler=read_log,
 )

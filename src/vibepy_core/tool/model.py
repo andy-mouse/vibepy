@@ -6,6 +6,8 @@ from typing import Protocol
 
 from pydantic import BaseModel, JsonValue
 
+from vibepy_core.channel import Channel
+
 
 @dataclass(frozen=True)
 class ToolContext[DepsT]:
@@ -23,12 +25,15 @@ class ToolContext[DepsT]:
 
 @dataclass(frozen=True)
 class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
-    """Static declaration of a Tool. Both models are required."""
+    """Static declaration of a Tool. Both models are required, and so is `read_only`."""
 
     name: str
     description: str
     input_model: type[InputT]
     output_model: type[OutputT]
+    read_only: bool
+    channels: frozenset[Channel] = frozenset(Channel)
+    required_roles: frozenset[str] = frozenset()
 
     def input_schema(self) -> dict[str, JsonValue]:
         """Return what an argument mapping is validated against.

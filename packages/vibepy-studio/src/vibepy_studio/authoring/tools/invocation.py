@@ -67,6 +67,7 @@ INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             ),
             input_model=InvokeRequest,
             output_model=Invocation,
+            read_only=False,
         ),
         handler=invoke_tool,
     ),

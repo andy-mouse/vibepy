@@ -84,6 +84,7 @@ def create_todo_tool() -> Tool[TodoStore]:
             description="Create a todo item",
             input_model=CreateTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=create_todo,
     )
@@ -96,6 +97,7 @@ def list_todos_tool() -> Tool[TodoStore]:
             description="List every todo item",
             input_model=EmptyInput,
             output_model=TodoList,
+            read_only=True,
         ),
         handler=list_todos,
     )
@@ -108,6 +110,7 @@ def complete_todo_tool() -> Tool[TodoStore]:
             description="Mark a todo item as done",
             input_model=CompleteTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=complete_todo,
     )
@@ -170,6 +173,7 @@ def probe_tool() -> Tool[None]:
             description="Report the context of this invocation",
             input_model=EmptyInput,
             output_model=ProbeOutput,
+            read_only=True,
         ),
         handler=handler,
     )
@@ -185,6 +189,7 @@ def broken_output_tool() -> Tool[None]:
             description="Return a value that violates its own output model",
             input_model=EmptyInput,
             output_model=Todo,
+            read_only=True,
         ),
         handler=handler,
     )
@@ -287,6 +292,7 @@ def test_registering_a_name_twice_replaces_the_earlier_tool() -> None:
             description="Replaced",
             input_model=CreateTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=create_todo,
     )
@@ -317,7 +323,7 @@ class Sized(BaseModel):
 
 def test_a_declaration_answers_with_the_schema_its_input_is_validated_against() -> None:
     definition = ToolDefinition(
-        name="measure", description="d", input_model=Sized, output_model=Sized
+        name="measure", description="d", input_model=Sized, output_model=Sized, read_only=True
     )
 
     properties = definition.input_schema()["properties"]
@@ -329,7 +335,7 @@ def test_a_declaration_answers_with_the_schema_its_input_is_validated_against() 
 def test_a_declaration_answers_with_the_schema_its_output_is_serialized_to() -> None:
     """ADR-007: the published schema and the returned value cannot diverge."""
     definition = ToolDefinition(
-        name="measure", description="d", input_model=Sized, output_model=Sized
+        name="measure", description="d", input_model=Sized, output_model=Sized, read_only=True
     )
 
     properties = definition.output_schema()["properties"]
@@ -350,3 +356,33 @@ def test_a_principal_is_an_id_and_a_set_of_roles() -> None:
 
 def test_the_channels_are_a_closed_set() -> None:
     assert [channel.value for channel in Channel] == ["web", "agent"]
+
+
+def test_a_tool_declares_its_side_effects_exposure_and_roles() -> None:
+    definition = ToolDefinition(
+        name="approve",
+        description="Approve",
+        input_model=EmptyInput,
+        output_model=TodoList,
+        read_only=False,
+        channels=frozenset({Channel.WEB}),
+        required_roles=frozenset({"manager"}),
+    )
+
+    assert definition.read_only is False
+    assert definition.channels == {Channel.WEB}
+    assert definition.required_roles == {"manager"}
+
+
+def test_a_tool_is_exposed_on_both_channels_to_anyone_unless_it_says_otherwise() -> None:
+    definition = list_todos_tool().definition
+
+    assert definition.channels == frozenset(Channel)
+    assert definition.required_roles == frozenset()
+
+
+def test_read_only_has_no_default() -> None:
+    with pytest.raises(TypeError):
+        ToolDefinition(  # pyright: ignore[reportCallIssue]
+            name="x", description="x", input_model=EmptyInput, output_model=TodoList
+        )

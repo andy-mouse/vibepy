@@ -135,6 +135,7 @@ def create_todo_tool(store: TodoStore) -> Tool[None]:
             description="Create a todo item",
             input_model=CreateTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=handler,
     )
