@@ -7,17 +7,17 @@ from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
-from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
 from vibepy_studio.authoring.models import (
     Invocation,
     InvokeRequest,
     environment_failed,
+    from_report,
+    project_not_found,
     uv_unavailable,
 )
 from vibepy_studio.internals import NotRunnable, StudioDeps, reported, run
-from vibepy_studio.models import Diagnostic, diagnostic_of
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,7 @@ async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> 
     """Invoke one Tool once through the framework's own window, and return what it said."""
     project = await asyncio.to_thread(locate, payload.project)
     if project is None:
-        return Invocation(
-            diagnostic=Diagnostic(
-                code="authoring.project_not_found",
-                category=ErrorCategory.CALLER,
-                message=f"{payload.project} holds no pyproject.toml",
-                details={"project": str(payload.project)},
-            )
-        )
+        return Invocation(diagnostic=project_not_found(payload.project, "holds no pyproject.toml"))
     request = json.dumps({"config": payload.config, "input": payload.input})
     try:
         completed = await run(
@@ -45,15 +38,14 @@ async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> 
     except NotRunnable:
         return Invocation(diagnostic=uv_unavailable(project))
     if completed.returncode != 0:
-        report = reported(completed.stderr)
-        if report is not None:
-            return Invocation(
-                diagnostic=diagnostic_of(
-                    report, project=str(project), app=payload.app, tool=payload.tool
-                )
-            )
         return Invocation(
-            diagnostic=environment_failed(project, (completed.stdout + completed.stderr).strip())
+            diagnostic=from_report(
+                project,
+                reported(completed.stderr),
+                (completed.stdout + completed.stderr).strip(),
+                app=payload.app,
+                tool=payload.tool,
+            )
         )
     try:
         return Invocation(output=_OUTPUT.validate_json(completed.stdout))

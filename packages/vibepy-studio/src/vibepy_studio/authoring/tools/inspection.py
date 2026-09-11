@@ -4,7 +4,6 @@ import asyncio
 import logging
 from collections.abc import Sequence
 from importlib.metadata import version
-from pathlib import Path
 
 from packaging.utils import canonicalize_name
 
@@ -17,11 +16,12 @@ from vibepy_studio.authoring.models import (
     ErrorCode,
     FrameworkDescription,
     InspectRequest,
-    environment_failed,
+    from_report,
+    project_not_found,
     uv_unavailable,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, StudioDeps, describe
-from vibepy_studio.models import Diagnostic, Empty, diagnostic_of
+from vibepy_studio.models import Diagnostic, Empty
 
 logger = logging.getLogger(__name__)
 
@@ -40,40 +40,26 @@ async def inspect_framework(_ctx: ToolContext[StudioDeps], _payload: Empty) -> F
     )
 
 
-def _not_a_project(project: Path, reason: str, /) -> AppInspection:
-    """Answer with the caller error naming why `project` is not a project."""
-    return AppInspection(
-        apps=[],
-        diagnostic=Diagnostic(
-            code="authoring.project_not_found",
-            category=ErrorCategory.CALLER,
-            message=f"{project} {reason}",
-            details={"project": str(project)},
-        ),
-    )
-
-
-def _failed(project: Path, failed: DescribeFailed, /) -> Diagnostic:
-    """Use a child's own report when it made one, else the environment as the failure."""
-    if failed.reported is not None:
-        return diagnostic_of(failed.reported, project=str(project))
-    return environment_failed(project, failed.output)
-
-
 async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) -> AppInspection:
     """Describe the Apps a source project declares, read in that project's environment."""
     project = await asyncio.to_thread(locate, payload.project)
     if project is None:
-        return _not_a_project(payload.project, "holds no pyproject.toml")
+        return AppInspection(
+            apps=[], diagnostic=project_not_found(payload.project, "holds no pyproject.toml")
+        )
     name = await asyncio.to_thread(declared_name, project)
     if name is None:
-        return _not_a_project(project, "declares no [project] name")
+        return AppInspection(
+            apps=[], diagnostic=project_not_found(project, "declares no [project] name")
+        )
     try:
         described = await describe(python(project))
     except NotRunnable:
         return AppInspection(apps=[], diagnostic=uv_unavailable(project))
     except DescribeFailed as failed:
-        return AppInspection(apps=[], diagnostic=_failed(project, failed))
+        return AppInspection(
+            apps=[], diagnostic=from_report(project, failed.reported, failed.output)
+        )
     own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
         return AppInspection(

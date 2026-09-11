@@ -18,8 +18,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from vibepy_core import ErrorCategory
-from vibepy_studio.models import Described, Diagnostic
+from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_studio.models import Described, Diagnostic, diagnostic_of
 
 
 class ErrorCode(BaseModel):
@@ -86,3 +86,27 @@ def environment_failed(project: Path, output: str, /) -> Diagnostic:
         message=output,
         details={"project": str(project)},
     )
+
+
+def project_not_found(project: Path, reason: str, /) -> Diagnostic:
+    """Say why `project` is not a project a Tool can read."""
+    return Diagnostic(
+        code="authoring.project_not_found",
+        category=ErrorCategory.CALLER,
+        message=f"{project} {reason}",
+        details={"project": str(project)},
+    )
+
+
+def from_report(
+    project: Path, reported: ErrorInfo | None, output: str, /, **details: str
+) -> Diagnostic:
+    """Carry the child's own report when it made one, else the environment as the failure.
+
+    A child that reached the framework reports in the framework's vocabulary,
+    and that report travels as it is. `authoring.environment_failed` is what is
+    left to say when it did not.
+    """
+    if reported is None:
+        return environment_failed(project, output)
+    return diagnostic_of(reported, project=str(project), **details)
