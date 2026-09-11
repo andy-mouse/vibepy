@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import BaseModel, Field, computed_field
 
+from vibepy_core import Channel, Principal
 from vibepy_core.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
@@ -335,3 +336,17 @@ def test_a_declaration_answers_with_the_schema_its_output_is_serialized_to() -> 
 
     assert isinstance(properties, dict)
     assert set(properties) == set(Sized(width=2).model_dump(by_alias=True, mode="json"))
+
+
+def test_a_principal_is_an_id_and_a_set_of_roles() -> None:
+    alice = Principal(id="alice", roles=frozenset({"manager"}))
+    nobody = Principal(id="nobody")
+
+    assert alice.roles == {"manager"}
+    assert nobody.roles == frozenset()
+    with pytest.raises(FrozenInstanceError):
+        alice.id = "bob"  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def test_the_channels_are_a_closed_set() -> None:
+    assert [channel.value for channel in Channel] == ["web", "agent"]

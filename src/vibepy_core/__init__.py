@@ -23,6 +23,7 @@ from vibepy_core.app import (
     page_runtime_for,
     tool_runtime_for,
 )
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     ERROR_CATALOG,
     AppConfigInvalidError,
@@ -56,6 +57,7 @@ from vibepy_core.page import (
     PageRuntime,
     ToolInvoker,
 )
+from vibepy_core.principal import Principal
 from vibepy_core.tool import (
     Tool,
     ToolContext,
@@ -77,6 +79,7 @@ __all__ = [
     "AppEntrypointUnloadableError",
     "AppNotDeclaredError",
     "AppRef",
+    "Channel",
     "ConfigFieldDescription",
     "ConfigFieldType",
     "DescribedApp",
@@ -97,6 +100,7 @@ __all__ = [
     "PageRouteConflictError",
     "PageRouteInvalidError",
     "PageRuntime",
+    "Principal",
     "Tool",
     "ToolContext",
     "ToolDefinition",
