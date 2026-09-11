@@ -37,6 +37,7 @@ ALLOWED_IMPORTS = frozenset(
         "packaging.utils",
         "packaging.version",
         "pathlib",
+        "vibepy_core.app.config",
         "vibepy_core.app.group",
         "vibepy_core.errors",
         "vibepy_core.tool",
@@ -59,7 +60,8 @@ its internals, and `AGENTS.md` has a handler reach them through its ToolContext.
 So this list admits only modules that cannot carry a blocking call into a
 handler: the standard library's own non-blocking parts, pure parsing and
 modelling libraries, the framework's Tool and error vocabulary, a framework
-module holding one constant and nothing else, Studio's own models, and the two
+module holding one constant and nothing else, `vibepy_core.app.config`, which
+holds `environment_for` and nothing blocking, Studio's own models, and the two
 roles' internals packages -- of which the shared one,
 `vibepy_studio.internals`, exports only async operations and pure functions
 over text already read.

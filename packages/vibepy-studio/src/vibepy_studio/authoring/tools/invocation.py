@@ -7,6 +7,7 @@ from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
+from vibepy_core.app.config import environment_for
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
 from vibepy_studio.authoring.models import (
@@ -30,10 +31,12 @@ async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> 
     project = await asyncio.to_thread(locate, payload.project)
     if project is None:
         return Invocation(diagnostic=project_not_found(payload.project, "holds no pyproject.toml"))
-    request = json.dumps({"config": payload.config, "input": payload.input})
+    request = json.dumps({"input": payload.input})
     try:
         completed = await run(
-            [*python(project), "-m", "vibepy_core.invoke", payload.app, payload.tool], stdin=request
+            [*python(project), "-m", "vibepy_core.invoke", payload.app, payload.tool],
+            stdin=request,
+            env=environment_for(payload.config),
         )
     except NotRunnable:
         return Invocation(diagnostic=uv_unavailable(project))

@@ -71,12 +71,11 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
+async def test_a_child_that_cannot_run_the_command_is_a_start_failure(
     tmp_path: Path,
 ) -> None:
     """An environment without the framework cannot run the command at all, so
-    the child is gone before it reads a configuration large enough to fill the
-    pipe. That used to escape as `BrokenPipeError`."""
+    the child exits before it answers."""
     env = tmp_path / "bare"
     made = await asyncio.create_subprocess_exec(
         "uv", "venv", str(env), stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.PIPE
@@ -88,7 +87,7 @@ async def test_a_child_that_dies_before_reading_its_stdin_is_a_start_failure(
         await processes.start(
             app_name="gone",
             interpreter=interpreter(env),
-            config={"payload": "x" * 500_000},
+            config={"db_path": "x", "db_key": "k"},
             known_as="gone",
             port=free_port(),
         )
