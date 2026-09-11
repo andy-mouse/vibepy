@@ -8,7 +8,7 @@ import pytest
 
 from tests_support import hub
 from vibepy_hub.internals.state import STATE_FILE
-from vibepy_hub.models import AppListing, HeldConfig, RunningApp
+from vibepy_hub.models import AppListing, ConfigDescription, HeldConfig, RunningApp
 
 TOKEN = "s3cret-token-value"
 
@@ -137,3 +137,50 @@ async def test_what_is_held_is_readable_only_by_its_owner(installed: Path) -> No
 
     assert stat.S_IMODE((root / STATE_FILE).stat().st_mode) == 0o600
     assert stat.S_IMODE(root.stat().st_mode) == 0o700
+
+
+@pytest.mark.apps("vibepy-notes", "vibepy-todo")
+@pytest.mark.integration
+async def test_an_apps_configuration_is_described_by_field(installed: Path) -> None:
+    """Notes declares a string and a secret; Todo a path and a secret. Both required."""
+    async with hub(installed) as tools:
+        notes = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
+        todo = await tools.invoke("describe_config", {"app_name": "vibepy-todo"})
+
+    assert isinstance(notes, ConfigDescription)
+    assert notes.diagnostic is None
+    assert [(f.name, f.type, f.required) for f in notes.fields] == [
+        ("api_base_url", "string", True),
+        ("api_token", "secret", True),
+    ]
+    assert notes.values == {}
+    assert notes.secrets_set == []
+    assert isinstance(todo, ConfigDescription)
+    assert [(f.name, f.type, f.required) for f in todo.fields] == [
+        ("db_path", "path", True),
+        ("db_key", "secret", True),
+    ]
+
+
+@pytest.mark.apps("vibepy-notes")
+@pytest.mark.integration
+async def test_a_description_carries_held_values_and_names_held_secrets(installed: Path) -> None:
+    await held_notes_secret(installed)
+
+    async with hub(installed) as tools:
+        described = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
+
+    assert isinstance(described, ConfigDescription)
+    assert described.values == {"api_base_url": "https://notes.internal"}
+    assert described.secrets_set == ["api_token"]
+    assert TOKEN not in described.model_dump_json()
+
+
+async def test_describing_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
+    async with hub(tmp_path / "hub") as tools:
+        answered = await tools.invoke("describe_config", {"app_name": "vibepy-todo"})
+
+    assert isinstance(answered, ConfigDescription)
+    assert answered.fields == []
+    assert answered.diagnostic is not None
+    assert answered.diagnostic.code == "hub.not_installed"

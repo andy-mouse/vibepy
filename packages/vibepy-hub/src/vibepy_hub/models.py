@@ -199,6 +199,34 @@ class HeldConfig(BaseModel):
     diagnostic: Diagnostic | None = None
 
 
+class ConfigField(BaseModel):
+    """One field an App declares, as much of it as a form needs.
+
+    `type` is `string`, `path`, `integer`, `secret` or `other`, read from the
+    projected schema's `type` and `format`. A string because an output model
+    round-trips through JSON and the set is the Hub's to publish.
+    """
+
+    name: str
+    type: str
+    required: bool
+
+
+class ConfigDescription(BaseModel):
+    """What one App declares and what the Hub holds for it, in one answer.
+
+    The read half of `configure_app`: `values` carries no secret and
+    `secrets_set` names the secrets that have one, so the answer is safe to
+    show and safe to send back.
+    """
+
+    app_name: str
+    fields: list[ConfigField] = []
+    values: dict[str, object] = {}
+    secrets_set: list[str] = []
+    diagnostic: Diagnostic | None = None
+
+
 class StartRequest(BaseModel):
     """An App to start, with the secret values its declaration requires."""
 
