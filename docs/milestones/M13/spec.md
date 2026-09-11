@@ -33,7 +33,8 @@ From `docs/roadmap.md`, verbatim:
 | Config in the environment; one variable is one independent control, not a grouped blob | <https://12factor.net/config> |
 | Environment variables are a last resort for secrets, when mounted files or a secret store are not possible | OWASP Secrets Management Cheat Sheet, §5.1 |
 | `BaseSettings` reads one variable per field: "the `_env_prefix` keyword argument on instantiation", "environment variable names are case-insensitive", complex types and sub-models "by treating the environment variable's value as a JSON-encoded string", init kwargs over env over dotenv over secrets over defaults; unrelated variables are not picked up | pydantic-settings documentation, <https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/> |
-| `BaseSettings` is a `BaseModel`: `model_validate`, `model_json_schema` and `SecretStr` behave as ADR-022 relies on | pydantic-settings API, `BaseSettings(BaseModel)` |
+| `BaseSettings` is a `BaseModel`: `model_json_schema` and `SecretStr` behave as ADR-022 relies on; `extra` defaults to `forbid` | pydantic-settings API, `BaseSettings(BaseModel)` |
+| `model_config` is inherited by subclasses and merged | Pydantic documentation, Configuration |
 
 ## Problem
 
@@ -83,32 +84,47 @@ covers the whole of this decision: one variable per field, a prefix given at ins
 case-insensitive names (which is also what Windows does), complex fields and sub-models as JSON,
 `SecretStr` from a string, and a defined priority of sources.
 
-To use it as documented, an App's configuration model subclasses `BaseSettings`:
+To use it as documented, and to put the policy where it cannot be forgotten, the framework owns
+the base class and an App subclasses it:
 
 ```python
-class AppDefinition[DepsT, ConfigT: BaseSettings]:
-    config: type[ConfigT]
+# vibepy_core
+class AppConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="VIBEPY_")
 
-class NoConfig(BaseSettings): ...
+class NoConfig(AppConfig): ...
+
+class AppDefinition[DepsT, ConfigT: AppConfig]:
+    config: type[ConfigT]
 ```
 
-A window instantiates the declaration rather than validating a mapping against it:
+`model_config` is inherited and merged, as Pydantic documents, so every declaration reads
+`VIBEPY_<FIELD>` wherever it is instantiated; the prefix is part of the declaration, not of a
+call site. A window instantiates the declaration rather than validating a mapping against it:
 
 ```python
-definition.config(_env_prefix="VIBEPY_", **raw)
+definition.config(**raw)
 ```
 
 `raw` is what a caller hands the window explicitly — a test literal, a deprecated stdin object —
 and by the library's documented priority it stands above the environment, field by field.
 A `ValidationError` is `AppConfigInvalidError`, code `config.invalid`, naming every field that
-failed, exactly as today; a missing variable is a missing field. No dotenv file and no secrets
-directory are configured, so the sources in play are the two above and the model's defaults.
+failed, exactly as today; a missing variable is a missing field. `BaseSettings` forbids extra
+keys by default, so a value for a field the App does not declare is now `config.invalid` where
+`model_validate` used to ignore it — the one behavioural change, and an improvement: a misspelt
+field in `configure_app` is refused when the window opens instead of silently dropped. No dotenv
+file and no secrets directory are configured, so the sources in play are explicit values, the
+environment and the model's defaults.
 
 `BaseSettings` is a `BaseModel`, so `model_json_schema` still projects the declaration, `describe`
 still writes `config_schema`, and `SecretStr` still masks itself. `inspect_app`'s `config_schema`
 therefore lists field names, and the schema a host reads is the list of variables it sets. A
 model that declares a validation alias on a field names the variable by that alias, as the
 library documents; no framework rule is added for it.
+
+A declaration that reads its host when instantiated is what pydantic-settings is, and what the
+ecosystem's `class Settings(BaseSettings)` idiom means. ADR-022 said the framework "reads no
+environment"; this decision changes that stance and ADR-033 says so.
 
 `vibepy-core` depends on `pydantic-settings>=2.15`. It is a Pydantic project, depends on
 `pydantic` and `python-dotenv`, and is the library the framework's own configuration model
@@ -129,9 +145,9 @@ of the library's documented decoding and lives beside the contract it inverts.
 
 ### Compatibility of the narrowed bound
 
-`ConfigT: BaseModel` becomes `ConfigT: BaseSettings`. Every configuration model in this
-repository — `StudioConfig`, `TodoConfig`, `NotesConfig`, `TimerConfig`, `NoConfig`, the test
-models — changes its base class, a one-word edit each. No App exists outside this repository, so
+`ConfigT: BaseModel` becomes `ConfigT: AppConfig`. Every configuration model in this
+repository — `StudioConfig`, `TodoConfig`, `NotesConfig`, `TimerConfig`, the test models —
+changes its base class to `AppConfig`, a one-word edit each; `NoConfig` is the framework's own. No App exists outside this repository, so
 no deprecation period is owed for the bound itself (as M12 said of the Hub's rename); the public
 API section below states the change.
 
@@ -241,7 +257,7 @@ One file per subject; success and failure paths of a subject share its file.
 
 | File | Subject |
 | --- | --- |
-| `tests/test_app_config.py` | a window over a `BaseSettings` declaration reads `VIBEPY_*`: scalars coerced (`int`, `Path`, `SecretStr`), a sub-model from JSON, an explicit value standing above the environment, a missing field `config.invalid` naming it, an unrelated `VIBEPY_` variable ignored; `environment_for` renders what such a window reads back |
+| `tests/test_app_config.py` | a window over an `AppConfig` declaration reads `VIBEPY_*`: scalars coerced (`int`, `Path`, `SecretStr`), a sub-model from JSON, an explicit value standing above the environment, a missing field `config.invalid` naming it, an unrelated `VIBEPY_` variable ignored, an undeclared explicit key `config.invalid`; `environment_for` renders what such a window reads back |
 | `tests/test_mcp_command.py` | the command as a real process through `Client(StdioServerParameters(...))`: `vibepy-todo` with `VIBEPY_*` set lists its declared Tools and a `create_todo` call returns `structuredContent` equal to the output model; an unknown App name, and a missing `VIBEPY_ROOT`, each one stderr report and exit 1 |
 | `tests/test_serve_command.py`, `tests/test_invoke_command.py` | configuration through the environment; one test each that stdin configuration still works and is logged as deprecated |
 | `tests/test_dual_channel.py` | unchanged in assertion; it is in-process |
@@ -255,8 +271,9 @@ passes, as it is for the M12 tests.
 
 ## Compatibility
 
-`environment_for` and `vibepy_core.mcp` are additions to the public API. `ConfigT`'s bound
-narrows from `BaseModel` to `BaseSettings`; `NoConfig` follows. Configuration on stdin for
+`AppConfig`, `environment_for` and `vibepy_core.mcp` are additions to the public API. `ConfigT`'s
+bound narrows from `BaseModel` to `AppConfig`; `NoConfig` subclasses it. An undeclared
+configuration key is refused where it was ignored. Configuration on stdin for
 `serve` and `invoke` is deprecated and still honoured. Nothing else is removed. `vibepy-core`
 gains `pydantic-settings`; the `[agent]` extra's contents do not change; `vibepy-studio` now
 requires it.
@@ -270,8 +287,8 @@ requires it.
   command; "Authoring MCP" section states what exists
 - `docs/architecture/lifecycle.md`, `docs/architecture/adapters.md`: the stdio process is
   `vibepy_core.mcp`; the Hub hands configuration through the environment
-- `docs/architecture/app-model.md`: `ConfigT: BaseSettings`, and where the values come from —
-  one line pointing at packaging
+- `docs/architecture/app-model.md`: `AppConfig` and `ConfigT: AppConfig`, and where the values
+  come from — one line pointing at packaging
 - `docs/decisions/ADR-033-configuration-reaches-a-process-through-the-environment.md`: the
   decision above with its alternatives, the OWASP counter-argument and the new dependency; an
   amendment beneath ADR-026's status noting that its stdin sentence is superseded; ADR-022's
