@@ -208,12 +208,14 @@ Acceptance:
 
 ## M19 - Connector dependencies and optional Skills
 
-Add portable external capability metadata such as email.search/calendar.search/document.search and generate Agent/MCP guidance. Skills remain optional and outside MVP core unless proven necessary.
+Add portable external capability metadata such as email.search/calendar.search/document.search and generate Agent/MCP guidance. Skills remain optional and outside MVP core unless proven necessary. An App's wheel may also carry an MCP server registration and Skills for agent platforms (Claude Code, Codex) whose configuration the platform owns; the Hub installs, removes and updates them with the App and observes the platform rather than keeping a record.
 
 Acceptance:
 - Apps can declare provider-neutral external capability dependencies
 - required/optional capability semantics can be surfaced to Agents
 - connector dependencies do not require external provider-specific logic in the core App model
+- an App declaring an MCP server registration or Skills has them installed, removed and updated with it; one declaring none installs as before
+- an installable removed on its platform outside the Hub is a diagnostic on the App's row, restored only by an explicit repair; an absent platform makes it not applicable, not a diagnostic
 
 
 ## M20 - Production hardening
