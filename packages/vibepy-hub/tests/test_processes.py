@@ -147,29 +147,44 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
 
     assert processes.running("todo-app") is False
     try:
-        reader, writer = await asyncio.open_connection("127.0.0.1", port)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection("127.0.0.1", port), timeout=30.0
+        )
+    except TimeoutError:
+        pytest.fail("first connect neither succeeded nor was refused within 30s")
     except OSError:
         return
-    writer.write(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+    steps: list[str] = ["first connect succeeded"]
     try:
-        answer = repr(await asyncio.wait_for(reader.read(200), timeout=5.0))
-    except (OSError, TimeoutError) as error:
-        answer = f"no answer: {error!r}"
-    writer.close()
-    started = asyncio.get_running_loop().time()
-    refused_after = "never within 5s"
-    while asyncio.get_running_loop().time() - started < 5.0:
-        try:
-            _, again = await asyncio.open_connection("127.0.0.1", port)
-        except OSError:
-            refused_after = f"{asyncio.get_running_loop().time() - started:.3f}s"
-            break
-        again.close()
-        await asyncio.sleep(0.01)
-    pytest.fail(
-        f"first connect answered {answer}; refused after {refused_after}\n\n"
-        + await _who_holds(port, child.pid)
-    )
+        async with asyncio.timeout(10.0):
+            writer.write(b"GET / HTTP/1.0\r\nHost: 127.0.0.1\r\n\r\n")
+            try:
+                steps.append(f"answered {(await reader.read(200))!r}")
+            except OSError as error:
+                steps.append(f"no answer: {error!r}")
+    except TimeoutError:
+        steps.append("no answer within 10s")
+    writer.transport.abort()
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    try:
+        async with asyncio.timeout(10.0):
+            while True:
+                try:
+                    _, again = await asyncio.open_connection("127.0.0.1", port)
+                except OSError:
+                    steps.append(f"refused after {loop.time() - started:.3f}s")
+                    break
+                again.transport.abort()
+                await asyncio.sleep(0.01)
+    except TimeoutError:
+        steps.append("still accepting after 10s")
+    try:
+        async with asyncio.timeout(60.0):
+            steps.append(await _who_holds(port, child.pid))
+    except TimeoutError:
+        steps.append("diagnostic commands did not finish within 60s")
+    pytest.fail("\n\n".join(steps))
 
 
 @pytest.mark.integration
