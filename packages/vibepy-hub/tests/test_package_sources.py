@@ -3,7 +3,10 @@
 import shutil
 from pathlib import Path
 
+import pytest
+
 from tests_support import hub, write_wheel
+from vibepy_core.errors import ToolInputValidationError
 from vibepy_hub.models import AppListing, SourceListing
 
 
@@ -113,3 +116,9 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
     assert listed.diagnostic.code == "hub.source_unreadable"
     assert isinstance(withdrawn, SourceListing)
     assert withdrawn.source is None
+
+
+async def test_an_empty_path_is_refused_rather_than_the_working_directory(tmp_path: Path) -> None:
+    async with hub(tmp_path / "hub") as tools:
+        with pytest.raises(ToolInputValidationError):
+            await tools.invoke("register_package_source", {"path": ""})

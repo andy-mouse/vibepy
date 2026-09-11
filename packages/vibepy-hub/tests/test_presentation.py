@@ -120,7 +120,14 @@ FIELDS = [
 def test_a_save_omits_an_empty_secret_that_is_already_held() -> None:
     entered = {"api_base_url": "https://x", "api_token": "", "limit": ""}
     sent = save_request(FIELDS, entered, ["api_token"])
-    assert sent == {"api_base_url": "https://x", "limit": ""}
+    assert sent == {"api_base_url": "https://x"}
+
+
+def test_a_save_omits_a_blank_optional_field_and_sends_a_typed_one() -> None:
+    blank = save_request(FIELDS, {"api_base_url": "https://x", "limit": "  "}, ["api_token"])
+    typed = save_request(FIELDS, {"api_base_url": "https://x", "limit": "3"}, ["api_token"])
+    assert blank == {"api_base_url": "https://x"}
+    assert typed == {"api_base_url": "https://x", "limit": "3"}
 
 
 def test_a_save_sends_a_typed_secret() -> None:

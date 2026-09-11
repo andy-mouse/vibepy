@@ -185,7 +185,6 @@ def _body(url: str, host: str, /) -> str:
         return answer.read().decode(errors="replace")
 
 
-CORE = REPO
 FIXTURE_PACKAGES = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
 
 

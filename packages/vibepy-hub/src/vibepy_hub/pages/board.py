@@ -83,9 +83,17 @@ async def board(ctx: PageContext) -> None:
             )
 
     async def register(path: str | None) -> None:
-        """Register one folder of wheels as the package source."""
+        """Register one folder of wheels as the package source.
+
+        An empty box is answered here rather than sent: what the Tool would
+        raise is `tool.input_invalid`, and an empty input is a presentation
+        check, not a business rule.
+        """
+        if not (path or "").strip():
+            ui.notify("Enter a folder path")
+            return
         async with working():
-            answer = await call("register_package_source", {"path": path or ""})
+            answer = await call("register_package_source", {"path": path})
             if isinstance(answer, SourceListing) and answer.diagnostic is None:
                 ui.notify(f"{len(answer.candidates)} apps available from {answer.source}.")
         content.refresh()
@@ -229,6 +237,9 @@ async def board(ctx: PageContext) -> None:
                 ui.space()
                 for action in view.actions:
                     button = ui.button(action.label, on_click=_on_click(action, view))
+                    # Several rows carry the same word, so a test reaches one
+                    # row's button by a marker rather than by its label.
+                    button.mark(f"{action.label.lower()}-{view.app_name}")
                     if not action.primary:
                         button.props("flat")
                     if not action.enabled:

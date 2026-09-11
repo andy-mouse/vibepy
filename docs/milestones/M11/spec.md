@@ -205,6 +205,11 @@ The Hub's Tools are its public API and this is a breaking change to two of them:
 and both answer with a single `source`. The Hub is `0.1.0` and its only consumer is this Page;
 the change is made without a deprecation period and said so in the commit.
 
+A Hub root written before this milestone is not migrated: an environment whose facts lack
+`distribution_version` is reported as `hub.facts_unreadable`, and the App is uninstalled and
+installed again. A state file's former `sources` list is ignored, so the folder is registered
+once more.
+
 ## Documentation
 
 - `docs/architecture/lifecycle.md`: the Hub Tool table gains `describe_config` and `update_app`;

@@ -130,20 +130,21 @@ def save_request(
 ) -> dict[str, object] | list[str]:
     """Build what a Save sends to `configure_app`, or the required fields it still lacks.
 
-    An empty secret is omitted, which the Hub reads as "keep what is held": a
-    screen must not be able to blank a stored secret. A non-secret field absent
-    from the mapping is also not sent, letting the Hub preserve what it holds.
+    A field left empty is omitted, whatever its type, which the Hub reads as
+    "keep what is held": a screen must not be able to blank a stored secret, and
+    an empty box is not the value `""` -- sending one would store an optional
+    integer as `""` and an optional path as `.`, and the App's window would then
+    raise `config.invalid` on every start. The consequence is that the board
+    cannot clear a held optional value: clearing is a Tool-side capability
+    `configure_app` does not have, because it merges what it is given.
+
     A required field with no value and no held secret is named, and every such
     field is named at once.
     """
     values: dict[str, object] = {}
     for field in fields:
         typed = entered.get(field.name, "").strip()
-        if field.type == "secret":
-            if typed:
-                values[field.name] = typed
-            continue
-        if field.name in entered:
+        if typed:
             values[field.name] = typed
     missing = [
         field.name

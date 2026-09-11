@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Annotated
 
 from packaging.utils import canonicalize_name
-from pydantic import AfterValidator, BaseModel
+from pydantic import AfterValidator, BaseModel, BeforeValidator
 
 from vibepy_core import ErrorCategory
 
@@ -52,10 +52,26 @@ class Empty(BaseModel):
     """The input of a Tool that takes nothing."""
 
 
+def _a_named_folder(value: object) -> object:
+    """Refuse an empty path before `Path` turns it into the working directory.
+
+    `Path("")` is `.`, which is a directory that exists, so an empty string
+    would register whatever folder the server happens to run in. Refusing it
+    here is what makes the channel answer `tool.input_invalid`.
+    """
+    if isinstance(value, str) and not value.strip():
+        raise ValueError("a package source is a folder path")
+    return value
+
+
+SourcePathField = Annotated[Path, BeforeValidator(_a_named_folder)]
+"""The folder a Tool takes as the package source."""
+
+
 class SourcePath(BaseModel):
     """A folder of wheels, as `register_package_source` takes it."""
 
-    path: Path
+    path: SourcePathField
 
 
 class CandidateRow(BaseModel):

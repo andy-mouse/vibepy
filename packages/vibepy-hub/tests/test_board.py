@@ -10,7 +10,7 @@ from tests_support import hub, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
 from vibepy_hub.entry import APP, HUB_APP
-from vibepy_hub.models import ConfigDescription
+from vibepy_hub.models import AppListing, ConfigDescription
 
 
 def hub_pages(root: Path):
@@ -35,8 +35,8 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
 
 @pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
-async def test_install_moves_a_row_to_installed_and_opens_its_configuration(
-    user: User, installed: Path, wheelhouse: Path
+async def test_configuring_an_installed_app_names_what_it_lacks(
+    user: User, installed: Path
 ) -> None:
     async with hub_pages(installed) as pages:
         register_pages(HUB_APP, pages)
@@ -85,3 +85,27 @@ async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path
     assert isinstance(described, ConfigDescription)
     assert described.values == {"api_base_url": "https://notes.internal"}
     assert described.secrets_set == ["api_token"]
+
+
+@pytest.mark.integration
+async def test_install_moves_a_row_to_installed(
+    user: User, tmp_path: Path, wheelhouse: Path
+) -> None:
+    root = tmp_path / "hub"
+    async with hub(root) as tools:
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
+
+    async with hub_pages(root) as pages:
+        register_pages(HUB_APP, pages)
+        await user.open("/")
+        user.find(marker="install-vibepy-notes").click()
+        # `uv` builds an environment here, which is far longer than the three
+        # tenths of a second `should_see` waits by default.
+        await user.should_see(marker="uninstall-vibepy-notes", retries=1800)
+        await user.should_see("Notes")
+
+    async with hub(root) as tools:
+        listed = await tools.invoke("list_apps", {})
+
+    assert isinstance(listed, AppListing)
+    assert [row.state for row in listed.apps if row.app_name == "vibepy-notes"] == ["installed"]
