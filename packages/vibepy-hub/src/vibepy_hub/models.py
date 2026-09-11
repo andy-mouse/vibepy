@@ -9,7 +9,6 @@ The Hub's own codes:
 | Code | Category |
 | --- | --- |
 | `hub.candidate_absent` | caller |
-| `hub.candidate_ambiguous` | caller |
 | `hub.install_failed` | execution |
 | `hub.no_app_declared` | declaration |
 | `hub.multiple_apps_declared` | declaration |
@@ -53,24 +52,24 @@ class Empty(BaseModel):
 
 
 class SourcePath(BaseModel):
-    """A registered folder, as `register_package_source` takes it."""
+    """A folder of wheels, as `register_package_source` takes it."""
 
     path: Path
 
 
 class CandidateRow(BaseModel):
-    """One folder a source holds, whether or not it declares an App."""
+    """One wheel the source offers: the highest version of one distribution."""
 
-    folder: Path
+    wheel: Path
     name: str
-    version: str | None
+    version: str
     declares_app: bool
 
 
 class SourceListing(BaseModel):
-    """Every registered source and the candidates found in them."""
+    """The registered source, if any, and the candidates found in it."""
 
-    sources: list[Path]
+    source: Path | None
     candidates: list[CandidateRow]
     diagnostic: Diagnostic | None = None
 
@@ -81,6 +80,12 @@ class AppFacts(BaseModel):
     app_id: str
     name: str
     version: str
+    distribution_version: str
+    """The version of the wheel that was installed, which is what an update changes.
+
+    An App's own `version` is what its definition declares; the two need not agree,
+    and only the distribution's is compared with what the source offers.
+    """
     config_schema: dict[str, object] = {}
     has_pages: bool = False
     purelib: Path | None = None
@@ -141,6 +146,8 @@ class AppRow(BaseModel):
     app_name: str
     name: str | None = None
     version: str | None = None
+    distribution_version: str | None = None
+    """The installed or offered wheel's version. What the board shows and `update_app` compares."""
     state: str
     url: str | None = None
     configured: bool = False
@@ -152,6 +159,9 @@ class AppListing(BaseModel):
     """Every App the control plane knows of."""
 
     apps: list[AppRow]
+    source: Path | None = None
+    """The registered folder, said with the rows so one read draws the whole board."""
+
     diagnostic: Diagnostic | None = None
 
 

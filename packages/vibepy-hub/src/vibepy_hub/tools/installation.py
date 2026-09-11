@@ -48,30 +48,12 @@ from vibepy_hub.models import (
 logger = logging.getLogger(__name__)
 
 
-async def _offering(deps: HubDeps, app_name: str, /) -> tuple[Candidate, ...]:
-    """Every registered folder that offers this App, by its distribution name.
-
-    More than one is not a preference to resolve. One name addresses one App,
-    and letting registration order decide which folder a name means would put
-    back the ambiguity this Hub addresses Apps by a canonical name to remove.
-    """
-    found: list[Candidate] = []
-    for source in (await read_state(deps.root)).sources:
-        found.extend(row for row in await candidates(source) if row.name == app_name)
-    return tuple(found)
-
-
-def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
-    """Two folders claiming one name, named so a caller can withdraw one."""
-    return Diagnostic(
-        code="hub.candidate_ambiguous",
-        category=ErrorCategory.CALLER,
-        message=f"more than one registered source offers {app_name!r}",
-        details={
-            "app_name": app_name,
-            "folders": ", ".join(sorted(str(row.wheel) for row in offered)),
-        },
-    )
+async def _offered(deps: HubDeps, app_name: str, /) -> Candidate | None:
+    """Return the wheel the registered source offers under this name, or nothing."""
+    source = (await read_state(deps.root)).source
+    if source is None or not await readable(source):
+        return None
+    return next((row for row in await candidates(source) if row.name == app_name), None)
 
 
 async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
@@ -103,6 +85,7 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
             app_name=env.name,
             name=facts.name,
             version=facts.version,
+            distribution_version=facts.distribution_version,
             state="running" if deps.processes.running(env.name) else "installed",
             url=None if held_port is None else address(env.name, deps.proxy_port),
             configured=is_configured(facts, stored.config.get(env.name, {})),
@@ -122,22 +105,17 @@ async def _installed(deps: HubDeps, /) -> dict[str, AppRow]:
 async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installation:
     """Install one offered App into an environment of its own."""
     deps = ctx.dependencies
-    offered = await _offering(deps, payload.app_name)
-    if len(offered) != 1:
-        # Neither none nor two is one App to install, and a caller answers the
-        # two differently: register a source, or withdraw one.
+    offered = await _offered(deps, payload.app_name)
+    if offered is None:
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=Diagnostic(
                 code="hub.candidate_absent",
                 category=ErrorCategory.CALLER,
-                message=f"No registered source offers {payload.app_name!r}",
+                message=f"The registered source offers no {payload.app_name!r}",
                 details={"app_name": payload.app_name},
-            )
-            if not offered
-            else _ambiguous(payload.app_name, offered),
+            ),
         )
-    folder = offered[0].wheel
     env = environment(deps.root, payload.app_name)
     if env in await environments(deps.root):
         # What installing over an installation means is not this stage's to
@@ -154,7 +132,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             ),
         )
     try:
-        await install(folder=folder, env=env)
+        await install(folder=offered.wheel, env=env)
         described = await describe(env)
         metadata = await purelib(env)
         mine = [
@@ -169,8 +147,8 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
                 diagnostic=Diagnostic(
                     code="hub.no_app_declared",
                     category=ErrorCategory.DECLARATION,
-                    message=f"{folder} installs no App",
-                    details={"folder": str(folder)},
+                    message=f"{offered.wheel} installs no App",
+                    details={"wheel": str(offered.wheel)},
                 ),
             )
         if len(mine) > 1:
@@ -224,6 +202,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             app_name=payload.app_name,
             name=facts.name,
             version=facts.version,
+            distribution_version=facts.distribution_version,
             state="installed",
             url=address(payload.app_name, deps.proxy_port) if facts.has_pages else None,
             has_pages=facts.has_pages,
@@ -235,34 +214,28 @@ async def list_apps(ctx: ToolContext[HubDeps], _payload: Empty) -> AppListing:
     """Every App this Hub can act on, installed or merely offered."""
     deps = ctx.dependencies
     rows = await _installed(deps)
-    offered: dict[str, list[Candidate]] = {}
-    unreadable: list[str] = []
-    for source in (await read_state(deps.root)).sources:
-        if not await readable(source):
-            unreadable.append(str(source))
-            continue
+    source = (await read_state(deps.root)).source
+    unreadable = source is not None and not await readable(source)
+    if source is not None and not unreadable:
         for row in await candidates(source):
-            offered.setdefault(row.name, []).append(row)
             if row.name in rows:
                 continue
             rows[row.name] = AppRow(
                 app_name=row.name,
                 name=row.name,
-                version=row.version,
+                distribution_version=row.version,
                 state="available",
             )
-    for name, claiming in offered.items():
-        if len(claiming) > 1 and rows[name].state == "available":
-            rows[name] = rows[name].model_copy(update={"diagnostic": _ambiguous(name, claiming)})
     return AppListing(
         apps=[rows[name] for name in sorted(rows)],
+        source=source,
         diagnostic=None
         if not unreadable
         else Diagnostic(
             code="hub.source_unreadable",
             category=ErrorCategory.CALLER,
-            message="a registered source could not be read",
-            details={"paths": ", ".join(unreadable)},
+            message="the registered source could not be read",
+            details={"path": str(source)},
         ),
     )
 

@@ -146,6 +146,7 @@ class _Described(BaseModel):
     app_id: str
     name: str
     version: str
+    distribution_version: str
     config_schema: dict[str, object] = {}
     pages: list[object] = []
 
@@ -165,6 +166,7 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
             app_id=entry.app_id,
             name=entry.name,
             version=entry.version,
+            distribution_version=entry.distribution_version,
             config_schema=entry.config_schema,
             has_pages=bool(entry.pages),
             declared_name=entry.app_name,

@@ -1,4 +1,4 @@
-"""The two things the framework does not answer: registered folders and values.
+"""The two things the framework does not answer: the registered wheelhouse and values.
 
 What is installed is not kept here. Each App has an environment of its own and
 `discover_apps(path=…)` reads an environment without importing it, so the file
@@ -31,7 +31,11 @@ class HubState(BaseModel):
     the next field someone adds, silently and everywhere at once.
     """
 
-    sources: list[Path] = []
+    source: Path | None = None
+    """The one folder of wheels this Hub installs from. One, because in-house deployment is one
+    wheelhouse, and two folders offering one App is a mistake to prevent rather than a case to
+    explain."""
+
     config: dict[str, dict[str, object]] = {}
     ports: dict[str, int] = {}
     """The port each installed App serves on, allocated when it was installed."""
