@@ -170,12 +170,10 @@ class TodoFixture:
 
     async def complete_todo(self, ctx: ToolContext[None], payload: CompleteTodoInput) -> Todo:
         self.contexts.append(ctx)
-        for index, todo in enumerate(self.todos):
-            if todo.id == payload.id:
-                completed = todo.model_copy(update={"done": True})
-                self.todos[index] = completed
-                return completed
-        raise ValueError(f"no todo has id {payload.id}")
+        index = next(i for i, todo in enumerate(self.todos) if todo.id == payload.id)
+        completed = self.todos[index].model_copy(update={"done": True})
+        self.todos[index] = completed
+        return completed
 
     def tools(self) -> list[Tool[None]]:
         return [
