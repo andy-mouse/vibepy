@@ -15,7 +15,7 @@ import logging
 import sys
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
 
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.config import AppConfig
@@ -32,7 +32,7 @@ from vibepy_core.errors import (
 logger = logging.getLogger(__name__)
 
 
-class _Request(BaseModel):
+class InvocationRequest(BaseModel):
     """What standard input carries: one JSON object of the Tool's `input`.
 
     Any other key is refused rather than ignored, so a request written for the
@@ -41,11 +41,11 @@ class _Request(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    input: dict[str, object] = {}
+    input: dict[str, JsonValue] = {}
 
 
 async def _invoke(
-    entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: _Request, /
+    entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: InvocationRequest, /
 ) -> BaseModel:
     """Open the window, invoke once, close the window."""
     async with tool_runtime_for(entrypoint.definition, entrypoint.lifespan, config={}) as runtime:
@@ -71,7 +71,7 @@ def main(argv: Sequence[str], /) -> int:
     parser.add_argument("tool_name")
     parsed = parser.parse_args(argv)
     try:
-        request = _Request.model_validate_json(sys.stdin.read() or "{}")
+        request = InvocationRequest.model_validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
         report(InvokeRequestInvalidError())
         logger.debug("the request on standard input was unreadable", exc_info=invalid)

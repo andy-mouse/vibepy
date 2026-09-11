@@ -11,10 +11,10 @@ from collections.abc import Sequence
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
-from vibepy_core.errors import ErrorCategory
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.models import Empty
 from vibepy_studio.operating.internals import (
     Candidate,
     HubState,
@@ -67,7 +67,7 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
             rows[env.name] = AppRow(
                 app_name=env.name,
                 state="installed",
-                diagnostic=Diagnostic(
+                diagnostic=ErrorInfo(
                     code="hub.facts_unreadable",
                     category=ErrorCategory.EXECUTION,
                     message=f"{env} holds no readable record of what was installed",
@@ -77,23 +77,24 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
             continue
         metadata = facts.purelib
         declared = await declarations(metadata)
-        wanted = facts.declared_name
+        wanted = facts.described.app_name
         present = any(
-            ref.app_name == wanted and ref.distribution == facts.distribution for ref in declared
+            ref.app_name == wanted and ref.distribution == facts.described.distribution
+            for ref in declared
         )
         held_port = stored.ports.get(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
-            name=facts.name,
-            version=facts.version,
-            distribution_version=facts.distribution_version,
+            name=facts.described.name,
+            version=facts.described.version,
+            distribution_version=facts.described.distribution_version,
             state="running" if deps.processes.running(env.name) else "installed",
             url=None if held_port is None else address(env.name, deps.proxy_port),
             configured=is_configured(facts, stored.config.get(env.name, {})),
             has_pages=facts.has_pages,
             diagnostic=None
             if present
-            else Diagnostic(
+            else ErrorInfo(
                 code="hub.declaration_missing",
                 category=ErrorCategory.DECLARATION,
                 message=f"{env} no longer declares {wanted!r}",
@@ -110,7 +111,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
     if offered is None:
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.candidate_absent",
                 category=ErrorCategory.CALLER,
                 message=f"The registered source offers no {payload.app_name!r}",
@@ -125,7 +126,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
         # discards it.
         return Installation(
             app=AppRow(app_name=payload.app_name, state="installed"),
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.already_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is already installed; remove it first",
@@ -137,7 +138,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
             app=AppRow(
                 app_name=payload.app_name, state="available", distribution_version=offered.version
             ),
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.no_app_declared",
                 category=ErrorCategory.DECLARATION,
                 message=f"{offered.wheel.name} declares no App",
@@ -159,13 +160,15 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
         described = await describe(env)
         metadata = await purelib(env)
         mine = [
-            facts for facts in described if str(canonicalize_name(facts.distribution)) == app_name
+            facts
+            for facts in described
+            if str(canonicalize_name(facts.described.distribution)) == app_name
         ]
         if not mine:
             await remove_environment(env)
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
-                diagnostic=Diagnostic(
+                diagnostic=ErrorInfo(
                     code="hub.no_app_declared",
                     category=ErrorCategory.DECLARATION,
                     message=f"{offered.wheel} installs no App",
@@ -176,13 +179,13 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
             await remove_environment(env)
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
-                diagnostic=Diagnostic(
+                diagnostic=ErrorInfo(
                     code="hub.multiple_apps_declared",
                     category=ErrorCategory.DECLARATION,
                     message=f"{app_name!r} declares more than one App",
                     details={
                         "app_name": app_name,
-                        "declared": ", ".join(sorted(facts.declared_name for facts in mine)),
+                        "declared": ", ".join(sorted(facts.described.app_name for facts in mine)),
                     },
                 ),
             )
@@ -192,7 +195,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
         await remove_environment(env)
         return Installation(
             app=AppRow(app_name=app_name, state="available"),
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.install_failed",
                 category=ErrorCategory.EXECUTION,
                 message=str(failure),
@@ -218,9 +221,9 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
     return Installation(
         app=AppRow(
             app_name=app_name,
-            name=facts.name,
-            version=facts.version,
-            distribution_version=facts.distribution_version,
+            name=facts.described.name,
+            version=facts.described.version,
+            distribution_version=facts.described.distribution_version,
             state="installed",
             url=address(app_name, deps.proxy_port) if facts.has_pages else None,
             has_pages=facts.has_pages,
@@ -263,7 +266,7 @@ async def list_apps(ctx: ToolContext[StudioDeps], _payload: Empty) -> AppListing
         source=source,
         diagnostic=None
         if not unreadable
-        else Diagnostic(
+        else ErrorInfo(
             code="hub.source_unreadable",
             category=ErrorCategory.CALLER,
             message="the registered source could not be read",
@@ -323,7 +326,7 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
             "hub.already_running",
             f"{payload.app_name!r} is running; stop it first",
             state="running",
-            version=facts.distribution_version,
+            version=facts.described.distribution_version,
         )
     offered = await _offered(deps, payload.app_name)
     if offered is None:
@@ -332,16 +335,16 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
             "hub.candidate_absent",
             f"The registered source offers no {payload.app_name!r}",
             state="installed",
-            version=facts.distribution_version,
+            version=facts.described.distribution_version,
         )
-    if Version(offered.version) <= Version(facts.distribution_version):
+    if Version(offered.version) <= Version(facts.described.distribution_version):
         return _refused(
             payload.app_name,
             "hub.up_to_date",
             f"the offered version {offered.version} is not newer than "
-            f"{facts.distribution_version}, which is already installed",
+            f"{facts.described.distribution_version}, which is already installed",
             state="installed",
-            version=facts.distribution_version,
+            version=facts.described.distribution_version,
         )
     await remove_environment(environment(deps.root, payload.app_name))
     return await _install_offered(deps, payload.app_name, offered)
@@ -353,7 +356,7 @@ def _refused(
     """Say an update did not happen, and why. Every refusal here is the caller's to act on."""
     return Installation(
         app=AppRow(app_name=app_name, state=state, distribution_version=version),
-        diagnostic=Diagnostic(
+        diagnostic=ErrorInfo(
             code=code,
             category=ErrorCategory.CALLER,
             message=message,

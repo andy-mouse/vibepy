@@ -5,15 +5,18 @@ and importing one would put that App's dependencies in the host's process. So th
 host runs this module with that environment's interpreter and reads the result.
 """
 
-import json
 import logging
 import sys
-from dataclasses import asdict
 
-from vibepy_core.app.package import describe_app, discover_apps
+from pydantic import TypeAdapter
+
+from vibepy_core.app.package import DescribedApp, described, discover_apps
 from vibepy_core.errors import VibepyError, report
 
 logger = logging.getLogger(__name__)
+
+_DESCRIBED = TypeAdapter(list[DescribedApp])
+"""The whole answer as one value, so the command writes what a reader validates."""
 
 
 def main() -> int:
@@ -24,19 +27,11 @@ def main() -> int:
     than on a position.
     """
     try:
-        described = [
-            {
-                "app_name": ref.app_name,
-                "distribution": ref.distribution,
-                "distribution_version": ref.distribution_version,
-                **asdict(describe_app(ref)),
-            }
-            for ref in discover_apps()
-        ]
+        written = _DESCRIBED.dump_json([described(ref) for ref in discover_apps()])
     except VibepyError as error:
         report(error)
         return 1
-    sys.stdout.write(json.dumps(described) + "\n")
+    sys.stdout.write(written.decode() + "\n")
     return 0
 
 

@@ -1,13 +1,43 @@
 """An entrypoint is a value, and describing it requires no resource."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import AsyncGenerator, Mapping, Sequence
+from contextlib import asynccontextmanager
+from pathlib import Path
 
-from pydantic import BaseModel, Field, JsonValue, computed_field
+from pydantic import BaseModel, Field, JsonValue, SecretStr, computed_field
 
 from lifecycle import no_dependencies
 from todo_app.entry import APP
-from vibepy_core.app import AppDefinition, AppEntrypoint, NoConfig
+from vibepy_core.app import (
+    AppConfig,
+    AppDefinition,
+    AppDescription,
+    AppEntrypoint,
+    ConfigFieldType,
+    NoConfig,
+    ToolDescription,
+)
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
+
+
+def entrypoint_with_config[ConfigT: AppConfig](
+    config: type[ConfigT], /
+) -> AppEntrypoint[None, ConfigT]:
+    """An entrypoint over a definition declaring nothing but `config`."""
+
+    @asynccontextmanager
+    async def nothing(_config: ConfigT) -> AsyncGenerator[None]:
+        yield None
+
+    definition: AppDefinition[None, ConfigT] = AppDefinition(
+        app_id="configured",
+        name="Configured",
+        version="0.0.0",
+        config=config,
+        tools=[],
+        pages=[],
+    )
+    return AppEntrypoint(definition=definition, lifespan=nothing)
 
 
 def properties(schema: Mapping[str, JsonValue], /) -> Sequence[str]:
@@ -106,3 +136,25 @@ def test_a_description_publishes_the_schema_its_output_is_serialized_to() -> Non
     )
     assert properties(published.output_schema) == ["doubled", "widthPx"]
     assert properties(published.input_schema) == ["width"]
+
+
+def test_descriptions_are_pydantic_models() -> None:
+    assert issubclass(AppDescription, BaseModel) and issubclass(ToolDescription, BaseModel)
+
+
+def test_a_description_derives_its_configuration_fields_from_the_types() -> None:
+    class Config(AppConfig):
+        root: Path
+        token: SecretStr
+        port: int = 8080
+        note: str | None = None
+
+    described = entrypoint_with_config(Config).describe()
+
+    fields = {f.name: (f.type, f.required) for f in described.config_fields}
+    assert fields == {
+        "root": (ConfigFieldType.PATH, True),
+        "token": (ConfigFieldType.SECRET, True),
+        "port": (ConfigFieldType.INTEGER, False),
+        "note": (ConfigFieldType.OTHER, False),
+    }

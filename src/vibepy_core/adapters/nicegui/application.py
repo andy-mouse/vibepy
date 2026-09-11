@@ -12,7 +12,6 @@ technology's own startup hook carries no such meaning: its documentation says
 when the hook runs and nothing about a hook that raises.
 """
 
-import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -73,14 +72,4 @@ def _report(failure: Exception, /) -> None:
     and nothing is swallowed: the exception propagates as raised, and this is a
     log record beside it.
     """
-    info = to_error_info(failure)
-    logger.error(
-        json.dumps(
-            {
-                "code": info.code,
-                "category": info.category,
-                "message": info.message,
-                "details": dict(info.details),
-            }
-        )
-    )
+    logger.error(to_error_info(failure).model_dump_json())

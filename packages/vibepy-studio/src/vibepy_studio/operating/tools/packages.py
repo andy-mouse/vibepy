@@ -3,10 +3,10 @@
 from collections.abc import Sequence
 from pathlib import Path
 
-from vibepy_core.errors import ErrorCategory
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.models import Empty
 from vibepy_studio.operating.internals import (
     candidates,
     read_state,
@@ -41,9 +41,9 @@ async def _listing(deps: StudioDeps, /) -> SourceListing:
     )
 
 
-def _unreadable(path: Path, /) -> Diagnostic:
+def _unreadable(path: Path, /) -> ErrorInfo:
     """Describe a source this Hub could not read, named so a caller can replace it."""
-    return Diagnostic(
+    return ErrorInfo(
         code="hub.source_unreadable",
         category=ErrorCategory.CALLER,
         message=f"{path} is not a folder",

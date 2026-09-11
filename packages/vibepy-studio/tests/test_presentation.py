@@ -1,8 +1,8 @@
 """The board's rules, with no screen involved."""
 
-from vibepy_core.errors import ErrorCategory
-from vibepy_studio.models import Diagnostic
-from vibepy_studio.operating.models import AppRow, ConfigField
+from vibepy_core.app import ConfigFieldDescription, ConfigFieldType
+from vibepy_core.errors import ErrorCategory, ErrorInfo
+from vibepy_studio.operating.models import AppRow
 from vibepy_studio.operating.pages.presentation import row_view, save_request, sort_rows, summary
 
 
@@ -109,7 +109,7 @@ def test_each_rail_step_names_its_own_tone() -> None:
 def test_a_row_with_a_diagnostic_offers_uninstall_only() -> None:
     broken = installed().model_copy(
         update={
-            "diagnostic": Diagnostic(
+            "diagnostic": ErrorInfo(
                 code="hub.facts_unreadable", category=ErrorCategory.EXECUTION, message="no record"
             )
         }
@@ -134,9 +134,9 @@ def test_summary_counts_each_state() -> None:
 
 
 FIELDS = [
-    ConfigField(name="api_base_url", type="string", required=True),
-    ConfigField(name="api_token", type="secret", required=True),
-    ConfigField(name="limit", type="integer", required=False),
+    ConfigFieldDescription(name="api_base_url", type=ConfigFieldType.STRING, required=True),
+    ConfigFieldDescription(name="api_token", type=ConfigFieldType.SECRET, required=True),
+    ConfigFieldDescription(name="limit", type=ConfigFieldType.INTEGER, required=False),
 ]
 
 

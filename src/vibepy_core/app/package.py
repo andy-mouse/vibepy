@@ -82,6 +82,25 @@ def _load(ref: AppRef, /) -> AppEntrypoint[object, AppConfig]:
     return loaded
 
 
+class DescribedApp(AppDescription):
+    """One entry of what `describe` writes: the declaration's identity, and its description."""
+
+    app_name: str
+    distribution: str
+    distribution_version: str
+
+
+def described(ref: AppRef, /) -> DescribedApp:
+    """Load one declared entrypoint and describe it with its identity."""
+    description = _load(ref).describe()
+    return DescribedApp(
+        app_name=ref.app_name,
+        distribution=ref.distribution,
+        distribution_version=ref.distribution_version,
+        **description.model_dump(),
+    )
+
+
 def describe_app(ref: AppRef, /) -> AppDescription:
     """Load one declared entrypoint and project it.
 

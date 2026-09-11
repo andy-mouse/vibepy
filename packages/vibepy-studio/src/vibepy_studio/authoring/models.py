@@ -18,9 +18,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, JsonValue
 
+from vibepy_core.app import DescribedApp
 from vibepy_core.app.group import APP_GROUP
 from vibepy_core.errors import ErrorCategory, ErrorInfo
-from vibepy_studio.models import Described, Diagnostic, diagnostic_of
+from vibepy_studio.models import diagnostic_of
 
 
 class ErrorCode(BaseModel):
@@ -48,8 +49,8 @@ class InspectRequest(BaseModel):
 class AppInspection(BaseModel):
     """What a project declares, or why that could not be read."""
 
-    apps: list[Described]
-    diagnostic: Diagnostic | None = None
+    apps: list[DescribedApp]
+    diagnostic: ErrorInfo | None = None
 
 
 class InvokeRequest(BaseModel):
@@ -66,12 +67,12 @@ class Invocation(BaseModel):
     """What the Tool returned, or why it did not."""
 
     output: dict[str, object] | None = None
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
-def uv_unavailable(project: Path, /) -> Diagnostic:
+def uv_unavailable(project: Path, /) -> ErrorInfo:
     """Say uv is not runnable from this process."""
-    return Diagnostic(
+    return ErrorInfo(
         code="authoring.uv_unavailable",
         category=ErrorCategory.EXECUTION,
         message="uv is not available to Studio; install uv and put it on PATH",
@@ -79,9 +80,9 @@ def uv_unavailable(project: Path, /) -> Diagnostic:
     )
 
 
-def environment_failed(project: Path, output: str, /) -> Diagnostic:
+def environment_failed(project: Path, output: str, /) -> ErrorInfo:
     """Say uv exited non-zero and the child made no framework report of its own."""
-    return Diagnostic(
+    return ErrorInfo(
         code="authoring.environment_failed",
         category=ErrorCategory.EXECUTION,
         message=output,
@@ -89,9 +90,9 @@ def environment_failed(project: Path, output: str, /) -> Diagnostic:
     )
 
 
-def project_not_found(project: Path, reason: str, /) -> Diagnostic:
+def project_not_found(project: Path, reason: str, /) -> ErrorInfo:
     """Say why `project` is not a project a Tool can read."""
-    return Diagnostic(
+    return ErrorInfo(
         code="authoring.project_not_found",
         category=ErrorCategory.CALLER,
         message=f"{project} {reason}",
@@ -99,9 +100,9 @@ def project_not_found(project: Path, reason: str, /) -> Diagnostic:
     )
 
 
-def no_apps_declared(project: Path, distribution: str, /) -> Diagnostic:
+def no_apps_declared(project: Path, distribution: str, /) -> ErrorInfo:
     """Say the project's own distribution declares no App."""
-    return Diagnostic(
+    return ErrorInfo(
         code="authoring.no_apps_declared",
         category=ErrorCategory.DECLARATION,
         message=f"{distribution!r} declares no App in the {APP_GROUP!r} entry point group",
@@ -111,7 +112,7 @@ def no_apps_declared(project: Path, distribution: str, /) -> Diagnostic:
 
 def from_report(
     project: Path, reported: ErrorInfo | None, output: str, /, **details: str
-) -> Diagnostic:
+) -> ErrorInfo:
     """Carry the child's own report when it made one, else the environment as the failure.
 
     A child that reached the framework reports in the framework's vocabulary,

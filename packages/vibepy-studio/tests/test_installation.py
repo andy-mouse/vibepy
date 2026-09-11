@@ -8,10 +8,9 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from tests_support import studio, write_wheel
+from tests_support import described_app, studio, write_wheel
 from todo_app.entry import TodoStore
-from vibepy_core.errors import ToolInputValidationError
-from vibepy_studio.models import Diagnostic
+from vibepy_core.errors import ErrorInfo, ToolInputValidationError
 from vibepy_studio.operating.internals import (
     AppNameInvalid,
     InstallFailed,
@@ -67,6 +66,18 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: P
     rows = {row.app_name: row for row in listed.apps}
     assert rows["vibepy-notes"].state == "installed"
     assert rows["vibepy-timer"].state == "available"
+
+
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_the_facts_kept_carry_the_whole_description_the_app_wrote(installed: Path) -> None:
+    """The record is what `describe` wrote, so what an App declares is not
+    narrowed on its way into the Hub's own file."""
+    facts = await read_facts(environment(installed, "vibepy-todo"))
+
+    assert facts is not None
+    assert facts.described.tools[0].name == "create_todo"
+    assert [field.name for field in facts.described.config_fields] == ["db_path", "db_key"]
 
 
 @pytest.mark.apps("vibepy-todo")
@@ -238,7 +249,7 @@ def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
 def test_a_diagnostic_without_a_category_is_refused() -> None:
     """A category is required rather than defaulted, so no site inherits a guess."""
     with pytest.raises(ValidationError):
-        Diagnostic.model_validate({"code": "hub.not_installed", "message": "no"})
+        ErrorInfo.model_validate({"code": "hub.not_installed", "message": "no"})
 
 
 def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:
@@ -299,20 +310,20 @@ async def test_a_distribution_declaring_two_apps_is_refused(
     async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
         return (
             AppFacts(
-                app_id="todo-app",
-                name="Todo",
-                version="0.0.0",
-                distribution_version="0.0.0",
-                declared_name="todo-app",
-                distribution="vibepy-todo",
+                described=described_app(
+                    app_id="todo-app",
+                    name="Todo",
+                    app_name="todo-app",
+                    distribution="vibepy-todo",
+                )
             ),
             AppFacts(
-                app_id="timer-app",
-                name="Timer",
-                version="0.0.0",
-                distribution_version="0.0.0",
-                declared_name="timer-app",
-                distribution="vibepy-todo",
+                described=described_app(
+                    app_id="timer-app",
+                    name="Timer",
+                    app_name="timer-app",
+                    distribution="vibepy-todo",
+                )
             ),
         )
 
@@ -402,20 +413,21 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
     async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
         return (
             AppFacts(
-                app_id="aardvark-app",
-                name="Aardvark",
-                version="9.9.9",
-                distribution_version="0.0.0",
-                declared_name="aardvark",
-                distribution="vibepy-aardvark",
+                described=described_app(
+                    app_id="aardvark-app",
+                    name="Aardvark",
+                    version="9.9.9",
+                    app_name="aardvark",
+                    distribution="vibepy-aardvark",
+                )
             ),
             AppFacts(
-                app_id="todo-app",
-                name="Todo",
-                version="0.0.0",
-                distribution_version="0.0.0",
-                declared_name="todo-app",
-                distribution="vibepy-todo",
+                described=described_app(
+                    app_id="todo-app",
+                    name="Todo",
+                    app_name="todo-app",
+                    distribution="vibepy-todo",
+                )
             ),
         )
 

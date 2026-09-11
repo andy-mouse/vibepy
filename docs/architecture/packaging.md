@@ -87,9 +87,10 @@ Run with an App environment's own interpreter, it writes a JSON array to standar
 object per App declared in that environment. A failure writes the framework's code and message
 to standard error and exits 1.
 
-Each object carries the `app_name`, `distribution` and `distribution_version` of the declaration
-it describes, beside the description itself. A host that also enumerates the environment joins
-the two answers on identity rather than on position.
+Each object is one `DescribedApp`: the `app_name`, `distribution` and `distribution_version` of
+the declaration it describes, beside the description itself. A host that also enumerates the
+environment joins the two answers on identity rather than on position. The command writes that
+type and a reader validates it, so neither side restates its fields.
 
 This is how a Host reads an App it must not import. The Host runs the command with the App
 environment's interpreter and parses the result; the import happens on the far side of a process
@@ -118,7 +119,9 @@ A parent that starts a framework process renders the values it holds into those 
 `environment_for`, the inverse of that reading: a string verbatim, anything else as JSON.
 
 `config_schema`, which `describe` projects from the declaration, is therefore the list of
-variables a host sets.
+variables a host sets. Beside it, `config_fields` names each declared field with what it holds
+— `string`, `path`, `integer`, `secret` or `other` — derived from the declared type, so a host
+tells a secret from an ordinary string without reading JSON Schema.
 
 The environment is the only configuration channel. No command reads configuration from standard
 input.

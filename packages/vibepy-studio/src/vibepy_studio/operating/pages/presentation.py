@@ -8,8 +8,9 @@ disabled, what a save sends — are checked without rendering anything.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from vibepy_studio.models import Diagnostic
-from vibepy_studio.operating.models import AppRow, ConfigField
+from vibepy_core.app import ConfigFieldDescription
+from vibepy_core.errors import ErrorInfo
+from vibepy_studio.operating.models import AppRow
 
 STAGES: tuple[str, str, str, str] = ("Available", "Installed", "Configured", "Running")
 _ORDER = {"running": 0, "installed": 1, "available": 2}
@@ -44,7 +45,7 @@ class RowView:
     version: str | None
     marks: tuple[Mark, Mark, Mark, Mark]
     actions: tuple[Action, ...]
-    diagnostic: Diagnostic | None
+    diagnostic: ErrorInfo | None
 
 
 def _stage(row: AppRow, /, *, configured: bool) -> int:
@@ -137,7 +138,7 @@ def summary(rows: Sequence[AppRow], /) -> tuple[int, int, int]:
 
 
 def save_request(
-    fields: Sequence[ConfigField],
+    fields: Sequence[ConfigFieldDescription],
     entered: Mapping[str, str],
     secrets_set: Sequence[str],
     /,

@@ -55,7 +55,10 @@ added later cannot be silently unhandled.
 ## ErrorInfo
 
 `ErrorInfo` is one failure in the form every channel reports: `code`, `category`, `message`
-and `details`. `to_error_info(error)` builds one from any exception.
+and `details`. `to_error_info(error)` builds one from any exception. It crosses a process
+boundary — `report_line` writes it and `read_report_line` reads it back — so it is one frozen
+pydantic model the writer dumps and the reader validates, and a line naming a category the
+framework does not know is not a report.
 
 `details` carries every value the message interpolates, so an agent that needs to know which
 Tool failed reads a mapping rather than parsing a sentence. This is what allows a message to

@@ -7,13 +7,12 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import TypedDict, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import pytest
 
-from vibepy_core import environment_for
+from vibepy_core import ErrorCategory, ErrorInfo, environment_for, read_report_line
 from vibepy_core.app.config import ENV_PREFIX
 
 
@@ -95,24 +94,16 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     assert "absent" in written["message"]
 
 
-class Reported(TypedDict):
-    """One failure a child described, as this test reads it."""
+def reported_failure(stderr: bytes, /) -> ErrorInfo:
+    """The last failure the child described, out of everything it wrote.
 
-    code: str
-    category: str
-    message: str
-    details: dict[str, str]
-
-
-def reported_failure(stderr: bytes, /) -> Reported:
-    """The last failure the child described, out of everything it wrote."""
+    Read with the framework's own reader, so what a window logs is held to the
+    shape core writes rather than to a second reading of it.
+    """
     for line in reversed(stderr.decode(errors="replace").splitlines()):
-        try:
-            parsed: object = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict) and "code" in parsed:
-            return cast(Reported, parsed)
+        found = read_report_line(line)
+        if found is not None:
+            return found
     raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
 
 
@@ -136,9 +127,9 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
 
     assert finished.returncode != 0
     reported = reported_failure(finished.stderr)
-    assert reported["code"] == "config.invalid"
-    assert reported["category"] == "caller"
-    assert "db_path" in reported["details"]["fields"]
+    assert reported.code == "config.invalid"
+    assert reported.category is ErrorCategory.CALLER
+    assert "db_path" in reported.details["fields"]
 
 
 @pytest.mark.integration
@@ -160,8 +151,8 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
 
     assert finished.returncode != 0
     reported = reported_failure(finished.stderr)
-    assert reported["code"] == "app.unhandled"
-    assert reported["category"] == "execution"
+    assert reported.code == "app.unhandled"
+    assert reported.category is ErrorCategory.EXECUTION
 
 
 @pytest.mark.integration

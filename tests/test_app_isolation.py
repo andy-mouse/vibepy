@@ -43,5 +43,5 @@ def test_a_description_is_obtained_without_this_process_loading_the_app(tmp_path
     result = run_describe(tmp_path)
 
     assert result.returncode == 0, result.stderr
-    assert described_app(result, "todo-app")["name"] == "Todo"
+    assert described_app(result, "todo-app").name == "Todo"
     assert set(sys.modules) == before

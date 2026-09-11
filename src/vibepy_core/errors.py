@@ -9,17 +9,12 @@ property of the code, and one table is easier to keep exhaustive than eight
 scattered declarations.
 """
 
-import json
-import logging
 import sys
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import ClassVar
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
-
-logger = logging.getLogger(__name__)
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 UNHANDLED_CODE = "app.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
@@ -288,18 +283,22 @@ the framework to an agent — states the same catalogue this module classifies b
 """
 
 
-@dataclass(frozen=True)
-class ErrorInfo:
+class ErrorInfo(BaseModel):
     """One failure, in the form every channel reports.
 
     Carries no channel type and no channel vocabulary, so the Web channel, the
     Agent channel and any future one describe the same failure the same way.
+
+    It crosses a process boundary, so it is one model: the writer dumps it and
+    the reader validates it, and no surface re-declares its fields.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     code: str
     category: ErrorCategory
     message: str
-    details: Mapping[str, str]
+    details: dict[str, str] = {}
 
 
 def to_error_info(error: Exception, /) -> ErrorInfo:
@@ -322,7 +321,7 @@ def to_error_info(error: Exception, /) -> ErrorInfo:
                     code=code,
                     category=category,
                     message=str(error),
-                    details=error.details(),
+                    details=dict(error.details()),
                 )
     return ErrorInfo(
         code=UNHANDLED_CODE,
@@ -338,42 +337,12 @@ def report_line(info: ErrorInfo, /) -> str:
     `describe`, `serve` and `invoke` write it, and a host reads all three with
     one reader, which is why the shape lives here and not in each command.
     """
-    return (
-        json.dumps(
-            {
-                "code": info.code,
-                "category": info.category,
-                "message": info.message,
-                "details": dict(info.details),
-            }
-        )
-        + "\n"
-    )
+    return info.model_dump_json() + "\n"
 
 
 def report(error: Exception, /) -> None:
     """Write one failure where whatever started this process can read it."""
     sys.stderr.write(report_line(to_error_info(error)))
-
-
-class _Report(BaseModel):
-    """One report line, as read rather than as written.
-
-    `code` is required, because that is what distinguishes a report from any
-    other line a command's standard error carries. The rest carry defaults, so a
-    line written by an older version of the format still reads.
-
-    `category` is read as a string and typed afterwards: a value this framework
-    does not know is a fact about the writer, not a parse failure.
-    """
-
-    code: str
-    category: str = "execution"
-    message: str = ""
-    details: dict[str, str] = {}
-
-
-_REPORT = TypeAdapter(_Report)
 
 
 def read_report_line(line: str, /) -> ErrorInfo | None:
@@ -382,22 +351,8 @@ def read_report_line(line: str, /) -> ErrorInfo | None:
     Reading belongs beside writing. There are three writers -- `describe`,
     `serve` and `invoke` -- and one format; a reader kept outside the framework
     would be a second statement of that format, free to drift from it.
-
-    A category this framework does not know is read as `EXECUTION`: a host
-    still learns that something failed, and learns it from the same shape.
     """
     try:
-        parsed = _REPORT.validate_json(line)
+        return ErrorInfo.model_validate_json(line)
     except ValidationError:
         return None
-    try:
-        category = ErrorCategory(parsed.category)
-    except ValueError:
-        logger.debug("a report named an unknown category: %s", parsed.category)
-        category = ErrorCategory.EXECUTION
-    return ErrorInfo(
-        code=parsed.code,
-        category=category,
-        message=parsed.message,
-        details=parsed.details,
-    )

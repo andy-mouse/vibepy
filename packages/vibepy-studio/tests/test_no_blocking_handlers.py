@@ -40,6 +40,7 @@ ALLOWED_IMPORTS = frozenset(
         "vibepy_core.app.config",
         "vibepy_core.app.group",
         "vibepy_core.errors",
+        "vibepy_core.invoke",
         "vibepy_core.tool",
         "vibepy_studio.operating.internals",
         "vibepy_studio.operating.models",

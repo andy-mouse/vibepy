@@ -146,19 +146,7 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
         described = await describe_with([str(interpreter(env))])
     except (NotRunnable, DescribeFailed) as failure:
         raise InstallFailed("vibepy_core.describe", str(failure)) from failure
-    return tuple(
-        AppFacts(
-            app_id=entry.app_id,
-            name=entry.name,
-            version=entry.version,
-            distribution_version=entry.distribution_version,
-            config_schema=entry.config_schema,
-            has_pages=bool(entry.pages),
-            declared_name=entry.app_name,
-            distribution=entry.distribution,
-        )
-        for entry in described
-    )
+    return tuple(AppFacts(described=entry) for entry in described)
 
 
 async def read_facts(env: Path, /) -> AppFacts | None:

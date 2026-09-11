@@ -41,13 +41,7 @@ def _payload(error: Exception) -> dict[str, object]:
     Both MCP failure paths carry it, so the Agent channel reports one failure one
     way whether the protocol answers with an error or with a result.
     """
-    info = to_error_info(error)
-    return {
-        "code": info.code,
-        "category": info.category.value,
-        "message": info.message,
-        "details": dict(info.details),
-    }
+    return to_error_info(error).model_dump(mode="json")
 
 
 def _failure(error: Exception) -> types.CallToolResult:
