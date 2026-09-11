@@ -323,7 +323,7 @@ In-process declarations — `ToolDefinition`, `AppDefinition`, `ToolContext`, `P
 ### Error
 
 `ToolForbiddenError(name, *, principal, channel, reason)`: code `tool.forbidden`, category
-`caller`. `details` carries `tool`, `principal` (the id), `channel` and `reason`, where `reason`
+`caller`. `details` carries `tool_name`, `principal` (the id), `channel` and `reason`, where `reason`
 is `not_exposed`, `role_required`, or the string an App policy supplied. One code: the category
 already tells a caller a different call may succeed, and `reason` tells it which.
 
