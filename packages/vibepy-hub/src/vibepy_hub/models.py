@@ -9,7 +9,6 @@ The Hub's own codes:
 | Code | Category |
 | --- | --- |
 | `hub.candidate_absent` | caller |
-| `hub.candidate_ambiguous` | caller |
 | `hub.install_failed` | execution |
 | `hub.no_app_declared` | declaration |
 | `hub.multiple_apps_declared` | declaration |
@@ -18,6 +17,7 @@ The Hub's own codes:
 | `hub.source_unreadable` | caller |
 | `hub.not_installed` | caller |
 | `hub.already_installed` | caller |
+| `hub.up_to_date` | caller |
 | `hub.no_address` | caller |
 | `hub.no_web_channel` | caller |
 | `hub.already_running` | caller |
@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Annotated
 
 from packaging.utils import canonicalize_name
-from pydantic import AfterValidator, BaseModel
+from pydantic import AfterValidator, BaseModel, BeforeValidator
 
 from vibepy_core import ErrorCategory
 
@@ -52,25 +52,41 @@ class Empty(BaseModel):
     """The input of a Tool that takes nothing."""
 
 
-class SourcePath(BaseModel):
-    """A registered folder, as `register_package_source` takes it."""
+def _a_named_folder(value: object) -> object:
+    """Refuse an empty path before `Path` turns it into the working directory.
 
-    path: Path
+    `Path("")` is `.`, which is a directory that exists, so an empty string
+    would register whatever folder the server happens to run in. Refusing it
+    here is what makes the channel answer `tool.input_invalid`.
+    """
+    if isinstance(value, str) and not value.strip():
+        raise ValueError("a package source is a folder path")
+    return value
+
+
+SourcePathField = Annotated[Path, BeforeValidator(_a_named_folder)]
+"""The folder a Tool takes as the package source."""
+
+
+class SourcePath(BaseModel):
+    """A folder of wheels, as `register_package_source` takes it."""
+
+    path: SourcePathField
 
 
 class CandidateRow(BaseModel):
-    """One folder a source holds, whether or not it declares an App."""
+    """One wheel the source offers: the highest version of one distribution."""
 
-    folder: Path
+    wheel: Path
     name: str
-    version: str | None
+    version: str
     declares_app: bool
 
 
 class SourceListing(BaseModel):
-    """Every registered source and the candidates found in them."""
+    """The registered source, if any, and the candidates found in it."""
 
-    sources: list[Path]
+    source: Path | None
     candidates: list[CandidateRow]
     diagnostic: Diagnostic | None = None
 
@@ -81,6 +97,12 @@ class AppFacts(BaseModel):
     app_id: str
     name: str
     version: str
+    distribution_version: str
+    """The version of the wheel that was installed, which is what an update changes.
+
+    An App's own `version` is what its definition declares; the two need not agree,
+    and only the distribution's is compared with what the source offers.
+    """
     config_schema: dict[str, object] = {}
     has_pages: bool = False
     purelib: Path | None = None
@@ -141,6 +163,10 @@ class AppRow(BaseModel):
     app_name: str
     name: str | None = None
     version: str | None = None
+    distribution_version: str | None = None
+    """The installed or offered wheel's version. What the board shows and `update_app` compares."""
+    available_version: str | None = None
+    """The version the source offers when newer than the installed one; `update_app` installs it."""
     state: str
     url: str | None = None
     configured: bool = False
@@ -152,6 +178,9 @@ class AppListing(BaseModel):
     """Every App the control plane knows of."""
 
     apps: list[AppRow]
+    source: Path | None = None
+    """The registered folder, said with the rows so one read draws the whole board."""
+
     diagnostic: Diagnostic | None = None
 
 
@@ -183,6 +212,34 @@ class HeldConfig(BaseModel):
     values: dict[str, object]
     secret_fields: list[str]
     secrets_set: list[str]
+    diagnostic: Diagnostic | None = None
+
+
+class ConfigField(BaseModel):
+    """One field an App declares, as much of it as a form needs.
+
+    `type` is `string`, `path`, `integer`, `secret` or `other`, read from the
+    projected schema's `type` and `format`. A string because an output model
+    round-trips through JSON and the set is the Hub's to publish.
+    """
+
+    name: str
+    type: str
+    required: bool
+
+
+class ConfigDescription(BaseModel):
+    """What one App declares and what the Hub holds for it, in one answer.
+
+    The read half of `configure_app`: `values` carries no secret and
+    `secrets_set` names the secrets that have one, so the answer is safe to
+    show and safe to send back.
+    """
+
+    app_name: str
+    fields: list[ConfigField] = []
+    values: dict[str, object] = {}
+    secrets_set: list[str] = []
     diagnostic: Diagnostic | None = None
 
 

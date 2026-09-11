@@ -12,8 +12,14 @@ from collections.abc import Sequence
 
 from vibepy_core.tool import Tool
 from vibepy_hub.internals import HubDeps
-from vibepy_hub.tools.configuration import CONFIGURATION_TOOLS, configure_app
-from vibepy_hub.tools.installation import INSTALLATION_TOOLS, install_app, list_apps, remove_app
+from vibepy_hub.tools.configuration import CONFIGURATION_TOOLS, configure_app, describe_config
+from vibepy_hub.tools.installation import (
+    INSTALLATION_TOOLS,
+    install_app,
+    list_apps,
+    remove_app,
+    update_app,
+)
 from vibepy_hub.tools.packages import (
     PACKAGE_SOURCE_TOOLS,
     register_package_source,
@@ -31,6 +37,7 @@ HUB_TOOLS: Sequence[Tool[HubDeps]] = [
 __all__ = [
     "HUB_TOOLS",
     "configure_app",
+    "describe_config",
     "install_app",
     "list_apps",
     "register_package_source",
@@ -38,4 +45,5 @@ __all__ = [
     "remove_package_source",
     "start_app",
     "stop_app",
+    "update_app",
 ]

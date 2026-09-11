@@ -37,14 +37,14 @@ async def test_a_write_that_fails_leaves_the_previous_state_readable(
     """A departure from testing public contracts only, named in the spec: no
     Tool can interrupt a write halfway."""
     root = tmp_path / "hub"
-    await write_state(root, HubState(sources=[tmp_path / "kept"], config={}))
+    await write_state(root, HubState(source=tmp_path / "kept", config={}))
 
     def refuse(src: object, dst: object) -> None:
         raise OSError("interrupted")
 
     monkeypatch.setattr("vibepy_hub.internals.files.os.replace", refuse)
     with pytest.raises(OSError):
-        await write_state(root, HubState(sources=[], config={"lost": {}}))
+        await write_state(root, HubState(source=None, config={"lost": {}}))
 
-    assert (await read_state(root)).sources == [tmp_path / "kept"]
+    assert (await read_state(root)).source == tmp_path / "kept"
     assert [path.name for path in root.iterdir()] == [STATE_FILE]

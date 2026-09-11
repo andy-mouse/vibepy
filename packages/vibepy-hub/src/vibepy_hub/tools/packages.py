@@ -1,109 +1,78 @@
 """Offering the Apps of a local folder, and withdrawing that offer."""
 
 from collections.abc import Sequence
+from pathlib import Path
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_hub.internals import (
     HubDeps,
-    HubState,
     candidates,
     read_state,
     readable,
     update_state,
 )
-from vibepy_hub.models import CandidateRow, Diagnostic, SourceListing, SourcePath
+from vibepy_hub.models import CandidateRow, Diagnostic, Empty, SourceListing, SourcePath
 
 
 async def _listing(deps: HubDeps, /) -> SourceListing:
-    """Every registered folder and what it offers.
+    """Return the registered source and what it offers.
 
-    A registered source that can no longer be read is reported here as
-    `list_apps` reports it. One fact, one answer: a Tool that stayed silent
-    about it would contradict the other about the same source.
+    A source that can no longer be read is reported here as `list_apps` reports
+    it. One fact, one answer: a Tool that stayed silent about it would contradict
+    the other about the same source.
     """
     state = await read_state(deps.root)
-    rows: list[CandidateRow] = []
-    unreadable: list[str] = []
-    for source in state.sources:
-        if not await readable(source):
-            unreadable.append(str(source))
-            continue
-        rows.extend(
-            CandidateRow(
-                folder=row.folder,
-                name=row.name,
-                version=row.version,
-                declares_app=row.declares_app,
-            )
-            for row in await candidates(source)
+    if state.source is None:
+        return SourceListing(source=None, candidates=[])
+    if not await readable(state.source):
+        return SourceListing(
+            source=state.source, candidates=[], diagnostic=_unreadable(state.source)
         )
     return SourceListing(
-        sources=state.sources,
-        candidates=rows,
-        diagnostic=None if not unreadable else _unreadable(unreadable),
+        source=state.source,
+        candidates=[
+            CandidateRow(
+                wheel=row.wheel, name=row.name, version=row.version, declares_app=row.declares_app
+            )
+            for row in await candidates(state.source)
+        ],
     )
 
 
-def _unreadable(paths: Sequence[str], /) -> Diagnostic:
-    """Describe registered sources this Hub could not read, named so a caller can withdraw one."""
+def _unreadable(path: Path, /) -> Diagnostic:
+    """Describe a source this Hub could not read, named so a caller can replace it."""
     return Diagnostic(
         code="hub.source_unreadable",
         category=ErrorCategory.CALLER,
-        message="a registered source could not be read",
-        details={"paths": ", ".join(paths)},
+        message=f"{path} is not a folder",
+        details={"path": str(path)},
     )
 
 
 async def register_package_source(ctx: ToolContext[HubDeps], payload: SourcePath) -> SourceListing:
-    """Offer the Apps in a local folder for installation."""
+    """Offer the wheels in a local folder for installation, replacing the folder before it."""
     deps = ctx.dependencies
-    state = await read_state(deps.root)
     if not await readable(payload.path):
+        state = await read_state(deps.root)
         return SourceListing(
-            sources=state.sources,
-            candidates=[],
-            diagnostic=Diagnostic(
-                code="hub.source_unreadable",
-                category=ErrorCategory.CALLER,
-                message=f"{payload.path} is not a folder",
-                details={"path": str(payload.path)},
-            ),
+            source=state.source, candidates=[], diagnostic=_unreadable(payload.path)
         )
-
-    def offer(held: HubState) -> HubState:
-        """Make the decision inside the change, not before it.
-
-        A membership test made against a state read earlier is a check whose
-        answer a second caller can invalidate, which is the shape
-        `update_state` exists to remove.
-        """
-        if payload.path in held.sources:
-            return held
-        return held.model_copy(update={"sources": [*held.sources, payload.path]})
-
-    await update_state(deps, offer)
+    await update_state(deps, lambda held: held.model_copy(update={"source": payload.path}))
     return await _listing(deps)
 
 
-async def remove_package_source(ctx: ToolContext[HubDeps], payload: SourcePath) -> SourceListing:
-    """Stop offering the Apps in a local folder."""
-    deps = ctx.dependencies
-
-    def withdraw(held: HubState) -> HubState:
-        return held.model_copy(
-            update={"sources": [path for path in held.sources if path != payload.path]}
-        )
-
-    await update_state(deps, withdraw)
-    return await _listing(deps)
+async def remove_package_source(ctx: ToolContext[HubDeps], _payload: Empty) -> SourceListing:
+    """Stop offering wheels for installation. Installed Apps are unchanged."""
+    await update_state(ctx.dependencies, lambda held: held.model_copy(update={"source": None}))
+    return await _listing(ctx.dependencies)
 
 
 PACKAGE_SOURCE_TOOLS: Sequence[Tool[HubDeps]] = [
     Tool(
         definition=ToolDefinition(
             name="register_package_source",
-            description="Offer the Apps in a local folder for installation",
+            description="Offer the wheels in a local folder for installation",
             input_model=SourcePath,
             output_model=SourceListing,
         ),
@@ -112,8 +81,8 @@ PACKAGE_SOURCE_TOOLS: Sequence[Tool[HubDeps]] = [
     Tool(
         definition=ToolDefinition(
             name="remove_package_source",
-            description="Stop offering the Apps in a local folder",
-            input_model=SourcePath,
+            description="Stop offering wheels for installation",
+            input_model=Empty,
             output_model=SourceListing,
         ),
         handler=remove_package_source,

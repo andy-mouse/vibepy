@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tests_support import FIXTURES, hub
+from tests_support import hub
 from vibepy_core.errors import ErrorCategory
 from vibepy_hub.internals import read_state, write_state
 from vibepy_hub.internals.routing import PORT_BASE, address, allocate
@@ -41,9 +41,11 @@ def test_an_address_names_the_app_and_the_proxy() -> None:
 
 
 @pytest.mark.integration
-async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path: Path) -> None:
+async def test_installing_gives_an_app_an_address_before_it_is_started(
+    tmp_path: Path, wheelhouse: Path
+) -> None:
     async with hub(tmp_path / "hub", proxy_port=8080) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
         installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         listed = await tools.invoke("list_apps", {})
 
@@ -56,13 +58,15 @@ async def test_installing_gives_an_app_an_address_before_it_is_started(tmp_path:
 
 
 @pytest.mark.integration
-async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Path) -> None:
+async def test_two_apps_hold_two_ports_and_removing_one_releases_it(
+    tmp_path: Path, wheelhouse: Path
+) -> None:
     """Both Apps declare Pages, because only an App that can be served holds a port."""
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         await tools.invoke("install_app", {"app_name": "vibepy-timer"})
         both = (await read_state(root)).ports
@@ -75,7 +79,7 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(tmp_path: Pa
 
 
 @pytest.mark.integration
-async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
+async def test_installing_an_installed_app_is_refused(tmp_path: Path, wheelhouse: Path) -> None:
     """What installing over an installation means is nobody's decision yet.
 
     No milestone owns updating an App and the Hub publishes no Tool for it, so
@@ -84,7 +88,7 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         held = (await read_state(root)).ports["vibepy-todo"]
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
@@ -103,14 +107,14 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 async def test_the_window_writes_a_configuration_that_apps_do_not_change(
-    tmp_path: Path,
+    tmp_path: Path, wheelhouse: Path
 ) -> None:
     """The install configuration is written once and never follows an App."""
     root = tmp_path / "hub"
 
     async with hub(root, proxy_port=9999) as tools:
         written = (root / "traefik.yml").read_text(encoding="utf-8")
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         after = (root / "traefik.yml").read_text(encoding="utf-8")
 
@@ -122,11 +126,13 @@ async def test_the_window_writes_a_configuration_that_apps_do_not_change(
 
 
 @pytest.mark.integration
-async def test_installing_writes_a_route_and_removing_deletes_it(tmp_path: Path) -> None:
+async def test_installing_writes_a_route_and_removing_deletes_it(
+    tmp_path: Path, wheelhouse: Path
+) -> None:
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
         await tools.invoke("install_app", {"app_name": "vibepy-todo"})
         route = root / "routes" / "vibepy-todo.yml"
         written = yaml.safe_load(route.read_text(encoding="utf-8"))

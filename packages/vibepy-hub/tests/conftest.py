@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import FIXTURES, hub
+from tests_support import build_wheelhouse, hub
 from vibepy_hub.internals.installer import FACTS_FILE
 from vibepy_hub.models import Installation
 
@@ -44,7 +44,20 @@ APPS = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
 
 
 @pytest.fixture(scope="session")
-def template_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
+def wheelhouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """One folder of wheels — the framework and the fixture Apps — built once a session.
+
+    What a user registers is a folder of built wheels, so that is what the suite
+    registers. Built here rather than committed, because a wheel of this checkout
+    is a function of this checkout.
+    """
+    out = tmp_path_factory.mktemp("wheelhouse")
+    build_wheelhouse(out)
+    return out
+
+
+@pytest.fixture(scope="session")
+def template_root(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) -> Path:
     """Build a Hub root with every fixture App installed, once for the session.
 
     Built through the Hub's own Tools rather than the installer's functions, so
@@ -55,7 +68,7 @@ def template_root(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
     async def build() -> None:
         async with hub(root) as tools:
-            await tools.invoke("register_package_source", {"path": str(FIXTURES)})
+            await tools.invoke("register_package_source", {"path": str(wheelhouse)})
             for app_name in APPS:
                 installed = await tools.invoke("install_app", {"app_name": app_name})
                 assert isinstance(installed, Installation)

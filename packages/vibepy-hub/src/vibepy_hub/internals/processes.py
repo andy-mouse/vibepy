@@ -97,19 +97,22 @@ class AlreadyStarted(StartFailed):
     """
 
 
-LOG_TAIL = 4000
-"""How much of a child's standard error a failed start reads back."""
-
-
 def _log_path(logs: Path, known_as: str, /) -> Path:
     logs.mkdir(parents=True, exist_ok=True)
     return logs / f"{known_as}.log"
 
 
 def _reported(path: Path, /) -> ChildFailure | None:
-    """Return the failure a child described, read from the last object it wrote."""
+    """Return the failure a child described, found by parsing its log, not its position.
+
+    `_reported` is only ever asked about a child that failed to start, so the
+    file is one start's worth of output: the report is one line among it, and
+    a traceback the framework writes after the report is as much a part of
+    that output as the report itself. Reading the whole file and scanning in
+    reverse finds the report regardless of what follows it.
+    """
     try:
-        written = path.read_text(encoding="utf-8", errors="replace")[-LOG_TAIL:]
+        written = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
     for line in reversed(written.splitlines()):

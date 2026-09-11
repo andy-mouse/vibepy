@@ -115,7 +115,15 @@ testpaths = ["tests", "packages"]
 # grown slow -- and it is the only way to see which tests cost what on a
 # platform none of us runs, which is how the Windows runner came to take four
 # times the macOS one without anyone able to say where.
-addopts = ["--import-mode=importlib", "--durations=15"]
+addopts = [
+    "--import-mode=importlib",
+    "--durations=15",
+    # Registered here, once, because two test trees (root and vibepy-hub) need
+    # NiceGUI's User fixture and pytest allows `pytest_plugins` only at the
+    # top-level conftest, not in a package's own.
+    "-p",
+    "nicegui.testing.user_plugin",
+]
 # What a test module reaches its own directory's helpers through, stated here
 # rather than left to the import mode's side effects.
 pythonpath = ["tests", "packages/vibepy-hub/tests"]

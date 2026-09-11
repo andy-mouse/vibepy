@@ -3,9 +3,13 @@
 import asyncio
 import base64
 import os
+import shutil
 import socket
+import subprocess
 import sys
-from collections.abc import AsyncGenerator
+import tomllib
+import zipfile
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -181,11 +185,68 @@ def _body(url: str, host: str, /) -> str:
         return answer.read().decode(errors="replace")
 
 
-def write_project(folder: Path, *, name: str, declares: bool) -> None:
-    """A project file like the one an App's own repository carries."""
-    folder.mkdir(parents=True)
-    declaration = '\n[project.entry-points."vibepy.apps"]\ndemo = "demo.entry:APP"\n'
-    (folder / "pyproject.toml").write_text(
-        f'[project]\nname = "{name}"\nversion = "1.2.3"\n' + (declaration if declares else ""),
-        encoding="utf-8",
-    )
+FIXTURE_PACKAGES = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
+
+
+def build_wheelhouse(out: Path, /) -> None:
+    """Build the framework and every fixture App into one folder of wheels.
+
+    `uv build --wheel` from the workspace root, once for the framework and once per
+    fixture member, so the folder is what an in-house wheelhouse is: the Apps and
+    the framework they depend on, resolvable with `--find-links` and no index.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    _build(["uv", "build", "--wheel", "--no-build-logs", "-o", str(out)])
+    for package in FIXTURE_PACKAGES:
+        _build(["uv", "build", "--wheel", "--no-build-logs", "--package", package, "-o", str(out)])
+
+
+def bumped_fixture_wheel(fixture: Path, out: Path, /, *, version: str) -> Path:
+    """Build one fixture App at another version, for a test whose subject is updating.
+
+    The source tree is copied so the fixture in the repository is never edited, and
+    `[tool.uv.sources]` is dropped from the copy because it names a workspace the
+    copy is no longer in. The wheel's dependencies still say `vibepy-core`, which the
+    wheelhouse resolves.
+    """
+    staged = out / f"{fixture.name}-{version}-src"
+    shutil.copytree(fixture, staged, ignore=shutil.ignore_patterns("__pycache__", "dist"))
+    project = staged / "pyproject.toml"
+    document = tomllib.loads(project.read_text(encoding="utf-8"))
+    lines = [
+        line
+        for line in project.read_text(encoding="utf-8").splitlines()
+        if not line.startswith("[tool.uv.sources]") and not line.startswith("vibepy-core = {")
+    ]
+    lines = [f'version = "{version}"' if line.startswith("version = ") else line for line in lines]
+    project.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    _build(["uv", "build", "--wheel", "--no-build-logs", str(staged), "-o", str(out)])
+    name = str(document["project"]["name"]).replace("-", "_")
+    return next(out.glob(f"{name}-{version}-*.whl"))
+
+
+def _build(command: Sequence[str], /) -> None:
+    subprocess.run(command, cwd=REPO, check=True, capture_output=True)
+
+
+def write_wheel(folder: Path, /, *, name: str, version: str, declares: bool) -> Path:
+    """A wheel that installs nothing, shaped as the specification shapes one.
+
+    Enough for what reads a wheelhouse: a parseable file name and a `.dist-info`
+    with `entry_points.txt` when `declares`. Installing it is not its purpose.
+    """
+    folder.mkdir(parents=True, exist_ok=True)
+    normalized = name.replace("-", "_").lower()
+    info = f"{normalized}-{version}.dist-info"
+    path = folder / f"{normalized}-{version}-py3-none-any.whl"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            f"{info}/METADATA", f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"
+        )
+        archive.writestr(
+            f"{info}/WHEEL", "Wheel-Version: 1.0\nRoot-Is-Purelib: true\nTag: py3-none-any\n"
+        )
+        if declares:
+            archive.writestr(f"{info}/entry_points.txt", "[vibepy.apps]\ndemo = demo.entry:APP\n")
+        archive.writestr(f"{info}/RECORD", "")
+    return path

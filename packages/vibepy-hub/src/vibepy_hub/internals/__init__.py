@@ -4,6 +4,7 @@ A Tool handler reaches them through its ToolContext and nothing else does.
 """
 
 from vibepy_hub.internals.configuration import (
+    config_fields,
     held_secrets,
     is_configured,
     secret_fields,
@@ -26,7 +27,6 @@ from vibepy_hub.internals.installer import (
     write_facts,
 )
 from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
-from vibepy_hub.internals.projects import Candidate, candidates, readable
 from vibepy_hub.internals.routing import (
     address,
     allocate,
@@ -35,8 +35,10 @@ from vibepy_hub.internals.routing import (
     write_route,
 )
 from vibepy_hub.internals.state import HubState, read_state, update_state, write_state
+from vibepy_hub.internals.wheels import APP_GROUP, Candidate, candidates, readable
 
 __all__ = [
+    "APP_GROUP",
     "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
@@ -48,6 +50,7 @@ __all__ = [
     "address",
     "allocate",
     "candidates",
+    "config_fields",
     "declarations",
     "describe",
     "environment",

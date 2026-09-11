@@ -13,7 +13,12 @@ import pytest
 
 from tests_support import free_port
 from vibepy_hub.internals import interpreter
-from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
+from vibepy_hub.internals.processes import (
+    AlreadyStarted,
+    Processes,
+    StartFailed,
+    _reported,  # pyright: ignore[reportPrivateUsage]
+)
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -138,3 +143,21 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
     with pytest.raises(OSError):
         await asyncio.open_connection("127.0.0.1", second)
     await processes.aclose()
+
+
+def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None:
+    """A traceback the framework writes after its own report must not hide it.
+
+    A real child writes its report near the top of the log and a traceback
+    after it, long enough that a fixed-size tail would push the report out.
+    """
+    log = tmp_path / "child.log"
+    report = '{"code": "config.invalid", "category": "caller", "message": "bad"}'
+    trailer = "\n".join(f"line {n} of a long traceback" for n in range(400))
+    log.write_text(f"{report}\n{trailer}\n", encoding="utf-8")
+    assert len(trailer) > 4000
+
+    failure = _reported(log)
+
+    assert failure is not None
+    assert failure.code == "config.invalid"

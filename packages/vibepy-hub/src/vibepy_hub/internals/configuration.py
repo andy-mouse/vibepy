@@ -10,7 +10,7 @@ from collections.abc import Mapping, Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy_hub.models import AppFacts
+from vibepy_hub.models import AppFacts, ConfigField
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,7 @@ class _SchemaField(BaseModel):
     """One property of a projected configuration schema, as the Hub reads it."""
 
     format: str | None = None
+    type: str | None = None
 
 
 class _ConfigSchema(BaseModel):
@@ -50,6 +51,38 @@ def held_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> tup
 def without_secrets(values: Mapping[str, object], secrets: Sequence[str], /) -> dict[str, object]:
     """Return the held values a channel may see: every field that is not a secret."""
     return {name: value for name, value in values.items() if name not in secrets}
+
+
+def config_fields(schema: Mapping[str, object], /) -> tuple[ConfigField, ...]:
+    """Return every declared field with the type a form renders it as.
+
+    Pydantic projects `SecretStr` as `format: password`, `Path` as
+    `format: path` and `int` as `type: integer`; everything else a form
+    treats as text, and what it does not recognise it says so rather than
+    guessing.
+    """
+    try:
+        described = _ConfigSchema.model_validate(dict(schema))
+    except ValidationError:
+        logger.info("unreadable configuration schema")
+        return ()
+    required = set(described.required)
+    return tuple(
+        ConfigField(name=name, type=_kind(field), required=name in required)
+        for name, field in described.properties.items()
+    )
+
+
+def _kind(field: _SchemaField, /) -> str:
+    if field.format == "password":
+        return "secret"
+    if field.format == "path":
+        return "path"
+    if field.type == "integer":
+        return "integer"
+    if field.type == "string":
+        return "string"
+    return "other"
 
 
 def is_configured(facts: AppFacts, held: Mapping[str, object], /) -> bool:

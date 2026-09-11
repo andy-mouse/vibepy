@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from vibepy_core import AppDefinition, AppEntrypoint
 from vibepy_hub.internals import HubDeps, Processes, write_install_config
+from vibepy_hub.pages.board import BOARD
 from vibepy_hub.tools import HUB_TOOLS
 
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ HUB_APP: AppDefinition[HubDeps, HubConfig] = AppDefinition(
     version="0.1.0",
     config=HubConfig,
     tools=HUB_TOOLS,
-    pages=[],
+    pages=[BOARD],
 )
 
 APP: AppEntrypoint[HubDeps, HubConfig] = AppEntrypoint(definition=HUB_APP, lifespan=hub_lifespan)

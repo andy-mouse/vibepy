@@ -1,100 +1,105 @@
-"""Registering a folder is what makes its Apps installable."""
+"""Registering a folder of wheels is what makes its Apps installable."""
 
 import shutil
 from pathlib import Path
 
-from tests_support import hub, write_project
-from vibepy_hub.models import AppListing, Installation, SourceListing
+import pytest
+
+from tests_support import hub, write_wheel
+from vibepy_core.errors import ToolInputValidationError
+from vibepy_hub.models import AppListing, SourceListing
 
 
 async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None:
-    source = tmp_path / "packages"
-    write_project(source / "zulu", name="zulu-app", declares=True)
-    write_project(source / "alpha", name="alpha-app", declares=True)
+    source = tmp_path / "wheels"
+    write_wheel(source, name="zulu-app", version="1.2.3", declares=True)
+    write_wheel(source, name="alpha-app", version="0.4.0", declares=False)
 
     async with hub(tmp_path / "hub") as tools:
         listed = await tools.invoke("register_package_source", {"path": str(source)})
 
     assert isinstance(listed, SourceListing)
+    assert listed.source == source
     assert [(row.name, row.version, row.declares_app) for row in listed.candidates] == [
-        ("alpha-app", "1.2.3", True),
+        ("alpha-app", "0.4.0", False),
         ("zulu-app", "1.2.3", True),
     ]
 
 
-async def test_a_folder_without_a_visible_declaration_is_still_offered(tmp_path: Path) -> None:
-    """A backend may add entry points, so a static reading is a hint."""
-    source = tmp_path / "packages"
-    write_project(source / "plain", name="plain", declares=False)
+async def test_registering_a_second_folder_replaces_the_first(tmp_path: Path) -> None:
+    """One folder is registered at a time: the Hub has one wheelhouse, not a search path."""
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    write_wheel(first, name="one", version="1.0.0", declares=True)
+    write_wheel(second, name="two", version="1.0.0", declares=True)
+
+    async with hub(tmp_path / "hub") as tools:
+        await tools.invoke("register_package_source", {"path": str(first)})
+        listed = await tools.invoke("register_package_source", {"path": str(second)})
+        apps = await tools.invoke("list_apps", {})
+
+    assert isinstance(listed, SourceListing)
+    assert listed.source == second
+    assert [row.name for row in listed.candidates] == ["two"]
+    assert isinstance(apps, AppListing)
+    assert [row.app_name for row in apps.apps] == ["two"]
+    assert apps.source == second
+
+
+async def test_an_empty_folder_offers_nothing(tmp_path: Path) -> None:
+    source = tmp_path / "wheels"
+    source.mkdir()
 
     async with hub(tmp_path / "hub") as tools:
         listed = await tools.invoke("register_package_source", {"path": str(source)})
 
     assert isinstance(listed, SourceListing)
-    assert [(row.name, row.declares_app) for row in listed.candidates] == [("plain", False)]
-
-
-async def test_a_folder_carrying_no_project_file_offers_nothing(tmp_path: Path) -> None:
-    source = tmp_path / "packages"
-    (source / "notes").mkdir(parents=True)
-
-    async with hub(tmp_path / "hub") as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(source)})
-
-    assert isinstance(listed, SourceListing)
+    assert listed.source == source
     assert listed.candidates == []
 
 
-async def test_an_absent_folder_is_a_diagnostic(tmp_path: Path) -> None:
+async def test_an_absent_folder_is_a_diagnostic_and_registers_nothing(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub") as tools:
         answered = await tools.invoke("register_package_source", {"path": str(tmp_path / "no")})
 
     assert isinstance(answered, SourceListing)
+    assert answered.source is None
     assert answered.diagnostic is not None
     assert answered.diagnostic.code == "hub.source_unreadable"
 
 
-async def test_a_removed_folder_offers_nothing_and_a_kept_one_outlives_the_window(
+async def test_a_registered_folder_outlives_the_window_and_removing_clears_it(
     tmp_path: Path,
 ) -> None:
-    source = tmp_path / "packages"
-    write_project(source / "demo", name="demo", declares=True)
+    source = tmp_path / "wheels"
+    write_wheel(source, name="demo", version="1.0.0", declares=True)
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)})
 
     async with hub(root) as tools:
-        kept = await tools.invoke("register_package_source", {"path": str(source)})
-        removed = await tools.invoke("remove_package_source", {"path": str(source)})
+        kept = await tools.invoke("list_apps", {})
+        removed = await tools.invoke("remove_package_source", {})
 
-    assert isinstance(kept, SourceListing)
-    assert kept.sources == [source]
+    assert isinstance(kept, AppListing)
+    assert [row.app_name for row in kept.apps] == ["demo"]
     assert isinstance(removed, SourceListing)
-    assert removed.sources == []
+    assert removed.source is None
     assert removed.candidates == []
 
+    async with hub(root) as tools:
+        after = await tools.invoke("list_apps", {})
 
-async def test_a_folder_whose_project_declares_no_name_offers_nothing(tmp_path: Path) -> None:
-    """`name` is required and static, so a project file without one is not a project."""
-    source = tmp_path / "packages"
-    (source / "nameless").mkdir(parents=True)
-    (source / "nameless" / "pyproject.toml").write_text(
-        '[project]\nversion = "1.0.0"\n', encoding="utf-8"
-    )
-
-    async with hub(tmp_path / "hub") as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(source)})
-
-    assert isinstance(listed, SourceListing)
-    assert listed.candidates == []
+    assert isinstance(after, AppListing)
+    assert after.source is None
 
 
 async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
     tmp_path: Path,
 ) -> None:
-    source = tmp_path / "packages"
-    write_project(source / "demo", name="demo", declares=True)
+    source = tmp_path / "wheels"
+    write_wheel(source, name="demo", version="1.0.0", declares=True)
     root = tmp_path / "hub"
 
     async with hub(root) as tools:
@@ -104,71 +109,16 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
 
     async with hub(root) as tools:
         listed = await tools.invoke("list_apps", {})
-        withdrawn = await tools.invoke("remove_package_source", {"path": str(source)})
+        withdrawn = await tools.invoke("remove_package_source", {})
 
     assert isinstance(listed, AppListing)
     assert listed.diagnostic is not None
     assert listed.diagnostic.code == "hub.source_unreadable"
     assert isinstance(withdrawn, SourceListing)
-    assert withdrawn.sources == []
+    assert withdrawn.source is None
 
 
-async def test_two_sources_offering_one_name_is_refused_rather_than_ordered(
-    tmp_path: Path,
-) -> None:
-    """One name addresses one App, so two folders claiming it addresses none.
-
-    Installing the first-registered source's copy would make registration order
-    decide which App a name means, which is the shape this stage exists to
-    remove. `docs/decisions/ADR-027` already refuses a duplicate name at the
-    point it is read rather than letting one of the two disappear.
-    """
-    first = tmp_path / "first"
-    second = tmp_path / "second"
-    write_project(first / "demo", name="demo-app", declares=True)
-    write_project(second / "demo-copy", name="Demo_App", declares=True)
-
+async def test_an_empty_path_is_refused_rather_than_the_working_directory(tmp_path: Path) -> None:
     async with hub(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(first)})
-        await tools.invoke("register_package_source", {"path": str(second)})
-        answered = await tools.invoke("install_app", {"app_name": "demo-app"})
-        listed = await tools.invoke("list_apps", {})
-
-    assert isinstance(answered, Installation)
-    assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.candidate_ambiguous"
-    assert str(first / "demo") in answered.diagnostic.details["folders"]
-    assert str(second / "demo-copy") in answered.diagnostic.details["folders"]
-
-    assert isinstance(listed, AppListing)
-    rows = {row.app_name: row for row in listed.apps}
-    assert rows["demo-app"].diagnostic is not None
-    assert rows["demo-app"].diagnostic.code == "hub.candidate_ambiguous"
-
-
-async def test_registering_reports_a_source_that_can_no_longer_be_read(
-    tmp_path: Path,
-) -> None:
-    """Every Tool answering with a source listing says the same thing about it.
-
-    `list_apps` reports a registered source it could not read; so must this, or
-    one Tool's silence contradicts the other's diagnostic about one fact.
-    """
-    gone = tmp_path / "gone"
-    kept = tmp_path / "kept"
-    write_project(gone / "demo", name="demo-app", declares=True)
-    kept.mkdir()
-    root = tmp_path / "hub"
-
-    async with hub(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(gone)})
-
-    shutil.rmtree(gone)
-
-    async with hub(root) as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(kept)})
-
-    assert isinstance(listed, SourceListing)
-    assert listed.diagnostic is not None
-    assert listed.diagnostic.code == "hub.source_unreadable"
-    assert str(gone) in listed.diagnostic.details["paths"]
+        with pytest.raises(ToolInputValidationError):
+            await tools.invoke("register_package_source", {"path": ""})

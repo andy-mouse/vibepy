@@ -1,3 +1,4 @@
-"""NiceGUI's User fixture, without the Screen fixture that would require selenium."""
+"""NiceGUI's User fixture, registered in `pyproject.toml`.
 
-pytest_plugins = ["nicegui.testing.user_plugin"]
+Without the Screen fixture, which would require selenium.
+"""
