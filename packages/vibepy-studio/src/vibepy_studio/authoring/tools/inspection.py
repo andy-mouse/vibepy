@@ -8,7 +8,7 @@ from importlib.metadata import version
 from packaging.utils import canonicalize_name
 
 from vibepy_core.app.group import APP_GROUP
-from vibepy_core.errors import ERROR_CATALOG, ErrorCategory
+from vibepy_core.errors import ERROR_CATALOG
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import declared_name, locate, python
 from vibepy_studio.authoring.models import (
@@ -17,11 +17,12 @@ from vibepy_studio.authoring.models import (
     FrameworkDescription,
     InspectRequest,
     from_report,
+    no_apps_declared,
     project_not_found,
     uv_unavailable,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, StudioDeps, describe
-from vibepy_studio.models import Diagnostic, Empty
+from vibepy_studio.models import Empty
 
 logger = logging.getLogger(__name__)
 
@@ -62,15 +63,7 @@ async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) ->
         )
     own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
-        return AppInspection(
-            apps=[],
-            diagnostic=Diagnostic(
-                code="authoring.no_apps_declared",
-                category=ErrorCategory.DECLARATION,
-                message=f"{name!r} declares no App in the {APP_GROUP!r} entry point group",
-                details={"project": str(project), "distribution": name},
-            ),
-        )
+        return AppInspection(apps=[], diagnostic=no_apps_declared(project, name))
     return AppInspection(apps=own)
 
 

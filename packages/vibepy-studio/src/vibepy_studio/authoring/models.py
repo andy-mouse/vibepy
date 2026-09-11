@@ -19,6 +19,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_core.app.group import APP_GROUP
 from vibepy_studio.models import Described, Diagnostic, diagnostic_of
 
 
@@ -95,6 +96,16 @@ def project_not_found(project: Path, reason: str, /) -> Diagnostic:
         category=ErrorCategory.CALLER,
         message=f"{project} {reason}",
         details={"project": str(project)},
+    )
+
+
+def no_apps_declared(project: Path, distribution: str, /) -> Diagnostic:
+    """Say the project's own distribution declares no App."""
+    return Diagnostic(
+        code="authoring.no_apps_declared",
+        category=ErrorCategory.DECLARATION,
+        message=f"{distribution!r} declares no App in the {APP_GROUP!r} entry point group",
+        details={"project": str(project), "distribution": distribution},
     )
 
 
