@@ -18,9 +18,9 @@ import yaml
 
 from tests_support import studio
 from vibepy_core.errors import ErrorCategory
-from vibepy_studio.consumption.internals import read_state, write_state
-from vibepy_studio.consumption.internals.routing import PORT_BASE, address, allocate
-from vibepy_studio.consumption.models import AppListing, Installation, RunningApp
+from vibepy_studio.operating.internals import read_state, write_state
+from vibepy_studio.operating.internals.routing import PORT_BASE, address, allocate
+from vibepy_studio.operating.models import AppListing, Installation, RunningApp
 
 
 def test_the_first_app_takes_the_base_port() -> None:

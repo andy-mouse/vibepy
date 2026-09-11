@@ -8,8 +8,8 @@ disabled, what a save sends — are checked without rendering anything.
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
-from vibepy_studio.consumption.models import AppRow, ConfigField
 from vibepy_studio.models import Diagnostic
+from vibepy_studio.operating.models import AppRow, ConfigField
 
 STAGES: tuple[str, str, str, str] = ("Available", "Installed", "Configured", "Running")
 _ORDER = {"running": 0, "installed": 1, "available": 2}

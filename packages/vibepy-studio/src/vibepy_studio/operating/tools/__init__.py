@@ -11,25 +11,25 @@ of its own here.
 from collections.abc import Sequence
 
 from vibepy_core.tool import Tool
-from vibepy_studio.consumption.tools.configuration import (
+from vibepy_studio.internals import StudioDeps
+from vibepy_studio.operating.tools.configuration import (
     CONFIGURATION_TOOLS,
     configure_app,
     describe_config,
 )
-from vibepy_studio.consumption.tools.installation import (
+from vibepy_studio.operating.tools.installation import (
     INSTALLATION_TOOLS,
     install_app,
     list_apps,
     remove_app,
     update_app,
 )
-from vibepy_studio.consumption.tools.packages import (
+from vibepy_studio.operating.tools.packages import (
     PACKAGE_SOURCE_TOOLS,
     register_package_source,
     remove_package_source,
 )
-from vibepy_studio.consumption.tools.runtime import RUNTIME_TOOLS, start_app, stop_app
-from vibepy_studio.internals import StudioDeps
+from vibepy_studio.operating.tools.runtime import RUNTIME_TOOLS, start_app, stop_app
 
 HUB_TOOLS: Sequence[Tool[StudioDeps]] = [
     *PACKAGE_SOURCE_TOOLS,

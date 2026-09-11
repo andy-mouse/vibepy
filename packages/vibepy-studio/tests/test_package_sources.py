@@ -7,7 +7,7 @@ import pytest
 
 from tests_support import studio, write_wheel
 from vibepy_core.errors import ToolInputValidationError
-from vibepy_studio.consumption.models import AppListing, SourceListing
+from vibepy_studio.operating.models import AppListing, SourceListing
 
 
 async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None:

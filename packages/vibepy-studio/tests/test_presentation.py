@@ -1,9 +1,9 @@
 """The board's rules, with no screen involved."""
 
 from vibepy_core.errors import ErrorCategory
-from vibepy_studio.consumption.models import AppRow, ConfigField
-from vibepy_studio.consumption.pages.presentation import row_view, save_request, sort_rows, summary
 from vibepy_studio.models import Diagnostic
+from vibepy_studio.operating.models import AppRow, ConfigField
+from vibepy_studio.operating.pages.presentation import row_view, save_request, sort_rows, summary
 
 
 def available(name: str = "demo") -> AppRow:

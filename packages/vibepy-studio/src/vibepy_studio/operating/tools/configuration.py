@@ -4,7 +4,9 @@ from collections.abc import Sequence
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.consumption.internals import (
+from vibepy_studio.internals import StudioDeps
+from vibepy_studio.models import Diagnostic
+from vibepy_studio.operating.internals import (
     HubState,
     config_fields,
     held_secrets,
@@ -14,14 +16,12 @@ from vibepy_studio.consumption.internals import (
     update_state,
     without_secrets,
 )
-from vibepy_studio.consumption.models import (
+from vibepy_studio.operating.models import (
     AppName,
     ConfigDescription,
     ConfigureRequest,
     HeldConfig,
 )
-from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic
 
 
 async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest) -> HeldConfig:

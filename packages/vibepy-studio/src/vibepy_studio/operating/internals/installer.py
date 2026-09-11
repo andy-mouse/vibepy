@@ -18,10 +18,10 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from vibepy_core.app.package import AppRef, discover_apps
-from vibepy_studio.consumption.models import AppFacts
 from vibepy_studio.internals.describing import DescribeFailed
 from vibepy_studio.internals.describing import describe as describe_with
 from vibepy_studio.internals.processes import NotRunnable, run
+from vibepy_studio.operating.models import AppFacts
 
 logger = logging.getLogger(__name__)
 

@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio"
-TOOLS = (_SRC / "consumption" / "tools", _SRC / "authoring" / "tools")
+TOOLS = (_SRC / "operating" / "tools", _SRC / "authoring" / "tools")
 
 ALLOWED_IMPORTS = frozenset(
     {
@@ -41,8 +41,8 @@ ALLOWED_IMPORTS = frozenset(
         "vibepy_core.app.group",
         "vibepy_core.errors",
         "vibepy_core.tool",
-        "vibepy_studio.consumption.internals",
-        "vibepy_studio.consumption.models",
+        "vibepy_studio.operating.internals",
+        "vibepy_studio.operating.models",
         "vibepy_studio.models",
         "asyncio",
         "json",
@@ -110,7 +110,7 @@ def unreachable(source: str, /) -> set[str]:
         module
         for module in imported(source)
         if module not in ALLOWED_IMPORTS
-        and not module.startswith("vibepy_studio.consumption.tools.")
+        and not module.startswith("vibepy_studio.operating.tools.")
         and not module.startswith("vibepy_studio.authoring.tools.")
     }
 

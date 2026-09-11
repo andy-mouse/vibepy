@@ -36,8 +36,8 @@ from pathlib import Path
 import pytest
 
 from tests_support import build_wheelhouse, studio
-from vibepy_studio.consumption.internals.installer import FACTS_FILE
-from vibepy_studio.consumption.models import Installation
+from vibepy_studio.operating.internals.installer import FACTS_FILE
+from vibepy_studio.operating.models import Installation
 
 APPS = ("vibepy-notes", "vibepy-todo", "vibepy-timer")
 """Every fixture App, installed into the template in this order."""

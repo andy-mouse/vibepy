@@ -5,7 +5,7 @@ An App's life has two layers, and the framework owns one of them.
 | Layer | What it covers | Whose it is |
 | --- | --- | --- |
 | runtime lifecycle | a channel's running window, from opening to closing | the channel host |
-| package lifecycle | a distribution installed, configured, addressed, started and stopped | a host App built on the framework, never the framework (Studio's consumption role, called the Hub) |
+| package lifecycle | a distribution installed, configured, addressed, started and stopped | a host App built on the framework, never the framework (Studio's operating role, called the Hub) |
 
 What the framework implements is channel neutrality, and where a problem already has an owner it
 delegates; see
@@ -110,7 +110,7 @@ that tab did.
 
 A state is one of three: `available` for an App a registered source offers, `installed` for one
 whose environment exists, `running` for one whose Web channel this Hub has started. `AppRow.state`
-in `vibepy_studio/consumption/models.py` publishes the three values.
+in `vibepy_studio/operating/models.py` publishes the three values.
 
 An address belongs to an App only if it declares Pages. `install_app` allocates a port and
 publishes a route for such an App and answers with its address; an App declaring no Pages has no
@@ -125,9 +125,9 @@ and health-checks none. An App's own port — allocated at install and held in t
 not what is published; only the proxy port is. An address therefore answers only while a proxy is
 running against that configuration, not because the Hub published it. See
 `docs/decisions/ADR-031-the-proxy-is-traefik.md`;
-`vibepy_studio/consumption/internals/routing.py` is the module that owns the mechanism.
+`vibepy_studio/operating/internals/routing.py` is the module that owns the mechanism.
 
 A diagnostic travels in the `hub.*` vocabulary, whose codes, categories and what each reports are
-defined in `vibepy_studio/consumption/models.py` and are not restated here. A failure the Hub expects travels as
+defined in `vibepy_studio/operating/models.py` and are not restated here. A failure the Hub expects travels as
 data rather than as an exception. See
 `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`

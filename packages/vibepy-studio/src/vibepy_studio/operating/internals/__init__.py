@@ -3,14 +3,14 @@
 A Tool handler reaches them through its ToolContext and nothing else does.
 """
 
-from vibepy_studio.consumption.internals.configuration import (
+from vibepy_studio.operating.internals.configuration import (
     config_fields,
     held_secrets,
     is_configured,
     secret_fields,
     without_secrets,
 )
-from vibepy_studio.consumption.internals.installer import (
+from vibepy_studio.operating.internals.installer import (
     AppNameInvalid,
     InstallFailed,
     declarations,
@@ -25,20 +25,20 @@ from vibepy_studio.consumption.internals.installer import (
     remove_environment,
     write_facts,
 )
-from vibepy_studio.consumption.internals.routing import (
+from vibepy_studio.operating.internals.routing import (
     address,
     allocate,
     remove_route,
     write_install_config,
     write_route,
 )
-from vibepy_studio.consumption.internals.state import (
+from vibepy_studio.operating.internals.state import (
     HubState,
     read_state,
     update_state,
     write_state,
 )
-from vibepy_studio.consumption.internals.wheels import Candidate, candidates, readable
+from vibepy_studio.operating.internals.wheels import Candidate, candidates, readable
 
 __all__ = [
     "AppNameInvalid",

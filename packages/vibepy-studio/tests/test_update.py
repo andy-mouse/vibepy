@@ -6,9 +6,9 @@ from pathlib import Path
 import pytest
 
 from tests_support import FIXTURES, bumped_fixture_wheel, studio
-from vibepy_studio.consumption.internals import read_state
-from vibepy_studio.consumption.internals.routing import ROUTES
-from vibepy_studio.consumption.models import AppListing, Installation
+from vibepy_studio.operating.internals import read_state
+from vibepy_studio.operating.internals.routing import ROUTES
+from vibepy_studio.operating.models import AppListing, Installation
 
 
 @pytest.fixture(scope="session")

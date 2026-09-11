@@ -61,7 +61,7 @@ this decision exists to stop publishing, not a shape of it.
 - Traefik's documentation does not state that it carries WebSocket connections, which every
   NiceGUI Page needs. `packages/vibepy-studio/tests/test_proxy.py` is what holds it to doing so, and
   a failure there invalidates this decision rather than a detail of it
-- this is reversible at one module. `vibepy_studio/consumption/internals/routing.py` is the Hub's whole knowledge
+- this is reversible at one module. `vibepy_studio/operating/internals/routing.py` is the Hub's whole knowledge
   of Traefik, and a different proxy replaces it and nothing else
 - the reasoning is local to a single machine serving one user. Caddy's automatic HTTPS and the
   swappable route interface JupyterHub publishes are costs here and would be assets elsewhere, so

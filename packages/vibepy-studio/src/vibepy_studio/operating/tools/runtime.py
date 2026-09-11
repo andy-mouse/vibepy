@@ -4,16 +4,16 @@ from collections.abc import Sequence
 
 from vibepy_core.errors import ErrorCategory
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.consumption.internals import (
+from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
+from vibepy_studio.models import Diagnostic, diagnostic_of
+from vibepy_studio.operating.internals import (
     address,
     environment,
     installed_facts,
     interpreter,
     read_state,
 )
-from vibepy_studio.consumption.models import AppName, RunningApp, StartRequest
-from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
-from vibepy_studio.models import Diagnostic, diagnostic_of
+from vibepy_studio.operating.models import AppName, RunningApp, StartRequest
 
 
 def _refusal(
