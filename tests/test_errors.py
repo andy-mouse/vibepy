@@ -29,7 +29,6 @@ from vibepy_core.errors import (
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
-    ServeConfigInvalidError,
     ToolInputValidationError,
     ToolNameConflictError,
     ToolNotFoundError,
@@ -159,12 +158,6 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "package.app_not_declared",
         ErrorCategory.CALLER,
         {"app_name": "absent"},
-    ),
-    (
-        ServeConfigInvalidError(),
-        "serve.config_invalid",
-        ErrorCategory.CALLER,
-        {},
     ),
     (
         InvokeRequestInvalidError(),

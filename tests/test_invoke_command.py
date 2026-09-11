@@ -89,10 +89,10 @@ def test_an_app_this_environment_does_not_declare_is_reported() -> None:
 
 
 @pytest.mark.integration
-def test_configuration_on_standard_input_still_works_and_is_deprecated(tmp_path: Path) -> None:
+def test_the_old_request_shape_with_config_is_refused(tmp_path: Path) -> None:
+    """Configuration on standard input is gone, and a request still carrying it
+    fails rather than being silently ignored."""
     result = run_invoke(
         "todo-app", "create_todo", {"config": todo_config(tmp_path), "input": {"title": "milk"}}
     )
-    assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["title"] == "milk"
-    assert "DeprecationWarning" in result.stderr
+    assert reported(result)["code"] == "invoke.request_invalid"

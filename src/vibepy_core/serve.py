@@ -3,17 +3,16 @@
 `vibepy_core.describe` reads a declaration; this runs one.
 
 The adapter builds the application this serves; the command owns the process and
-runs it.
+runs it. Its configuration is the environment's (`docs/architecture/packaging.md`,
+Configuration); the command reads nothing from standard input.
 """
 
 import argparse
 import logging
 import sys
-import warnings
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 
 import uvicorn
-from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.adapters.nicegui import build_web_app
 from vibepy_core.app.config import AppConfig
@@ -23,15 +22,10 @@ from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
-    ServeConfigInvalidError,
     report,
 )
 
 logger = logging.getLogger(__name__)
-
-_CONFIG = TypeAdapter(dict[str, object])
-"""Standard input may carry one JSON object of configuration, the deprecated
-channel; the window reads the environment."""
 
 _LOG_CONFIG: dict[str, object] = {
     "version": 1,
@@ -68,11 +62,9 @@ one JSON object and a reader of this process's standard error parses it as such.
 """
 
 
-def _serve(
-    entrypoint: AppEntrypoint[object, AppConfig], config: Mapping[str, object], port: int, /
-) -> None:
+def _serve(entrypoint: AppEntrypoint[object, AppConfig], port: int, /) -> None:
     """Serve one App for as long as its window is open."""
-    served = build_web_app(entrypoint.definition, entrypoint.lifespan, config=config)
+    served = build_web_app(entrypoint.definition, entrypoint.lifespan, config={})
     # The window is the served application's own lifespan, so the `async with`
     # that opens it is the whole of the server's life, and a window that
     # refuses to open fails the server's startup.
@@ -82,30 +74,18 @@ def _serve(
 def main(argv: Sequence[str], /) -> int:
     """Read configuration from the environment and serve one App.
 
-    `VIBEPY_<FIELD>` per declared field. A JSON object on standard input is
-    still read as explicit values above the environment, and is deprecated.
+    `VIBEPY_<FIELD>` per declared field; the command reads nothing from
+    standard input.
 
     Exits 1 for a failure of the command itself: an App this environment does
-    not declare, a declaration that will not load, or configuration that is not
-    a JSON object. Each writes one JSON object of `code`, `category`, `message`
-    and `details` to standard error, and each carries a framework code.
+    not declare, or a declaration that will not load. Each writes one JSON
+    object of `code`, `category`, `message` and `details` to standard error,
+    and each carries a framework code.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.serve")
     parser.add_argument("app_name")
     parser.add_argument("--port", type=int, required=True)
     parsed = parser.parse_args(argv)
-    try:
-        config: Mapping[str, object] = _CONFIG.validate_json(sys.stdin.read() or "{}")
-    except ValidationError as invalid:
-        report(ServeConfigInvalidError())
-        logger.debug("configuration on standard input was unreadable", exc_info=invalid)
-        return 1
-    if config:
-        warnings.warn(
-            "Configuration on standard input is deprecated; set VIBEPY_<FIELD> variables",
-            DeprecationWarning,
-            stacklevel=1,
-        )
     try:
         entrypoint = load_app(str(parsed.app_name))
     except (
@@ -115,7 +95,7 @@ def main(argv: Sequence[str], /) -> int:
     ) as error:
         report(error)
         return 1
-    _serve(entrypoint, config, int(parsed.port))
+    _serve(entrypoint, int(parsed.port))
     return 0
 
 

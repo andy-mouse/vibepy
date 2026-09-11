@@ -65,9 +65,9 @@ A window instantiates the declaration instead of validating a mapping against it
 caller hands it explicitly stands above the environment field by field, in the library's
 documented order. `vibepy-core` depends on `pydantic-settings`.
 
-Configuration on standard input is deprecated for `serve` and `invoke`, not removed: it is still
-read, and still honoured as explicit values. `invoke`'s `input` is per-call data and is
-unaffected. The command that opens the Agent channel has no stdin channel at all.
+Configuration on standard input is removed for `serve` and `invoke`. `invoke`'s `input` is
+per-call data and is unaffected. The command that opens the Agent channel has no stdin channel at
+all.
 
 Rejected, and why:
 
@@ -97,5 +97,5 @@ Rejected, and why:
 - `vibepy-core` depends on `pydantic-settings`, a Pydantic project already in the tree's shape
 - the `VIBEPY_` namespace of an App process's environment belongs to configuration, and the
   framework claims no other variable in it
-- removing the deprecated stdin channel is a later milestone's, and until then a value there
-  stands above the environment
+- the stdin channel is removed with this decision rather than deprecated, no installation of
+  this framework existing outside this repository to have sent it

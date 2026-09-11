@@ -153,13 +153,12 @@ API section below states the change.
 
 ### What changes for the existing commands
 
-`serve` and `invoke` take the environment as their configuration channel. Their stdin
-configuration is **deprecated, not removed**: a `config` object on stdin is still read and handed
-to the window as explicit values — above the environment, in the library's order — and emits one
-`DeprecationWarning` when it is non-empty. `invoke`'s stdin keeps its shape,
-`{"config": {...}, "input": {...}}`; `input` is per-call data and stays where it is. The
-`packaging.md` contract is edited accordingly and names the deprecation; removal is a later
-milestone's.
+`serve` and `invoke` take the environment as their configuration channel, and their stdin
+configuration is **removed**: no installation of this framework exists outside this repository to
+have sent it, so no deprecation is owed (as M12 said of the Hub's rename). `serve` reads nothing
+from standard input. `invoke`'s stdin carries one JSON object of `input` and nothing else; a
+request still carrying `config`, or any other key, is `invoke.request_invalid` rather than
+ignored. The `packaging.md` contract is edited accordingly.
 
 Every launcher in this repository moves to the environment now: `Processes.start`
 (`serve`), `invoke_tool` (`invoke`), `scripts/run_studio.py`, and every test that starts a
@@ -274,7 +273,8 @@ passes, as it is for the M12 tests.
 `AppConfig`, `environment_for` and `vibepy_core.mcp` are additions to the public API. `ConfigT`'s
 bound narrows from `BaseModel` to `AppConfig`; `NoConfig` subclasses it. An undeclared
 configuration key is refused where it was ignored. Configuration on stdin for
-`serve` and `invoke` is deprecated and still honoured. Nothing else is removed. `vibepy-core`
+`serve` and `invoke` is removed, with `ServeConfigInvalidError` and its `serve.config_invalid`
+code. Nothing else is removed. `vibepy-core`
 gains `pydantic-settings`; the `[agent]` extra's contents do not change; `vibepy-studio` now
 requires it.
 

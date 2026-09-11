@@ -293,7 +293,7 @@ class Processes:
         known_as: str,
         port: int,
     ) -> None:
-        """Serve one App on the port it was given, handing it its configuration on stdin.
+        """Serve one App on the port it was given, in an environment of its own.
 
         `app_name` is the name the App declares itself under, which is what its
         environment answers to; `known_as` is what this Hub filed it under. The

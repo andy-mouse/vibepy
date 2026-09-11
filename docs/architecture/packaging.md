@@ -109,7 +109,7 @@ StudioConfig(root: Path, proxy_port: int)   ->   VIBEPY_ROOT=/…   VIBEPY_PROXY
 The reading is pydantic-settings', through the `AppConfig` base every declaration subclasses: a
 scalar is coerced to its declared type, a complex field or sub-model is read as JSON, and a
 `SecretStr` is built from the string. A value a caller hands the window explicitly — a test
-literal, or the deprecated standard input below — stands above the environment, field by field.
+literal — stands above the environment, field by field.
 A field with no value and no default is `config.invalid` naming that field, as is a key the App
 does not declare. See
 `docs/decisions/ADR-033-configuration-reaches-a-process-through-the-environment.md`.
@@ -120,10 +120,8 @@ A parent that starts a framework process renders the values it holds into those 
 `config_schema`, which `describe` projects from the declaration, is therefore the list of
 variables a host sets.
 
-Configuration on standard input is **deprecated** for `serve` and `invoke`. It is still read and
-still honoured, as explicit values above the environment, and each command says so once when it
-is non-empty, with one `DeprecationWarning` emitted through the `warnings` module, which is what
-a caller filters. Removal belongs to a later milestone.
+The environment is the only configuration channel. No command reads configuration from standard
+input.
 
 ## Running a channel
 
@@ -133,7 +131,7 @@ python -m vibepy_core.serve <app-name> --port <n>
 
 Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
 is the served application's own lifespan. Its configuration is its environment's, as Configuration
-above owns.
+above owns; it reads nothing from standard input.
 
 The window is the lifespan and not a startup hook because ASGI already decides what a window
 that cannot open means: a server that sees `lifespan.startup.failed` logs the message and exits
@@ -158,8 +156,8 @@ python -m vibepy_core.invoke <app-name> <tool-name>
 
 Run with an App environment's own interpreter, it opens the channel-neutral invocation window
 once, invokes one Tool through `ToolRuntime`, and closes the window. Standard input carries one
-JSON object whose `input` is the Tool's input, beside a `config` that is the deprecated
-configuration channel; standard output receives the Tool's output as one JSON
+JSON object whose `input` is the Tool's input, and nothing else; any other key is
+`invoke.request_invalid`. Standard output receives the Tool's output as one JSON
 object. This is how a host verifies that a Tool behaves without importing the App, and why the
 verification runs the same path both channels run. The request written to the child's stdin and
 everything the child writes back are `json.dumps` with its default `ensure_ascii=True`, so a

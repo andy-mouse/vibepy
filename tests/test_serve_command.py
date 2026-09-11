@@ -165,39 +165,20 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
 
 
 @pytest.mark.integration
-def test_configuration_that_is_not_an_object_fails_with_a_framework_code() -> None:
-    finished = subprocess.run(
-        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(free_port())],
-        input=b"[]",
-        capture_output=True,
-        check=False,
-        env=child_environment(),
-    )
-
-    assert finished.returncode == 1
-    reported = _reported(finished.stderr)
-    assert reported["code"] == "serve.config_invalid"
-    assert reported["category"] == "caller"
-
-
-@pytest.mark.integration
-def test_configuration_on_standard_input_still_works_and_is_deprecated(tmp_path: Path) -> None:
+def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
+    """Standard input is left open and nothing is ever written to it. The
+    command reads none of it, so the App is served regardless; a command that
+    read stdin would hang here, as it hung a terminal.
+    """
     port = free_port()
     process = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
         stdin=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=child_environment(),
+        env=todo_environment(tmp_path),
     )
-    assert process.stdin is not None and process.stderr is not None
-    process.stdin.write(
-        json.dumps({"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}).encode()
-    )
-    process.stdin.close()
     try:
         body = wait_for(f"http://127.0.0.1:{port}/todos", process)
     finally:
         process.terminate()
         process.wait(timeout=10)
     assert "<html" in body.lower()
-    assert "DeprecationWarning" in process.stderr.read().decode(errors="replace")
