@@ -26,7 +26,6 @@ from vibepy_hub.internals.installer import (
     write_facts,
 )
 from vibepy_hub.internals.processes import AlreadyStarted, Processes, StartFailed
-from vibepy_hub.internals.projects import Candidate, candidates, readable
 from vibepy_hub.internals.routing import (
     address,
     allocate,
@@ -35,8 +34,10 @@ from vibepy_hub.internals.routing import (
     write_route,
 )
 from vibepy_hub.internals.state import HubState, read_state, update_state, write_state
+from vibepy_hub.internals.wheels import APP_GROUP, Candidate, candidates, readable
 
 __all__ = [
+    "APP_GROUP",
     "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",

@@ -31,7 +31,7 @@ async def _listing(deps: HubDeps, /) -> SourceListing:
             continue
         rows.extend(
             CandidateRow(
-                folder=row.folder,
+                folder=row.wheel,
                 name=row.name,
                 version=row.version,
                 declares_app=row.declares_app,

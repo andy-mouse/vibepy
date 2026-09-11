@@ -69,7 +69,7 @@ def _ambiguous(app_name: str, offered: Sequence[Candidate], /) -> Diagnostic:
         message=f"more than one registered source offers {app_name!r}",
         details={
             "app_name": app_name,
-            "folders": ", ".join(sorted(str(row.folder) for row in offered)),
+            "folders": ", ".join(sorted(str(row.wheel) for row in offered)),
         },
     )
 
@@ -137,7 +137,7 @@ async def install_app(ctx: ToolContext[HubDeps], payload: AppName) -> Installati
             if not offered
             else _ambiguous(payload.app_name, offered),
         )
-    folder = offered[0].folder
+    folder = offered[0].wheel
     env = environment(deps.root, payload.app_name)
     if env in await environments(deps.root):
         # What installing over an installation means is not this stage's to
