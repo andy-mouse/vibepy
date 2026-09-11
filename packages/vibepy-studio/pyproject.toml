@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "The App that covers an App's whole life: consumption through its board, authoring through its Tools"
 requires-python = ">=3.12"
 dependencies = [
-    "vibepy-core[web]",
+    "vibepy-core[web,agent]",
     "pydantic>=2.9",
     "packaging>=24.0",
     "pyyaml>=6.0",
