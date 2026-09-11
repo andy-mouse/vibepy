@@ -1854,7 +1854,7 @@ provides-extras = ["web", "agent"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "nicegui", extras = ["testing"], specifier = ">=3.16" },
+    { name = "nicegui", specifier = ">=3.16" },
     { name = "pre-commit", specifier = ">=4.6.2" },
     { name = "pyright", specifier = ">=1.1.400" },
     { name = "pytest", specifier = ">=8.3" },

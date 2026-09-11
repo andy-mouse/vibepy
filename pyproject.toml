@@ -39,7 +39,7 @@ dev = [
     "vibepy-todo",
     "vibepy-notes",
     "vibepy-timer",
-    "nicegui[testing]>=3.16",
+    "nicegui>=3.16",
     "ruff>=0.14",
     "pyright>=1.1.400",
     "pytest>=8.3",
