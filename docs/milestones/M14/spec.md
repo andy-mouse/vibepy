@@ -260,6 +260,44 @@ the handler, the self-approval rule is the App's and fires inside it. `vibepy-ex
 `dev` dependency group and `[tool.uv.sources]`, as the other fixtures do, so the in-repository
 commands can address it.
 
+### A shape that crosses a process boundary is one pydantic model, owned by core
+
+Adding three fields to `ToolDefinition` exposed a defect this milestone must not merge over: the
+description surface is a hand-written copy of the declaration, not a projection of it. A Tool's
+facts are written in `ToolDefinition`, copied by hand into `ToolDescription` (a dataclass),
+serialized with `asdict`, and read back by Studio's own `DescribedTool` — three places to edit
+for one field, and a field forgotten in any of them is silently absent from what an agent sees.
+The failure report has the same shape of defect: `ErrorInfo` is a dataclass, `report_line` and
+the MCP adapter's `_payload` each build its dict by hand, `_Report` reads it, and Studio's
+`Diagnostic` re-declares the same four fields and copies them in `diagnostic_of`.
+
+The repository's own rule already says what these should be: pydantic for data that crosses a
+boundary, dataclasses for in-process declarations that hold types and callables. `AppDescription`'s
+docstring says "this is what crosses a process boundary". The rule is applied:
+
+- `ErrorInfo` becomes a `BaseModel` (`code`, `category: ErrorCategory`, `message`,
+  `details: dict[str, str]`). `report_line` is `info.model_dump_json()`; `read_report_line` is
+  `ErrorInfo.model_validate_json`, returning `None` for a line that is not one; the MCP adapter's
+  payload is `info.model_dump(mode="json")`. `_Report` is deleted. A line naming a category the
+  framework does not know is not a report line: pre-production, no tolerance for an older writer.
+- Studio's `Diagnostic` is deleted; Studio's expected failures *are* `ErrorInfo` (ADR-029 already
+  requires the same four fields). `diagnostic_of` becomes `ErrorInfo.model_copy(update=…)` for the
+  merged details, or is deleted where nothing is merged. The Expense fixture's expected failure is
+  an `ErrorInfo` too.
+- `ToolDescription`, `PageDescription`, `AppDescription` become `BaseModel`s in core;
+  `ToolDescription` gains `read_only`, `channels: list[Channel]`, `required_roles: list[str]`.
+  `AppEntrypoint.describe()` remains the one place a declaration is projected. The `describe`
+  command's per-App entry becomes a core model `DescribedApp` (`app_name`, `distribution`,
+  `distribution_version`, and the `AppDescription` fields), written with `model_dump_json` and
+  read by Studio with `model_validate`. Studio's `Described`, `DescribedTool`, `DescribedPage`
+  are deleted in favour of the core models.
+- `TypeAdapter` over the dataclasses is not the fix: pydantic documents it for types that must stay
+  non-pydantic, and these types exist to cross a boundary.
+
+In-process declarations — `ToolDefinition`, `AppDefinition`, `ToolContext`, `Principal`,
+`AuthorizationRequest` — stay dataclasses. Studio's `_ConfigSchema` stays: it reads a slice of a
+standard (JSON Schema), not a copy of a framework shape.
+
 ### Error
 
 `ToolForbiddenError(name, *, principal, channel, reason)`: code `tool.forbidden`, category
@@ -311,7 +349,9 @@ One file per subject; success and failure paths of a subject share its file.
 | `tests/test_mcp_adapter.py` | `list_tools` omits a Tool without `AGENT`; a read-only Tool is projected with `annotations.readOnlyHint` true and a Tool that is not carries no annotations; calling it by name yields `isError` with the `tool.forbidden` payload; the principal the host passed reaches the handler |
 | `tests/test_nicegui_adapter.py` | the principal the host passed reaches a Page's Tool call |
 | `tests/test_invoke_command.py` | `--channel`, `--principal` required (argparse exit 2 with usage); against `expense-app`: `approve_expense` as `alice` is one stderr report `tool.forbidden` `role_required` and exit 1; with `--role manager` on another's expense exits 0 with `status: approved`; on one's own expense exits 0 with `expense.self_approval` in the output; `--channel web` on `measure_note` still runs (default `channels`) |
-| `tests/test_errors.py` | `tool.forbidden` is in the catalogue as `caller`; `details` carries the four keys |
+| `tests/test_errors.py` | `tool.forbidden` is in the catalogue as `caller`; `details` carries the four keys; `report_line` round-trips through `read_report_line` as the same `ErrorInfo`; a line with an unknown category or without `code` reads as `None` |
+| `tests/test_describe_command.py`, `tests/test_app_entrypoint.py` | `describe` writes `DescribedApp` entries; a Tool's `read_only`, `channels`, `required_roles` appear in its description; `AppDescription` and `ErrorInfo` are pydantic models |
+| `packages/vibepy-studio/tests/*` | Studio reads `DescribedApp` and reports `ErrorInfo`; assertions on `.diagnostic.code` etc. unchanged in meaning |
 | `tests/test_app_distributions.py` | picks `expense-app` up by discovery; no edit expected |
 | `tests/test_dual_channel.py`, `tests/test_execution_semantics.py` | unchanged in assertion; constructed with `channel` and invoked with `principal` |
 | `packages/vibepy-studio/tests/test_authoring_over_mcp.py` | discovery lists exactly the three authoring Tools and no operating Tool; `invoke_tool` against `fixtures/expense-app` `approve_expense` yields a diagnostic from a `tool.forbidden` report, because the agent's principal has no role |
@@ -327,8 +367,12 @@ gains a required keyword, `tool_runtime_for` and the two builders gain required 
 `PageRuntime.render` gains a required keyword, and `vibepy_core.invoke` gains two required
 arguments. Every App in this repository is updated in the same change. Additions to the public
 API: `Principal`, `Channel`, `ToolPolicy`, `AuthorizationRequest`,
-`ToolForbiddenError`, `PrincipalToolInvoker`, `AppDefinition.policy`, `ToolContext.principal`,
-`ToolContext.channel`.
+`ToolForbiddenError`, `PrincipalToolInvoker`, `DescribedApp`, `AppDefinition.policy`,
+`ToolContext.principal`, `ToolContext.channel`, `ToolDescription.{read_only,channels,required_roles}`.
+`ErrorInfo`, `ToolDescription`, `PageDescription`, `AppDescription` change from dataclass to
+`BaseModel`; construction by keyword is unchanged, `dataclasses.asdict` on them is not. The
+`describe` command's JSON is the same keys; Studio's `Diagnostic`, `Described`, `DescribedTool`,
+`DescribedPage` and core's `_Report` are removed.
 
 ## Documentation
 
@@ -347,7 +391,11 @@ API: `Principal`, `Channel`, `ToolPolicy`, `AuthorizationRequest`,
   their principal
 - `docs/architecture/authoring.md`: `invoke_tool` forwards the agent's channel and principal;
   which Studio Tools are on which channel
-- `docs/architecture/errors.md`: `tool.forbidden` row
+- `docs/architecture/errors.md`: `tool.forbidden` row; `ErrorInfo` is a pydantic model and the one
+  form every writer dumps and every reader validates, an App's expected failure included
+- `docs/architecture/packaging.md`, self-description: `describe` writes `DescribedApp`;
+  `docs/architecture/tool-model.md`: the rule "boundary shapes are pydantic, in-process
+  declarations are dataclasses" is stated once, where ToolDefinition is described
 - `docs/decisions/ADR-034-authorization-is-operation-level-in-toolruntime.md`: the two levels,
   why the framework owns one and decides it before input validation, the narrowing rule, and the
   alternatives — policy after validation, exposure as a policy check without a declaration, an
@@ -363,4 +411,4 @@ Authentication on either channel, and a per-session principal on the Web channel
 and MCP OAuth. Impersonation through `invoke_tool` (an authoring request that names a principal
 other than the agent's). Refusals or confirmations driven by `read_only`. `destructive`,
 `idempotent` and their annotations (M20). Platform-specific `_meta` such as
-`anthropic/requiresUserInteraction` (M19). Audit of refusals (M15). Exposure of Pages. Customer.
+`anthropic/requiresUserInteraction` (M19). Audit of refusals (M15). Exposure of Pages. Customer. Reading more of a configuration schema than `_ConfigSchema` does.
