@@ -15,10 +15,12 @@ import sys
 from collections.abc import Sequence
 from pathlib import Path
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import ValidationError
 
 from vibepy_core import AppRef, discover_apps
 from vibepy_studio.consumption.models import AppFacts
+from vibepy_studio.internals.describing import DescribeFailed
+from vibepy_studio.internals.describing import describe as describe_with
 from vibepy_studio.internals.processes import NotRunnable, run
 
 logger = logging.getLogger(__name__)
@@ -138,29 +140,12 @@ async def install(*, wheel: Path, source: Path, env: Path) -> None:
     )
 
 
-class _Described(BaseModel):
-    """One entry of what `vibepy_core.describe` writes, as the Hub reads it."""
-
-    app_name: str
-    distribution: str
-    app_id: str
-    name: str
-    version: str
-    distribution_version: str
-    config_schema: dict[str, object] = {}
-    pages: list[object] = []
-
-
-_DESCRIBED = TypeAdapter(list[_Described])
-
-
 async def describe(env: Path, /) -> tuple[AppFacts, ...]:
     """Return what the Apps in one environment declare, read in that environment."""
-    written = await _run([str(interpreter(env)), "-m", "vibepy_core.describe"])
     try:
-        described = _DESCRIBED.validate_json(written)
-    except ValidationError as invalid:
-        raise InstallFailed("vibepy_core.describe", str(invalid)) from invalid
+        described = await describe_with([str(interpreter(env))])
+    except (NotRunnable, DescribeFailed) as failure:
+        raise InstallFailed("vibepy_core.describe", str(failure)) from failure
     return tuple(
         AppFacts(
             app_id=entry.app_id,
