@@ -28,7 +28,7 @@ from vibepy_core.tool.runtime import ToolRuntime
 type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 """A factory returning the app's resource for the life of one window.
 
-It receives the App's validated configuration and nothing else.
+It receives the App's configuration, as the window instantiated it, and nothing else.
 """
 
 
@@ -120,8 +120,8 @@ async def page_runtime_for[DepsT, ConfigT: AppConfig](
 ) -> AsyncGenerator[PageRuntime]:
     """Open the Web channel's window: the invocation window, with Pages over it.
 
-    It opens `tool_runtime_for` rather than repeating it, so configuration is
-    validated once and a resource acquired once. A Page reaches Tools through
+    It opens `tool_runtime_for` rather than repeating it, so the configuration
+    is instantiated once and a resource acquired once. A Page reaches Tools through
     ToolInvoker, which ToolRuntime satisfies, so the Web channel gets the
     canonical invocation path without seeing the runtime.
     """

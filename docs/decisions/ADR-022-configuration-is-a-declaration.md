@@ -1,6 +1,9 @@
 # ADR-022: Configuration is a declaration
 
-Status: Accepted
+Status: Accepted; the source of the mapping decided by ADR-033
+
+Amendment, appended: `ConfigT` is bound by `AppConfig`, a `BaseSettings`, since ADR-033; the
+framework reads the environment through it.
 
 ## Context
 

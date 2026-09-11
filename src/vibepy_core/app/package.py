@@ -94,8 +94,8 @@ def describe_app(ref: AppRef, /) -> AppDescription:
 def load_app(app_name: str, /) -> AppEntrypoint[object, AppConfig]:
     """Load the App this interpreter's environment declares under `app_name`.
 
-    This imports, so it belongs in the App's own environment: `serve` and
-    `invoke` call it there, and a host reaches it only through them.
+    This imports, so it belongs in the App's own environment: `serve`, `invoke`
+    and `mcp` call it there, and a host reaches it only through them.
 
     Raises:
         AppNotDeclaredError: nothing in this environment declares `app_name`.

@@ -22,7 +22,8 @@ in which an App is constructed but not running, and no transition to validate. S
 
 Each channel opens its own window, and neither depends on the other. The host that opens a window
 is the channel's own host. The Agent channel's window is opened by the MCP SDK, which enters the
-lifespan inside `run()`; over stdio the client launches one server process, so that window is the
+lifespan inside `run()`; over stdio the client launches one server process —
+`python -m vibepy_core.mcp`, which `docs/architecture/packaging.md` owns — so that window is the
 process. The Web channel's window is opened by the ASGI server inside the process the package
 layer starts. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`.
@@ -77,8 +78,10 @@ what commands exist for it.
 
 Operations such as install, remove, upgrade, and version migration belong to the package/Hub
 control plane. The Hub also opens the Web channel's window, which it does by running
-`python -m vibepy_core.serve` with the App environment's interpreter; starting and stopping an App
-is starting and stopping that process, and no window is reached from outside itself. See
+`python -m vibepy_core.serve` with the App environment's interpreter, handing that process the
+App's configuration through its environment (`docs/architecture/packaging.md`); starting and
+stopping an App is starting and stopping that process, and no window is reached from outside
+itself. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` and
 `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
 

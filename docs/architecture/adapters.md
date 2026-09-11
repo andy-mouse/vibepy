@@ -37,9 +37,10 @@ its call resolves in. The ToolRuntime a call goes through is read from the SDK's
 request context, which carries whatever the lifespan yielded, so the adapter holds no running
 state of its own.
 
-The adapter builds an SDK server object; it does not run one. Over stdio the agent platform
-owns the server process, so the executable entrypoint is package metadata rather than part
-of the runtime lifecycle. See
+The adapter builds an SDK server object; it does not run one. `vibepy_core.mcp` is the command
+that runs it over stdio, and `docs/architecture/packaging.md` owns it. Over stdio the agent
+platform owns the server process, so the executable entrypoint is package metadata rather than
+part of the runtime lifecycle. See
 `docs/decisions/ADR-010-agent-platform-owns-the-mcp-process.md`.
 
 ## NiceGUI Adapter

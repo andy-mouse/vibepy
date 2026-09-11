@@ -155,8 +155,8 @@ API section below states the change.
 
 `serve` and `invoke` take the environment as their configuration channel. Their stdin
 configuration is **deprecated, not removed**: a `config` object on stdin is still read and handed
-to the window as explicit values — above the environment, in the library's order — and logs one
-deprecation record when it is non-empty. `invoke`'s stdin keeps its shape,
+to the window as explicit values — above the environment, in the library's order — and emits one
+`DeprecationWarning` when it is non-empty. `invoke`'s stdin keeps its shape,
 `{"config": {...}, "input": {...}}`; `input` is per-call data and stays where it is. The
 `packaging.md` contract is edited accordingly and names the deprecation; removal is a later
 milestone's.

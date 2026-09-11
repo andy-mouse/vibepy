@@ -1,6 +1,9 @@
 # ADR-026: The Web window is the served application's own lifespan
 
-Status: Accepted
+Status: Accepted; the stdin configuration sentence superseded by ADR-033
+
+Amendment, appended: `serve` reads its configuration from the environment since ADR-033, and the
+standard input this record names is deprecated.
 
 ## Context
 
