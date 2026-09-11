@@ -1,6 +1,5 @@
 """Opening and closing an installed App's Web channel."""
 
-import logging
 from collections.abc import Sequence
 
 from vibepy_core.errors import ErrorCategory
@@ -16,9 +15,7 @@ from vibepy_studio.consumption.internals import (
     read_state,
 )
 from vibepy_studio.consumption.models import AppName, RunningApp, StartRequest
-from vibepy_studio.models import Diagnostic
-
-logger = logging.getLogger(__name__)
+from vibepy_studio.models import Diagnostic, category
 
 
 def _refusal(
@@ -44,15 +41,6 @@ def _refusal(
             code=code, category=category, message=message, details={"app_name": app_name}
         ),
     )
-
-
-def _category(reported: str, /) -> ErrorCategory:
-    """Return the category a child named, or execution when it named one we do not know."""
-    try:
-        return ErrorCategory(reported)
-    except ValueError:
-        logger.debug("a child reported an unknown category: %s", reported)
-        return ErrorCategory.EXECUTION
 
 
 async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> RunningApp:
@@ -127,7 +115,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
             url=where,
             diagnostic=Diagnostic(
                 code=reported.code,
-                category=_category(reported.category),
+                category=category(reported.category),
                 message=reported.message,
                 details={"app_name": payload.app_name, **reported.details},
             ),

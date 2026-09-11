@@ -13,7 +13,8 @@ import asyncio
 import json
 import logging
 import os
-from collections.abc import Mapping
+import shutil
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -115,7 +116,69 @@ def _reported(path: Path, /) -> ChildFailure | None:
         written = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
-    for line in reversed(written.splitlines()):
+    return reported(written)
+
+
+def child_environment() -> dict[str, str]:
+    """Return the environment a started App is entitled to."""
+    return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
+
+
+@dataclass(frozen=True)
+class Completed:
+    """What one finished child left: its exit code and both streams, decoded."""
+
+    returncode: int
+    stdout: str
+    stderr: str
+
+
+class NotRunnable(Exception):
+    """The program a command names is neither on PATH nor a file."""
+
+    def __init__(self, program: str) -> None:
+        """Record `program` for the message."""
+        super().__init__(f"{program} is not available")
+        self.program = program
+
+
+def is_runnable(program: str, /) -> bool:
+    """Whether a program is on PATH or is itself a file, as an environment's Python is."""
+    return shutil.which(program) is not None or Path(program).is_file()
+
+
+async def run(command: Sequence[str], /, *, stdin: str | None = None) -> Completed:
+    """Run one command to completion and return what it left.
+
+    Every child receives `child_environment()`, so what describes Studio's own
+    process describes no child. Both streams are read apart: a reader that wants
+    them merged joins them, and one that wants a report finds it on standard error.
+    """
+    if not await asyncio.to_thread(is_runnable, command[0]):
+        raise NotRunnable(command[0])
+    process = await asyncio.create_subprocess_exec(
+        *command,
+        stdin=asyncio.subprocess.DEVNULL if stdin is None else asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        env=child_environment(),
+    )
+    out, err = await process.communicate(None if stdin is None else stdin.encode())
+    return Completed(
+        returncode=process.returncode if process.returncode is not None else 0,
+        stdout=out.decode(errors="replace"),
+        stderr=err.decode(errors="replace"),
+    )
+
+
+def reported(text: str, /) -> ChildFailure | None:
+    """Return the failure a child described in `text`, found by parsing, not position.
+
+    The report is one line among whatever else the child wrote, and a traceback
+    the framework writes after it is as much a part of that output as the report.
+    Scanning in reverse finds the report regardless of what follows it.
+    """
+    for line in reversed(text.splitlines()):
         try:
             parsed = _FAILURE.validate_json(line)
         except ValidationError:
@@ -127,11 +190,6 @@ def _reported(path: Path, /) -> ChildFailure | None:
             details=parsed.details,
         )
     return None
-
-
-def child_environment() -> dict[str, str]:
-    """Return the environment a started App is entitled to."""
-    return {name: value for name, value in os.environ.items() if name not in DESCRIBES_THIS_PROCESS}
 
 
 @dataclass

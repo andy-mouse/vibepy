@@ -12,13 +12,18 @@ from pathlib import Path
 import pytest
 
 from tests_support import free_port
+from vibepy_core import ErrorCategory
 from vibepy_studio.consumption.internals import interpreter
 from vibepy_studio.internals.processes import (
     AlreadyStarted,
+    NotRunnable,
     Processes,
     StartFailed,
     _reported,  # pyright: ignore[reportPrivateUsage]
+    reported,
+    run,
 )
+from vibepy_studio.models import category
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -170,3 +175,45 @@ def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None
 
     assert failure is not None
     assert failure.code == "config.invalid"
+
+
+async def test_run_returns_both_streams_and_the_exit_code() -> None:
+    completed = await run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; print('out'); print('err', file=sys.stderr); sys.exit(3)",
+        ]
+    )
+    assert completed.returncode == 3
+    assert completed.stdout.strip() == "out"
+    assert completed.stderr.strip() == "err"
+
+
+async def test_run_hands_the_child_standard_input() -> None:
+    completed = await run(
+        [sys.executable, "-c", "import sys; print(sys.stdin.read().upper())"], stdin="hello"
+    )
+    assert completed.stdout.strip() == "HELLO"
+
+
+async def test_run_refuses_a_program_that_is_not_there() -> None:
+    with pytest.raises(NotRunnable):
+        await run(["no-such-program-anywhere"])
+
+
+def test_reported_reads_the_last_report_among_other_lines() -> None:
+    text = (
+        'noise\n{"code": "tool.not_found", "category": "caller", "message": "m",'
+        ' "details": {}}\nTraceback\n'
+    )
+    found = reported(text)
+    assert found is not None
+    assert found.code == "tool.not_found"
+    assert found.category == "caller"
+    assert reported("nothing here") is None
+
+
+def test_category_of_a_report_the_framework_does_not_know_is_execution() -> None:
+    assert category("caller") == ErrorCategory.CALLER
+    assert category("weird") == ErrorCategory.EXECUTION

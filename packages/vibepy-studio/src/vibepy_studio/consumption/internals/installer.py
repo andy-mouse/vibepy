@@ -19,6 +19,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from vibepy_core import AppRef, discover_apps
 from vibepy_studio.consumption.models import AppFacts
+from vibepy_studio.internals.processes import NotRunnable, run
 
 logger = logging.getLogger(__name__)
 
@@ -89,23 +90,16 @@ async def purelib(env: Path, /) -> Path:
     return Path(written.strip())
 
 
-def _is_runnable(program: str, /) -> bool:
-    """Whether a program is on PATH or is itself a file, as an env's Python is."""
-    return shutil.which(program) is not None or Path(program).is_file()
-
-
 async def _run(command: Sequence[str], /) -> str:
     """One command, its output, and a failure that says which step it was."""
-    if not await asyncio.to_thread(_is_runnable, command[0]):
-        raise InstallFailed(command[0], f"{command[0]} is not available")
-    process = await asyncio.create_subprocess_exec(
-        *command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.STDOUT
-    )
-    output, _ = await process.communicate()
-    written = output.decode(errors="replace")
-    if process.returncode != 0:
+    try:
+        completed = await run(command)
+    except NotRunnable as absent:
+        raise InstallFailed(command[0], str(absent)) from absent
+    written = completed.stdout + completed.stderr
+    if completed.returncode != 0:
         raise InstallFailed(" ".join(command[:2]), written.strip())
-    return written
+    return completed.stdout
 
 
 async def install(*, wheel: Path, source: Path, env: Path) -> None:
