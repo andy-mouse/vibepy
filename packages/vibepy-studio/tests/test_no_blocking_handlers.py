@@ -52,25 +52,28 @@ ALLOWED_IMPORTS = frozenset(
         "vibepy_studio.internals",
     }
 )
-"""What a Tool module may import.
+"""What a Tool module may import: a closed list, not a filtered one.
 
 `docs/architecture.md` puts an App's filesystem, process and metadata work in
 its internals, and `AGENTS.md` has a handler reach them through its ToolContext.
-So the surface is closed rather than filtered: a blocking function cannot arrive
-here, because the module holding it is not on this list. Widening it is a
-decision about the architecture, which is why it is spelled out and not derived.
+So this list admits only modules that cannot carry a blocking call into a
+handler: the standard library's own non-blocking parts, pure parsing and
+modelling libraries, the framework's Tool and error vocabulary, a framework
+module holding one constant and nothing else, Studio's own models, and the two
+roles' internals packages -- of which the shared one,
+`vibepy_studio.internals`, exports only async operations and pure functions
+over text already read.
+
 `vibepy_core` itself is not on the list: its root package re-exports
 `discover_apps`, `describe_app` and `load_app`, all blocking, so a bare
-`vibepy_core` import would defeat the guard.
+`vibepy_core` import would defeat the guard. Neither is
+`vibepy_core.app.package`, which holds them.
 
-The authoring role widens it: `asyncio` to wrap blocking calls (the very
-mechanism the guard exists for), `json` to serialise a request (no I/O),
-`importlib.metadata` only behind `asyncio.to_thread`, `pydantic` for
-`TypeAdapter` parsing a child's output (no I/O), `vibepy_studio.authoring.internals`
-and `vibepy_studio.authoring.models`, and `vibepy_studio.internals` for the
-shared runner, which is async, and the shared reader, which is a synchronous
-parse over already-read text with no I/O of its own.
+Widening this is a decision about the architecture, which is why it is spelled
+out and not derived: what earns a place is a module with nothing to block on,
+and a module that has something is made to stop having it instead.
 """
+
 
 BLOCKING_METHODS = frozenset(
     {

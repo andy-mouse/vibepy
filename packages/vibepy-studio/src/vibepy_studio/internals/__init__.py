@@ -9,7 +9,6 @@ from vibepy_studio.internals.processes import (
     Processes,
     StartFailed,
     child_environment,
-    is_runnable,
     reported,
     run,
 )
@@ -24,7 +23,6 @@ __all__ = [
     "StudioDeps",
     "child_environment",
     "describe",
-    "is_runnable",
     "reported",
     "run",
 ]
