@@ -97,29 +97,37 @@ is still dropped as Studio's own rendered configuration.
 ### An App's folder
 
 ```text
-<root>/vibepy-apps/<app>/        the App's folder: install creates it, remove deletes it
-<root>/vibepy-apps/<app>/env/    its virtual environment: update remakes this and only this
-<root>/logs/<app>.log            the Hub's record of the child, as today
+<root>/<app>/             the App's folder: install creates it, remove deletes it
+<root>/<app>/env/         its virtual environment: update remakes this and only this
+<root>/vibepy-studio/     Studio's own folder: logs/, routes/, traefik.yml, state.json
 ```
 
-The folder is named for what it holds — one installed App — and the environment is one thing
-inside it. `installer.environment(root, app_name)` returns `…/vibepy-apps/<app>/env`, and the
-App name is still refused unless the join names a direct child of `vibepy-apps`.
+One rule for the whole root: **a direct child of the root is one distribution's folder, named by
+its canonical distribution name**, and Studio is not an exception to it. Studio's folder is named
+by its own `app_id`, which `entry.py` declares once and hands to `StudioRoot`; nothing writes the
+string a second time. An App's folder is named for what it holds — one installed App — and the
+environment is one thing inside it. `installer.environment(root, app_name)` returns
+`…/<app>/env`, and the App name is still refused unless the join names a direct child of the
+root. The rule is about the folder, not the lifecycle: Studio's folder holds no `env/`, because
+Studio's own environment is wherever whoever installed Studio put it — an installer does not
+install itself, and how Studio is installed is an open decision the owner holds. Because Studio's
+folder exists, an attempt to install a distribution named `vibepy-studio` is refused as already
+installed, which is true.
 
 `install_app` creates the App folder, then the environment inside it. `update_app` removes and
 recreates `env/` and touches nothing beside it. `remove_app` deletes the App folder whole. This
 keeps the existing statement — remove leaves the data an App wrote *elsewhere* — exact: what the
 App wrote inside its own folder is the App's, and goes with it.
 
-Logs stay where they are. A log is the Hub's observation of a child, not the App's output, and it
-must survive `remove_app` so that why an App failed can still be read. Supervisors keep a central
-child-log directory for the same reason.
+Studio's four files move into Studio's folder and change in nothing else. A log is the Hub's
+observation of a child, not the App's output, and it must survive `remove_app` so that why an
+App failed can still be read. Supervisors keep a central child-log directory for the same reason.
 
 The development root `.studio-dev` is recreated, not migrated; the repository is pre-production.
 
 ### The working directory
 
-`Processes.start` runs the child with `cwd=<root>/vibepy-apps/<app>`. `describe` runs there
+`Processes.start` runs the child with `cwd=<root>/<app>`. `describe` runs there
 too when the Hub describes an installed App, so what the Hub runs for an App runs in one place. A relative path an App writes lands in its own folder; the Hub's folder receives nothing.
 
 The folder is not announced to the App. It is the process's working directory, the same fact
@@ -195,8 +203,11 @@ kept by convention, not enforceable by packaging.
 | `vibepy_studio/internals/processes.py` | one function building an App-environment command with `-I`; `DESCRIBES_THIS_PROCESS` without `PYTHON*` |
 | `vibepy_studio/internals/describing.py` | uses it |
 | `vibepy_studio/authoring/tools/invocation.py` | uses it |
-| `vibepy_studio/operating/internals/installer.py` | `vibepy-apps/<app>/env`; App folder created, removed; environment remade alone |
-| `vibepy_studio/operating/internals/root.py` | `app_folder(app_name)`; `remove_app_folder`; `remove_environment` remakes only `env/` |
+| `vibepy_studio/operating/internals/installer.py` | `<app>/env`; App folder created, removed; environment remade alone |
+| `vibepy_studio/operating/internals/root.py` | takes `own` (Studio's `app_id`); `app_folder(app_name)`; `remove_app_folder`; its own files under `<root>/<own>/` |
+| `vibepy_studio/operating/internals/routing.py`, `state.py` | write under the directory they are given, which is now Studio's folder |
+| `vibepy_studio/entry.py` | declares `APP_ID` once; `StudioRoot(path=..., own=APP_ID)`; logs under Studio's folder |
+| `scripts/run_studio.py` | waits for `traefik.yml` in Studio's folder |
 | `vibepy_studio/operating/internals/processes.py` | `cwd`, `stdin=PIPE` held per child, closed on release |
 | `vibepy_studio/operating/tools/installation.py` | remove deletes the folder; update remakes the environment |
 | `vibepy_core/serve.py` | `--until-stdin-closes`; a thread reads stdin to EOF and sets `should_exit` on the running `uvicorn.Server`; `uvicorn.run` becomes `Server(Config(...)).run()` so the server object is reachable |
@@ -208,8 +219,8 @@ No new module. No new public type in `vibepy_core`.
 
 ```text
 start_app
-  → Processes.start(interpreter=<root>/vibepy-apps/<app>/env/bin/python,
-                    cwd=<root>/vibepy-apps/<app>, stdin=PIPE, env=child_environment()+VIBEPY_*)
+  → Processes.start(interpreter=<root>/<app>/env/bin/python,
+                    cwd=<root>/<app>, stdin=PIPE, env=child_environment()+VIBEPY_*)
   → <python> -I -m vibepy_core.serve <app> --port <n> --until-stdin-closes
        serve: load_app → build_web_app → Server.run(); a thread blocks on stdin.read()
   Hub window closes / Hub dies → OS closes the pipe → stdin.read() returns b"" → should_exit
@@ -232,7 +243,7 @@ can and cannot reach of another and of its host):
 - a module planted in a fake user site-packages and in a `PYTHONPATH` directory set on the Hub is
   not importable from a started App, and the Hub's current directory is not on the App's
   `sys.path` — read from Timer's served `/home` Page, which renders `probe` in the running process
-- the relative file each of two Apps writes lands in its own `vibepy-apps/<app>/`, survives
+- the relative file each of two Apps writes lands in its own `<app>/`, survives
   `update_app`, and is gone after `remove_app`
 
 `test_processes.py`: a driver process that starts a child through `Processes` and then blocks is
@@ -245,12 +256,11 @@ launcher's to drop. `test_a_cancelled_start_leaves_no_live_child` and
 ends the command with exit 0 and its lifespan's exit ran; without the flag, the existing test that
 stdin is never waited on stays as it is.
 
-`test_installation.py`, `test_update.py`: paths follow the new layout; update leaves a file beside
-`env/` in place.
+`test_installation.py`, `test_update.py`, `test_addresses.py`, `test_state.py`: paths follow the new layout; update leaves a file beside `env/` in place; `traefik.yml`, `routes/` and `state.json` are read under `vibepy-studio/`.
 
 ## Compatibility
 
-`envs/<app>` becomes `vibepy-apps/<app>/env`; an existing root is recreated. The four commands'
+`envs/<app>` becomes `<app>/env`; an existing root is recreated. The four commands'
 existing arguments are unchanged; `-I` is the launcher's flag, and `--until-stdin-closes` is
 opt-in, so `run_studio.py`, the tests and a terminal user see `serve` behave as before.
 
@@ -268,8 +278,8 @@ opt-in, so `run_studio.py`, the tests and a terminal user see `serve` behave as 
   construction and by `-I`, with the test that proves it; a fourth row for immutability of
   installed files; the `-I` flag in each command's invocation; a channel process ends when its
   standard input closes, when its launcher asked for that
-- `docs/architecture/lifecycle.md`: the App folder layout; the working directory; the Hub's death
-  ends its children
+- `docs/architecture/lifecycle.md`: the root's one rule and the folder layout, Studio's own folder
+  included; the working directory; the Hub's death ends its children
 - `installer.install` docstring: the App's half of the immutability premise
 
 ## Out of scope

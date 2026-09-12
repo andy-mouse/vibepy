@@ -16,7 +16,7 @@
 - Tests are subject-shaped: one file, one subject. `@pytest.mark.integration` on any test that starts a child process or installs a distribution.
 - Standard `logging` only. No `print` outside the fixture App's own output.
 - Commit after each task. Commit messages state why, in the repository's style (a sentence, no `feat:` prefix). End each with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
-- The App folder is `<root>/vibepy-apps/<app>/`, the environment `<root>/vibepy-apps/<app>/env/`, logs stay at `<root>/logs/`.
+- A direct child of the root is one distribution's folder: an App's is `<root>/<app>/` with its environment at `<root>/<app>/env/`; Studio's own is `<root>/vibepy-studio/` (named from `entry.py`'s `APP_ID`, written once) holding `logs/`, `routes/`, `traefik.yml`, `state.json`, and no `env/`.
 - `docs/roadmap.md` is never edited.
 - `run_studio.py` and the fixtures' `pyproject.toml` files are not changed except where a task names them.
 
@@ -32,7 +32,8 @@
 | `src/vibepy_core/serve.py` | `--until-stdin-closes`; runs a `uvicorn.Server` it holds |
 | `fixtures/timer-app/src/timer_app/entry.py` | `probe` Tool; `home` Page renders it |
 | `packages/vibepy-studio/src/vibepy_studio/operating/internals/installer.py` | `app_folder`, `environment` → `…/env`, `remove_app_folder`, `environments` over the new layout |
-| `packages/vibepy-studio/src/vibepy_studio/operating/internals/root.py` | `app_folder`, `remove_app_folder`, `describe` in the App folder |
+| `packages/vibepy-studio/src/vibepy_studio/operating/internals/root.py` | `own`; `app_folder`, `remove_app_folder`, `describe` in the App folder; Studio's files under its own folder |
+| `packages/vibepy-studio/src/vibepy_studio/entry.py` | `APP_ID` written once; wires `own` and the log folder |
 | `packages/vibepy-studio/src/vibepy_studio/operating/internals/processes.py` | `start(..., cwd=)`, `stdin=PIPE` held per child, `--until-stdin-closes` |
 | `packages/vibepy-studio/src/vibepy_studio/operating/tools/installation.py` | `remove_app` deletes the App folder |
 | `packages/vibepy-studio/src/vibepy_studio/operating/tools/runtime.py` | `start_app` passes the App folder as `cwd` |
@@ -449,40 +450,47 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 ---
 
-### Task 4: An App's folder — `vibepy-apps/<app>/env`
+### Task 4: One rule for the root — `<root>/<distribution>/`
 
 **Files:**
 - Modify: `packages/vibepy-studio/src/vibepy_studio/operating/internals/installer.py`
 - Modify: `packages/vibepy-studio/src/vibepy_studio/operating/internals/root.py`
 - Modify: `packages/vibepy-studio/src/vibepy_studio/operating/internals/__init__.py`
 - Modify: `packages/vibepy-studio/src/vibepy_studio/operating/tools/installation.py:264-268`
+- Modify: `packages/vibepy-studio/src/vibepy_studio/entry.py:42-44` and the `AppDefinition(app_id=...)` line
+- Modify: `scripts/run_studio.py:43`
 - Modify: `packages/vibepy-studio/tests/conftest.py:94,115,121`
-- Modify: `packages/vibepy-studio/tests/test_installation.py:32-34,225,268,385`
-- Modify: `packages/vibepy-studio/tests/test_addresses.py:96`
-- Test: `packages/vibepy-studio/tests/test_installation.py`, `packages/vibepy-studio/tests/test_update.py`
+- Modify: `packages/vibepy-studio/tests/test_installation.py:32-34,225,268,385,473,481`
+- Modify: `packages/vibepy-studio/tests/test_addresses.py:72-96,116-139,191,227-228`
+- Modify: `packages/vibepy-studio/tests/test_update.py:73,99`
+- Modify: `packages/vibepy-studio/tests/test_state.py:32,42-51`
+- Test: `packages/vibepy-studio/tests/test_installation.py`, `packages/vibepy-studio/tests/test_update.py`, `packages/vibepy-studio/tests/test_state.py`, `packages/vibepy-studio/tests/test_addresses.py`
 
 **Interfaces:**
-- Produces (installer): `APPS_DIR = "vibepy-apps"`, `ENV_DIR = "env"`; `app_folder(root, app_name, /) -> PurePath` (the name gate, returns `root/vibepy-apps/<app>`); `environment(root, app_name, /) -> PurePath` (= `app_folder(...) / "env"`); `remove_app_folder(folder, /)`; `environments(root)` returns every `vibepy-apps/*/env` that is a directory.
-- Produces (root): `StudioRoot.app_folder(app_name) -> PurePath` (pure), `StudioRoot.remove_app_folder(app_name)`.
+- Produces (entry): `APP_ID = "vibepy-studio"` — the one place the string is written; `AppDefinition(app_id=APP_ID, ...)`; `StudioRoot(path=config.root, own=APP_ID)`; `Processes(logs=config.root / APP_ID / "logs")`.
+- Produces (installer): `ENV_DIR = "env"`; `app_folder(root, app_name, /) -> PurePath` (the name gate, returns `root/<app>`); `environment(root, app_name, /) -> PurePath` (= `app_folder(...) / ENV_DIR`); `remove_app_folder(folder, /)`; `environments(root)` returns every `<root>/*/env` that is a directory — Studio's folder has none, so it is never listed as installed.
+- Produces (root): `StudioRoot.__init__(*, path: Path, own: str)`; `StudioRoot.own_folder` is `path / own` and is what `write_install_config`, `read_state`, `write_state`, `write_route`, `remove_route` are given; `StudioRoot.app_folder(app_name) -> PurePath` (pure); `StudioRoot.remove_app_folder(app_name)`; `prepare` creates `path / own`.
+- `routing.py` and `state.py` are unchanged in code: they already write under the directory they are handed.
 - `install(*, wheel, source, env)` creates `env.parent` first (`mkdir(parents=True, exist_ok=True)`), then `uv venv env`.
 - `remove_environment` still deletes only `env/`.
+- Tests that read Studio's own files pass `root / "vibepy-studio"` to `read_state` / `write_state` and look for `traefik.yml` and `routes/` there. The literal in tests is fine: a test states the layout the spec describes.
 
 - [ ] **Step 1: Write the failing tests** — in `packages/vibepy-studio/tests/test_installation.py` change the helper and add two tests:
 
 ```python
 def environment(root: Path, app_name: str, /) -> Path:
     """Where Studio's declared root holds one App's environment, as the spec describes it."""
-    return root / "vibepy-apps" / app_name / "env"
+    return root / app_name / "env"
 ```
 
-Replace the `envs` literals at the three other lines with `"vibepy-apps" / <name> / "env"` (line 225: `(root / "vibepy-apps" / "todo" / "env").mkdir(parents=True)`; line 268: `assert hub_environment(tmp_path, "todo") == tmp_path / "vibepy-apps" / "todo" / "env"`; line 385 likewise). Add:
+Replace the `envs` literals at the three other lines with `<name> / "env"` (line 225: `(root / "todo" / "env").mkdir(parents=True)`; line 268: `assert hub_environment(tmp_path, "todo") == tmp_path / "todo" / "env"`; line 385 likewise). Add:
 
 ```python
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_removing_an_app_deletes_its_whole_folder(installed: Path) -> None:
     """The folder is the Hub's unit: what the App wrote beside its environment goes with it."""
-    folder = installed / "vibepy-apps" / "vibepy-todo"
+    folder = installed / "vibepy-todo"
     (folder / "scratch.txt").write_text("mine", encoding="utf-8")
 
     async with studio(installed) as tools:
@@ -492,7 +500,7 @@ async def test_removing_an_app_deletes_its_whole_folder(installed: Path) -> None
 
 
 def test_app_folder_is_the_environments_parent(tmp_path: Path) -> None:
-    assert hub_app_folder(tmp_path, "todo") == tmp_path / "vibepy-apps" / "todo"
+    assert hub_app_folder(tmp_path, "todo") == tmp_path / "todo"
     assert hub_environment(tmp_path, "todo").parent == hub_app_folder(tmp_path, "todo")
 ```
 
@@ -501,7 +509,7 @@ Import `app_folder as hub_app_folder` beside `environment as hub_environment` (f
 In `packages/vibepy-studio/tests/test_update.py`, extend `test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_and_route` with, before the update is invoked:
 
 ```python
-    beside = installed / "vibepy-apps" / "vibepy-todo" / "kept.txt"
+    beside = installed / "vibepy-todo" / "kept.txt"
     beside.write_text("kept", encoding="utf-8")
 ```
 
@@ -519,9 +527,6 @@ Expected: FAIL — `ImportError` on `app_folder`, then path assertions against `
 - [ ] **Step 3: Implement** in `installer.py`:
 
 ```python
-APPS_DIR = "vibepy-apps"
-"""Where the root keeps one folder per installed App."""
-
 ENV_DIR = "env"
 """The virtual environment inside an App's folder; update remakes this alone."""
 
@@ -529,11 +534,10 @@ ENV_DIR = "env"
 def app_folder(root: PurePath, app_name: str, /) -> PurePath:
     """Where Studio keeps one App: its environment, and whatever it writes beside it.
 
-    <the existing `environment` docstring, with `envs` read as `vibepy-apps`>
+    <the existing `environment` docstring, with `envs` read as the root>
     """
-    apps = root / APPS_DIR
-    candidate = PurePath(os.path.normpath(apps / app_name))
-    if candidate.parent != apps or candidate.name != app_name:
+    candidate = PurePath(os.path.normpath(root / app_name))
+    if candidate.parent != root or candidate.name != app_name:
         raise AppNameInvalid(app_name)
     return candidate
 
@@ -562,17 +566,35 @@ Change `_environments`:
 
 ```python
 def _environments(root: PurePath, /) -> tuple[PurePath, ...]:
-    apps = Path(root) / APPS_DIR
-    if not apps.is_dir():
+    base = Path(root)
+    if not base.is_dir():
         return ()
     return tuple(
         PurePath(folder / ENV_DIR)
-        for folder in sorted(apps.iterdir())
+        for folder in sorted(base.iterdir())
         if (folder / ENV_DIR).is_dir()
     )
 ```
 
-In `root.py`:
+In `root.py`, the constructor and `prepare` take Studio's own folder, and every operation on
+Studio's own files is given that folder rather than the root:
+
+```python
+    def __init__(self, *, path: Path, own: str) -> None:
+        """Own `path`; keep Studio's own files under `path / own`, one distribution's folder like any App's."""
+        self._path = path
+        self._own = path / own
+        self._state_lock = asyncio.Lock()
+
+    async def prepare(self, *, proxy_port: int) -> None:
+        """Make Studio's own folder and write the half of the proxy's configuration a window owns."""
+        await asyncio.to_thread(self._own.mkdir, parents=True, exist_ok=True)
+        await write_install_config(self._own, proxy_port=proxy_port)
+```
+
+and `read_state(self._own)`, `write_state(self._own, changed)`, `write_route(self._own, ...)`,
+`remove_route(self._own, ...)` replace the `self._path` arguments in `state`, `update_state`,
+`write_route`, `remove_route`. App operations keep `self._path`. Then:
 
 ```python
     async def installed(self) -> tuple[str, ...]:
@@ -603,7 +625,38 @@ async def describe(env: PurePath, /, *, cwd: PurePath | None = None) -> tuple[Ap
         described = await describe_with([str(interpreter(env))], cwd=cwd)
 ```
 
-Export `app_folder`, `remove_app_folder`, `APPS_DIR`, `ENV_DIR` from `operating/internals/__init__.py` (add to the import and to `__all__`, sorted).
+Export `app_folder`, `remove_app_folder`, `ENV_DIR` from `operating/internals/__init__.py` (add to the import and to `__all__`, sorted).
+
+In `entry.py`:
+
+```python
+APP_ID = "vibepy-studio"
+"""Studio's identity: its app_id, its MCP server name, and the name of its own folder under the root."""
+...
+    root = StudioRoot(path=config.root, own=APP_ID)
+    await root.prepare(proxy_port=config.proxy_port)
+    processes = Processes(logs=config.root / APP_ID / "logs")
+...
+STUDIO_APP: AppDefinition[StudioDeps, StudioConfig] = AppDefinition(
+    app_id=APP_ID,
+```
+
+In `scripts/run_studio.py:43`: `install_config = root / "vibepy-studio" / "traefik.yml"` — the script is outside the package and states the layout like a test does.
+
+In the tests: every `read_state(installed)` / `read_state(root)` / `write_state(root, ...)` becomes `read_state(installed / "vibepy-studio")` etc.; `root / "traefik.yml"` → `root / "vibepy-studio" / "traefik.yml"`; `root / "routes"` → `root / "vibepy-studio" / "routes"` (also inside the `config["providers"]["file"]["directory"]` assertion at `test_addresses.py:124`). Add to `test_installation.py`:
+
+```python
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_studios_own_folder_is_not_an_installed_app(installed: Path) -> None:
+    """One rule for the root, and Studio is not an exception to it: its folder has no `env/`,
+    so it is neither listed nor startable, and installing it is refused as already there."""
+    assert (installed / "vibepy-studio" / "state.json").is_file()
+    async with studio(installed) as tools:
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
+        assert isinstance(listed, AppListing)
+        assert "vibepy-studio" not in {row.app_name for row in listed.apps}
+```
 
 In `installation.py`, `remove_app`:
 
@@ -617,11 +670,13 @@ In `installation.py`, `remove_app`:
 The three `remove_environment` calls in `_install_offered` and the one in `update_app` stay: a failed install or an update removes the environment, and the folder is the App's.
 
 In `conftest.py`:
-- line 94: `envs/` → `vibepy-apps/`
-- line 115: `if Path(directory) != template_root / "vibepy-apps":`
-- line 121: `for recorded in root.glob(f"vibepy-apps/*/env/{FACTS_FILE}"):`
+- line 94: `envs/` → ``
+- line 115: `if Path(directory) != template_root :`
+- line 121: `for recorded in root.glob(f"*/env/{FACTS_FILE}"):`
 
-In `test_addresses.py:96`: `env = (root / "vibepy-apps" / "vibepy-todo" / "env").is_dir()`.
+In `test_addresses.py:96`: `env = (root / "vibepy-todo" / "env").is_dir()`.
+
+Also in `installer.py`, remove the `APPS_DIR` constant from the plan's earlier draft: App folders are direct children of the root, so `app_folder` computes `root / app_name` and the gate compares `candidate.parent != root`.
 
 - [ ] **Step 4: Run the Studio suite**
 
@@ -633,8 +688,8 @@ Expected: PASS. If `test_a_traversing_app_name_deletes_nothing` fails, the gate 
 Run: `rm -rf .studio-dev` (confirm with the owner first if the directory holds anything but fixture installs) and `make lint typecheck test`.
 
 ```bash
-git add packages/vibepy-studio/src packages/vibepy-studio/tests
-git commit -m "An installed App has a folder of its own, vibepy-apps/<app>, and its environment lives inside it: the folder is what remove deletes and what the App's process will stand in, and env/ is what update remakes, so what an App writes beside its environment survives a new version
+git add packages/vibepy-studio/src packages/vibepy-studio/tests scripts/run_studio.py
+git commit -m "One rule for the root: a direct child is one distribution's folder. An App's holds env/ — what update remakes — and whatever the App writes beside it, which remove takes with it; Studio's own folder, named by its app_id, holds its state, routes and logs and no environment, because an installer does not install itself
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -868,7 +923,7 @@ Run: `make lint typecheck test`
 
 ```bash
 git add packages/vibepy-studio/src/vibepy_studio/operating/internals/processes.py packages/vibepy-studio/src/vibepy_studio/operating/tools/runtime.py packages/vibepy-studio/tests/test_processes.py
-git commit -m "A started App stands in its own folder and holds a pipe from the Hub: its working directory is vibepy-apps/<app>, and its standard input is what the Hub's death closes, so the child leaves with the window that started it — ADR-020 implemented for the case where the Hub runs no cleanup
+git commit -m "A started App stands in its own folder and holds a pipe from the Hub: its working directory is <app>, and its standard input is what the Hub's death closes, so the child leaves with the window that started it — ADR-020 implemented for the case where the Hub runs no cleanup
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
@@ -1015,7 +1070,7 @@ async def test_an_app_sees_neither_the_hubs_python_path_nor_its_directory(
 
     assert "importable=False" in body
     assert f"path={planted}" not in body
-    assert f"cwd={installed / 'vibepy-apps' / 'vibepy-timer'}" in body
+    assert f"cwd={installed / 'vibepy-timer'}" in body
 
 
 @pytest.mark.apps("vibepy-todo", "vibepy-timer")
@@ -1023,8 +1078,8 @@ async def test_an_app_sees_neither_the_hubs_python_path_nor_its_directory(
 async def test_what_an_app_writes_beside_itself_is_its_own(tmp_path: Path, installed: Path) -> None:
     """Timer writes `probe.txt` where it stands; it lands in Timer's folder, not
     the Hub's directory and not Todo's folder, and leaves with Timer."""
-    timer = installed / "vibepy-apps" / "vibepy-timer"
-    todo = installed / "vibepy-apps" / "vibepy-todo"
+    timer = installed / "vibepy-timer"
+    todo = installed / "vibepy-todo"
 
     async with studio(installed) as tools:
         await _start(tools, "vibepy-timer")
@@ -1076,11 +1131,11 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 3: `packaging.md`**
   - Running a channel: after the command block, one paragraph: the Hub runs it as `python -I -m vibepy_core.serve … --until-stdin-closes` from the App's folder; `-I` is what keeps the App's `sys.path` its own, cite the Python docs sentence; `--until-stdin-closes` is ADR-039's flag and what it means. Same `-I` note in The self-description command and Invoking one Tool: "Studio runs this isolated (`-I`); see Running a channel."
-  - The isolation invariant: rewrite the third row's Enforced-by to "the installation model, kept by construction: the Hub creates `vibepy-apps/<app>/env` per App with `uv venv`, runs the App's interpreter with `-I`, and `packages/vibepy-studio/tests/test_isolation.py` proves a module planted on the Hub does not reach an App. Python packaging cannot enforce it; nothing stops two Apps being installed into one environment by hand." Remove "M17 owns hardening it". Add a fourth row: "installed files are immutable | a contract of the App and the Hub: the Hub never writes inside an environment, and an App does not modify its installed files in place. `uv pip install --link-mode hardlink` shares the cache's inodes with every environment for the measured reason in `installer.install`, and sharing is correct exactly as long as this holds. Not enforceable by packaging." Add after the table: a sentence that what isolation is against, and what it is not, is ADR-038's.
+  - The isolation invariant: rewrite the third row's Enforced-by to "the installation model, kept by construction: the Hub creates `<app>/env` per App with `uv venv`, runs the App's interpreter with `-I`, and `packages/vibepy-studio/tests/test_isolation.py` proves a module planted on the Hub does not reach an App. Python packaging cannot enforce it; nothing stops two Apps being installed into one environment by hand." Remove "M17 owns hardening it". Add a fourth row: "installed files are immutable | a contract of the App and the Hub: the Hub never writes inside an environment, and an App does not modify its installed files in place. `uv pip install --link-mode hardlink` shares the cache's inodes with every environment for the measured reason in `installer.install`, and sharing is correct exactly as long as this holds. Not enforceable by packaging." Add after the table: a sentence that what isolation is against, and what it is not, is ADR-038's.
   - What a command writes… unchanged. Invariants list: add "a channel process the Hub starts ends when the Hub's window closes or the Hub dies (ADR-039)".
 
 - [ ] **Step 4: `lifecycle.md`**
-  - Package lifecycle, the paragraph that starts "Operations such as install…": after "handing that process the App's configuration through its environment", add: "in the App's own folder, `<root>/vibepy-apps/<app>/`, whose `env/` is the App's virtual environment. The folder is the unit `remove_app` deletes and `update_app` remakes `env/` inside; the child's standard error goes to `<root>/logs/<app>.log`, which is the Hub's record and survives removal. The Hub holds the child's standard input, and the child leaves when that closes — with the window, or with a Hub that died (ADR-039)."
+  - Package lifecycle, the paragraph that starts "Operations such as install…": after "handing that process the App's configuration through its environment", add: "in the App's own folder, `<root>/<app>/`, whose `env/` is the App's virtual environment. The folder is the unit `remove_app` deletes and `update_app` remakes `env/` inside; the child's standard error goes to `<root>/vibepy-studio/logs/<app>.log`, which is the Hub's record and survives removal. The Hub holds the child's standard input, and the child leaves when that closes — with the window, or with a Hub that died (ADR-039)."
   - This layer's capabilities table, `install_app, update_app, remove_app` row: "a folder of its own per App, holding an environment: created, the environment remade at a newer version, the folder destroyed". The sentence "An update keeps what the Hub holds for an App — its configuration values, its port, its route — and remakes only the environment" gains "and what the App wrote beside its environment".
 
 - [ ] **Step 5: `installer.install` docstring** — after "The Hub never writes inside an environment it installed, which is what makes sharing an inode with the cache safe.", add: "The other half of that premise is the App's: an App does not modify its installed files in place, as pnpm's and Nix's stores assume of what they link. `docs/architecture/packaging.md` states it as a row of the isolation invariant."
@@ -1110,7 +1165,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Docstring convention** — every new or changed public function, class and module docstring states what it does and why, in the repository's voice (see any neighbour); no docstring restates a signature. Fix in place.
 
-- [ ] **Step 2: Structural audit** — for each: is there a second copy of something that already existed (`-I` written anywhere but `python_command`; a `vibepy-apps` literal anywhere but `installer.APPS_DIR` and tests; an `envs` left behind)? Run `grep -rn '"-I"\|vibepy-apps\|"envs"' src packages/vibepy-studio/src fixtures scripts` and resolve every hit outside its owner.
+- [ ] **Step 2: Structural audit** — for each: is there a second copy of something that already existed (`-I` written anywhere but `python_command`; a the root literal anywhere but `installer.APPS_DIR` and tests; an `envs` left behind)? Run `grep -rn '"-I"\|vibepy-studio\|"envs"' src packages/vibepy-studio/src fixtures scripts` and resolve every hit outside its owner.
 
 - [ ] **Step 3: The whole gate, twice**
 
@@ -1121,7 +1176,7 @@ Expected: green both times. Record the macOS wall time of `make test` before and
 
 ```bash
 git add -A
-git commit -m "M17 convention pass: docstrings say why, and -I, vibepy-apps and env each have one owner
+git commit -m "M17 convention pass: docstrings say why, and -I, <root> and env each have one owner
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ```
