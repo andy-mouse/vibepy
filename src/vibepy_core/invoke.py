@@ -6,6 +6,11 @@ through ToolRuntime, and closes the window. It is how a host that must not impor
 an App verifies that a Tool behaves. Its configuration is the environment's
 (`docs/architecture/packaging.md`, Configuration); standard input carries one
 JSON object of `input`, the Tool's own per-call data.
+
+`vibepy_core.invoke` is a host that opens a window on behalf of another host, so
+channel and principal are its arguments and are required. Its trust model is
+stdio's: whoever can run it already holds the App's environment, so naming a
+principal there is no escalation. Its stdin keeps its shape.
 """
 
 import argparse
@@ -47,13 +52,19 @@ class InvocationRequest(BaseModel):
 
 
 async def _invoke(
-    entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: InvocationRequest, /
+    entrypoint: AppEntrypoint[object, AppConfig],
+    tool_name: str,
+    request: InvocationRequest,
+    /,
+    *,
+    channel: Channel,
+    principal: Principal,
 ) -> BaseModel:
     """Open the window, invoke once, close the window."""
     async with tool_runtime_for(
-        entrypoint.definition, entrypoint.lifespan, config={}, channel=Channel.AGENT
+        entrypoint.definition, entrypoint.lifespan, config={}, channel=channel
     ) as runtime:
-        return await runtime.invoke(tool_name, request.input, principal=Principal(id="agent"))
+        return await runtime.invoke(tool_name, request.input, principal=principal)
 
 
 def main(argv: Sequence[str], /) -> int:
@@ -73,7 +84,11 @@ def main(argv: Sequence[str], /) -> int:
     parser = argparse.ArgumentParser(prog="vibepy_core.invoke")
     parser.add_argument("app_name")
     parser.add_argument("tool_name")
+    parser.add_argument("--channel", type=Channel, choices=list(Channel), required=True)
+    parser.add_argument("--principal", required=True)
+    parser.add_argument("--role", action="append", default=[])
     parsed = parser.parse_args(argv)
+    principal = Principal(id=str(parsed.principal), roles=frozenset(str(r) for r in parsed.role))
     try:
         request = InvocationRequest.model_validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
@@ -86,7 +101,15 @@ def main(argv: Sequence[str], /) -> int:
         report(error)
         return 1
     try:
-        result = asyncio.run(_invoke(entrypoint, str(parsed.tool_name), request))
+        result = asyncio.run(
+            _invoke(
+                entrypoint,
+                str(parsed.tool_name),
+                request,
+                channel=parsed.channel,
+                principal=principal,
+            )
+        )
     except Exception as error:
         # The window reports its own failure (ADR-030): any exception the
         # lifespan or handler raises is normalized and written the same way.

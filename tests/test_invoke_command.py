@@ -12,10 +12,30 @@ from vibepy_core import environment_for
 
 
 def run_invoke(
-    app: str, tool: str, request: object, *, config: dict[str, str] | None = None
+    app: str,
+    tool: str,
+    request: object,
+    *,
+    config: dict[str, str] | None = None,
+    channel: str = "agent",
+    principal: str = "tester",
+    roles: tuple[str, ...] = (),
 ) -> subprocess.CompletedProcess[str]:
+    argv = [
+        sys.executable,
+        "-m",
+        "vibepy_core.invoke",
+        app,
+        tool,
+        "--channel",
+        channel,
+        "--principal",
+        principal,
+    ]
+    for role in roles:
+        argv += ["--role", role]
     return subprocess.run(
-        [sys.executable, "-m", "vibepy_core.invoke", app, tool],
+        argv,
         input=json.dumps(request),
         capture_output=True,
         text=True,
@@ -86,6 +106,20 @@ def test_a_request_that_is_not_an_object_is_reported() -> None:
 def test_an_app_this_environment_does_not_declare_is_reported() -> None:
     result = run_invoke("no-such-app", "list_todos", {"input": {}})
     assert reported(result)["code"] == "package.app_not_declared"
+
+
+@pytest.mark.integration
+def test_channel_and_principal_are_required() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "vibepy_core.invoke", "todo-app", "list_todos"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        env=child_environment(),
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "--channel" in result.stderr and "--principal" in result.stderr
 
 
 @pytest.mark.integration

@@ -26,7 +26,7 @@ _OUTPUT = TypeAdapter(dict[str, object])
 """The command writes one JSON object: the Tool's output model, dumped."""
 
 
-async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
+async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
     """Invoke one Tool once through the framework's own window, and return what it said."""
     project = await asyncio.to_thread(locate, payload.project)
     if project is None:
@@ -34,7 +34,18 @@ async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> 
     request = InvocationRequest(input=payload.input).model_dump_json()
     try:
         completed = await run(
-            [*python(project), "-m", "vibepy_core.invoke", payload.app, payload.tool],
+            [
+                *python(project),
+                "-m",
+                "vibepy_core.invoke",
+                payload.app,
+                payload.tool,
+                "--channel",
+                ctx.channel.value,
+                "--principal",
+                ctx.principal.id,
+                *[arg for role in sorted(ctx.principal.roles) for arg in ("--role", role)],
+            ],
             stdin=request,
             env=environment_for(payload.config),
         )
