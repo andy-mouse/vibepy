@@ -8,6 +8,14 @@ the project's own environment for one invocation, so the project's
 `[tool.pyright]`, or pyright's default `standard` mode, applies.
 
 pyright's `--outputjson` is read as the shape it documents; nothing is dropped.
+
+pyright resolves its configuration by walking upward from `-p`'s directory,
+so a project with no `[tool.pyright]` of its own inherits whatever an
+ancestor directory declares -- in this repository, the workspace root's
+`include`, which names every member. `command` therefore also names
+`project` as a positional file argument: pyright analyses only the paths
+given on the command line, whatever configuration -- the project's own or
+an inherited one -- decided how to check them.
 """
 
 import logging
@@ -74,6 +82,7 @@ def command(project: PurePath, /) -> list[str]:
         "pyright",
         "--outputjson",
         "-p",
+        str(project),
         str(project),
     ]
 
