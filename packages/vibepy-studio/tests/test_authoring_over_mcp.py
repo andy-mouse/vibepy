@@ -12,6 +12,7 @@ from mcp.types import TextContent
 
 from tests_support import FIXTURES
 from vibepy_core import environment_for
+from vibepy_studio.authoring.models import AppInspection, Invocation
 from vibepy_studio.internals import child_environment
 
 TODO = FIXTURES / "todo-app"
@@ -64,13 +65,13 @@ async def test_an_inspection_arrives_as_structured_content(tmp_path: Path) -> No
 
     assert inspected.is_error is False
     assert inspected.structured_content is not None
-    apps = inspected.structured_content["apps"]
-    assert [tool["name"] for tool in apps[0]["tools"]] == [
+    inspection = AppInspection.model_validate(inspected.structured_content)
+    assert [tool.name for tool in inspection.apps[0].tools] == [
         "create_todo",
         "list_todos",
         "complete_todo",
     ]
-    assert inspected.structured_content["diagnostic"] is None
+    assert inspection.diagnostic is None
 
 
 @pytest.mark.integration
@@ -80,7 +81,9 @@ async def test_an_expected_failure_arrives_as_structured_data(tmp_path: Path) ->
 
     assert inspected.is_error is False
     assert inspected.structured_content is not None
-    assert inspected.structured_content["diagnostic"]["code"] == "authoring.project_not_found"
+    inspection = AppInspection.model_validate(inspected.structured_content)
+    assert inspection.diagnostic is not None
+    assert inspection.diagnostic.code == "authoring.project_not_found"
 
 
 @pytest.mark.integration
@@ -111,8 +114,9 @@ async def test_the_agents_own_channel_and_principal_reach_the_invoked_tool(tmp_p
 
     assert invoked.is_error is False
     assert invoked.structured_content is not None
-    diagnostic = invoked.structured_content["diagnostic"]
-    assert diagnostic["code"] == "tool.forbidden"
-    assert diagnostic["details"]["reason"] == "role_required"
-    assert diagnostic["details"]["principal"] == "agent"
-    assert diagnostic["details"]["channel"] == "agent"
+    diagnostic = Invocation.model_validate(invoked.structured_content).diagnostic
+    assert diagnostic is not None
+    assert diagnostic.code == "tool.forbidden"
+    assert diagnostic.details["reason"] == "role_required"
+    assert diagnostic.details["principal"] == "agent"
+    assert diagnostic.details["channel"] == "agent"

@@ -86,8 +86,9 @@ demands an answer to every call; the Web channel makes no such demand.
 `docs/architecture/errors.md` describes what the MCP adapter sends.
 
 `build_web_app(definition, lifespan, *, config=…, principal=…)` returns the ASGI application
-those routes are served through, with the running window as that application's own lifespan: a window that refuses
-to open fails the application's startup rather than leaving a server answering for nothing. What
+those routes are served through, with the running window as that application's own lifespan: a
+window that refuses to open fails the application's startup rather than leaving a server
+answering for nothing. What
 the window bounds is the PageRuntime each builder closes over, not the routes themselves — those
 are registered on the Web technology's process-global table and stay there, which is why one
 process serves one App's Pages. See

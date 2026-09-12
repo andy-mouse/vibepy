@@ -107,7 +107,8 @@ operation, addressed by name.
 
 Tool errors are not translated. `ToolNotFoundError`, `ToolForbiddenError`,
 `ToolInputValidationError` and `ToolOutputValidationError` reach the caller of the Page
-unchanged, as does an exception raised by a PageHandler. `docs/architecture/errors.md` carries their codes.
+unchanged, as does an exception raised by a PageHandler. `docs/architecture/errors.md` carries
+their codes.
 
 ### PageContext
 

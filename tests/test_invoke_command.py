@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from expense_app.entry import Decision
+from notes_app.entry import Note
 from test_serve_command import child_environment
 from vibepy_core import ErrorCategory, ErrorInfo, environment_for
 
@@ -164,3 +165,4 @@ def test_the_web_channel_reaches_a_tool_that_declares_no_channels() -> None:
         channel="web",
     )
     assert result.returncode == 0, result.stderr
+    assert Note.model_validate(json.loads(result.stdout)).length == 5
