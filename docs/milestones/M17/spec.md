@@ -291,5 +291,7 @@ opt-in, so `run_studio.py`, the tests and a terminal user see `serve` behave as 
 - CPU, memory or invocation-time limits — M20
 - log rotation — M20
 - a security boundary between Apps — the trust-model ADR
-- how Studio itself is installed, started and addressed in production — an open decision the
-  owner holds
+- how Studio itself is installed, updated and removed — decided as ADR-040 (Proposed) on this
+  branch; its implementation (the bootstrap application, the `gui_scripts` entry point that
+  retires `scripts/run_studio.py`) is a follow-up after M17, and this milestone only builds the
+  root layout that implementation will use
