@@ -27,7 +27,7 @@ from vibepy_core.errors import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AppRef:
     """Where an App is declared. Carries no imported object and no declaration."""
 

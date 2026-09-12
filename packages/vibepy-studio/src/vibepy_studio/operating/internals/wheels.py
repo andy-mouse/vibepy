@@ -21,7 +21,7 @@ from vibepy_core.app.group import APP_GROUP
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Candidate:
     """One installable wheel inside a registered source.
 

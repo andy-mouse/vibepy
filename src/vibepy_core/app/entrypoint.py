@@ -47,7 +47,7 @@ class AppDescription(BaseModel):
     pages: list[PageDescription]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AppEntrypoint[DepsT, ConfigT: AppConfig]:
     """What a package names: one definition and the lifespan that resources it."""
 

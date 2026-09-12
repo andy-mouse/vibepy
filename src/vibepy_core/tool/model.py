@@ -10,7 +10,7 @@ from vibepy_core.channel import Channel
 from vibepy_core.principal import Principal
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ToolContext[DepsT]:
     """Invocation-scoped context. Created by ToolRuntime, never by a channel.
 
@@ -30,7 +30,7 @@ class ToolContext[DepsT]:
     channel: Channel
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
     """Static declaration of a Tool. Both models are required, and so is `read_only`."""
 

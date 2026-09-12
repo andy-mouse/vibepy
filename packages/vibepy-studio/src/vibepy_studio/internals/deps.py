@@ -7,7 +7,7 @@ from pathlib import Path
 from vibepy_studio.internals.processes import Processes
 
 
-@dataclass
+@dataclass(kw_only=True)
 class StudioDeps:
     """Its root directory, its child processes, and the port its proxy listens on."""
 
