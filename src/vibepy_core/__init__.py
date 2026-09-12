@@ -48,7 +48,6 @@ from vibepy_core.errors import (
     report_line,
     to_error_info,
 )
-from vibepy_core.invoke import InvocationRequest
 from vibepy_core.page import (
     Page,
     PageContext,
@@ -62,6 +61,7 @@ from vibepy_core.page import (
 from vibepy_core.principal import Principal
 from vibepy_core.tool import (
     AuthorizationRequest,
+    InvocationRequest,
     Tool,
     ToolContext,
     ToolDefinition,

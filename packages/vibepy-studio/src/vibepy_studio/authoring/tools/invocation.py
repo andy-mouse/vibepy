@@ -8,8 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.config import environment_for
 from vibepy_core.channel import Channel
-from vibepy_core.invoke import InvocationRequest
-from vibepy_core.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.tool import InvocationRequest, Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
 from vibepy_studio.authoring.models import (
     Invocation,

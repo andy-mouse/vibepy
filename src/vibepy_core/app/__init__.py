@@ -18,6 +18,7 @@ from vibepy_core.app.config import (
 from vibepy_core.app.entrypoint import (
     AppDescription,
     AppEntrypoint,
+    DescribedApp,
     PageDescription,
     ToolDescription,
 )
@@ -25,7 +26,6 @@ from vibepy_core.app.group import APP_GROUP
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.app.package import (
     AppRef,
-    DescribedApp,
     describe_app,
     described,
     discover_apps,

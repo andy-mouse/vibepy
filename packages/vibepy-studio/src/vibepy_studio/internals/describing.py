@@ -11,7 +11,7 @@ from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
-from vibepy_core.app.package import DescribedApp
+from vibepy_core.app.entrypoint import DescribedApp
 from vibepy_core.errors import ErrorInfo
 from vibepy_studio.internals.processes import reported, run
 
