@@ -68,27 +68,32 @@ async def _invoke(
 
 
 def main(argv: Sequence[str], /) -> int:
-    """Read a request from standard input and invoke one Tool.
+    """Read a request from standard input and invoke one Tool as the named caller.
 
-    Standard input carries one JSON object of `input`; configuration is the
-    environment's, `VIBEPY_<FIELD>` per declared field.
+    `--channel` and `--principal` are required and `--role` is repeatable: this
+    command stands in for a host, and a host decides both. Standard input
+    carries one JSON object of `input`; configuration is the environment's,
+    `VIBEPY_<FIELD>` per declared field.
 
     Exits 0 with the Tool's output as one JSON object on standard output. Exits 1
-    with one report line on standard error for any failure: a request that is
-    not one JSON object of `input`, an App this environment does not declare or
-    cannot load,
-    configuration the window refuses, a Tool the App does not declare, input or
-    output its models reject, and anything the lifespan or handler raised,
-    which is reported as `app.unhandled`.
+    with one report line on standard error for any failure: arguments argparse
+    refuses exit 2 with its usage instead. The reported failures are a request
+    that is not one JSON object of `input`, an App this environment does not
+    declare or cannot load, configuration the window refuses, a Tool the App
+    does not declare, a Tool this channel and principal may not invoke, input or
+    output its models reject, and anything the lifespan or handler raised, which
+    is reported as `app.unhandled`.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.invoke")
     parser.add_argument("app_name")
     parser.add_argument("tool_name")
     parser.add_argument("--channel", type=Channel, choices=list(Channel), required=True)
     parser.add_argument("--principal", required=True)
-    parser.add_argument("--role", action="append", default=[])
+    parser.add_argument("--role", action="append", default=None)
     parsed = parser.parse_args(argv)
-    principal = Principal(id=str(parsed.principal), roles=frozenset(str(r) for r in parsed.role))
+    principal = Principal(
+        id=str(parsed.principal), roles=frozenset(str(r) for r in (parsed.role or ()))
+    )
     try:
         request = InvocationRequest.model_validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:

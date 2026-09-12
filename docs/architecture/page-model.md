@@ -105,8 +105,8 @@ ToolRuntime satisfies the Protocol structurally, so nothing stands between a Pag
 canonical invocation path. What a Page can reach is what this Protocol declares: one
 operation, addressed by name.
 
-Tool errors are not translated. `ToolNotFoundError`, `ToolInputValidationError` and
-`ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
+Tool errors are not translated. `ToolNotFoundError`, `ToolForbiddenError`,
+`ToolInputValidationError` and `ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
 raised by a PageHandler. `docs/architecture/errors.md` carries their codes.
 
 ### PageContext
@@ -115,10 +115,12 @@ Provides Page-scoped capabilities such as:
 
 - ToolInvoker
 - session state
-- future principal/identity information
 
 Of these, a PageContext currently carries only its ToolInvoker. Session state is owned by
 the Web channel, which is where a session exists.
+
+A Page does not see a principal. The ToolInvoker it receives is already bound to the one the
+render is for, so a Page invokes as that caller and cannot choose another.
 
 It should not expose unrestricted access to the window's internals.
 
@@ -137,15 +139,35 @@ route is the Web channel adapter's.
 
 Resolving a name that was never registered raises `PageNotFoundError`.
 
+### PrincipalToolInvoker
+
+What PageRuntime is constructed over, and what it binds a ToolInvoker from.
+
+```python
+def invoke(
+    name: str, raw_input: Mapping[str, object], /, *, principal: Principal
+) -> Awaitable[BaseModel]: ...
+```
+
+This is `ToolRuntime.invoke`'s signature, which ToolRuntime satisfies structurally, so the Page
+package still imports nothing from the Tool package: `Principal` and `Channel` belong to
+neither and live beside them in `vibepy_core`.
+
 ### PageRuntime
 
-Constructed from a PageRegistry and a ToolInvoker.
+Constructed from a PageRegistry and a PrincipalToolInvoker.
 
-`PageRuntime.render(name)` resolves the Page, creates its PageContext over that invoker, and
-awaits the handler. It holds no per-Page state and does not serialize renders.
+`PageRuntime.render(name, *, principal)` resolves the Page, binds `principal` into a ToolInvoker
+of the unchanged shape, creates the PageContext over it, and awaits the handler. It holds no
+per-Page state and does not serialize renders.
+
+Who a render is for is the render's, not the Page's, which is why `render` takes the principal
+and PageContext does not carry it. `docs/architecture/runtime.md` says why a principal is a
+property of the invocation rather than of the window.
 
 The window supplies its ToolRuntime as the invoker, so a Page reaches the Tools of the App
-whose window it belongs to and no others.
+whose window it belongs to and no others. A Tool the App does not expose on the Web channel, or
+whose roles the render's principal lacks, is refused at ToolRuntime like any other call.
 
 ## Relationship to Tools
 

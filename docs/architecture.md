@@ -68,7 +68,7 @@ The framework owns:
 - channel adapters
 - composition of a channel's running window, and the command that opens one for the Web channel
 - package/runtime boundaries
-- future permission and audit hooks
+- authorization; audit hooks are M15's
 
 The app owns:
 

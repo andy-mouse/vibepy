@@ -76,9 +76,10 @@ own contract already covers. Normalization is not wrapping: `to_error_info` is c
 a channel must render an answer, and nowhere else.
 
 An App's own expected failures are not the framework's either. An App may publish an expected,
-actionable failure as data inside its own output model, provided it carries `code`, `category`,
-`message` and `details` — the same fields an `ErrorInfo` carries, so one reader parses both.
-The table above stays the framework's, and an App's codes are the App's to publish and document.
+actionable failure as data inside its own output model, and what it publishes is an `ErrorInfo`:
+one type rather than four fields restated, so one reader parses both kinds of failure and
+neither side re-declares the other's shape. The table above stays the framework's, and an App's
+codes are the App's to publish and document.
 See `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
 
 ## What each channel does

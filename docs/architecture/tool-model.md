@@ -43,6 +43,14 @@ Suggested responsibilities:
 - description
 - input model
 - output model
+- `read_only`: whether the operation is side-effect free, required and never defaulted
+- `channels`: the channels the Tool is exposed through, both by default
+- `required_roles`: the roles a caller must hold, empty meaning anyone
+
+A ToolDefinition is a frozen dataclass, not a pydantic model: it holds types and callables and
+stays inside one process. A shape that crosses a process boundary is one pydantic model owned by
+`vibepy_core` — `ToolDescription` is the one a reader outside this process gets, and
+`docs/architecture/packaging.md` owns it.
 
 It also answers with its own JSON Schemas, so every surface that publishes them publishes the
 same ones: `input_schema()` is the input model's validation schema, because an argument mapping
@@ -56,11 +64,7 @@ each of them, so one cannot describe a model the other does not. See
 
 Future metadata may include:
 
-- query / command kind
-- side-effect marker
 - idempotency
-- permissions
-- exposure policy
 - risk classification
 
 Do not add these before a milestone requires them.
@@ -111,14 +115,19 @@ behalf. What the framework guarantees about a name is uniqueness within one App.
 
 ### ToolRuntime
 
-The canonical invocation path for every channel. Constructed from a app id, a ToolRegistry
-and the application-scoped resource the channel's window acquired.
+The canonical invocation path for every channel. Constructed from a app id, a ToolRegistry,
+the application-scoped resource the channel's window acquired, the channel that window
+opened, and the App's own policy if it declares one.
 
-`ToolRuntime.invoke(name, raw_input)` is the whole of it:
+`ToolRuntime.invoke(name, raw_input, *, principal)` is the whole of it:
 
 1. resolve the Tool by name, through ToolRegistry
-2. create the ToolContext, carrying the invocation id and the application-scoped resource
-3. await the Tool
+2. the framework's default policy: the channel against `channels`, the principal's roles
+   against `required_roles`
+3. the App's policy, if it declared one
+4. create the ToolContext, carrying the invocation id, the application-scoped resource, the
+   principal and the channel
+5. await the Tool
 
 Steps that need the declared models belong to the Tool, not to the runtime: input
 validation, the handler call and output validation happen together inside the closure a
@@ -129,7 +138,7 @@ Business logic does not belong in ToolRuntime.
 `invoke` returns the validated output model instance. Serialization belongs to channel adapters.
 
 Framework errors are `ToolNotFoundError`, raised by the registry when no Tool answers to the
-name, and `ToolInputValidationError` and `ToolOutputValidationError`, raised by the Tool.
+name, `ToolForbiddenError`, raised by a policy, and `ToolInputValidationError` and `ToolOutputValidationError`, raised by the Tool.
 Nothing translates them: they reach the caller as raised, as does an exception from a
 handler. A channel adapter decides what its protocol does with them, and
 `docs/architecture/errors.md` carries their codes.
@@ -148,14 +157,63 @@ A useful heuristic: a good Tool should usually satisfy the following.
 4. It does not combine many independent workflows into one opaque operation.
 5. It is natural for a Page to invoke directly.
 
-## Query and command
+## Side-effect semantics
 
-A future version may classify Tools as:
+A Tool declares `read_only`: whether invoking it is free of side effects.
 
-- Query: reads state
-- Command: changes state
+The vocabulary is HTTP's before it is MCP's. RFC 9110 calls a method *safe* when its semantics
+are read-only, and *idempotent* when repeating it has the same effect as making it once
+(<https://www.rfc-editor.org/rfc/rfc9110#section-9.2.1>,
+<https://www.rfc-editor.org/rfc/rfc9110#section-9.2.2>). MCP carries the same two notions onto
+Tools as `readOnlyHint` and `idempotentHint`, the second "meaningful only when `readOnlyHint ==
+false`" (<https://modelcontextprotocol.io/specification/2025-06-18/server/tools>). One field
+therefore crosses protocols without translation, and every channel reads the declaration rather
+than a per-channel restatement of it.
 
-This classification is useful for permissions, confirmations, audit, caching, and UI behavior, but is not required in the first Tool milestone.
+`read_only` is required and has no default: a default would classify a Tool silently, and
+whether an operation writes is the author's statement, not the framework's guess.
+
+`destructive` and `idempotent` are not declared. They qualify a Tool that is not read-only,
+which is the structure the specification gives them, and they join `read_only` when a milestone
+needs them.
+
+`read_only` refuses nothing. It is what a policy, an audit record and the Agent channel's
+projection read; refusal is Authorization's, below.
+
+
+## Authorization
+
+Authorization has two levels. *Operation-level*: may this principal, on this channel, invoke
+this kind of operation at all. *Record-level*: may this principal act on this particular
+record. OWASP separates them the same way, and requires the check to be server-side and per
+request, "for the specific object or functionality being accessed"
+(<https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html>).
+
+The framework owns the first level and decides it in ToolRuntime, before input is validated, so
+a refused caller learns nothing of the input schema and no handler is reachable without the
+decision. The second level is the handler's, reached through `ctx.principal`; its refusals are
+the App's own expected failures and travel as data
+(`docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`). See
+`docs/decisions/ADR-034-authorization-is-operation-level-in-toolruntime.md`.
+
+A `Principal` is an `id` and the roles its host asserts for it. The framework compares roles and
+interprets neither; it names no role of its own, and the host that opens a window decides who
+the principal is. `docs/architecture/runtime.md` owns how a principal and a channel reach an
+invocation.
+
+The framework's default policy is the declaration read back:
+
+- the invoking channel is not in `channels` — refused, reason `not_exposed`
+- `required_roles` is non-empty and disjoint from the principal's roles — refused, reason
+  `role_required`
+
+An App may declare a `ToolPolicy` of its own on its AppDefinition. It runs after the default and
+may only refuse further: an App narrows and never widens, so a defect in an App's policy cannot
+open a Tool the declaration closed. One policy and not a chain —
+`docs/architecture/runtime.md` forbids a middleware framework before a concrete need.
+
+A refusal is `ToolForbiddenError`, whose `details` name the Tool, the principal, the channel and
+the reason. `docs/architecture/errors.md` carries its code.
 
 ## Channel neutrality
 
