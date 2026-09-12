@@ -45,6 +45,7 @@ async def test_authoring_tools_are_discoverable(tmp_path: Path) -> None:
         "inspect_framework",
         "inspect_app",
         "invoke_tool",
+        "validate_app",
     }
 
 
@@ -56,7 +57,12 @@ async def test_read_only_authoring_tools_say_so(tmp_path: Path) -> None:
         tool.name: (tool.annotations.read_only_hint if tool.annotations else None)
         for tool in listed.tools
     }
-    assert hints == {"inspect_framework": True, "inspect_app": True, "invoke_tool": None}
+    assert hints == {
+        "inspect_framework": True,
+        "inspect_app": True,
+        "invoke_tool": None,
+        "validate_app": True,
+    }
 
 
 @pytest.mark.integration

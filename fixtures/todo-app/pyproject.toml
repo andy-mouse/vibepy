@@ -20,3 +20,6 @@ packages = ["src/todo_app"]
 
 [tool.uv.sources]
 vibepy-core = { workspace = true }
+
+[tool.pyright]
+include = ["src"]

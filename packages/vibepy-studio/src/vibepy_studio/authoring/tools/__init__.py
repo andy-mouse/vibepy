@@ -17,7 +17,18 @@ from vibepy_studio.authoring.tools.inspection import (
     inspect_framework,
 )
 from vibepy_studio.authoring.tools.invocation import INVOCATION_TOOLS, invoke_tool
+from vibepy_studio.authoring.tools.validation import VALIDATION_TOOLS, validate_app
 
-AUTHORING_TOOLS: Sequence[Tool[object]] = [*INSPECTION_TOOLS, *INVOCATION_TOOLS]
+AUTHORING_TOOLS: Sequence[Tool[object]] = [
+    *INSPECTION_TOOLS,
+    *INVOCATION_TOOLS,
+    *VALIDATION_TOOLS,
+]
 
-__all__ = ["AUTHORING_TOOLS", "inspect_app", "inspect_framework", "invoke_tool"]
+__all__ = [
+    "AUTHORING_TOOLS",
+    "inspect_app",
+    "inspect_framework",
+    "invoke_tool",
+    "validate_app",
+]
