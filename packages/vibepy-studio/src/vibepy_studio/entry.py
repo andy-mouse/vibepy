@@ -4,7 +4,6 @@ Studio is a platform-tier App. It is built with the framework and depends on it,
 and the framework never depends on Studio.
 """
 
-import asyncio
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -14,8 +13,7 @@ from pydantic import Field
 
 from vibepy_core import AppConfig, AppDefinition, AppEntrypoint
 from vibepy_studio.authoring.tools import AUTHORING_TOOLS
-from vibepy_studio.internals import Processes, StudioDeps
-from vibepy_studio.operating.internals import write_install_config
+from vibepy_studio.operating.internals import Processes, StudioDeps, StudioRoot
 from vibepy_studio.operating.pages.board import BOARD
 from vibepy_studio.operating.tools import HUB_TOOLS
 
@@ -41,11 +39,11 @@ class StudioConfig(AppConfig):
 @asynccontextmanager
 async def studio_lifespan(config: StudioConfig) -> AsyncGenerator[StudioDeps]:
     """Acquire Studio's resource for the life of one window."""
-    await asyncio.to_thread(config.root.mkdir, parents=True, exist_ok=True)
-    await write_install_config(config.root, proxy_port=config.proxy_port)
+    root = StudioRoot(path=config.root)
+    await root.prepare(proxy_port=config.proxy_port)
     processes = Processes(logs=config.root / "logs")
     try:
-        yield StudioDeps(root=config.root, processes=processes, proxy_port=config.proxy_port)
+        yield StudioDeps(root=root, processes=processes, proxy_port=config.proxy_port)
     finally:
         await processes.aclose()
 

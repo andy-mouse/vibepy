@@ -5,14 +5,12 @@ from collections.abc import Sequence
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
 from vibepy_studio.models import diagnostic_of
 from vibepy_studio.operating.internals import (
+    AlreadyStarted,
+    StartFailed,
+    StudioDeps,
     address,
-    environment,
-    installed_facts,
-    interpreter,
-    read_state,
 )
 from vibepy_studio.operating.models import AppName, RunningApp, StartRequest
 
@@ -45,7 +43,7 @@ def _refusal(
 async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> RunningApp:
     """Open one installed App's Web channel on a port of its own."""
     deps = ctx.dependencies
-    facts = await installed_facts(deps.root, payload.app_name)
+    facts = await deps.root.installed_facts(payload.app_name)
     if facts is None:
         return _refusal(
             payload.app_name,
@@ -60,7 +58,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
             category=ErrorCategory.CALLER,
         )
-    state = await read_state(deps.root)
+    state = await deps.root.state()
     held = state.config.get(payload.app_name, {})
     port = state.ports.get(payload.app_name)
     if port is None:
@@ -82,7 +80,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
     try:
         await deps.processes.start(
             app_name=facts.described.app_name,
-            interpreter=interpreter(environment(deps.root, payload.app_name)),
+            interpreter=deps.root.interpreter(payload.app_name),
             config={**held, **payload.secrets},
             known_as=payload.app_name,
             port=port,
@@ -120,7 +118,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
 async def stop_app(ctx: ToolContext[StudioDeps], payload: AppName) -> RunningApp:
     """Stop an App this window started."""
     deps = ctx.dependencies
-    port = (await read_state(deps.root)).ports.get(payload.app_name)
+    port = (await deps.root.state()).ports.get(payload.app_name)
     where = None if port is None else address(payload.app_name, deps.proxy_port)
     if not await deps.processes.stop(payload.app_name):
         return _refusal(

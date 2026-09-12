@@ -10,7 +10,8 @@ import sys
 
 from pydantic import TypeAdapter
 
-from vibepy_core.app.package import DescribedApp, described, discover_apps
+from vibepy_core.app.entrypoint import DescribedApp
+from vibepy_core.app.package import described, discover_apps
 from vibepy_core.errors import VibepyError, report
 
 logger = logging.getLogger(__name__)

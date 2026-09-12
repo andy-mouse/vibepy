@@ -130,6 +130,17 @@ which has one consequence a app author must know: a Tool handler that blocks the
 serializes every channel in its process, and that is exactly the case where ToolRuntime's
 absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
+An App's own internals are where that wrapping belongs, and what an App gives its Tool modules is
+what makes the rule hold rather than a handler remembering it. Two properties say it: every
+operation reachable through `ToolContext.dependencies`, and every operation an App's internals
+export to its Tool modules, is `async` or pure; and a `Path` a Tool's model or such a facade
+carries is passed to an internal that acts on it, never acted on by a method called in the
+handler. Studio is that shape — `StudioRoot` holds its root directory privately and offers
+operations on it, `Processes` does the same for its children, `vibepy_studio.authoring.internals`
+exports `async` operations over a project directory, and authoring's handlers take no dependencies
+at all — so a handler that blocked would be one that
+reached past all of them.
+
 Sources:
 
 - <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>

@@ -1,12 +1,15 @@
-"""Agent-native application framework."""
+"""Agent-native application framework.
+
+The package root is the App author's vocabulary, and an operation a host performs
+is reached at its own module. `docs/architecture/app-model.md`, "The import
+surface", says which is where; ADR-035 says why.
+"""
 
 from vibepy_core.app import (
-    APP_GROUP,
     AppConfig,
     AppDefinition,
     AppDescription,
     AppEntrypoint,
-    AppRef,
     ConfigFieldDescription,
     ConfigFieldType,
     DescribedApp,
@@ -14,12 +17,6 @@ from vibepy_core.app import (
     NoConfig,
     PageDescription,
     ToolDescription,
-    config_fields_of,
-    describe_app,
-    described,
-    discover_apps,
-    environment_for,
-    load_app,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -43,12 +40,7 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
-    read_report_line,
-    report,
-    report_line,
-    to_error_info,
 )
-from vibepy_core.invoke import InvocationRequest
 from vibepy_core.page import (
     Page,
     PageContext,
@@ -62,6 +54,7 @@ from vibepy_core.page import (
 from vibepy_core.principal import Principal
 from vibepy_core.tool import (
     AuthorizationRequest,
+    InvocationRequest,
     Tool,
     ToolContext,
     ToolDefinition,
@@ -72,7 +65,6 @@ from vibepy_core.tool import (
 )
 
 __all__ = [
-    "APP_GROUP",
     "ERROR_CATALOG",
     "AppConfig",
     "AppConfigInvalidError",
@@ -82,7 +74,6 @@ __all__ = [
     "AppEntrypointInvalidError",
     "AppEntrypointUnloadableError",
     "AppNotDeclaredError",
-    "AppRef",
     "AuthorizationRequest",
     "Channel",
     "ConfigFieldDescription",
@@ -122,16 +113,6 @@ __all__ = [
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",
-    "config_fields_of",
-    "describe_app",
-    "described",
-    "discover_apps",
-    "environment_for",
-    "load_app",
     "page_runtime_for",
-    "read_report_line",
-    "report",
-    "report_line",
-    "to_error_info",
     "tool_runtime_for",
 ]

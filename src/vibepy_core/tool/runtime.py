@@ -7,7 +7,7 @@ uniform callable type regardless of the models it declares.
 """
 
 from collections.abc import Awaitable, Callable, Mapping
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
@@ -34,7 +34,9 @@ class Tool[DepsT]:
     would be invariant and no common element type would exist.
 
     Binding happens here rather than in a registry because a declaration is not
-    useful before it is callable, and the erasure has exactly one cause.
+    useful before it is callable, and the erasure has exactly one cause. Both
+    attributes are `Final`: a Tool is bound once and never rebound, which is what
+    makes it contravariant in ``DepsT`` (`docs/architecture/tool-model.md`, Tool).
 
     The output is revalidated from its dump rather than accepted as-is, so a
     result built by ``model_construct`` or mutated after construction cannot pass
@@ -63,8 +65,8 @@ class Tool[DepsT]:
             except ValidationError as error:
                 raise ToolOutputValidationError(definition.name) from error
 
-        self.definition: ToolDefinition[BaseModel, BaseModel] = definition
-        self.bound: BoundTool[DepsT] = bound
+        self.definition: Final[ToolDefinition[BaseModel, BaseModel]] = definition
+        self.bound: Final[BoundTool[DepsT]] = bound
 
 
 class ToolRuntime[DepsT]:

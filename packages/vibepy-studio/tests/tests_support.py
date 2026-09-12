@@ -19,7 +19,7 @@ from vibepy_core.app import AppDescription, DescribedApp
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP
-from vibepy_studio.internals import StudioDeps
+from vibepy_studio.operating.internals import StudioDeps
 
 REPO = Path(__file__).resolve().parents[3]
 FIXTURES = REPO / "fixtures"

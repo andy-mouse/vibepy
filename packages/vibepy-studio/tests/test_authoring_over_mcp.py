@@ -11,7 +11,7 @@ from mcp.client.stdio import StdioServerParameters
 from mcp.types import TextContent
 
 from tests_support import FIXTURES
-from vibepy_core import environment_for
+from vibepy_core.app.config import environment_for
 from vibepy_core.errors import ErrorInfo
 from vibepy_studio.authoring.models import AppInspection, Invocation
 from vibepy_studio.internals import child_environment

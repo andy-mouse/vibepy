@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-from vibepy_studio.internals.files import write_whole
+from vibepy_studio.operating.internals.files import write_whole
 
 logger = logging.getLogger(__name__)
 

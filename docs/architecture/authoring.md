@@ -33,6 +33,12 @@ Authoring is the Agent channel of Studio, the platform-tier App that also carrie
 `docs/decisions/ADR-032-authoring-is-studios-agent-channel.md`. Its capabilities are Tools, so
 they are channel-neutral like every Tool and reach an agent through MCP as any App's Tools do.
 
+Authoring depends on nothing application-scoped: its handlers take `ToolContext[object]` and name
+none of Studio's resources. That is what keeps the two roles apart in the import graph — no module
+under `vibepy_studio/authoring` imports from `vibepy_studio/operating` or the reverse, nothing in
+the shared `vibepy_studio.internals` imports either role, and `entry.py`, the composition root, is
+the one module that imports both.
+
 The App being authored is a source project: a directory holding a `pyproject.toml`, with no wheel
 and no installation. Studio never imports it. It runs the framework's own commands in the
 project's environment — `uv run --project <dir> python -m vibepy_core.describe|invoke` — and

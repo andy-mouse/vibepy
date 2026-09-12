@@ -1,9 +1,9 @@
 import vibepy_core
+import vibepy_core.app
 
 
 def test_public_api_is_exported_from_the_package_root() -> None:
     assert vibepy_core.__all__ == [
-        "APP_GROUP",
         "ERROR_CATALOG",
         "AppConfig",
         "AppConfigInvalidError",
@@ -13,7 +13,6 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "AppEntrypointInvalidError",
         "AppEntrypointUnloadableError",
         "AppNotDeclaredError",
-        "AppRef",
         "AuthorizationRequest",
         "Channel",
         "ConfigFieldDescription",
@@ -53,17 +52,27 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolRegistry",
         "ToolRuntime",
         "VibepyError",
-        "config_fields_of",
-        "describe_app",
-        "described",
-        "discover_apps",
-        "environment_for",
-        "load_app",
         "page_runtime_for",
-        "read_report_line",
-        "report",
-        "report_line",
-        "to_error_info",
+        "tool_runtime_for",
+    ]
+
+
+def test_the_app_subpackage_exports_declarations_and_descriptions() -> None:
+    assert vibepy_core.app.__all__ == [
+        "AppConfig",
+        "AppDefinition",
+        "AppDescription",
+        "AppEntrypoint",
+        "ConfigFieldDescription",
+        "ConfigFieldType",
+        "DescribedApp",
+        "Lifespan",
+        "NoConfig",
+        "PageDescription",
+        "ToolDescription",
+        "page_registry_for",
+        "page_runtime_for",
+        "tool_registry_for",
         "tool_runtime_for",
     ]
 
@@ -71,3 +80,5 @@ def test_public_api_is_exported_from_the_package_root() -> None:
 def test_every_exported_name_is_reachable() -> None:
     for name in vibepy_core.__all__:
         assert hasattr(vibepy_core, name)
+    for name in vibepy_core.app.__all__:
+        assert hasattr(vibepy_core.app, name)

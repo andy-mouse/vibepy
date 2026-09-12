@@ -47,6 +47,19 @@ class AppDescription(BaseModel):
     pages: list[PageDescription]
 
 
+class DescribedApp(BaseModel):
+    """One entry of what `describe` writes: the declaration's identity, and its description.
+
+    It lives beside the `AppDescription` it wraps rather than with the command
+    that transports it, per `docs/architecture/app-model.md` "The import surface".
+    """
+
+    app_name: str
+    distribution: str
+    distribution_version: str
+    description: AppDescription
+
+
 @dataclass(frozen=True, kw_only=True)
 class AppEntrypoint[DepsT, ConfigT: AppConfig]:
     """What a package names: one definition and the lifespan that resources it."""

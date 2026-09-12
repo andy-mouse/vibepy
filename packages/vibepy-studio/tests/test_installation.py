@@ -330,7 +330,9 @@ async def test_a_distribution_declaring_two_apps_is_refused(
             ),
         )
 
-    monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
+    monkeypatch.setattr(
+        "vibepy_studio.operating.internals.root.describe_environment", describes_two
+    )
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
@@ -354,7 +356,7 @@ async def test_a_failed_description_leaves_no_environment_behind(
     async def refuse(env: Path, /) -> Path:
         raise InstallFailed("purelib", "the interpreter did not answer")
 
-    monkeypatch.setattr("vibepy_studio.operating.tools.installation.purelib", refuse)
+    monkeypatch.setattr("vibepy_studio.operating.internals.root.purelib", refuse)
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
@@ -434,7 +436,9 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
             ),
         )
 
-    monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
+    monkeypatch.setattr(
+        "vibepy_studio.operating.internals.root.describe_environment", describes_two
+    )
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)

@@ -4,10 +4,24 @@ from collections.abc import Awaitable
 from dataclasses import dataclass
 from typing import Protocol
 
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, ConfigDict, JsonValue
 
 from vibepy_core.channel import Channel
 from vibepy_core.principal import Principal
+
+
+class InvocationRequest(BaseModel):
+    """What one invocation carries across a process boundary: the Tool's `input`.
+
+    It lives with the Tool vocabulary it is made of rather than with the command
+    that transports it, per `docs/architecture/app-model.md` "The import surface".
+    Any other key is refused rather than ignored, so a request written for a
+    channel the reader does not have fails and says so.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    input: dict[str, JsonValue] = {}
 
 
 @dataclass(frozen=True, kw_only=True)

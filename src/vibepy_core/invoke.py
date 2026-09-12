@@ -20,7 +20,7 @@ import logging
 import sys
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
+from pydantic import BaseModel, ValidationError
 
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.config import AppConfig
@@ -35,20 +35,9 @@ from vibepy_core.errors import (
     report,
 )
 from vibepy_core.principal import Principal
+from vibepy_core.tool import InvocationRequest
 
 logger = logging.getLogger(__name__)
-
-
-class InvocationRequest(BaseModel):
-    """What standard input carries: one JSON object of the Tool's `input`.
-
-    Any other key is refused rather than ignored, so a request written for the
-    configuration channel this command no longer has fails and says so.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    input: dict[str, JsonValue] = {}
 
 
 async def _invoke(

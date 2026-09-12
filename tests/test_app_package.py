@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from todo_app.entry import APP
-from vibepy_core.app import AppRef, describe_app, discover_apps, load_app
+from vibepy_core.app.package import AppRef, describe_app, discover_apps, load_app
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,

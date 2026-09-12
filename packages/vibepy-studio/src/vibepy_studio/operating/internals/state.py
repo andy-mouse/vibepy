@@ -10,13 +10,11 @@ what is read and writes what is stored.
 
 import asyncio
 import logging
-from collections.abc import Callable
 from pathlib import Path
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from vibepy_studio.internals.deps import StudioDeps
-from vibepy_studio.internals.files import write_whole
+from vibepy_studio.operating.internals.files import write_whole
 
 logger = logging.getLogger(__name__)
 
@@ -87,14 +85,3 @@ def _write_state(root: Path, state: HubState, /) -> None:
         staging=root,
         owner_only=True,
     )
-
-
-async def update_state(deps: StudioDeps, change: Callable[[HubState], HubState], /) -> HubState:
-    """Read, change and store the state, with no other call in between.
-
-    The lock is the window's, which is where application-scoped state belongs.
-    """
-    async with deps.state_lock:
-        changed = change(await read_state(deps.root))
-        await write_state(deps.root, changed)
-        return changed

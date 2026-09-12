@@ -1,6 +1,5 @@
 """Invoking one Tool of a project's App, in the project's own environment."""
 
-import asyncio
 import logging
 from collections.abc import Sequence
 
@@ -8,8 +7,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.config import environment_for
 from vibepy_core.channel import Channel
-from vibepy_core.invoke import InvocationRequest
-from vibepy_core.tool import Tool, ToolContext, ToolDefinition
+from vibepy_core.tool import InvocationRequest, Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
 from vibepy_studio.authoring.models import (
     Invocation,
@@ -19,7 +17,7 @@ from vibepy_studio.authoring.models import (
     project_not_found,
     uv_unavailable,
 )
-from vibepy_studio.internals import NotRunnable, StudioDeps, reported, run
+from vibepy_studio.internals import NotRunnable, reported, run
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +25,9 @@ _OUTPUT = TypeAdapter(dict[str, object])
 """The command writes one JSON object: the Tool's output model, dumped."""
 
 
-async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
+async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invocation:
     """Invoke one Tool once through the framework's own window, and return what it said."""
-    project = await asyncio.to_thread(locate, payload.project)
+    project = await locate(payload.project)
     if project is None:
         return Invocation(diagnostic=project_not_found(payload.project, "holds no pyproject.toml"))
     request = InvocationRequest(input=payload.input).model_dump_json()
@@ -69,7 +67,7 @@ async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> I
         return Invocation(diagnostic=environment_failed(project, completed.stdout.strip()))
 
 
-INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [
+INVOCATION_TOOLS: Sequence[Tool[object]] = [
     Tool(
         definition=ToolDefinition(
             name="invoke_tool",

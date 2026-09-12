@@ -1,26 +1,23 @@
-"""What both of Studio's roles share, behind no Tool of its own."""
+"""What both of Studio's roles share, behind no Tool of its own.
 
-from vibepy_studio.internals.deps import StudioDeps
+Only what both use: running one command as a child, and reading what an
+environment declares. A resource one role owns lives with that role, so nothing
+here imports `vibepy_studio.operating` or `vibepy_studio.authoring`.
+"""
+
 from vibepy_studio.internals.describing import DescribeFailed, describe
 from vibepy_studio.internals.processes import (
-    AlreadyStarted,
     Completed,
     NotRunnable,
-    Processes,
-    StartFailed,
     child_environment,
     reported,
     run,
 )
 
 __all__ = [
-    "AlreadyStarted",
     "Completed",
     "DescribeFailed",
     "NotRunnable",
-    "Processes",
-    "StartFailed",
-    "StudioDeps",
     "child_environment",
     "describe",
     "reported",

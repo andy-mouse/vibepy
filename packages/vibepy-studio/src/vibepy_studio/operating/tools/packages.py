@@ -6,13 +6,11 @@ from pathlib import Path
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.internals import StudioDeps
 from vibepy_studio.models import Empty
 from vibepy_studio.operating.internals import (
+    StudioDeps,
     candidates,
-    read_state,
     readable,
-    update_state,
 )
 from vibepy_studio.operating.models import CandidateRow, SourceListing, SourcePath
 
@@ -24,7 +22,7 @@ async def _listing(deps: StudioDeps, /) -> SourceListing:
     it. One fact, one answer: a Tool that stayed silent about it would contradict
     the other about the same source.
     """
-    state = await read_state(deps.root)
+    state = await deps.root.state()
     if state.source is None:
         return SourceListing(source=None, candidates=[])
     if not await readable(state.source):
@@ -58,17 +56,17 @@ async def register_package_source(
     """Offer the wheels in a local folder for installation, replacing the folder before it."""
     deps = ctx.dependencies
     if not await readable(payload.path):
-        state = await read_state(deps.root)
+        state = await deps.root.state()
         return SourceListing(
             source=state.source, candidates=[], diagnostic=_unreadable(payload.path)
         )
-    await update_state(deps, lambda held: held.model_copy(update={"source": payload.path}))
+    await deps.root.update_state(lambda held: held.model_copy(update={"source": payload.path}))
     return await _listing(deps)
 
 
 async def remove_package_source(ctx: ToolContext[StudioDeps], _payload: Empty) -> SourceListing:
     """Stop offering wheels for installation. Installed Apps are unchanged."""
-    await update_state(ctx.dependencies, lambda held: held.model_copy(update={"source": None}))
+    await ctx.dependencies.root.update_state(lambda held: held.model_copy(update={"source": None}))
     return await _listing(ctx.dependencies)
 
 
