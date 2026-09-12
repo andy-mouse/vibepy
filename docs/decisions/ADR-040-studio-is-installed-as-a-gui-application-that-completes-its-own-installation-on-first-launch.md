@@ -32,18 +32,44 @@ Three facts bound the answer:
 The alternatives considered: a console script with sub-commands (`vibepy-studio serve|mcp`) —
 a terminal interface for a GUI application, and exactly what the owner declined; `python -m
 vibepy_studio` — the `__main__` convention, which requires the user to know which interpreter
-holds Studio; a native installer (`.pkg`, `.msi`) — completes installation at install time, at
-the cost of a second distribution form and a build pipeline for it, for a step first launch can
-do.
+holds Studio; a typed `uv tool install` — a terminal for the one step a GUI user meets first;
+packaging Studio itself as a frozen native application (Briefcase as Anki does, or PyInstaller
+with Inno Setup and dmgbuild as Kolibri does) — which freezes Python and every package into the
+bundle, so Studio could no longer update itself from the wheelhouse, and which brings Apple
+signing and notarization into every release; the survey of shipped Python applications behind
+this is in the milestone folder of M17 while it exists, and in git history after.
 
 ## Decision
 
 Studio is distributed as one wheel, `vibepy-studio`, placed in the same folder of wheels the
 operating role installs Apps from, and installed into a tool environment from that folder:
-`uv tool install --find-links <wheelhouse> vibepy-studio`. That command is the one bootstrap step
-outside Studio. It declares one `gui_scripts` entry point, `vibepy-studio`, and no
-`console_scripts`. No package index is consulted for Studio or for Apps; the wheelhouse is the
-one supply of both.
+`uv tool install --find-links <wheelhouse> vibepy-studio`. It declares one `gui_scripts` entry
+point, `vibepy-studio`, and no `console_scripts`. No package index is consulted for Studio or
+for Apps; the wheelhouse is the one supply of both.
+
+That install command is not typed. Beside the wheels, the wheelhouse carries one **bootstrap
+executable per platform** — `install-vibepy-studio` for macOS, `install-vibepy-studio.exe` for
+Windows — built with PyInstaller, one file each, by the CI job that already runs on both
+platforms. Double-clicked, it:
+
+1. takes the folder it was launched from as the wheelhouse — no path is asked for;
+2. runs the `uv` binary it carries (`--add-binary`), so the user's machine needs neither uv nor
+   Python beforehand;
+3. runs `uv tool install --find-links <that folder> vibepy-studio`;
+4. creates a desktop shortcut to the `vibepy-studio` executable — a `.lnk` on Windows, an alias
+   on macOS — and launches Studio, whose first launch does the rest (below).
+
+The bootstrap does one thing once. It is not the application, holds no state, and is not what
+updates or removes Studio. PyInstaller is the freezer because it is the one in general use
+(sixteen million downloads a month against Briefcase's thirty thousand at the time of this
+record) and because a single-file executable is all this step needs; it produces no installer,
+and none is wanted here. Code signing and notarization are not part of this decision.
+
+Where the machine has no route to the internet, uv cannot fetch a Python for the tool
+environment. Whether a Python distribution placed in the wheelhouse can be pointed at
+(`--python` with a path, or `UV_PYTHON_INSTALL_MIRROR`) is verified against uv's documentation
+before implementation and recorded then; the offline case is a requirement of the wheelhouse
+model, not an option.
 
 Launching it completes the installation and opens the Hub:
 
