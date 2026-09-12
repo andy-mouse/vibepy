@@ -19,6 +19,11 @@ class ToolInvoker(Protocol):
     Name included. ToolRuntime satisfies this Protocol structurally, so nothing
     stands between a Page and the canonical invocation path, and the Page package
     still imports no Tool runtime.
+
+    A name the Page did not declare is refused as the call is made, before an awaitable
+    exists: `page.tool_undeclared` surfaces at the call expression, whereas a Tool's own
+    failures surface at the `await`. Under `await ctx.tools.invoke(...)` the two are
+    indistinguishable.
     """
 
     def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
