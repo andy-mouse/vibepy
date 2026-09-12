@@ -9,7 +9,6 @@ nothing of its own to standard output. Its configuration is the environment's,
 
 import argparse
 import asyncio
-import logging
 import sys
 from collections.abc import Sequence
 
@@ -25,6 +24,7 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     report,
 )
+from vibepy_core.logs import configure_logging
 from vibepy_core.principal import Principal
 
 AGENT = Principal(id="agent")
@@ -67,7 +67,7 @@ def main(argv: Sequence[str], /) -> int:
     a window that will not open, which `Server.run` propagates as it enters the
     lifespan. Standard output carries MCP messages and nothing else.
     """
-    logging.basicConfig(stream=sys.stderr, level=logging.ERROR, format="%(message)s")
+    configure_logging()
     parser = argparse.ArgumentParser(prog="vibepy_core.mcp")
     parser.add_argument("app_name")
     parsed = parser.parse_args(argv)
