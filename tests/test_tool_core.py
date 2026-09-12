@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, computed_field
 
 from vibepy_core import Channel, Principal
 from vibepy_core.errors import (
+    ToolChannelsEmptyError,
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
@@ -115,6 +116,21 @@ def complete_todo_tool() -> Tool[TodoStore]:
         ),
         handler=complete_todo,
     )
+
+
+def test_a_tool_exposed_through_no_channel_cannot_be_declared() -> None:
+    """`channels` is where a Tool is reachable; empty has no meaning, unlike empty roles."""
+    with pytest.raises(ToolChannelsEmptyError) as error:
+        ToolDefinition(
+            name="create_todo",
+            description="Create a todo",
+            input_model=CreateTodoInput,
+            output_model=Todo,
+            read_only=False,
+            channels=frozenset(),
+        )
+
+    assert error.value.tool_name == "create_todo"
 
 
 def test_tool_definition_declares_its_models() -> None:
