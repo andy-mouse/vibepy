@@ -59,8 +59,9 @@ Minimal initial metadata:
 - tools
 
 `name` is the identifier the framework addresses a Page by, and it is stable across a
-route change. `route` and `title` are consumed by the Web channel adapter. What a Page declares is validated as the `AppDefinition` holding it is constructed;
-`docs/architecture/app-model.md` owns the rules.
+route change. `route` and `title` are consumed by the Web channel adapter. What a Page declares
+is validated as the `AppDefinition` holding it is constructed; `docs/architecture/app-model.md`
+owns the rules.
 
 ### PageHandler
 
