@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import AGENT, FIXTURES, studio
+from tests_support import AGENT, FIXTURES, broken_project, studio
 from vibepy_core import Channel, ErrorCategory
 from vibepy_studio.authoring.models import AppInspection, InspectRequest
 
@@ -16,7 +16,7 @@ async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: 
             "inspect_app", {"project": str(FIXTURES / "todo-app")}, principal=AGENT
         )
     assert isinstance(inspected, AppInspection)
-    assert inspected.diagnostic is None, inspected.diagnostic
+    assert inspected.diagnostics == [], inspected.diagnostics
     assert [app.app_name for app in inspected.apps] == ["todo-app"]
     todo = inspected.apps[0]
     assert sorted(tool.name for tool in todo.description.tools) == [
@@ -35,9 +35,8 @@ async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) 
         )
     assert isinstance(inspected, AppInspection)
     assert inspected.apps == []
-    assert inspected.diagnostic is not None
-    assert inspected.diagnostic.code == "authoring.project_not_found"
-    assert inspected.diagnostic.category == ErrorCategory.CALLER
+    assert [d.code for d in inspected.diagnostics] == ["authoring.project_not_found"]
+    assert inspected.diagnostics[0].category == ErrorCategory.CALLER
 
 
 @pytest.mark.integration
@@ -53,10 +52,9 @@ async def test_a_project_whose_environment_lacks_the_framework_fails_as_an_envir
     async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
         inspected = await tools.invoke("inspect_app", {"project": str(project)}, principal=AGENT)
     assert isinstance(inspected, AppInspection)
-    assert inspected.diagnostic is not None
-    assert inspected.diagnostic.code == "authoring.environment_failed"
-    assert inspected.diagnostic.category == ErrorCategory.EXECUTION
-    assert "vibepy_core" in inspected.diagnostic.message
+    assert [d.code for d in inspected.diagnostics] == ["authoring.environment_failed"]
+    assert inspected.diagnostics[0].category == ErrorCategory.EXECUTION
+    assert "vibepy_core" in inspected.diagnostics[0].message
 
 
 def test_the_project_a_request_names_reaches_no_file_system() -> None:
@@ -64,3 +62,18 @@ def test_the_project_a_request_names_reaches_no_file_system() -> None:
     request = InspectRequest.model_validate({"project": "/somewhere/a-project"})
 
     assert not hasattr(request.project, "is_dir")
+
+
+@pytest.mark.integration
+async def test_an_invalid_declaration_is_inspected_as_every_violation(tmp_path: Path) -> None:
+    project = broken_project(tmp_path / "broken")
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
+        inspected = await tools.invoke("inspect_app", {"project": str(project)}, principal=AGENT)
+    assert isinstance(inspected, AppInspection)
+    assert inspected.apps == []
+    assert [d.code for d in inspected.diagnostics] == [
+        "app.declaration_invalid",
+        "tool.name_conflict",
+        "page.route_invalid",
+        "page.tool_unresolved",
+    ]

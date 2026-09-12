@@ -23,19 +23,29 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `tool.forbidden` | caller | `ToolForbiddenError` |
 | `tool.cancelled` | interrupted | — |
 | `tool.name_conflict` | declaration | `ToolNameConflictError` |
+| `tool.channels_empty` | declaration | `ToolChannelsEmptyError` |
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
 | `page.route_conflict` | declaration | `PageRouteConflictError` |
 | `page.name_conflict` | declaration | `PageNameConflictError` |
+| `page.tool_unresolved` | declaration | `PageToolUnresolvedError` |
+| `page.tool_undeclared` | caller | `PageToolUndeclaredError` |
 | `config.invalid` | caller | `AppConfigInvalidError` |
 | `package.entrypoint_unloadable` | declaration | `AppEntrypointUnloadableError` |
 | `package.entrypoint_invalid` | declaration | `AppEntrypointInvalidError` |
 | `package.app_not_declared` | caller | `AppNotDeclaredError` |
+| `app.declaration_invalid` | declaration | `AppDefinitionInvalidError` |
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.
 `tool.cancelled` likewise belongs to no class of the framework's: it is `asyncio.CancelledError`,
 which the framework does not wrap, classified when a record or a report is written.
+
+`app.declaration_invalid` carries its members as their own coded exceptions.
+`docs/architecture/app-model.md` owns which rules produce them. `report` writes it as one line
+for the aggregate and then one line per member, so a declaration invalid several ways over is
+several lines rather than one that hides the rest. `authoring.type_error` is Studio's own
+vocabulary, defined in `vibepy_studio/authoring/models.py`, not here.
 
 Two codes are retired and are never reused: `lifecycle.transition_forbidden` and
 `lifecycle.not_running`, whose state machine no longer exists. The `lifecycle` category is

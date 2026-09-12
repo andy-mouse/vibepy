@@ -140,12 +140,17 @@ RENDEZVOUS = AppDefinition(
     tools=[MEET, READ_LOG],
     pages=[
         Page(
-            definition=PageDefinition(name="meeting", route="/meeting", title="Meeting"),
+            definition=PageDefinition(
+                name="meeting", route="/meeting", title="Meeting", tools=frozenset({"meet"})
+            ),
             handler=meeting_page,
         ),
         Page(
             definition=PageDefinition(
-                name="meeting_button", route="/meeting-button", title="Meeting"
+                name="meeting_button",
+                route="/meeting-button",
+                title="Meeting",
+                tools=frozenset({"meet"}),
             ),
             handler=meeting_button_page,
         ),

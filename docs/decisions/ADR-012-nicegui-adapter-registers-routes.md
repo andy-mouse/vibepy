@@ -8,6 +8,10 @@ is separated from running a server — is unaffected; only the sentence describi
 arrival. `docs/architecture/page-model.md` and `docs/architecture/adapters.md` carry the shape as
 it is.
 
+Amendment, appended (ADR-037): route format and uniqueness are validated as the `AppDefinition`
+is constructed, not by the adapter. The decision this record states — registering routes is
+separated from running a server — stands as recorded.
+
 ## Context
 
 The Web server lives inside the app process, unlike a stdio MCP server, so the Web channel

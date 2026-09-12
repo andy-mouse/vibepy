@@ -16,11 +16,7 @@ from pydantic import ValidationError
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.channel import Channel
-from vibepy_core.errors import (
-    AppConfigInvalidError,
-    PageNameConflictError,
-    ToolNameConflictError,
-)
+from vibepy_core.errors import AppConfigInvalidError
 from vibepy_core.page.registry import PageRegistry
 from vibepy_core.page.runtime import PageRuntime
 from vibepy_core.tool.registry import ToolRegistry
@@ -38,16 +34,11 @@ def tool_registry_for[DepsT, ConfigT: AppConfig](
 ) -> ToolRegistry[DepsT]:
     """Fill a ToolRegistry from declarations. Reads no resource.
 
-    Raises:
-        ToolNameConflictError: two declared Tools share a name.
+    Names are unique: the definition refused any other declaration as it was
+    constructed, so this registers and checks nothing.
     """
     registry: ToolRegistry[DepsT] = ToolRegistry()
-    claimed: set[str] = set()
     for tool in definition.tools:
-        name = tool.definition.name
-        if name in claimed:
-            raise ToolNameConflictError(name)
-        claimed.add(name)
         registry.register(tool)
     return registry
 
@@ -55,19 +46,9 @@ def tool_registry_for[DepsT, ConfigT: AppConfig](
 def page_registry_for[DepsT, ConfigT: AppConfig](
     definition: AppDefinition[DepsT, ConfigT], /
 ) -> PageRegistry:
-    """Fill a PageRegistry from declarations. Reads no resource.
-
-    Raises:
-        PageNameConflictError: two declared Pages share a name.
-    """
+    """Fill a PageRegistry from declarations. Reads no resource; the definition already conforms."""
     registry = PageRegistry()
-    claimed: dict[str, str] = {}
     for page in definition.pages:
-        declared = page.definition
-        owner = claimed.get(declared.name)
-        if owner is not None:
-            raise PageNameConflictError(declared.name, owner, declared.route)
-        claimed[declared.name] = declared.route
         registry.register(page)
     return registry
 

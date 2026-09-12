@@ -107,3 +107,91 @@ def test_a_description_says_which_declaration_it_describes(tmp_path: Path) -> No
     assert described.app_name == "todo-app"
     assert described.distribution == "vibepy-todo"
     assert described.distribution_version == "0.1.0"
+
+
+BROKEN_ENTRY = """
+from pydantic import BaseModel
+
+from vibepy_core import (
+    AppDefinition, AppEntrypoint, NoConfig, Page, PageContext, PageDefinition,
+    Tool, ToolContext, ToolDefinition,
+)
+
+
+class Empty(BaseModel):
+    pass
+
+
+async def read(_ctx: ToolContext[None], _payload: Empty) -> Empty:
+    return Empty()
+
+
+async def home(_ctx: PageContext) -> None:
+    return None
+
+
+def tool(name: str) -> Tool[None]:
+    return Tool(
+        definition=ToolDefinition(
+            name=name, description=name, input_model=Empty, output_model=Empty, read_only=True
+        ),
+        handler=read,
+    )
+
+
+def app_definition():
+    return AppDefinition(
+        app_id="broken-app",
+        name="Broken",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[tool("read"), tool("read")],
+        pages=[
+            Page(
+                definition=PageDefinition(
+                    name="home", route="home", title="Home", tools=frozenset({"absent"})
+                ),
+                handler=home,
+            )
+        ],
+    )
+
+
+async def lifespan(_config: NoConfig):
+    yield None
+
+
+APP = AppEntrypoint(definition=app_definition(), lifespan=lifespan)
+"""
+
+
+@pytest.mark.integration
+def test_an_invalid_declaration_is_every_violation_as_its_own_line(tmp_path: Path) -> None:
+    """`validate_app` reads these lines; each is one violation an author can act on."""
+    write_distribution(
+        tmp_path,
+        distribution="broken-app",
+        version="0.1.0",
+        entries=[("broken", "broken_app.entry:APP")],
+    )
+    package = tmp_path / "broken_app"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "entry.py").write_text(BROKEN_ENTRY, encoding="utf-8")
+
+    result = run_describe(tmp_path)
+
+    assert result.returncode == 1
+    reported = [json.loads(line) for line in result.stderr.splitlines() if line.startswith("{")]
+    assert [entry["code"] for entry in reported] == [
+        "app.declaration_invalid",
+        "tool.name_conflict",
+        "page.route_invalid",
+        "page.tool_unresolved",
+    ]
+    assert reported[0]["details"]["count"] == "3"
+    assert reported[3]["details"] == {
+        "page_name": "home",
+        "tool_name": "absent",
+        "reason": "missing",
+    }

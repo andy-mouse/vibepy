@@ -11,6 +11,7 @@ from vibepy_studio.internals.processes import (
     NotRunnable,
     child_environment,
     reported,
+    reports,
     run,
 )
 
@@ -21,5 +22,6 @@ __all__ = [
     "child_environment",
     "describe",
     "reported",
+    "reports",
     "run",
 ]

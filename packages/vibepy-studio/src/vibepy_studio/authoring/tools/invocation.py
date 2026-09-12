@@ -13,11 +13,11 @@ from vibepy_studio.authoring.models import (
     Invocation,
     InvokeRequest,
     environment_failed,
-    from_report,
+    from_reports,
     project_not_found,
     uv_unavailable,
 )
-from vibepy_studio.internals import NotRunnable, reported, run
+from vibepy_studio.internals import NotRunnable, reports, run
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +52,13 @@ async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invoc
         return Invocation(diagnostic=uv_unavailable(project))
     if completed.returncode != 0:
         return Invocation(
-            diagnostic=from_report(
+            diagnostic=from_reports(
                 project,
-                reported(completed.stderr),
+                reports(completed.stderr),
                 (completed.stdout + completed.stderr).strip(),
                 app=payload.app,
                 tool=payload.tool,
-            )
+            )[0]
         )
     try:
         return Invocation(output=_OUTPUT.validate_json(completed.stdout))

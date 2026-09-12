@@ -5,6 +5,22 @@ never wraps one itself (`docs/architecture/runtime.md`).
 """
 
 from vibepy_studio.authoring.internals.framework import framework_version
-from vibepy_studio.authoring.internals.projects import declared_name, locate, python
+from vibepy_studio.authoring.internals.projects import (
+    EnvironmentUnavailable,
+    declared_name,
+    interpreter,
+    locate,
+    python,
+)
+from vibepy_studio.authoring.internals.typechecking import TypecheckFailed, typecheck
 
-__all__ = ["declared_name", "framework_version", "locate", "python"]
+__all__ = [
+    "EnvironmentUnavailable",
+    "TypecheckFailed",
+    "declared_name",
+    "framework_version",
+    "interpreter",
+    "locate",
+    "python",
+    "typecheck",
+]

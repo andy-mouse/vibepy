@@ -45,6 +45,7 @@ async def test_authoring_tools_are_discoverable(tmp_path: Path) -> None:
         "inspect_framework",
         "inspect_app",
         "invoke_tool",
+        "validate_app",
     }
 
 
@@ -56,7 +57,12 @@ async def test_read_only_authoring_tools_say_so(tmp_path: Path) -> None:
         tool.name: (tool.annotations.read_only_hint if tool.annotations else None)
         for tool in listed.tools
     }
-    assert hints == {"inspect_framework": True, "inspect_app": True, "invoke_tool": None}
+    assert hints == {
+        "inspect_framework": True,
+        "inspect_app": True,
+        "invoke_tool": None,
+        "validate_app": True,
+    }
 
 
 @pytest.mark.integration
@@ -72,7 +78,7 @@ async def test_an_inspection_arrives_as_structured_content(tmp_path: Path) -> No
         "list_todos",
         "complete_todo",
     ]
-    assert inspection.diagnostic is None
+    assert inspection.diagnostics == []
 
 
 @pytest.mark.integration
@@ -83,8 +89,7 @@ async def test_an_expected_failure_arrives_as_structured_data(tmp_path: Path) ->
     assert inspected.is_error is False
     assert inspected.structured_content is not None
     inspection = AppInspection.model_validate(inspected.structured_content)
-    assert inspection.diagnostic is not None
-    assert inspection.diagnostic.code == "authoring.project_not_found"
+    assert [d.code for d in inspection.diagnostics] == ["authoring.project_not_found"]
 
 
 @pytest.mark.integration

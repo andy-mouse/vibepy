@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from vibepy_core import Channel, Principal
 from vibepy_core.errors import (
     PageNotFoundError,
+    PageToolUndeclaredError,
     ToolInputValidationError,
     ToolNotFoundError,
     VibepyError,
@@ -36,7 +37,9 @@ class UncalledInvoker:
 
 
 def todos_definition() -> PageDefinition:
-    return PageDefinition(name="todos", route="/todos", title="Todos")
+    return PageDefinition(
+        name="todos", route="/todos", title="Todos", tools=frozenset({"list_todos", "create_todo"})
+    )
 
 
 def test_page_definition_declares_its_metadata() -> None:
@@ -45,6 +48,13 @@ def test_page_definition_declares_its_metadata() -> None:
     assert definition.name == "todos"
     assert definition.route == "/todos"
     assert definition.title == "Todos"
+    assert definition.tools == frozenset({"list_todos", "create_todo"})
+
+
+def test_a_page_definition_requires_its_tools() -> None:
+    """A Page that invokes nothing says so; the framework does not guess."""
+    with pytest.raises(TypeError):
+        PageDefinition(name="todos", route="/todos", title="Todos")  # pyright: ignore[reportCallIssue]
 
 
 def test_page_context_is_immutable() -> None:
@@ -104,7 +114,9 @@ def test_registering_a_name_twice_replaces_the_earlier_page() -> None:
     registry = PageRegistry()
     registry.register(Page(definition=todos_definition(), handler=noop_handler))
     replacement = Page(
-        definition=PageDefinition(name="todos", route="/todo-list", title="Todo list"),
+        definition=PageDefinition(
+            name="todos", route="/todo-list", title="Todo list", tools=frozenset()
+        ),
         handler=noop_handler,
     )
     registry.register(replacement)
@@ -210,7 +222,14 @@ async def test_calling_an_unknown_tool_name_reaches_the_caller_unchanged() -> No
     async def handler(ctx: PageContext) -> None:
         await ctx.tools.invoke("delete_todo", {})
 
-    registry.register(Page(definition=todos_definition(), handler=handler))
+    registry.register(
+        Page(
+            definition=PageDefinition(
+                name="todos", route="/todos", title="Todos", tools=frozenset({"delete_todo"})
+            ),
+            handler=handler,
+        )
+    )
     runtime = build_page_runtime(registry, TodoStore())
 
     with pytest.raises(ToolNotFoundError) as raised:
@@ -261,3 +280,24 @@ async def test_render_binds_the_principal_into_the_pages_invoker() -> None:
     await runtime.render("todos", principal=Principal(id="alice"))
 
     assert recorder.calls == [("list_todos", {}, Principal(id="alice"))]
+
+
+async def test_a_page_may_not_invoke_a_tool_it_did_not_declare() -> None:
+    """The declaration is an allow-list: what the body did not declare, it cannot reach."""
+    recorder = RecordingInvoker()
+    seen: list[PageToolUndeclaredError] = []
+
+    async def handler(ctx: PageContext) -> None:
+        try:
+            await ctx.tools.invoke("remove_todo", {})
+        except PageToolUndeclaredError as error:
+            seen.append(error)
+
+    registry = PageRegistry()
+    registry.register(Page(definition=todos_definition(), handler=handler))
+    runtime = PageRuntime(registry=registry, tools=recorder)
+
+    await runtime.render("todos", principal=Principal(id="alice"))
+
+    assert recorder.calls == []
+    assert [(e.page_name, e.tool_name) for e in seen] == [("todos", "remove_todo")]

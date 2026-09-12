@@ -6,7 +6,7 @@
 
 **Architecture:** Rules move into the declaring dataclasses' `__post_init__` — a value rule on `ToolDefinition`, the cross-declaration rules on `AppDefinition`, which collects every violation and raises one `AppDefinitionInvalidError`. Windows and the NiceGUI adapter stop checking. `report` writes an aggregate as one line per member. Studio adds `validate_app`, which runs `describe` and pyright in the project's environment and wraps each finding in a `Diagnostic` carrying a severity.
 
-**Tech Stack:** Python 3.12+ dataclasses, pydantic 2, pyright (`pyright[nodejs]` via `uv run --with`), pytest (asyncio mode, `integration` marker), NiceGUI testing `User`.
+**Tech Stack:** Python 3.12+ dataclasses, pydantic 2, pyright (Studio's dependency, `uv.lock`-pinned), pytest (asyncio mode, `integration` marker), NiceGUI testing `User`.
 
 Spec: `docs/milestones/M16/spec.md`. Read it before starting.
 
@@ -1319,6 +1319,10 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ---
 
 ### Task 9: validate_app
+
+> Superseded on this branch (commit d70210d): pyright is Studio's declared dependency pinned by
+> `uv.lock`, run as `sys.executable -m pyright --pythonpath <project interpreter>`; the `--with`
+> injection below was reversed by the final review — see ADR-037's amendment.
 
 **Files:**
 - Create: `packages/vibepy-studio/src/vibepy_studio/authoring/internals/typechecking.py`

@@ -19,11 +19,7 @@ from lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
-from vibepy_core.errors import (
-    PageRouteConflictError,
-    PageRouteInvalidError,
-    ToolNotFoundError,
-)
+from vibepy_core.errors import PageToolUndeclaredError
 from vibepy_core.page import Page, PageContext, PageDefinition, PageHandler
 from vibepy_core.principal import Principal
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
@@ -54,7 +50,9 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
     definition = web_definition(
         [
             Page(
-                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                definition=PageDefinition(
+                    name="todos", route="/todos", title="Todos", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]
@@ -78,7 +76,9 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
     definition = web_definition(
         [
             Page(
-                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                definition=PageDefinition(
+                    name="todos", route="/todos", title="Todos", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]
@@ -96,43 +96,11 @@ async def noop_handler(ctx: PageContext) -> None:
     ui.label("Todos")
 
 
-def page(name: str, route: str) -> Page:
+def page(name: str, route: str, *, tools: frozenset[str] = frozenset()) -> Page:
     return Page(
-        definition=PageDefinition(name=name, route=route, title=name),
+        definition=PageDefinition(name=name, route=route, title=name, tools=tools),
         handler=noop_handler,
     )
-
-
-async def test_a_route_that_is_not_a_path_is_rejected(user: User) -> None:
-    definition = web_definition([page("todos", "todos")])
-
-    async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-        with pytest.raises(PageRouteInvalidError) as error:
-            register_pages(definition, pages, principal=Principal(id="operator"))
-
-    assert error.value.page_name == "todos"
-    assert error.value.route == "todos"
-
-
-async def test_two_pages_may_not_claim_one_route(user: User) -> None:
-    definition = web_definition([page("todos", "/todos"), page("archive", "/todos")])
-
-    async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-        with pytest.raises(PageRouteConflictError) as error:
-            register_pages(definition, pages, principal=Principal(id="operator"))
-
-    assert error.value.route == "/todos"
-    assert {error.value.page_name, error.value.conflicting_page_name} == {"todos", "archive"}
-
-
-async def test_a_rejected_registry_registers_nothing(user: User) -> None:
-    definition = web_definition([page("todos", "/todos"), page("archive", "archive")])
-
-    async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-        with pytest.raises(PageRouteInvalidError):
-            register_pages(definition, pages, principal=Principal(id="operator"))
-
-    assert "/todos" not in registered_paths()
 
 
 async def test_page_interaction_invokes_a_tool(user: User, tmp_path: Path) -> None:
@@ -178,7 +146,9 @@ async def test_the_hosts_principal_reaches_a_pages_tool_call(user: User) -> None
         ],
         pages=[
             Page(
-                definition=PageDefinition(name="home", route="/home", title="Home"),
+                definition=PageDefinition(
+                    name="home", route="/home", title="Home", tools=frozenset({"who"})
+                ),
                 handler=handler,
             )
         ],
@@ -198,7 +168,9 @@ def boom_definition(handler: PageHandler) -> AppDefinition[None, NoConfig]:
     return web_definition(
         [
             Page(
-                definition=PageDefinition(name="boom", route="/boom", title="Boom"),
+                definition=PageDefinition(
+                    name="boom", route="/boom", title="Boom", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]
@@ -223,7 +195,7 @@ async def test_a_framework_error_raised_in_a_render_is_not_translated() -> None:
         async with page_runtime_for(definition, no_dependencies, config={}) as pages:
             register_pages(definition, pages, principal=Principal(id="operator"))
 
-            with pytest.raises(ToolNotFoundError):
+            with pytest.raises(PageToolUndeclaredError):
                 await user.open("/boom")
 
 

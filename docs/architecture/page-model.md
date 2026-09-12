@@ -56,11 +56,11 @@ Minimal initial metadata:
 - name
 - route
 - title
+- tools
 
 `name` is the identifier the framework addresses a Page by, and it is stable across a
-route change. `route` and `title` are consumed by the Web channel adapter, so route format
-and route uniqueness are both validated where routes are registered, not in the core Page
-model.
+route change. `route` and `title` are consumed by the Web channel adapter. What a Page declares is validated as the `AppDefinition` holding it is constructed;
+`docs/architecture/app-model.md` owns the rules.
 
 ### PageHandler
 
@@ -105,10 +105,13 @@ ToolRuntime satisfies the Protocol structurally, so nothing stands between a Pag
 canonical invocation path. What a Page can reach is what this Protocol declares: one
 operation, addressed by name.
 
+A Page reaches only the Tools its declaration names; any other name is `page.tool_undeclared`,
+refused before ToolRuntime. The declaration is an allow-list, and `describe` publishes it.
+
 Tool errors are not translated. `ToolNotFoundError`, `ToolForbiddenError`,
-`ToolInputValidationError` and `ToolOutputValidationError` reach the caller of the Page
-unchanged, as does an exception raised by a PageHandler. `docs/architecture/errors.md` carries
-their codes.
+`ToolInputValidationError`, `ToolOutputValidationError` and `PageToolUndeclaredError` reach the
+caller of the Page unchanged, as does an exception raised by a PageHandler.
+`docs/architecture/errors.md` carries their codes.
 
 ### PageContext
 
@@ -134,8 +137,8 @@ semantics, and resolution is consumed by PageRuntime.
 
 Registering a name twice replaces the earlier registration.
 
-A declaration carrying one name twice never reaches the registry: the window refuses it
-where it builds the registry, because `name` is what the framework addresses a Page by while a
+A declaration carrying one name twice never reaches the registry: the `AppDefinition` refuses it
+as it is constructed, because `name` is what the framework addresses a Page by while a
 route is the Web channel adapter's.
 
 Resolving a name that was never registered raises `PageNotFoundError`.

@@ -37,7 +37,7 @@ diagnostics.*
 | A static checker reports declarations, not code bodies; references are checked only where they are declarations | Django system checks (`fields.E300` checks a declared relation; `reverse()` in view code is not checked); Terraform `validate`; Kubernetes admission (cross-object references fail at runtime) |
 | A component declares what its template uses, and the compiler refuses what is not declared | Angular, `imports` array; Relay, fragments and data masking |
 | A framework's build command runs the project's own type checker with the project's configuration and fails on errors | Next.js, `next build` ("fails your production build when TypeScript errors are present"; installs the checker when absent) |
-| A tool can be added to one invocation without changing the project | uv, `uv run --with` |
+| pyright is pointed at another environment's interpreter for import resolution | pyright `docs/command-line.md`, `--pythonpath` ("Path to the Python interpreter"; the same as the language server setting `python.pythonPath`) |
 | pyright's structured output and exit codes | pyright `docs/command-line.md`: `--outputjson` (`generalDiagnostics[]` with `file`, `severity`, `message`, `range`, `rule`), exit 0 clean, 1 errors, 2–4 failures; default `typeCheckingMode` is `standard` |
 | A diagnostic carries a severity; a failure does not | LSP `Diagnostic` (`severity`: Error, Warning, Information, Hint); Django `CheckMessage.level` and `check --fail-level`; Terraform `-json` (`severity`: error or warning, "errors invalidate the configuration, warnings are advisory") |
 | PyPI `pyright[nodejs]` bundles Node through `nodejs-wheel-binaries` | pypi.org/project/pyright |
@@ -190,18 +190,18 @@ report:
 1. `uv run --project <dir> python -m vibepy_core.describe` — the declaration rules. On exit 1,
    every report line except the aggregate is a `Diagnostic` of severity `error`. On exit 0,
    none.
-2. `uv run --project <dir> --with "pyright[nodejs]" pyright --outputjson` — the typed
-   contracts. Each `generalDiagnostics` entry is one `Diagnostic` whose severity is pyright's
-   own, one to one, wrapping `ErrorInfo(code="authoring.type_error", category=DECLARATION,
-   message=<pyright's message>, details={"file", "line", "rule"})`. Nothing pyright reports is
-   dropped. Exit 0 and 1 are answers; 2, 3 and 4 are one `error` diagnostic,
-   `authoring.environment_failed`, carrying pyright's output.
+2. `sys.executable -m pyright --outputjson --pythonpath <project's interpreter> -p <dir> <dir>` —
+   the typed contracts. Each `generalDiagnostics` entry is one `Diagnostic` whose severity is
+   pyright's own, one to one, wrapping `ErrorInfo(code="authoring.type_error",
+   category=DECLARATION, message=<pyright's message>, details={"file", "line", "rule"})`.
+   Nothing pyright reports is dropped. Exit 0 and 1 are answers; 2, 3 and 4 are one `error`
+   diagnostic, `authoring.environment_failed`, carrying pyright's output.
 
 The project's own pyright configuration applies — `[tool.pyright]` in its `pyproject.toml` if
 present, pyright's default `standard` otherwise, under which `reportArgumentType` is an error
-and every contract above is caught. `--with` injects pyright into that one invocation: the
-project's `pyproject.toml`, lock and environment are untouched, and uv's cache holds the
-download after the first run. Studio itself does not depend on pyright.
+and every contract above is caught. pyright is Studio's declared dependency, pinned by its own
+lockfile, and the project's own files — `pyproject.toml`, lock and environment — are untouched;
+`--pythonpath` points pyright's import resolution at the project's interpreter instead.
 
 `validate_app` answers "what does not conform"; `inspect_app` keeps answering "what is
 declared", and its `diagnostic: ErrorInfo | None` becomes `diagnostics: list[ErrorInfo]` — a
@@ -258,7 +258,7 @@ validate_app(project)
   -> uv run --project P python -m vibepy_core.describe
        exit 0: no declaration diagnostics
        exit 1: stderr = aggregate line + one line per violation  -> members become diagnostics
-  -> uv run --project P --with "pyright[nodejs]" pyright --outputjson
+  -> sys.executable -m pyright --outputjson --pythonpath <interpreter> -p P P
        exit 0/1: every generalDiagnostics entry  -> authoring.type_error at pyright's severity
        exit 2-4: authoring.environment_failed, severity error
   -> AppValidation(conforms=<no error-severity diagnostic>, diagnostics=[...])
@@ -320,9 +320,9 @@ of a finding that is not an error. Should the framework itself one day report an
 finding, the type moves to `vibepy_core` unchanged; it is not placed there now, where it would
 have no producer.
 
-`validate_app` downloads pyright and Node into uv's cache once per machine. Offline, that first
-run is `authoring.environment_failed`; the declaration diagnostics still arrive, because the two
-authorities are run independently.
+pyright and Node arrive with Studio's own installation. Offline, nothing more is downloaded; the
+declaration diagnostics still arrive on their own, because the two authorities are run
+independently.
 
 ## Documentation
 

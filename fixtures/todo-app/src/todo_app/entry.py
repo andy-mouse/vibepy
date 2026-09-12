@@ -264,7 +264,12 @@ TODO_APP: AppDefinition[TodoStore, TodoConfig] = AppDefinition(
     ],
     pages=[
         Page(
-            definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+            definition=PageDefinition(
+                name="todos",
+                route="/todos",
+                title="Todos",
+                tools=frozenset({"list_todos", "create_todo"}),
+            ),
             handler=todos_page,
         )
     ],

@@ -44,7 +44,8 @@ Suggested responsibilities:
 - input model
 - output model
 - `read_only`: whether the operation is side-effect free, required and never defaulted
-- `channels`: the channels the Tool is exposed through, both by default
+- `channels`: the channels the Tool is exposed through, both by default; non-empty, a declaration
+  exposed through no channel is refused as it is constructed (`tool.channels_empty`)
 - `required_roles`: the roles a caller must hold, empty meaning anyone
 
 A ToolDefinition is a frozen dataclass, not a pydantic model: it holds types and callables and
@@ -111,8 +112,8 @@ an App declares from the declaration, so a registry answers a name and nothing e
 `docs/decisions/ADR-027-a-channel-enumerates-declarations-from-the-declaration.md`.
 
 Registering a name twice replaces the earlier Tool, declaration included. A declaration carrying
-one name twice never reaches the registry: the window refuses it where it builds one, because
-enumeration and resolution no longer read the same object.
+one name twice never reaches the registry: the `AppDefinition` refuses it as it is constructed,
+because enumeration and resolution no longer read the same object.
 
 A name's *format* is not validated anywhere. `ToolDefinition.name` is a `str`, and the projection
 a channel publishes carries it through unchanged. This is a decision rather than a gap: any

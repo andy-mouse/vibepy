@@ -7,6 +7,7 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict, JsonValue
 
 from vibepy_core.channel import Channel
+from vibepy_core.errors import ToolChannelsEmptyError
 from vibepy_core.principal import Principal
 
 
@@ -55,6 +56,15 @@ class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
     read_only: bool
     channels: frozenset[Channel] = frozenset(Channel)
     required_roles: frozenset[str] = frozenset()
+
+    def __post_init__(self) -> None:
+        """Refuse a declaration exposed through no channel.
+
+        Raises:
+            ToolChannelsEmptyError: `channels` is empty.
+        """
+        if not self.channels:
+            raise ToolChannelsEmptyError(self.name)
 
     def input_schema(self) -> dict[str, JsonValue]:
         """Return what an argument mapping is validated against.

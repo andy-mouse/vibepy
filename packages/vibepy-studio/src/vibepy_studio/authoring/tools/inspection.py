@@ -20,7 +20,7 @@ from vibepy_studio.authoring.models import (
     ErrorCode,
     FrameworkDescription,
     InspectRequest,
-    from_report,
+    from_reports,
     no_apps_declared,
     project_not_found,
     uv_unavailable,
@@ -50,24 +50,24 @@ async def inspect_app(_ctx: ToolContext[object], payload: InspectRequest) -> App
     project = await locate(payload.project)
     if project is None:
         return AppInspection(
-            apps=[], diagnostic=project_not_found(payload.project, "holds no pyproject.toml")
+            apps=[], diagnostics=[project_not_found(payload.project, "holds no pyproject.toml")]
         )
     name = await declared_name(project)
     if name is None:
         return AppInspection(
-            apps=[], diagnostic=project_not_found(project, "declares no [project] name")
+            apps=[], diagnostics=[project_not_found(project, "declares no [project] name")]
         )
     try:
         described = await describe(python(project))
     except NotRunnable:
-        return AppInspection(apps=[], diagnostic=uv_unavailable(project))
+        return AppInspection(apps=[], diagnostics=[uv_unavailable(project)])
     except DescribeFailed as failed:
         return AppInspection(
-            apps=[], diagnostic=from_report(project, failed.reported, failed.output)
+            apps=[], diagnostics=from_reports(project, failed.reports, failed.output)
         )
     own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
-        return AppInspection(apps=[], diagnostic=no_apps_declared(project, name))
+        return AppInspection(apps=[], diagnostics=[no_apps_declared(project, name)])
     return AppInspection(apps=own)
 
 

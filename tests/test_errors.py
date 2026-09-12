@@ -21,6 +21,7 @@ from vibepy_core.errors import (
     ERROR_CATALOG,
     UNHANDLED_CODE,
     AppConfigInvalidError,
+    AppDefinitionInvalidError,
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
     AppNotDeclaredError,
@@ -31,6 +32,9 @@ from vibepy_core.errors import (
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
+    PageToolUndeclaredError,
+    PageToolUnresolvedError,
+    ToolChannelsEmptyError,
     ToolForbiddenError,
     ToolInputValidationError,
     ToolNameConflictError,
@@ -38,6 +42,7 @@ from vibepy_core.errors import (
     ToolOutputValidationError,
     VibepyError,
     read_report_line,
+    report,
     report_line,
     to_error_info,
 )
@@ -183,6 +188,32 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "invoke.request_invalid",
         ErrorCategory.CALLER,
         {},
+    ),
+    (
+        ToolChannelsEmptyError("create_todo"),
+        "tool.channels_empty",
+        ErrorCategory.DECLARATION,
+        {"tool_name": "create_todo"},
+    ),
+    (
+        PageToolUnresolvedError("todos", "list_todos", reason="missing"),
+        "page.tool_unresolved",
+        ErrorCategory.DECLARATION,
+        {"page_name": "todos", "tool_name": "list_todos", "reason": "missing"},
+    ),
+    (
+        PageToolUndeclaredError("todos", "remove_todo"),
+        "page.tool_undeclared",
+        ErrorCategory.CALLER,
+        {"page_name": "todos", "tool_name": "remove_todo"},
+    ),
+    (
+        AppDefinitionInvalidError(
+            "todo-app", [ToolNameConflictError("read"), PageRouteInvalidError("todos", "todos")]
+        ),
+        "app.declaration_invalid",
+        ErrorCategory.DECLARATION,
+        {"app_id": "todo-app", "count": "2", "codes": "tool.name_conflict, page.route_invalid"},
     ),
 ]
 
@@ -377,3 +408,30 @@ def test_a_category_added_later_is_a_value_a_report_carries() -> None:
     found = read_report_line(line)
     assert found is not None
     assert found.category is ErrorCategory.INTERRUPTED
+
+
+def test_an_aggregate_is_reported_as_its_own_line_then_one_line_per_member(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A declaration that fails several ways is several lines a reader takes one by one."""
+    report(
+        AppDefinitionInvalidError(
+            "todo-app", [ToolNameConflictError("read"), PageRouteInvalidError("todos", "todos")]
+        )
+    )
+
+    lines = [read_report_line(line) for line in capsys.readouterr().err.splitlines()]
+    assert [info.code for info in lines if info is not None] == [
+        "app.declaration_invalid",
+        "tool.name_conflict",
+        "page.route_invalid",
+    ]
+    assert lines[0] is not None and lines[0].details["count"] == "2"
+
+
+def test_a_single_failure_is_reported_as_one_line(capsys: pytest.CaptureFixture[str]) -> None:
+    report(ToolNotFoundError("create_todo"))
+
+    lines = capsys.readouterr().err.splitlines()
+    assert len(lines) == 1
+    assert read_report_line(lines[0]) is not None
