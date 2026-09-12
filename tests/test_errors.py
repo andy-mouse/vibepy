@@ -6,6 +6,7 @@ a milestone that adds an error must not be able to skip the rule by not editing
 this file.
 """
 
+import asyncio
 import importlib
 import json
 import pkgutil
@@ -16,6 +17,7 @@ from pydantic import ValidationError
 
 import vibepy_core
 from vibepy_core.errors import (
+    CANCELLED_CODE,
     ERROR_CATALOG,
     UNHANDLED_CODE,
     AppConfigInvalidError,
@@ -350,3 +352,28 @@ def test_a_forbidden_call_names_who_where_and_why() -> None:
         "channel": "agent",
         "reason": "role_required",
     }
+
+
+def test_a_cancellation_is_interrupted_not_unhandled() -> None:
+    """Something outside the call ended it: not the caller's fault, not the App's."""
+    info = to_error_info(asyncio.CancelledError())
+
+    assert info.code == CANCELLED_CODE == "tool.cancelled"
+    assert info.category is ErrorCategory.INTERRUPTED
+    assert info.details == {}
+
+
+def test_the_catalogue_maps_the_cancelled_code() -> None:
+    assert ERROR_CATALOG[CANCELLED_CODE] == ErrorCategory.INTERRUPTED
+
+
+def test_no_framework_error_uses_the_cancelled_code() -> None:
+    """`asyncio.CancelledError` is asyncio's; the framework wraps it in nothing."""
+    assert CANCELLED_CODE not in {error.code for error in _framework_errors()}
+
+
+def test_a_category_added_later_is_a_value_a_report_carries() -> None:
+    line = '{"code": "tool.cancelled", "category": "interrupted", "message": "", "details": {}}'
+    found = read_report_line(line)
+    assert found is not None
+    assert found.category is ErrorCategory.INTERRUPTED

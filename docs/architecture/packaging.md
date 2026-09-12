@@ -130,6 +130,19 @@ string without reading JSON Schema.
 The environment is the only configuration channel. No command reads configuration from standard
 input.
 
+## What a command writes to standard error
+
+`serve`, `mcp` and `invoke` share one logging configuration, `vibepy_core.logs`, so the three
+processes that run an App write the framework's lines the same way: the `vibepy_core` loggers
+at INFO, each record as its message alone, to standard error. Two kinds of line come from the
+framework — a report (`ErrorInfo`, one per failure of the process or of opening its window) and
+an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`)
+— and each is one JSON object on one line, followed by a traceback when the record's failure is
+an `execution` one. Everything else on the stream — the Web technology's own lines — is neither,
+and a reader takes what validates and skips the rest, as Studio's reader of a child's log does.
+
+An App's own loggers are not configured here. `describe` runs nothing and writes no record.
+
 ## Running a channel
 
 ```text
@@ -147,9 +160,8 @@ that cannot open means: a server that sees `lifespan.startup.failed` logs the me
 window refuses therefore has no server, rather than a server answering for an App that never
 opened.
 
-The command writes one JSON object of `code`, `category`, `message` and `details` to standard
-error for every failure it reports, and a window that will not open reports itself the same way,
-so this process's standard error carries one such object for any failure of starting. See
+A failure of the command and a window that will not open are each one report line, as What a
+command writes to standard error says; see
 `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
 All four commands exist for one reason. Reading a declaration, running one, invoking a Tool and

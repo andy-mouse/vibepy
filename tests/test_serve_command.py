@@ -12,9 +12,10 @@ from urllib.request import urlopen
 
 import pytest
 
-from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord
 from vibepy_core.app.config import ENV_PREFIX, environment_for
 from vibepy_core.errors import read_report_line
+from vibepy_core.tool import read_invocation_record
 
 
 def child_environment() -> dict[str, str]:
@@ -154,6 +155,37 @@ def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) ->
     reported = reported_failure(finished.stderr)
     assert reported.code == "app.unhandled"
     assert reported.category is ErrorCategory.EXECUTION
+
+
+def records_in(stderr: str) -> list[InvocationRecord]:
+    found = [read_invocation_record(line) for line in stderr.splitlines()]
+    return [record for record in found if record is not None]
+
+
+@pytest.mark.integration
+def test_a_page_render_is_recorded_on_standard_error(tmp_path: Path) -> None:
+    """Rendering `/todos` invokes `list_todos` through the Page; the record says so."""
+    port = free_port()
+    # stderr is read only after terminate(): a single page render writes a handful
+    # of lines, far below the pipe buffer, so the child cannot block on a full
+    # pipe while unread, and communicate(timeout=10) bounds the wait regardless.
+    process = subprocess.Popen(
+        [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
+        stdin=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        env=todo_environment(tmp_path),
+    )
+    try:
+        wait_for(f"http://127.0.0.1:{port}/todos", process)
+    finally:
+        process.terminate()
+        _, stderr = process.communicate(timeout=10)
+
+    listed = [r for r in records_in(stderr.decode(errors="replace")) if r.tool == "list_todos"]
+    assert listed, stderr.decode(errors="replace")
+    assert listed[0].channel is Channel.WEB
+    assert listed[0].principal.id == "operator"
+    assert listed[0].error is None
 
 
 @pytest.mark.integration

@@ -9,6 +9,7 @@ property of the code, and one table is easier to keep exhaustive than eight
 scattered declarations.
 """
 
+import asyncio
 import sys
 from collections.abc import Mapping, Sequence
 from enum import StrEnum
@@ -19,17 +20,26 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 UNHANDLED_CODE = "app.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
 
+CANCELLED_CODE = "tool.cancelled"
+"""The code for an invocation something outside it ended. It belongs to no exception:
+`asyncio.CancelledError` is asyncio's, and the framework wraps it in nothing."""
+
 
 class ErrorCategory(StrEnum):
     """What kind of failure this is, independently of which one it is.
 
     A caller reads it to learn whether a different call could succeed. A future
     REST adapter reads it to choose between 4xx and 5xx.
+
+    `INTERRUPTED` is gRPC's `CANCELLED` family: the call was well formed and the
+    App was not at fault, something outside the call ended it, and the same call
+    may succeed.
     """
 
     CALLER = "caller"
     EXECUTION = "execution"
     DECLARATION = "declaration"
+    INTERRUPTED = "interrupted"
 
 
 class VibepyError(Exception):
@@ -303,6 +313,7 @@ ERROR_CATALOG: Mapping[str, ErrorCategory] = {
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
     AppNotDeclaredError.code: ErrorCategory.CALLER,
     InvokeRequestInvalidError.code: ErrorCategory.CALLER,
+    CANCELLED_CODE: ErrorCategory.INTERRUPTED,
     UNHANDLED_CODE: ErrorCategory.EXECUTION,
 }
 """Every framework code and its category, `app.unhandled` included.
@@ -330,17 +341,30 @@ class ErrorInfo(BaseModel):
     details: dict[str, str] = {}
 
 
-def to_error_info(error: Exception, /) -> ErrorInfo:
+def to_error_info(error: Exception | asyncio.CancelledError, /) -> ErrorInfo:
     """Describe any exception in the channel-neutral form.
 
     Normalizing is not wrapping. The exception itself still propagates untouched;
-    this is called only where a channel must render an answer.
+    this is called only where a channel must render an answer or a record is
+    written.
+
+    A cancellation is classified here and nowhere else, so the invocation record
+    and any channel that one day reports one agree. The parameter admits exactly
+    `CancelledError` beyond `Exception` — not `BaseException` — so a
+    `KeyboardInterrupt` cannot be described as `app.unhandled` by falling through.
 
     A code this table does not map is described rather than classified, whatever
     raised it. `VibepyError` is exported, so an App may subclass it, and its
     `code` is an unassigned ClassVar on the base itself. The catalogue test is
     what guarantees no framework exception takes that path.
     """
+    if isinstance(error, asyncio.CancelledError):
+        return ErrorInfo(
+            code=CANCELLED_CODE,
+            category=ErrorCategory.INTERRUPTED,
+            message=str(error),
+            details={},
+        )
     if isinstance(error, VibepyError):
         code: object = getattr(error, "code", None)
         if isinstance(code, str):

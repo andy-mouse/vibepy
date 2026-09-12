@@ -8,7 +8,6 @@ Configuration); the command reads nothing from standard input.
 """
 
 import argparse
-import logging
 import sys
 from collections.abc import Sequence
 
@@ -24,46 +23,11 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     report,
 )
+from vibepy_core.logs import LOG_CONFIG
 from vibepy_core.principal import Principal
-
-logger = logging.getLogger(__name__)
 
 OPERATOR = Principal(id="operator")
 """The party that runs this process."""
-
-_LOG_CONFIG: dict[str, object] = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "reported": {"format": "%(message)s"},
-        "server": {"format": "%(levelname)s: %(message)s"},
-    },
-    "handlers": {
-        "reported": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-            "formatter": "reported",
-        },
-        "server": {
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stderr",
-            "formatter": "server",
-        },
-    },
-    "loggers": {
-        "vibepy_core": {"handlers": ["reported"], "level": "ERROR", "propagate": False},
-        "uvicorn": {"handlers": ["server"], "level": "INFO", "propagate": False},
-        "uvicorn.error": {"handlers": ["server"], "level": "INFO", "propagate": False},
-        "uvicorn.access": {"handlers": ["server"], "level": "WARNING", "propagate": False},
-    },
-}
-"""How this process writes what it and its App report.
-
-A framework record is written as its message alone, because a window's report is
-one JSON object and a reader of this process's standard error parses it as such.
-`uvicorn.run` takes this as a `dictConfig` dictionary
-(<https://github.com/kludex/uvicorn/blob/main/docs/concepts/logging.md>).
-"""
 
 
 def _serve(entrypoint: AppEntrypoint[object, AppConfig], port: int, /) -> None:
@@ -74,7 +38,7 @@ def _serve(entrypoint: AppEntrypoint[object, AppConfig], port: int, /) -> None:
     # The window is the served application's own lifespan, so the `async with`
     # that opens it is the whole of the server's life, and a window that
     # refuses to open fails the server's startup.
-    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=_LOG_CONFIG)
+    uvicorn.run(served, host="127.0.0.1", port=port, log_level="warning", log_config=LOG_CONFIG)
 
 
 def main(argv: Sequence[str], /) -> int:

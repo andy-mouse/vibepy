@@ -7,11 +7,11 @@ from pathlib import Path
 
 import pytest
 from mcp.client import Client
-from mcp.client.stdio import StdioServerParameters
+from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import TextContent
 
-from test_serve_command import child_environment, reported_failure
-from vibepy_core import ErrorCategory
+from test_serve_command import child_environment, records_in, reported_failure
+from vibepy_core import Channel, ErrorCategory
 from vibepy_core.app.config import environment_for
 
 
@@ -81,3 +81,20 @@ def test_a_window_that_will_not_open_ends_the_process() -> None:
     reported = reported_failure(finished.stderr)
     assert reported.code == "config.invalid"
     assert reported.category is ErrorCategory.CALLER
+
+
+@pytest.mark.integration
+async def test_an_invocation_is_recorded_on_the_server_process_standard_error(
+    tmp_path: Path,
+) -> None:
+    """stdout is the wire; the record goes where the framework's own lines go."""
+    errlog_path = tmp_path / "server.stderr"
+    with errlog_path.open("w", encoding="utf-8") as errlog:
+        async with Client(stdio_client(todo_server(tmp_path), errlog=errlog)) as agent:
+            await agent.call_tool("create_todo", {"title": "milk"})
+
+    [record] = records_in(errlog_path.read_text(encoding="utf-8"))
+    assert record.tool == "create_todo"
+    assert record.channel is Channel.AGENT
+    assert record.principal.id == "agent"
+    assert record.error is None

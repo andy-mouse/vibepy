@@ -9,8 +9,8 @@ import pytest
 
 from expense_app.entry import Decision
 from notes_app.entry import Note
-from test_serve_command import child_environment
-from vibepy_core import ErrorCategory, ErrorInfo
+from test_serve_command import child_environment, records_in
+from vibepy_core import Channel, ErrorCategory, ErrorInfo
 from vibepy_core.app.config import environment_for
 
 
@@ -167,3 +167,16 @@ def test_the_web_channel_reaches_a_tool_that_declares_no_channels() -> None:
     )
     assert result.returncode == 0, result.stderr
     assert Note.model_validate(json.loads(result.stdout)).length == 5
+
+
+@pytest.mark.integration
+def test_an_invocation_is_recorded_on_standard_error(tmp_path: Path) -> None:
+    result = run_invoke(
+        "todo-app", "create_todo", {"input": {"title": "milk"}}, config=todo_config(tmp_path)
+    )
+    assert result.returncode == 0, result.stderr
+    [record] = records_in(result.stderr)
+    assert record.tool == "create_todo"
+    assert record.channel is Channel.AGENT
+    assert record.principal.id == "tester"
+    assert record.error is None

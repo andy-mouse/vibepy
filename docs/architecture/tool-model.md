@@ -128,13 +128,17 @@ opened, and the App's own policy if it declares one.
 
 `ToolRuntime.invoke(name, raw_input, *, principal)` is the whole of it:
 
-1. resolve the Tool by name, through ToolRegistry
-2. the framework's default policy: the channel against `channels`, the principal's roles
+1. create the invocation id and note the time, before anything can refuse
+2. resolve the Tool by name, through ToolRegistry
+3. the framework's default policy: the channel against `channels`, the principal's roles
    against `required_roles`
-3. the App's policy, if it declared one
-4. create the ToolContext, carrying the invocation id, the application-scoped resource, the
+4. the App's policy, if it declared one
+5. create the ToolContext, carrying that invocation id, the application-scoped resource, the
    principal and the channel
-5. await the Tool
+6. await the Tool
+7. write the invocation record, whatever way steps 2–6 ended, and re-raise what they raised
+
+`docs/architecture/runtime.md` owns the record.
 
 Steps that need the declared models belong to the Tool, not to the runtime: input
 validation, the handler call and output validation happen together inside the closure a

@@ -34,6 +34,7 @@ from vibepy_core.errors import (
     InvokeRequestInvalidError,
     report,
 )
+from vibepy_core.logs import configure_logging
 from vibepy_core.principal import Principal
 from vibepy_core.tool import InvocationRequest
 
@@ -73,6 +74,7 @@ def main(argv: Sequence[str], /) -> int:
     output its models reject, and anything the lifespan or handler raised, which
     is reported as `app.unhandled`.
     """
+    configure_logging()
     parser = argparse.ArgumentParser(prog="vibepy_core.invoke")
     parser.add_argument("app_name")
     parser.add_argument("tool_name")

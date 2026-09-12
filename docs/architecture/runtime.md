@@ -16,14 +16,36 @@ Authorization is decided here, which `docs/architecture/tool-model.md` owns.
 
 Potential future cross-cutting concerns include:
 
-- audit
 - timeout
-- tracing
 - metrics
 - transaction hooks
 - rate limits
 
 Do not add a generic middleware framework until a concrete need appears.
+
+## The invocation record
+
+Every invocation ends with one record, written by ToolRuntime and by nothing else, so the Web
+and the Agent channel are observed by one writer and cannot disagree. The record is
+`InvocationRecord`, one pydantic model owned by `vibepy_core.tool`: the invocation id, the App
+id, the Tool name, the channel, the principal, when it started, how long it took, and how it
+ended — `error` is `None` when the Tool returned and the `ErrorInfo` a channel would report
+otherwise. There is no status field; the failure is the presence of `error`, its kind is
+`error.code`. Arguments and results are not recorded.
+
+The id exists before the Tool is resolved, so a refusal and an unknown name are recorded with
+one, and the id a handler reads as `ctx.invocation_id` is the id on the record. A cancellation
+is recorded as `tool.cancelled` and re-raised; `KeyboardInterrupt` and `SystemExit` are not
+recorded, because they end the process and the process reports its own ending (ADR-030).
+
+It is written as `logger.info(record.model_dump_json())` on the logger
+`vibepy_core.tool.runtime`, with the traceback appended when `error.category` is `execution`
+and only then. The framework configures no handler on it; a process that runs the framework does
+(`docs/architecture/packaging.md`, What a command writes to standard error), and a host that
+wants the records elsewhere attaches a handler of its own. `read_invocation_record` reads a line
+back, and a line is a record or a report or neither, never both.
+
+See `docs/decisions/ADR-036-an-invocation-is-recorded-as-one-line-by-toolruntime.md`.
 
 ## ToolContext
 
@@ -49,8 +71,9 @@ Future fields may include:
 - locale
 - trace context
 
-ToolRuntime creates a ToolContext for every invocation, with an invocation id unique to
-that invocation. Channels never construct one.
+ToolRuntime creates a ToolContext for every invocation that passes authorization, with an
+invocation id unique to that invocation — the same id the invocation record carries, so a
+handler's own log line and the record can be read together. Channels never construct one.
 
 Do not make ToolContext an untyped service-locator bag. See
 `docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
