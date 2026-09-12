@@ -136,8 +136,9 @@ operation reachable through `ToolContext.dependencies`, and every operation an A
 export to its Tool modules, is `async` or pure; and a `Path` a Tool's model or such a facade
 carries is passed to an internal that acts on it, never acted on by a method called in the
 handler. Studio is that shape — `StudioRoot` holds its root directory privately and offers
-operations on it, `Processes` does the same for its children, and `vibepy_studio.authoring.internals`
-exports `async` operations over a project directory — so a handler that blocked would be one that
+operations on it, `Processes` does the same for its children, `vibepy_studio.authoring.internals`
+exports `async` operations over a project directory, and authoring's handlers take no dependencies
+at all — so a handler that blocked would be one that
 reached past all of them.
 
 Sources:

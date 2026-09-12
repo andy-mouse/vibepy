@@ -25,7 +25,7 @@ from vibepy_studio.authoring.models import (
     project_not_found,
     uv_unavailable,
 )
-from vibepy_studio.internals import DescribeFailed, NotRunnable, StudioDeps, describe
+from vibepy_studio.internals import DescribeFailed, NotRunnable, describe
 from vibepy_studio.models import Empty
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ CHANNEL_EXTRAS = ["web", "agent"]
 owns the fact."""
 
 
-async def inspect_framework(_ctx: ToolContext[StudioDeps], _payload: Empty) -> FrameworkDescription:
+async def inspect_framework(_ctx: ToolContext[object], _payload: Empty) -> FrameworkDescription:
     """Say what the framework this Studio is built on asserts about itself."""
     return FrameworkDescription(
         framework_version=await framework_version(),
@@ -45,7 +45,7 @@ async def inspect_framework(_ctx: ToolContext[StudioDeps], _payload: Empty) -> F
     )
 
 
-async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) -> AppInspection:
+async def inspect_app(_ctx: ToolContext[object], payload: InspectRequest) -> AppInspection:
     """Describe the Apps a source project declares, read in that project's environment."""
     project = await locate(payload.project)
     if project is None:
@@ -71,32 +71,39 @@ async def inspect_app(_ctx: ToolContext[StudioDeps], payload: InspectRequest) ->
     return AppInspection(apps=own)
 
 
-INSPECTION_TOOLS: Sequence[Tool[StudioDeps]] = [
-    Tool(
-        definition=ToolDefinition(
-            name="inspect_framework",
-            description=(
-                "What the framework asserts about itself: version, entry point group, "
-                "channel extras, error catalogue"
+def inspection_tools[DepsT]() -> Sequence[Tool[DepsT]]:  # pyright: ignore[reportInvalidTypeVarUse]
+    """Return authoring's inspection Tools, for whatever dependency type the App declares.
+
+    Generic because the handlers read no dependencies: `Tool` is invariant in
+    that type, so the declarations are built for the App that composes them.
+    """
+    return [
+        Tool(
+            definition=ToolDefinition(
+                name="inspect_framework",
+                description=(
+                    "What the framework asserts about itself: version, entry point group, "
+                    "channel extras, error catalogue"
+                ),
+                input_model=Empty,
+                output_model=FrameworkDescription,
+                read_only=True,
+                channels=frozenset({Channel.AGENT}),
             ),
-            input_model=Empty,
-            output_model=FrameworkDescription,
-            read_only=True,
-            channels=frozenset({Channel.AGENT}),
+            handler=inspect_framework,
         ),
-        handler=inspect_framework,
-    ),
-    Tool(
-        definition=ToolDefinition(
-            name="inspect_app",
-            description=(
-                "Describe the Apps a source project declares, read in the project's own environment"
+        Tool(
+            definition=ToolDefinition(
+                name="inspect_app",
+                description=(
+                    "Describe the Apps a source project declares, read in the "
+                    "project's own environment"
+                ),
+                input_model=InspectRequest,
+                output_model=AppInspection,
+                read_only=True,
+                channels=frozenset({Channel.AGENT}),
             ),
-            input_model=InspectRequest,
-            output_model=AppInspection,
-            read_only=True,
-            channels=frozenset({Channel.AGENT}),
+            handler=inspect_app,
         ),
-        handler=inspect_app,
-    ),
-]
+    ]

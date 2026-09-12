@@ -1,6 +1,8 @@
-"""The Hub's own domain internals, behind its Tools.
+"""The operating role's own internals: its window's resource, and its domain work.
 
-A Tool handler reaches them through its ToolContext and nothing else does.
+A Tool handler reaches them through its ToolContext and nothing else does, and
+`entry.py` reaches `StudioDeps` to build the window. Every operation exported
+here is `async` or pure (`docs/architecture/runtime.md`).
 """
 
 from vibepy_studio.operating.internals.configuration import (
@@ -9,6 +11,7 @@ from vibepy_studio.operating.internals.configuration import (
     secret_fields,
     without_secrets,
 )
+from vibepy_studio.operating.internals.deps import StudioDeps
 from vibepy_studio.operating.internals.installer import (
     AppNameInvalid,
     InstallFailed,
@@ -24,6 +27,11 @@ from vibepy_studio.operating.internals.installer import (
     remove_environment,
     write_facts,
 )
+from vibepy_studio.operating.internals.processes import (
+    AlreadyStarted,
+    Processes,
+    StartFailed,
+)
 from vibepy_studio.operating.internals.root import StudioRoot
 from vibepy_studio.operating.internals.routing import (
     address,
@@ -35,10 +43,14 @@ from vibepy_studio.operating.internals.state import HubState, read_state, write_
 from vibepy_studio.operating.internals.wheels import Candidate, candidates, readable
 
 __all__ = [
+    "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
     "HubState",
     "InstallFailed",
+    "Processes",
+    "StartFailed",
+    "StudioDeps",
     "StudioRoot",
     "address",
     "allocate",

@@ -11,7 +11,7 @@ of its own here.
 from collections.abc import Sequence
 
 from vibepy_core.tool import Tool
-from vibepy_studio.internals import StudioDeps
+from vibepy_studio.operating.internals import StudioDeps
 from vibepy_studio.operating.tools.configuration import (
     CONFIGURATION_TOOLS,
     configure_app,

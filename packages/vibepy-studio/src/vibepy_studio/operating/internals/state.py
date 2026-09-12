@@ -14,7 +14,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
-from vibepy_studio.internals.files import write_whole
+from vibepy_studio.operating.internals.files import write_whole
 
 logger = logging.getLogger(__name__)
 

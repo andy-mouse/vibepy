@@ -5,9 +5,9 @@ from collections.abc import Sequence
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.internals import StudioDeps
 from vibepy_studio.operating.internals import (
     HubState,
+    StudioDeps,
     held_secrets,
     secret_fields,
     without_secrets,

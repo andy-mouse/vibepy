@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from vibepy_studio.internals.processes import Processes
+from vibepy_studio.operating.internals.processes import Processes
 from vibepy_studio.operating.internals.root import StudioRoot
 
 

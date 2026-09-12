@@ -14,12 +14,12 @@ from packaging.version import Version
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.internals import StudioDeps
 from vibepy_studio.models import Empty
 from vibepy_studio.operating.internals import (
     Candidate,
     HubState,
     InstallFailed,
+    StudioDeps,
     address,
     allocate,
     candidates,

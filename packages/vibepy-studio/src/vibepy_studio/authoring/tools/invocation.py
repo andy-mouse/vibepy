@@ -17,7 +17,7 @@ from vibepy_studio.authoring.models import (
     project_not_found,
     uv_unavailable,
 )
-from vibepy_studio.internals import NotRunnable, StudioDeps, reported, run
+from vibepy_studio.internals import NotRunnable, reported, run
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ _OUTPUT = TypeAdapter(dict[str, object])
 """The command writes one JSON object: the Tool's output model, dumped."""
 
 
-async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
+async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invocation:
     """Invoke one Tool once through the framework's own window, and return what it said."""
     project = await locate(payload.project)
     if project is None:
@@ -67,19 +67,21 @@ async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> I
         return Invocation(diagnostic=environment_failed(project, completed.stdout.strip()))
 
 
-INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [
-    Tool(
-        definition=ToolDefinition(
-            name="invoke_tool",
-            description=(
-                "Invoke one Tool of an App a source project declares, once, "
-                "in the project's own environment"
+def invocation_tools[DepsT]() -> Sequence[Tool[DepsT]]:  # pyright: ignore[reportInvalidTypeVarUse]
+    """Return authoring's invocation Tool, for whatever dependency type the App declares."""
+    return [
+        Tool(
+            definition=ToolDefinition(
+                name="invoke_tool",
+                description=(
+                    "Invoke one Tool of an App a source project declares, once, "
+                    "in the project's own environment"
+                ),
+                input_model=InvokeRequest,
+                output_model=Invocation,
+                read_only=False,
+                channels=frozenset({Channel.AGENT}),
             ),
-            input_model=InvokeRequest,
-            output_model=Invocation,
-            read_only=False,
-            channels=frozenset({Channel.AGENT}),
+            handler=invoke_tool,
         ),
-        handler=invoke_tool,
-    ),
-]
+    ]

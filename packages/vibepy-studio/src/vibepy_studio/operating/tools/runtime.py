@@ -5,9 +5,11 @@ from collections.abc import Sequence
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
-from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
 from vibepy_studio.models import diagnostic_of
 from vibepy_studio.operating.internals import (
+    AlreadyStarted,
+    StartFailed,
+    StudioDeps,
     address,
 )
 from vibepy_studio.operating.models import AppName, RunningApp, StartRequest
