@@ -54,6 +54,7 @@ from vibepy_core.page import (
 from vibepy_core.principal import Principal
 from vibepy_core.tool import (
     AuthorizationRequest,
+    InvocationRecord,
     InvocationRequest,
     Tool,
     ToolContext,
@@ -81,6 +82,7 @@ __all__ = [
     "DescribedApp",
     "ErrorCategory",
     "ErrorInfo",
+    "InvocationRecord",
     "InvocationRequest",
     "InvokeRequestInvalidError",
     "Lifespan",
