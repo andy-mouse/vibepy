@@ -44,9 +44,9 @@ entry point, `vibepy-studio`, and no `console_scripts`.
 
 Launching it completes the installation and opens the Hub:
 
-1. the root is prepared at its default — the platform's user data directory for `vibepy`
-   (`~/Library/Application Support/vibepy` on macOS, `%LOCALAPPDATA%\vibepy` on Windows,
-   `$XDG_DATA_HOME/vibepy` on Linux) — unless `VIBEPY_ROOT` names another;
+1. the root is prepared at its default, `~/vibepy-apps` — the user's home directory, which the
+   standard library's `Path.home()` answers the same way on every platform, and a folder the
+   user can see and name — unless `VIBEPY_ROOT` names another;
 2. the pinned Traefik is fetched into `<root>/vibepy-studio/tools/` if it is not there, as
    `scripts/fetch_traefik.py` does today;
 3. Traefik and Studio's Web window are started as children of the launcher, which holds them
@@ -85,5 +85,7 @@ that launcher under a development name.
 - an App's MCP registration (M19) and Studio's own share one implementation, so M19 widens what
   this record introduces rather than adding a second copy
 - `VIBEPY_ROOT` remains the only configuration channel (ADR-033); the default is a value, not a
-  new channel
+  new channel. The platform's user-data directory convention (`platformdirs`, as uv and pip
+  follow) was considered and not taken: it is a dependency and three paths to explain, for a
+  folder the user is meant to find
 - this record is Proposed until the launcher exists and the gate proves it on macOS and Windows
