@@ -9,6 +9,7 @@ resolution-markers = [
 [manifest]
 members = [
     "vibepy-core",
+    "vibepy-expense",
     "vibepy-notes",
     "vibepy-studio",
     "vibepy-timer",
@@ -1851,6 +1852,7 @@ dev = [
     { name = "ruff" },
     { name = "selenium" },
     { name = "vibepy-core", extra = ["agent", "web"] },
+    { name = "vibepy-expense" },
     { name = "vibepy-notes" },
     { name = "vibepy-studio" },
     { name = "vibepy-timer" },
@@ -1878,11 +1880,23 @@ dev = [
     { name = "ruff", specifier = ">=0.14" },
     { name = "selenium", specifier = ">=4.30" },
     { name = "vibepy-core", extras = ["web", "agent"] },
+    { name = "vibepy-expense", editable = "fixtures/expense-app" },
     { name = "vibepy-notes", editable = "fixtures/notes-app" },
     { name = "vibepy-studio", editable = "packages/vibepy-studio" },
     { name = "vibepy-timer", editable = "fixtures/timer-app" },
     { name = "vibepy-todo", editable = "fixtures/todo-app" },
 ]
+
+[[package]]
+name = "vibepy-expense"
+version = "0.1.0"
+source = { editable = "fixtures/expense-app" }
+dependencies = [
+    { name = "vibepy-core", extra = ["agent"] },
+]
+
+[package.metadata]
+requires-dist = [{ name = "vibepy-core", extras = ["agent"], editable = "." }]
 
 [[package]]
 name = "vibepy-notes"

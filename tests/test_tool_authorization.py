@@ -3,7 +3,8 @@
 import pytest
 from pydantic import BaseModel
 
-from vibepy_core import Channel, Principal
+from expense_app.entry import EXPENSE_APP, expense_lifespan
+from vibepy_core import Channel, Principal, tool_runtime_for
 from vibepy_core.errors import ToolForbiddenError
 from vibepy_core.tool import (
     AuthorizationRequest,
@@ -165,3 +166,30 @@ async def test_the_context_carries_the_principal_and_the_channel() -> None:
     ctx = recorder.calls[0]
     assert ctx.principal == ALICE
     assert ctx.channel is Channel.WEB
+
+
+async def test_expense_shows_the_two_levels_of_authorization() -> None:
+    async with tool_runtime_for(
+        EXPENSE_APP, expense_lifespan, config={}, channel=Channel.AGENT
+    ) as run:
+        alice = Principal(id="alice")
+        bob = Principal(id="bob", roles=frozenset({"manager"}))
+        carol = Principal(id="carol", roles=frozenset({"manager"}))
+        submitted = await run.invoke("submit_expense", {"amount": 40}, principal=alice)
+        own = await run.invoke("submit_expense", {"amount": 5}, principal=bob)
+
+        with pytest.raises(ToolForbiddenError) as refused:
+            await run.invoke(
+                "approve_expense", {"id": submitted.model_dump()["id"]}, principal=alice
+            )
+        assert refused.value.reason == "role_required"
+
+        self_approval = await run.invoke(
+            "approve_expense", {"id": own.model_dump()["id"]}, principal=bob
+        )
+        assert self_approval.model_dump()["failure"]["code"] == "expense.self_approval"
+
+        approved = await run.invoke(
+            "approve_expense", {"id": submitted.model_dump()["id"]}, principal=carol
+        )
+        assert approved.model_dump()["expense"]["status"] == "approved"

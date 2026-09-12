@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from test_serve_command import child_environment
-from vibepy_core import environment_for
+from vibepy_core import ErrorInfo, environment_for
 
 
 def run_invoke(
@@ -130,3 +130,20 @@ def test_the_old_request_shape_with_config_is_refused(tmp_path: Path) -> None:
         "todo-app", "create_todo", {"config": todo_config(tmp_path), "input": {"title": "milk"}}
     )
     assert reported(result)["code"] == "invoke.request_invalid"
+
+
+@pytest.mark.integration
+def test_a_role_gated_tool_refuses_a_principal_without_the_role() -> None:
+    result = run_invoke("expense-app", "approve_expense", {"input": {"id": 1}}, principal="alice")
+    payload = ErrorInfo.model_validate(reported(result))
+    assert payload.code == "tool.forbidden"
+    assert payload.details["reason"] == "role_required"
+
+
+@pytest.mark.integration
+def test_a_manager_passes_the_role_gate_through_the_command() -> None:
+    result = run_invoke(
+        "expense-app", "approve_expense", {"input": {"id": 1}}, principal="bob", roles=("manager",)
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["failure"]["code"] == "expense.not_found"
