@@ -1,13 +1,13 @@
 /* Quasar sizes bare headings; this stylesheet states what it wants and leaves
    the rest to the browser. This stands before the board's own rules so that any
    heading they do speak about still wins. */
-.vibepy-hub h1,
-.vibepy-hub h2 {
+.vibepy-operating h1,
+.vibepy-operating h2 {
   line-height: normal;
   letter-spacing: normal;
 }
 
-.vibepy-hub {
+.vibepy-operating {
   color-scheme: light dark;
   width: 100%;
   height: 100dvh;
@@ -20,9 +20,9 @@
   color: light-dark(#172a31, #e8f2f3);
 }
 
-.vibepy-hub * { box-sizing: border-box; }
+.vibepy-operating * { box-sizing: border-box; }
 
-.vibepy-hub .hub-shell {
+.vibepy-operating .operating-shell {
   max-width: 1180px;
   width: 100%;
   flex: 1 1 auto;
@@ -37,7 +37,7 @@
   box-shadow: 0 24px 70px light-dark(rgba(28, 57, 64, .16), rgba(0, 0, 0, .42));
 }
 
-.vibepy-hub .hub-topbar {
+.vibepy-operating .operating-topbar {
   flex: none;
   height: 72px;
   display: flex;
@@ -48,7 +48,7 @@
   background: light-dark(#fbfdfd, #162429);
 }
 
-.vibepy-hub .hub-brand {
+.vibepy-operating .operating-brand {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -57,7 +57,7 @@
   letter-spacing: -.02em;
 }
 
-.vibepy-hub .hub-brand-mark {
+.vibepy-operating .operating-brand-mark {
   width: 32px;
   height: 32px;
   display: grid;
@@ -70,11 +70,11 @@
   letter-spacing: -.1em;
 }
 
-.vibepy-hub button {
+.vibepy-operating button {
   font: inherit;
 }
 
-.vibepy-hub button {
+.vibepy-operating button {
   min-height: 38px;
   border: 1px solid transparent;
   border-radius: 9px;
@@ -85,35 +85,35 @@
   transition: transform .15s ease, background .15s ease, border-color .15s ease;
 }
 
-.vibepy-hub button:hover { transform: translateY(-1px); }
-.vibepy-hub button:active { transform: translateY(0); }
-.vibepy-hub button:focus-visible {
+.vibepy-operating button:hover { transform: translateY(-1px); }
+.vibepy-operating button:active { transform: translateY(0); }
+.vibepy-operating button:focus-visible {
   outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
   outline-offset: 2px;
 }
 
-.vibepy-hub .hub-primary {
+.vibepy-operating .operating-primary {
   background: light-dark(#163f49, #c6ece8);
   color: light-dark(#f6ffff, #102429);
 }
 
-.vibepy-hub .hub-secondary {
+.vibepy-operating .operating-secondary {
   border-color: light-dark(#c5d2d5, #45585d);
   background: light-dark(#ffffff, #1b2a2f);
   color: light-dark(#20363d, #d9e6e8);
 }
 
-.vibepy-hub .hub-danger {
+.vibepy-operating .operating-danger {
   border-color: light-dark(#e3c2bf, #754744);
   background: transparent;
   color: light-dark(#a83f3d, #ff9d96);
 }
 
 /* The board's head keeps its place and the list scrolls under it. Below the
-   height that leaves the list something to show, the whole of `hub-main`
+   height that leaves the list something to show, the whole of `operating-main`
    scrolls instead, so nothing is squeezed to nothing and no part of the board
    becomes unreachable. */
-.vibepy-hub .hub-main {
+.vibepy-operating .operating-main {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -122,7 +122,7 @@
   padding: 42px 44px 50px;
 }
 
-.vibepy-hub .hub-heading-row {
+.vibepy-operating .operating-heading-row {
   flex: none;
   display: flex;
   justify-content: space-between;
@@ -131,7 +131,7 @@
   margin-bottom: 30px;
 }
 
-.vibepy-hub .hub-eyebrow {
+.vibepy-operating .operating-eyebrow {
   margin: 0 0 7px;
   color: light-dark(#15756f, #65cfc6);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -140,7 +140,7 @@
   text-transform: uppercase;
 }
 
-.vibepy-hub h1 {
+.vibepy-operating h1 {
   margin: 0;
   font-size: clamp(30px, 4vw, 44px);
   font-weight: 500;
@@ -148,7 +148,7 @@
   letter-spacing: -.045em;
 }
 
-.vibepy-hub .hub-subtitle {
+.vibepy-operating .operating-subtitle {
   max-width: 520px;
   margin: 9px 0 0;
   color: light-dark(#657a80, #a6b7ba);
@@ -156,28 +156,28 @@
   line-height: 1.5;
 }
 
-.vibepy-hub .hub-summary {
+.vibepy-operating .operating-summary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   min-width: 270px;
   border-left: 1px solid light-dark(#cbd8da, #35484d);
 }
 
-.vibepy-hub .hub-summary-item { padding-left: 20px; }
-.vibepy-hub .hub-summary-value {
+.vibepy-operating .operating-summary-item { padding-left: 20px; }
+.vibepy-operating .operating-summary-value {
   display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 21px;
   line-height: 1;
 }
-.vibepy-hub .hub-summary-label {
+.vibepy-operating .operating-summary-label {
   display: block;
   margin-top: 7px;
   color: light-dark(#71858a, #91a4a8);
   font-size: 11px;
 }
 
-.vibepy-hub .hub-registry {
+.vibepy-operating .operating-registry {
   flex: none;
   display: flex;
   align-items: center;
@@ -190,9 +190,9 @@
   background: light-dark(#f9fbfb, #152328);
 }
 
-.vibepy-hub .hub-registry[hidden] { display: none; }
+.vibepy-operating .operating-registry[hidden] { display: none; }
 
-.vibepy-hub .hub-registry-label {
+.vibepy-operating .operating-registry-label {
   display: block;
   margin-bottom: 3px;
   color: light-dark(#536970, #b1c3c6);
@@ -200,7 +200,7 @@
   font-weight: 500;
 }
 
-.vibepy-hub .hub-registry-value {
+.vibepy-operating .operating-registry-value {
   display: block;
   max-width: 650px;
   overflow: hidden;
@@ -211,22 +211,22 @@
   white-space: nowrap;
 }
 
-.vibepy-hub .hub-registry-actions {
+.vibepy-operating .operating-registry-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
 }
 
-.vibepy-hub .hub-registry-actions [hidden] { display: none; }
+.vibepy-operating .operating-registry-actions [hidden] { display: none; }
 
-.vibepy-hub .hub-quiet {
+.vibepy-operating .operating-quiet {
   border-color: transparent;
   background: transparent;
   color: light-dark(#64797e, #9eb0b4);
 }
 
-.vibepy-hub .hub-board {
+.vibepy-operating .operating-board {
   flex: 1 1 auto;
   min-height: 180px;
   overflow-y: auto;
@@ -235,7 +235,7 @@
   background: light-dark(#ffffff, #17262b);
 }
 
-.vibepy-hub .hub-empty {
+.vibepy-operating .operating-empty {
   display: grid;
   min-height: 280px;
   place-items: center;
@@ -243,13 +243,13 @@
   text-align: center;
 }
 
-.vibepy-hub .hub-empty h2 {
+.vibepy-operating .operating-empty h2 {
   margin: 0 0 7px;
   font-size: 18px;
   font-weight: 500;
 }
 
-.vibepy-hub .hub-empty p {
+.vibepy-operating .operating-empty p {
   max-width: 390px;
   margin: 0 0 18px;
   color: light-dark(#6b7f84, #9eb0b4);
@@ -257,8 +257,8 @@
   line-height: 1.5;
 }
 
-.vibepy-hub .hub-board-head,
-.vibepy-hub .hub-app-row {
+.vibepy-operating .operating-board-head,
+.vibepy-operating .operating-app-row {
   display: grid;
   grid-template-columns: minmax(300px, 1.1fr) minmax(330px, 1.35fr) minmax(270px, .9fr);
   align-items: center;
@@ -266,7 +266,7 @@
   padding: 0 24px;
 }
 
-.vibepy-hub .hub-board-head {
+.vibepy-operating .operating-board-head {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -280,25 +280,25 @@
   text-transform: uppercase;
 }
 
-.vibepy-hub .hub-board-head[hidden] { display: none; }
-.vibepy-hub .hub-board-head > span:nth-child(2) { text-align: center; }
-.vibepy-hub .hub-board-head > span:last-child { text-align: right; }
+.vibepy-operating .operating-board-head[hidden] { display: none; }
+.vibepy-operating .operating-board-head > span:nth-child(2) { text-align: center; }
+.vibepy-operating .operating-board-head > span:last-child { text-align: right; }
 
-.vibepy-hub .hub-app-row {
+.vibepy-operating .operating-app-row {
   min-height: 122px;
   border-bottom: 1px solid light-dark(#e0e8e9, #2c3f44);
 }
-.vibepy-hub .hub-app-row > * { min-width: 0; }
-.vibepy-hub .hub-app-row:last-child { border-bottom: 0; }
+.vibepy-operating .operating-app-row > * { min-width: 0; }
+.vibepy-operating .operating-app-row:last-child { border-bottom: 0; }
 
-.vibepy-hub .hub-app-name {
+.vibepy-operating .operating-app-name {
   margin: 0 0 6px;
   font-size: 16px;
   font-weight: 500;
   letter-spacing: -.02em;
 }
 
-.vibepy-hub .hub-app-meta {
+.vibepy-operating .operating-app-meta {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -308,14 +308,14 @@
   font-size: 11px;
 }
 
-.vibepy-hub .hub-rail {
+.vibepy-operating .operating-rail {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   align-items: start;
   position: relative;
 }
 
-.vibepy-hub .hub-rail::before {
+.vibepy-operating .operating-rail::before {
   content: "";
   position: absolute;
   top: 9px;
@@ -325,7 +325,7 @@
   background: light-dark(#d7e1e3, #3a4d52);
 }
 
-.vibepy-hub .hub-stage {
+.vibepy-operating .operating-stage {
   position: relative;
   z-index: 1;
   text-align: center;
@@ -333,7 +333,7 @@
   font-size: 11px;
 }
 
-.vibepy-hub .hub-stage-node {
+.vibepy-operating .operating-stage-node {
   width: 19px;
   height: 19px;
   margin: 0 auto 9px;
@@ -346,46 +346,46 @@
   font-size: 10px;
 }
 
-.vibepy-hub .hub-stage.is-done { color: light-dark(#315e60, #a7ceca); }
-.vibepy-hub .hub-stage.is-done .hub-stage-node {
+.vibepy-operating .operating-stage.is-done { color: light-dark(#315e60, #a7ceca); }
+.vibepy-operating .operating-stage.is-done .operating-stage-node {
   border-color: light-dark(#188279, #61c9c0);
   background: light-dark(#188279, #61c9c0);
   color: light-dark(#ffffff, #10282b);
 }
 
-.vibepy-hub .hub-stage.is-live { color: light-dark(#126c65, #78ded5); }
-.vibepy-hub .hub-stage.is-live .hub-stage-node {
+.vibepy-operating .operating-stage.is-live { color: light-dark(#126c65, #78ded5); }
+.vibepy-operating .operating-stage.is-live .operating-stage-node {
   border-color: light-dark(#188279, #61c9c0);
   background: light-dark(#188279, #61c9c0);
   color: light-dark(#ffffff, #10282b);
   box-shadow: 0 0 0 5px light-dark(#d9efec, #204743);
 }
 
-.vibepy-hub .hub-stage.is-required {
+.vibepy-operating .operating-stage.is-required {
   color: light-dark(#a55a18, #f0b66f);
   font-weight: 500;
 }
 
-.vibepy-hub .hub-stage.is-required .hub-stage-node {
+.vibepy-operating .operating-stage.is-required .operating-stage-node {
   border-color: light-dark(#c3782d, #dc9b50);
   background: light-dark(#fff8ed, #32251a);
   color: light-dark(#a55a18, #f0b66f);
   box-shadow: 0 0 0 4px light-dark(#f8ead7, #3a2b1d);
 }
 
-.vibepy-hub .hub-stage.is-update {
+.vibepy-operating .operating-stage.is-update {
   color: light-dark(#356f91, #7fc1e5);
   font-weight: 500;
 }
 
-.vibepy-hub .hub-stage.is-update .hub-stage-node {
+.vibepy-operating .operating-stage.is-update .operating-stage-node {
   border-color: light-dark(#4f87a7, #72b6dc);
   background: light-dark(#eef7fc, #172c37);
   color: light-dark(#356f91, #7fc1e5);
   box-shadow: 0 0 0 4px light-dark(#dfeef6, #203846);
 }
 
-.vibepy-hub .hub-diagnostic {
+.vibepy-operating .operating-diagnostic {
   grid-column: 1 / -1;
   display: flex;
   align-items: baseline;
@@ -401,7 +401,7 @@
   overflow-wrap: anywhere;
 }
 
-.vibepy-hub .hub-code {
+.vibepy-operating .operating-code {
   flex: none;
   border-radius: 5px;
   padding: 1px 6px;
@@ -411,7 +411,7 @@
   letter-spacing: -.01em;
 }
 
-.vibepy-hub .hub-config {
+.vibepy-operating .operating-config {
   grid-column: 1 / -1;
   margin: 2px 0 20px;
   border: 1px solid light-dark(#cbd8da, #34474c);
@@ -420,22 +420,22 @@
   background: light-dark(#f9fbfb, #152328);
 }
 
-.vibepy-hub .hub-config[hidden] { display: none; }
+.vibepy-operating .operating-config[hidden] { display: none; }
 
-.vibepy-hub .hub-config-head {
+.vibepy-operating .operating-config-head {
   margin: 0 0 3px;
   font-size: 13px;
   font-weight: 500;
 }
 
-.vibepy-hub .hub-config-note {
+.vibepy-operating .operating-config-note {
   margin: 0 0 15px;
   color: light-dark(#6b7f84, #9eb0b4);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.vibepy-hub .hub-field {
+.vibepy-operating .operating-field {
   display: grid;
   grid-template-columns: minmax(150px, .5fr) minmax(0, 1fr);
   align-items: center;
@@ -443,12 +443,12 @@
   margin-bottom: 10px;
 }
 
-.vibepy-hub .hub-field-name {
+.vibepy-operating .operating-field-name {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 11.5px;
 }
 
-.vibepy-hub .hub-field-type {
+.vibepy-operating .operating-field-type {
   display: block;
   margin-top: 3px;
   color: light-dark(#84969a, #82989c);
@@ -456,7 +456,7 @@
   letter-spacing: .02em;
 }
 
-.vibepy-hub .hub-field input {
+.vibepy-operating .operating-field input {
   min-height: 36px;
   width: 100%;
   border: 1px solid light-dark(#c5d2d5, #45585d);
@@ -468,16 +468,16 @@
   font-size: 13px;
 }
 
-.vibepy-hub .hub-field input:focus-visible {
+.vibepy-operating .operating-field input:focus-visible {
   outline: 3px solid light-dark(rgba(20, 127, 120, .25), rgba(88, 199, 190, .35));
   outline-offset: 1px;
 }
 
-.vibepy-hub .hub-field.is-invalid input {
+.vibepy-operating .operating-field.is-invalid input {
   border-color: light-dark(#c98b87, #8f5450);
 }
 
-.vibepy-hub .hub-config-error {
+.vibepy-operating .operating-config-error {
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -490,22 +490,22 @@
   line-height: 1.5;
 }
 
-.vibepy-hub .hub-config-error[hidden] { display: none; }
+.vibepy-operating .operating-config-error[hidden] { display: none; }
 
-.vibepy-hub .hub-config-actions {
+.vibepy-operating .operating-config-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 16px;
 }
 
-.vibepy-hub .hub-actions button[disabled] {
+.vibepy-operating .operating-actions button[disabled] {
   opacity: .45;
   cursor: not-allowed;
 }
-.vibepy-hub .hub-actions button[disabled]:hover { transform: none; }
+.vibepy-operating .operating-actions button[disabled]:hover { transform: none; }
 
-.vibepy-hub .hub-actions {
+.vibepy-operating .operating-actions {
   display: flex;
   justify-content: flex-end;
   align-items: center;
@@ -513,7 +513,7 @@
   flex-wrap: nowrap;
 }
 
-.vibepy-hub .hub-toast {
+.vibepy-operating .operating-toast {
   position: fixed;
   right: 24px;
   bottom: 24px;
@@ -531,48 +531,48 @@
   pointer-events: none;
   transition: opacity .2s ease, transform .2s ease;
 }
-.vibepy-hub .hub-toast.is-visible { opacity: 1; transform: translateY(0); }
+.vibepy-operating .operating-toast.is-visible { opacity: 1; transform: translateY(0); }
 
 @media (max-width: 1120px) {
-  .vibepy-hub { padding: 10px; }
-  .vibepy-hub .hub-shell { border-radius: 12px; }
-  .vibepy-hub .hub-topbar { padding: 0 18px; }
-  .vibepy-hub .hub-main { padding: 30px 20px 36px; }
-  .vibepy-hub .hub-heading-row { align-items: flex-start; flex-direction: column; }
-  .vibepy-hub .hub-summary { width: 100%; border-left: 0; }
-  .vibepy-hub .hub-summary-item { padding: 0; }
-  .vibepy-hub .hub-registry { align-items: flex-start; flex-direction: column; }
-  .vibepy-hub .hub-board-head { display: none; }
-  /* One scroll region, not two nested ones: below this width `hub-main` owns
+  .vibepy-operating { padding: 10px; }
+  .vibepy-operating .operating-shell { border-radius: 12px; }
+  .vibepy-operating .operating-topbar { padding: 0 18px; }
+  .vibepy-operating .operating-main { padding: 30px 20px 36px; }
+  .vibepy-operating .operating-heading-row { align-items: flex-start; flex-direction: column; }
+  .vibepy-operating .operating-summary { width: 100%; border-left: 0; }
+  .vibepy-operating .operating-summary-item { padding: 0; }
+  .vibepy-operating .operating-registry { align-items: flex-start; flex-direction: column; }
+  .vibepy-operating .operating-board-head { display: none; }
+  /* One scroll region, not two nested ones: below this width `operating-main` owns
      the scroll and the list grows to whatever it holds. */
-  .vibepy-hub .hub-board { flex: none; min-height: 0; overflow-y: visible; }
-  .vibepy-hub .hub-app-row {
+  .vibepy-operating .operating-board { flex: none; min-height: 0; overflow-y: visible; }
+  .vibepy-operating .operating-app-row {
     grid-template-columns: 1fr;
     gap: 24px;
     padding: 24px 20px;
   }
-  .vibepy-hub .hub-app-meta { flex-wrap: wrap; }
-  .vibepy-hub .hub-actions { justify-content: flex-start; flex-wrap: wrap; }
-  .vibepy-hub .hub-rail { max-width: 430px; }
-  .vibepy-hub .hub-field { grid-template-columns: 1fr; gap: 7px; }
+  .vibepy-operating .operating-app-meta { flex-wrap: wrap; }
+  .vibepy-operating .operating-actions { justify-content: flex-start; flex-wrap: wrap; }
+  .vibepy-operating .operating-rail { max-width: 430px; }
+  .vibepy-operating .operating-field { grid-template-columns: 1fr; gap: 7px; }
 }
 
 @media (max-width: 480px) {
-  .vibepy-hub { padding: 0; }
-  .vibepy-hub .hub-shell { border: 0; border-radius: 0; }
-  .vibepy-hub .hub-topbar .hub-primary { padding-inline: 11px; }
-  .vibepy-hub .hub-main { padding-inline: 16px; }
-  .vibepy-hub .hub-summary-value { font-size: 18px; }
-  .vibepy-hub .hub-actions button {
+  .vibepy-operating { padding: 0; }
+  .vibepy-operating .operating-shell { border: 0; border-radius: 0; }
+  .vibepy-operating .operating-topbar .operating-primary { padding-inline: 11px; }
+  .vibepy-operating .operating-main { padding-inline: 16px; }
+  .vibepy-operating .operating-summary-value { font-size: 18px; }
+  .vibepy-operating .operating-actions button {
     padding-inline: 6px;
     font-size: 12px;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vibepy-hub *,
-  .vibepy-hub *::before,
-  .vibepy-hub *::after { transition: none !important; }
+  .vibepy-operating *,
+  .vibepy-operating *::before,
+  .vibepy-operating *::after { transition: none !important; }
 }
 
 /* What the page around the shell has to say: this is a whole page drawn by
@@ -596,20 +596,20 @@ body, body.body--light, body.body--dark {
 /* A row's children are built in the order a reader reaches for them -- the
    buttons before the rail, so that "Configure" is found before "Configured" --
    and placed in the order the board shows them. */
-.vibepy-hub .hub-app-row > .hub-rail { order: 2; }
-.vibepy-hub .hub-app-row > .hub-actions { order: 3; }
-.vibepy-hub .hub-app-row > .hub-diagnostic { order: 4; }
-.vibepy-hub .hub-app-row > .hub-config { order: 5; }
+.vibepy-operating .operating-app-row > .operating-rail { order: 2; }
+.vibepy-operating .operating-app-row > .operating-actions { order: 3; }
+.vibepy-operating .operating-app-row > .operating-diagnostic { order: 4; }
+.vibepy-operating .operating-app-row > .operating-config { order: 5; }
 
 /* The package folder is typed into the registry card. Its input wears the same
    clothes as a configuration field's input. */
-.vibepy-hub .hub-registry-entry {
+.vibepy-operating .operating-registry-entry {
   min-width: 260px;
   padding: 0;
 }
 
-.vibepy-hub .hub-registry-entry .q-field__control,
-.vibepy-hub .hub-field .q-field__control {
+.vibepy-operating .operating-registry-entry .q-field__control,
+.vibepy-operating .operating-field .q-field__control {
   min-height: 36px;
   height: 36px;
   border: 1px solid light-dark(#c5d2d5, #45585d);
@@ -618,38 +618,38 @@ body, body.body--light, body.body--dark {
   background: light-dark(#ffffff, #1b2a2f);
 }
 
-.vibepy-hub .hub-registry-entry .q-field__control::before,
-.vibepy-hub .hub-registry-entry .q-field__control::after,
-.vibepy-hub .hub-field .q-field__control::before,
-.vibepy-hub .hub-field .q-field__control::after {
+.vibepy-operating .operating-registry-entry .q-field__control::before,
+.vibepy-operating .operating-registry-entry .q-field__control::after,
+.vibepy-operating .operating-field .q-field__control::before,
+.vibepy-operating .operating-field .q-field__control::after {
   display: none;
 }
 
-.vibepy-hub .hub-registry-entry .q-field__native,
-.vibepy-hub .hub-field .q-field__native {
+.vibepy-operating .operating-registry-entry .q-field__native,
+.vibepy-operating .operating-field .q-field__native {
   padding: 0;
   color: light-dark(#20363d, #d9e6e8);
   font-family: inherit;
   font-size: 13px;
 }
 
-.vibepy-hub .hub-registry-entry .q-field__marginal,
-.vibepy-hub .hub-field .q-field__marginal {
+.vibepy-operating .operating-registry-entry .q-field__marginal,
+.vibepy-operating .operating-field .q-field__marginal {
   height: 36px;
 }
 
-.vibepy-hub .hub-field .q-field,
-.vibepy-hub .hub-registry-entry .q-field {
+.vibepy-operating .operating-field .q-field,
+.vibepy-operating .operating-registry-entry .q-field {
   width: 100%;
 }
 
-.vibepy-hub .hub-field.is-invalid .q-field__control {
+.vibepy-operating .operating-field.is-invalid .q-field__control {
   border-color: light-dark(#c98b87, #8f5450);
 }
 
 /* A confirmation is a Quasar dialog, dressed in the board's palette so it does
    not arrive from another design. */
-.hub-dialog {
+.operating-dialog {
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
   border: 1px solid light-dark(#cbd8da, #34474c);
   border-radius: 14px;
@@ -661,14 +661,14 @@ body, body.body--light, body.body--dark {
   line-height: 1.5;
 }
 
-.hub-dialog .hub-dialog-actions {
+.operating-dialog .operating-dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
   margin-top: 18px;
 }
 
-.hub-dialog button {
+.operating-dialog button {
   font: inherit;
   min-height: 38px;
   border: 1px solid transparent;
@@ -679,12 +679,12 @@ body, body.body--light, body.body--dark {
   font-weight: 500;
 }
 
-.hub-dialog .hub-primary {
+.operating-dialog .operating-primary {
   background: light-dark(#163f49, #c6ece8);
   color: light-dark(#f6ffff, #102429);
 }
 
-.hub-dialog .hub-quiet {
+.operating-dialog .operating-quiet {
   border-color: transparent;
   background: transparent;
   color: light-dark(#64797e, #9eb0b4);

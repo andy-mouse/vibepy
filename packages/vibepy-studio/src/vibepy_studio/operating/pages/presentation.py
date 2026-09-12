@@ -147,7 +147,7 @@ def save_request(
 ) -> dict[str, object] | list[str]:
     """Build what a Save sends to `configure_app`, or the required fields it still lacks.
 
-    A field left empty is omitted, whatever its type, which the Hub reads as
+    A field left empty is omitted, whatever its type, which the operating role reads as
     "keep what is held": a screen must not be able to blank a stored secret, and
     an empty box is not the value `""` -- sending one would store an optional
     integer as `""` and an optional path as `.`, and the App's window would then

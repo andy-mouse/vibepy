@@ -7,7 +7,7 @@ Apps with a Web channel. Notes declares no Pages on purpose, so it cannot be
 the second one.
 
 It requires nothing of its host, which is the other half of its job: a test
-that installs it is asserting about the Hub, not about what this App happens
+that installs it is asserting about Studio, not about what this App happens
 to need. Its lifespan holds the one thing it knows -- when it opened -- so the
 resource an App may hold is exercised here rather than only described.
 """

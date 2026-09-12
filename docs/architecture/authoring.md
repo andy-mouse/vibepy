@@ -51,7 +51,7 @@ answers for are those its `[project].name` declares.
 | `inspect_app` | Agent | the project's Apps with every Tool schema, Page and configuration schema — or the framework's own diagnostics, one per reason, when the declaration will not load |
 | `invoke_tool` | Agent | one Tool of one App, invoked once through the framework's invocation window, with configuration supplied by the caller |
 | `validate_app` | Agent | every declaration violation and every pyright diagnostic of the project, each a `Diagnostic` at its severity, and whether the project conforms |
-| `list_apps`, `describe_config`, `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | Web | Studio's operating half, which the Hub's Pages reach |
+| `list_apps`, `describe_config`, `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | Web | Studio's operating half, which the operating role's Pages reach |
 
 An agent connected to Studio therefore neither sees the operating Tools nor can call them by
 name. This is the outcome

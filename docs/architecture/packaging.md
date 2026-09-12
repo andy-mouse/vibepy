@@ -266,10 +266,10 @@ Three statements, and they are not guaranteed in the same place.
 | --- | --- |
 | the Host never imports an App | the framework: no published operation imports an App into its caller, and `tests/test_app_isolation.py` proves discovery leaves `sys.modules` untouched |
 | loading happens in the App's own interpreter | the framework: `describe_app` is reached across a process boundary through `python -m vibepy_core.describe` |
-| an App is installed into an environment of its own | the installation model. The Hub creates one environment per App and installs into it; Python packaging cannot enforce it |
+| an App is installed into an environment of its own | the installation model. The operating role creates one environment per App and installs into it; Python packaging cannot enforce it |
 
 The third is a contract, not a guarantee, and the difference is stated rather than blurred:
-nothing in packaging stops two Apps being installed into one environment by hand. The Hub keeps
+nothing in packaging stops two Apps being installed into one environment by hand. The operating role keeps
 the contract by construction — `uv venv` then `uv pip install` per App — and M17 owns hardening
 it. This is the division ADR-017 already made: the framework states the contract, the host
 implements it.

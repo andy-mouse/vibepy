@@ -137,7 +137,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
 @pytest.mark.integration
 def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) -> None:
     """The general case, not one code: any failure of opening crosses with a
-    code. The Hub App requires a root it can create, and a path under a file is
+    code. Studio requires a root it can create, and a path under a file is
     not one, so its lifespan raises where its configuration was valid.
     """
     blocking = tmp_path / "afile"

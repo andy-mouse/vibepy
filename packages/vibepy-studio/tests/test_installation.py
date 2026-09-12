@@ -49,7 +49,7 @@ def a_python_lives_in(env: Path, /) -> bool:
 async def test_installing_an_app_creates_an_environment_of_its_own(
     tmp_path: Path, wheelhouse: Path
 ) -> None:
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
@@ -78,7 +78,7 @@ async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: P
 @pytest.mark.integration
 async def test_the_facts_kept_carry_the_whole_description_the_app_wrote(installed: Path) -> None:
     """The record is what `describe` wrote, so what an App declares is not
-    narrowed on its way into the Hub's own file."""
+    narrowed on its way into the operating role's own file."""
     facts = await read_facts(environment(installed, "vibepy-todo"))
 
     assert facts is not None
@@ -98,7 +98,7 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, install
     """A folder's name is not a declaration.
 
     `fixtures/todo` is the distribution `vibepy-todo` and declares itself as
-    `todo-app`, so the Hub files it under the distribution name it was asked for
+    `todo-app`, so the operating role files it under the distribution name it was asked for
     and runs it under the name its environment answers to.
     """
     async with studio(installed) as tools:
@@ -151,12 +151,12 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
 
 
 async def test_an_app_no_source_offers_is_a_diagnostic(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke("install_app", {"app_name": "absent"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.candidate_absent"
+    assert answered.diagnostic.code == "operating.candidate_absent"
 
 
 async def test_a_wheel_that_declares_no_app_is_refused_before_an_environment_exists(
@@ -165,7 +165,7 @@ async def test_a_wheel_that_declares_no_app_is_refused_before_an_environment_exi
     """A wheel's entry points are a fact, so the answer needs no install to find out."""
     source = tmp_path / "wheels"
     write_wheel(source, name="plain-package", version="1.0.0", declares=False)
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
@@ -173,7 +173,7 @@ async def test_a_wheel_that_declares_no_app_is_refused_before_an_environment_exi
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.no_app_declared"
+    assert answered.diagnostic.code == "operating.no_app_declared"
     assert not environment(root, "plain-package").exists()
 
 
@@ -184,7 +184,7 @@ async def test_list_apps_offers_only_wheels_that_declare_an_app(tmp_path: Path) 
     write_wheel(source, name="demo-app", version="1.0.0", declares=True)
     write_wheel(source, name="some-library", version="1.0.0", declares=False)
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         registered = await tools.invoke(
             "register_package_source", {"path": str(source)}, principal=AGENT
         )
@@ -208,20 +208,20 @@ async def test_an_uninstallable_folder_is_a_diagnostic(
     empty.mkdir()
     monkeypatch.setenv("PATH", str(empty))
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.install_failed"
+    assert answered.diagnostic.code == "operating.install_failed"
     assert "uv" in answered.diagnostic.message
 
 
 async def test_a_traversing_app_name_deletes_nothing(tmp_path: Path) -> None:
-    """ADR-024 exposes every Hub Tool on the Agent channel, so this is a
+    """ADR-024 exposes every operating Tool on the Agent channel, so this is a
     model-controlled string reaching shutil.rmtree."""
-    root = tmp_path / "hub" / "deep"
+    root = tmp_path / "root" / "deep"
     (root / "envs" / "todo").mkdir(parents=True)
     victim = tmp_path / "victim"
     victim.mkdir()
@@ -238,7 +238,7 @@ async def test_an_absolute_app_name_is_refused(tmp_path: Path) -> None:
     victim = tmp_path / "victim"
     victim.mkdir()
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         with pytest.raises(ToolInputValidationError):
             await tools.invoke("remove_app", {"app_name": str(victim)}, principal=AGENT)
 
@@ -273,7 +273,7 @@ async def test_one_app_is_one_row_however_it_was_installed(
     tmp_path: Path, wheelhouse: Path
 ) -> None:
     """Installing by the distribution name lists that App once, not twice."""
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
@@ -287,19 +287,19 @@ async def test_one_app_is_one_row_however_it_was_installed(
 
 
 async def test_a_folder_name_is_not_an_app_name(tmp_path: Path, wheelhouse: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         answered = await tools.invoke("install_app", {"app_name": "todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.candidate_absent"
+    assert answered.diagnostic.code == "operating.candidate_absent"
 
 
 @pytest.mark.integration
 async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path, wheelhouse: Path) -> None:
-    """The specification compares names by normalizing them, and so does the Hub."""
-    root = tmp_path / "hub"
+    """The specification compares names by normalizing them, and so does the operating role."""
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
@@ -317,7 +317,7 @@ async def test_a_distribution_declaring_two_apps_is_refused(
 ) -> None:
     """One environment holds one App, so two declarations are reported rather
     than one of them silently dropped."""
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
         return (
@@ -349,7 +349,7 @@ async def test_a_distribution_declaring_two_apps_is_refused(
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.multiple_apps_declared"
+    assert answered.diagnostic.code == "operating.multiple_apps_declared"
     assert "timer-app" in answered.diagnostic.details["declared"]
     assert not environment(root, "vibepy-todo").exists()
 
@@ -360,7 +360,7 @@ async def test_a_failed_description_leaves_no_environment_behind(
 ) -> None:
     """`purelib` and `describe` run in the App's interpreter, and a failure
     there is a diagnostic like every other failure here."""
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async def refuse(env: Path, /) -> Path:
         raise InstallFailed("purelib", "the interpreter did not answer")
@@ -374,14 +374,14 @@ async def test_a_failed_description_leaves_no_environment_behind(
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.install_failed"
+    assert answered.diagnostic.code == "operating.install_failed"
     assert not environment(root, "vibepy-notes").exists()
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-notes"] == ["available"]
 
 
 async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Path) -> None:
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
     (root / "envs" / "vibepy-todo").mkdir(parents=True)
 
     async with studio(root) as tools:
@@ -390,7 +390,7 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
     assert rows["vibepy-todo"].diagnostic is not None
-    assert rows["vibepy-todo"].diagnostic.code == "hub.facts_unreadable"
+    assert rows["vibepy-todo"].diagnostic.code == "operating.facts_unreadable"
 
 
 @pytest.mark.apps("vibepy-notes")
@@ -408,7 +408,7 @@ async def test_an_environment_that_no_longer_declares_its_app_says_so(
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
     assert rows["vibepy-notes"].diagnostic is not None
-    assert rows["vibepy-notes"].diagnostic.code == "hub.declaration_missing"
+    assert rows["vibepy-notes"].diagnostic.code == "operating.declaration_missing"
 
 
 @pytest.mark.integration
@@ -421,7 +421,7 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
     distribution depends on, and a dependency may declare an App of its own.
     Here one sorts first and is not the one installed.
     """
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
         return (

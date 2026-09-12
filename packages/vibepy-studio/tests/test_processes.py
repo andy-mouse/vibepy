@@ -1,7 +1,7 @@
 """A child is this window's resource from the moment it exists.
 
 `Processes` is an internal, and this file is the departure from testing public
-contracts that the spec names: an orphaned child is invisible to every Hub Tool,
+contracts that the spec names: an orphaned child is invisible to every operating Tool,
 which is the defect itself.
 """
 
@@ -105,7 +105,7 @@ async def test_a_child_that_cannot_run_the_command_is_a_start_failure(
 async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     """`aclose` is what `entry.py` promises: a window leaves no child behind.
 
-    Asserted here rather than through a Hub Tool, because it is a fact about
+    Asserted here rather than through an operating Tool, because it is a fact about
     `Processes` that no Tool can see -- which is what this file is for.
     """
     processes = Processes(logs=tmp_path / "logs")

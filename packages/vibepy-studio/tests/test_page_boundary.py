@@ -1,10 +1,11 @@
-"""A Hub Page reaches Hub Core only through Tool invocation, never by importing it directly.
+"""An operating Page reaches the operating role's core only through Tool invocation, never by
+importing it directly.
 
 `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md` says "a Hub UI consumes those Tools as
 any Page consumes Tools, so it cannot duplicate control-plane logic." This test holds that
 boundary at the import level: no module under `vibepy_studio/pages/` may import
 `vibepy_studio.operating.internals`, `vibepy_studio.operating.tools`, or
-`vibepy_core.tool` — a Page's whole reach into Hub Core is `ctx.tools.invoke`.
+`vibepy_core.tool` — a Page's whole reach into the operating role's core is `ctx.tools.invoke`.
 """
 
 import ast
@@ -21,8 +22,9 @@ FORBIDDEN_IMPORTS = frozenset(
         "vibepy_core.tool",
     }
 )
-"""What a Page module may never import: Hub Core's internals, its Tool modules, and the
-framework's Tool machinery. A Page reaches Hub Core only through `ctx.tools.invoke`."""
+"""What a Page module may never import: the operating role's core internals, its Tool modules, and
+the framework's Tool machinery. A Page reaches the operating role's core only through
+`ctx.tools.invoke`."""
 
 
 def imported(source: str, /) -> set[str]:

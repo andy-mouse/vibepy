@@ -31,7 +31,7 @@ CROWD = 10
 """Rows enough to overflow the list at the window size these tests ask for."""
 
 
-def hub_pages(root: Path):
+def operating_pages(root: Path):
     return page_runtime_for(
         STUDIO_APP, APP.lifespan, config={"root": str(root), "proxy_port": 8080}
     )
@@ -54,13 +54,13 @@ async def crowded(root: Path, source: Path) -> None:
 async def test_the_board_arrives_dressed_in_its_own_stylesheet(
     screen: Screen, tmp_path: Path
 ) -> None:
-    await crowded(tmp_path / "hub", tmp_path / "wheels")
-    async with hub_pages(tmp_path / "hub") as pages:
+    await crowded(tmp_path / "root", tmp_path / "wheels")
+    async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         screen.selenium.set_window_size(1280, 600)  # pyright: ignore[reportUnknownMemberType]
         screen.open("/")
         screen.should_contain("Your apps")
-        screen.find_by_css(".vibepy-hub .hub-shell")
+        screen.find_by_css(".vibepy-operating .operating-shell")
         screen.should_contain("demo-app-9")
         painted: object = asked(screen, "return getComputedStyle(document.body).backgroundColor")
         whole_page_still: object = asked(
@@ -69,13 +69,13 @@ async def test_the_board_arrives_dressed_in_its_own_stylesheet(
         )
         list_scrolls: object = asked(
             screen,
-            "const b = document.querySelector('.hub-board');"
+            "const b = document.querySelector('.operating-board');"
             " return b !== null && b.scrollHeight > b.clientHeight",
         )
         head_stays: object = asked(
             screen,
-            "const bar = document.querySelector('.hub-topbar');"
-            " const b = document.querySelector('.hub-board');"
+            "const bar = document.querySelector('.operating-topbar');"
+            " const b = document.querySelector('.operating-board');"
             " const before = bar.getBoundingClientRect().top;"
             " b.scrollTop += 200;"
             " return b.scrollTop > 0 && bar.getBoundingClientRect().top === before",
@@ -95,31 +95,34 @@ async def test_the_clock_does_not_redraw_over_what_is_being_typed(
     # state's DOM node is replaced by one each time the clock ticks. Holding on
     # to the node is therefore how a test sees a tick arrive, or not arrive.
     watched = (
-        "const kept = window.__watched; window.__watched = document.querySelector('.hub-empty');"
+        "const kept = window.__watched; window.__watched = "
+        "document.querySelector('.operating-empty');"
     )
-    async with hub_pages(tmp_path / "hub") as pages:
+    async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         screen.open("/")
         screen.should_contain("No folder registered")
         asked(screen, watched)
-        entry = screen.find_by_css(".hub-registry-entry input")
+        entry = screen.find_by_css(".operating-registry-entry input")
         typed = str(tmp_path / "wheels")
         entry.send_keys(typed)
         screen.wait(2 * REFRESH_SECONDS + 0.5)
-        typing_survived: object = screen.find_by_css(".hub-registry-entry input").get_attribute(  # pyright: ignore[reportUnknownMemberType]
+        typing_survived: object = screen.find_by_css(
+            ".operating-registry-entry input"
+        ).get_attribute(  # pyright: ignore[reportUnknownMemberType]
             "value"
         )
         held_off: object = asked(
-            screen, f"{watched} return document.querySelector('.hub-empty') === kept"
+            screen, f"{watched} return document.querySelector('.operating-empty') === kept"
         )
 
         # Nothing is being typed any more, so the clock is owed a redraw.
         # Erased key by key: `clear()` empties the field without the event
         # Quasar reports a change through, so the page would never hear of it.
-        screen.find_by_css(".hub-registry-entry input").send_keys(Keys.BACKSPACE * len(typed))
+        screen.find_by_css(".operating-registry-entry input").send_keys(Keys.BACKSPACE * len(typed))
         screen.wait(2 * REFRESH_SECONDS + 0.5)
         resumed: object = asked(
-            screen, f"{watched} return document.querySelector('.hub-empty') !== kept"
+            screen, f"{watched} return document.querySelector('.operating-empty') !== kept"
         )
 
     assert typing_survived == typed

@@ -1,6 +1,6 @@
 """Installing an App into an environment of its own, and removing it again.
 
-An installed App is read from the file system rather than from a record the Hub
+An installed App is read from the file system rather than from a record the operating role
 keeps: each App has an environment of its own, and `discover_apps(path=…)` reads
 one without importing it.
 """
@@ -17,8 +17,8 @@ from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.models import Empty
 from vibepy_studio.operating.internals import (
     Candidate,
-    HubState,
     InstallFailed,
+    OperatingState,
     StudioDeps,
     address,
     allocate,
@@ -46,7 +46,7 @@ async def _offered(deps: StudioDeps, app_name: str, /) -> Candidate | None:
 
 
 async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
-    """One row per environment this Hub created, read without importing."""
+    """One row per environment this operating role created, read without importing."""
     rows: dict[str, AppRow] = {}
     stored = await deps.root.state()
     for app_name in await deps.root.installed():
@@ -56,7 +56,7 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
                 app_name=app_name,
                 state="installed",
                 diagnostic=ErrorInfo(
-                    code="hub.facts_unreadable",
+                    code="operating.facts_unreadable",
                     category=ErrorCategory.EXECUTION,
                     message=f"{app_name!r} holds no readable record of what was installed",
                     details={"app_name": app_name},
@@ -83,7 +83,7 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
             diagnostic=None
             if present
             else ErrorInfo(
-                code="hub.declaration_missing",
+                code="operating.declaration_missing",
                 category=ErrorCategory.DECLARATION,
                 message=f"{app_name!r} no longer declares {wanted!r}",
                 details={"app_name": app_name, "declared_name": wanted},
@@ -100,7 +100,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
         return Installation(
             app=AppRow(app_name=payload.app_name, state="available"),
             diagnostic=ErrorInfo(
-                code="hub.candidate_absent",
+                code="operating.candidate_absent",
                 category=ErrorCategory.CALLER,
                 message=f"The registered source offers no {payload.app_name!r}",
                 details={"app_name": payload.app_name},
@@ -109,12 +109,12 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
     if await deps.root.is_installed(payload.app_name):
         # Installing over an installation is refused rather than given a meaning
         # of its own: `update_app` is the operation that remakes an environment
-        # while keeping what the Hub holds, and `remove_app` is the one that
+        # while keeping what the operating role holds, and `remove_app` is the one that
         # discards it.
         return Installation(
             app=AppRow(app_name=payload.app_name, state="installed"),
             diagnostic=ErrorInfo(
-                code="hub.already_installed",
+                code="operating.already_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is already installed; remove it first",
                 details={"app_name": payload.app_name},
@@ -126,7 +126,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
                 app_name=payload.app_name, state="available", distribution_version=offered.version
             ),
             diagnostic=ErrorInfo(
-                code="hub.no_app_declared",
+                code="operating.no_app_declared",
                 category=ErrorCategory.DECLARATION,
                 message=f"{offered.wheel.name} declares no App",
                 details={"wheel": str(offered.wheel)},
@@ -139,7 +139,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
     """Create the environment, describe it, keep its facts, give it an address.
 
     Shared by installing and updating: an update is this, over an environment that
-    was removed while the Hub kept everything else it held for the App.
+    was removed while the operating role kept everything else it held for the App.
     """
     try:
         await deps.root.install(app_name, wheel=offered.wheel, source=offered.wheel.parent)
@@ -155,7 +155,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
                 diagnostic=ErrorInfo(
-                    code="hub.no_app_declared",
+                    code="operating.no_app_declared",
                     category=ErrorCategory.DECLARATION,
                     message=f"{offered.wheel} installs no App",
                     details={"wheel": str(offered.wheel)},
@@ -166,7 +166,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
                 diagnostic=ErrorInfo(
-                    code="hub.multiple_apps_declared",
+                    code="operating.multiple_apps_declared",
                     category=ErrorCategory.DECLARATION,
                     message=f"{app_name!r} declares more than one App",
                     details={
@@ -182,7 +182,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
         return Installation(
             app=AppRow(app_name=app_name, state="available"),
             diagnostic=ErrorInfo(
-                code="hub.install_failed",
+                code="operating.install_failed",
                 category=ErrorCategory.EXECUTION,
                 message=str(failure),
                 details={"step": failure.step, "output": failure.output},
@@ -195,7 +195,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
     # bind.
     if facts.has_pages:
 
-        def hold(state: HubState) -> HubState:
+        def hold(state: OperatingState) -> OperatingState:
             if app_name in state.ports:
                 return state
             return state.model_copy(
@@ -218,7 +218,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
 
 
 async def list_apps(ctx: ToolContext[StudioDeps], _payload: Empty) -> AppListing:
-    """Return every App this Hub can act on, installed or merely offered.
+    """Return every App this operating role can act on, installed or merely offered.
 
     An installed row's `distribution_version` is the version it runs at;
     `available_version` is set only when the source offers a different one, which
@@ -253,7 +253,7 @@ async def list_apps(ctx: ToolContext[StudioDeps], _payload: Empty) -> AppListing
         diagnostic=None
         if not unreadable
         else ErrorInfo(
-            code="hub.source_unreadable",
+            code="operating.source_unreadable",
             category=ErrorCategory.CALLER,
             message="the registered source could not be read",
             details={"path": str(source)},
@@ -267,7 +267,7 @@ async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListi
     await deps.processes.stop(payload.app_name)
     await deps.root.remove_environment(payload.app_name)
 
-    def forget(state: HubState) -> HubState:
+    def forget(state: OperatingState) -> OperatingState:
         return state.model_copy(
             update={
                 "config": {
@@ -290,7 +290,7 @@ async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListi
 
 
 async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installation:
-    """Replace an installed App with the version its source offers, keeping what the Hub holds.
+    """Replace an installed App with the version its source offers, keeping what operating holds.
 
     Configuration values, the port, the route and the data the App wrote elsewhere
     all survive: only the environment is remade. A running App is refused rather
@@ -302,14 +302,14 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
     if facts is None:
         return _refused(
             payload.app_name,
-            "hub.not_installed",
+            "operating.not_installed",
             f"{payload.app_name!r} is not installed",
             state="available",
         )
     if deps.processes.running(payload.app_name):
         return _refused(
             payload.app_name,
-            "hub.already_running",
+            "operating.already_running",
             f"{payload.app_name!r} is running; stop it first",
             state="running",
             version=facts.described.distribution_version,
@@ -318,7 +318,7 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
     if offered is None:
         return _refused(
             payload.app_name,
-            "hub.candidate_absent",
+            "operating.candidate_absent",
             f"The registered source offers no {payload.app_name!r}",
             state="installed",
             version=facts.described.distribution_version,
@@ -326,7 +326,7 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
     if Version(offered.version) <= Version(facts.described.distribution_version):
         return _refused(
             payload.app_name,
-            "hub.up_to_date",
+            "operating.up_to_date",
             f"the offered version {offered.version} is not newer than "
             f"{facts.described.distribution_version}, which is already installed",
             state="installed",
@@ -355,7 +355,7 @@ INSTALLATION_TOOLS: Sequence[Tool[StudioDeps]] = [
     Tool(
         definition=ToolDefinition(
             name="list_apps",
-            description="Every App this Hub can act on, with its state",
+            description="Every App this operating role can act on, with its state",
             input_model=Empty,
             output_model=AppListing,
             read_only=True,

@@ -1,33 +1,33 @@
-"""What the Hub's Tools take and return.
+"""What the operating role's Tools take and return.
 
 A diagnostic is plain fields because an output model is revalidated, so no
 exception instance and no live object can travel in one. It carries a category
 because a caller reads that to learn whether a different call could succeed.
 
-The Hub's own codes:
+The operating role's own codes:
 
 | Code | Category |
 | --- | --- |
-| `hub.candidate_absent` | caller |
-| `hub.install_failed` | execution |
-| `hub.no_app_declared` | declaration |
-| `hub.multiple_apps_declared` | declaration |
-| `hub.declaration_missing` | declaration |
-| `hub.facts_unreadable` | execution |
-| `hub.source_unreadable` | caller |
-| `hub.not_installed` | caller |
-| `hub.already_installed` | caller |
-| `hub.up_to_date` | caller |
-| `hub.no_address` | caller |
-| `hub.no_web_channel` | caller |
-| `hub.already_running` | caller |
-| `hub.not_running` | caller |
-| `hub.start_failed` | execution |
+| `operating.candidate_absent` | caller |
+| `operating.install_failed` | execution |
+| `operating.no_app_declared` | declaration |
+| `operating.multiple_apps_declared` | declaration |
+| `operating.declaration_missing` | declaration |
+| `operating.facts_unreadable` | execution |
+| `operating.source_unreadable` | caller |
+| `operating.not_installed` | caller |
+| `operating.already_installed` | caller |
+| `operating.up_to_date` | caller |
+| `operating.no_address` | caller |
+| `operating.no_web_channel` | caller |
+| `operating.already_running` | caller |
+| `operating.not_running` | caller |
+| `operating.start_failed` | execution |
 
 An installed App is reached at `http://<app>.localhost:<proxy port>`. The
 hostname is the App's canonical distribution name and the port is the one the
-Hub was configured with; the port the App itself serves on is allocated when
-it is installed and does not leave the Hub.
+operating role was configured with; the port the App itself serves on is
+allocated when it is installed and does not leave the operating role.
 """
 
 from pathlib import PurePath
@@ -85,7 +85,7 @@ class AppFacts(BaseModel):
     The declaration is carried as the one shape `describe` writes, so nothing
     here restates a field the App already said. `write_facts` is the only
     writer and always states the whole description: a record without one is
-    one this Hub did not write, and saying so as `hub.facts_unreadable` is
+    one this operating role did not write, and saying so as `operating.facts_unreadable` is
     truer than reporting the App it describes as no longer declared.
     """
 
@@ -110,10 +110,10 @@ def _one_segment(value: str) -> str:
     separator.
     """
     if value in {"", ".", ".."} or _SEPARATORS & set(value):
-        # Every Hub Tool is on the Agent channel, so an App name is a
-        # model-controlled string that reaches the file system. Refusing it
+        # Every operating role Tool is on the Agent channel, so an App name is
+        # a model-controlled string that reaches the file system. Refusing it
         # here is what makes the channel answer `tool.input_invalid` rather
-        # than the Hub grow a diagnostic of its own.
+        # than the operating role grow a diagnostic of its own.
         raise ValueError("an App name is one path segment")
     return str(canonicalize_name(value))
 
@@ -122,8 +122,8 @@ AppNameField = Annotated[str, AfterValidator(_one_segment)]
 """The name a Tool takes for an App. Every Tool input carrying one uses it.
 
 An output model keeps a plain `str`: an output model is revalidated, so
-constraining one would turn an environment directory this Hub did not create
-into a Tool failure rather than a row.
+constraining one would turn an environment directory this operating role did
+not create into a Tool failure rather than a row.
 """
 
 
@@ -137,7 +137,8 @@ class AppRow(BaseModel):
     """One App as the control plane sees it.
 
     `state` is `available`, `installed` or `running`. It is a string because an
-    output model round-trips through JSON and the set is the Hub's to publish.
+    output model round-trips through JSON and the set is the operating role's
+    to publish.
     """
 
     app_name: str
@@ -179,7 +180,7 @@ class ConfigureRequest(BaseModel):
 
 
 class HeldConfig(BaseModel):
-    """What the Hub holds for one App.
+    """What the operating role holds for one App.
 
     A secret's value is stored and handed back to no channel, so `values`
     carries only the fields that are not secrets. `secret_fields` names the
@@ -196,7 +197,7 @@ class HeldConfig(BaseModel):
 
 
 class ConfigDescription(BaseModel):
-    """What one App declares and what the Hub holds for it, in one answer.
+    """What one App declares and what the operating role holds for it, in one answer.
 
     The read half of `configure_app`: `values` carries no secret and
     `secrets_set` names the secrets that have one, so the answer is safe to

@@ -60,11 +60,11 @@ def wheelhouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def template_root(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) -> Path:
     """Build a Studio root with every fixture App installed, once for the session.
 
-    Built through the Hub's own Tools rather than the installer's functions, so
+    Built through the operating role's own Tools rather than the installer's functions, so
     the root holds exactly what a user's install leaves: environments, facts,
     state with a port per App, and a route per App declaring Pages.
     """
-    root = tmp_path_factory.mktemp("template") / "hub"
+    root = tmp_path_factory.mktemp("template") / "root"
 
     async def build() -> None:
         async with studio(root) as tools:
@@ -116,7 +116,7 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
             return []
         return [name for name in names if name not in named]
 
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
     shutil.copytree(template_root, root, copy_function=os.link, ignore=leave_out)
     for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
         facts = json.loads(recorded.read_text(encoding="utf-8"))

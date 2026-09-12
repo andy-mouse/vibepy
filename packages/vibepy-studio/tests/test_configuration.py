@@ -1,4 +1,4 @@
-"""What the Hub holds for an installed App, and what it hands back."""
+"""What the operating role holds for an installed App, and what it hands back."""
 
 import stat
 import sys
@@ -49,14 +49,14 @@ async def test_an_app_missing_a_required_value_is_not_configured(installed: Path
 
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke(
             "configure_app", {"app_name": "vibepy-todo", "values": {}}, principal=AGENT
         )
 
     assert isinstance(answered, HeldConfig)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.not_installed"
+    assert answered.diagnostic.code == "operating.not_installed"
 
 
 async def held_notes_secret(root: Path) -> HeldConfig:
@@ -186,7 +186,7 @@ async def test_a_description_carries_held_values_and_names_held_secrets(installe
 
 
 async def test_describing_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke(
             "describe_config", {"app_name": "vibepy-todo"}, principal=AGENT
         )
@@ -194,4 +194,4 @@ async def test_describing_an_app_that_is_not_installed_is_a_diagnostic(tmp_path:
     assert isinstance(answered, ConfigDescription)
     assert answered.fields == []
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.not_installed"
+    assert answered.diagnostic.code == "operating.not_installed"

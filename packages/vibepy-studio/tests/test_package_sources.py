@@ -15,7 +15,7 @@ async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None
     write_wheel(source, name="zulu-app", version="1.2.3", declares=True)
     write_wheel(source, name="alpha-app", version="0.4.0", declares=False)
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         listed = await tools.invoke(
             "register_package_source", {"path": str(source)}, principal=AGENT
         )
@@ -35,7 +35,7 @@ async def test_registering_a_second_folder_replaces_the_first(tmp_path: Path) ->
     write_wheel(first, name="one", version="1.0.0", declares=True)
     write_wheel(second, name="two", version="1.0.0", declares=True)
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         await tools.invoke("register_package_source", {"path": str(first)}, principal=AGENT)
         listed = await tools.invoke(
             "register_package_source", {"path": str(second)}, principal=AGENT
@@ -54,7 +54,7 @@ async def test_an_empty_folder_offers_nothing(tmp_path: Path) -> None:
     source = tmp_path / "wheels"
     source.mkdir()
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         listed = await tools.invoke(
             "register_package_source", {"path": str(source)}, principal=AGENT
         )
@@ -65,7 +65,7 @@ async def test_an_empty_folder_offers_nothing(tmp_path: Path) -> None:
 
 
 async def test_an_absent_folder_is_a_diagnostic_and_registers_nothing(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke(
             "register_package_source", {"path": str(tmp_path / "no")}, principal=AGENT
         )
@@ -73,7 +73,7 @@ async def test_an_absent_folder_is_a_diagnostic_and_registers_nothing(tmp_path: 
     assert isinstance(answered, SourceListing)
     assert answered.source is None
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.source_unreadable"
+    assert answered.diagnostic.code == "operating.source_unreadable"
 
 
 async def test_a_registered_folder_outlives_the_window_and_removing_clears_it(
@@ -81,7 +81,7 @@ async def test_a_registered_folder_outlives_the_window_and_removing_clears_it(
 ) -> None:
     source = tmp_path / "wheels"
     write_wheel(source, name="demo", version="1.0.0", declares=True)
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
@@ -108,7 +108,7 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
 ) -> None:
     source = tmp_path / "wheels"
     write_wheel(source, name="demo", version="1.0.0", declares=True)
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
 
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
@@ -121,13 +121,13 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
 
     assert isinstance(listed, AppListing)
     assert listed.diagnostic is not None
-    assert listed.diagnostic.code == "hub.source_unreadable"
+    assert listed.diagnostic.code == "operating.source_unreadable"
     assert isinstance(withdrawn, SourceListing)
     assert withdrawn.source is None
 
 
 async def test_an_empty_path_is_refused_rather_than_the_working_directory(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         with pytest.raises(ToolInputValidationError):
             await tools.invoke("register_package_source", {"path": ""}, principal=AGENT)
 
@@ -137,7 +137,7 @@ async def test_the_paths_a_tool_answers_with_reach_no_file_system(tmp_path: Path
     source = tmp_path / "wheels"
     write_wheel(source, name="zulu-app", version="1.2.3", declares=True)
 
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         listed = await tools.invoke(
             "register_package_source", {"path": str(source)}, principal=AGENT
         )

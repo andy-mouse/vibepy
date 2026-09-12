@@ -21,8 +21,8 @@ logger = logging.getLogger(__name__)
 STATE_FILE = "state.json"
 
 
-class HubState(BaseModel):
-    """Everything the Hub remembers between windows.
+class OperatingState(BaseModel):
+    """Everything the operating role remembers between windows.
 
     A writer states what it changes, with `model_copy(update=...)`, and never
     rebuilds the whole. A writer that names every field is a writer that drops
@@ -30,32 +30,32 @@ class HubState(BaseModel):
     """
 
     source: PurePath | None = None
-    """The one folder of wheels this Hub installs from. One, because in-house deployment is one
-    wheelhouse, and two folders offering one App is a mistake to prevent rather than a case to
-    explain."""
+    """The one folder of wheels this operating role installs from. One, because in-house
+    deployment is one wheelhouse, and two folders offering one App is a mistake to prevent rather
+    than a case to explain."""
 
     config: dict[str, dict[str, JsonValue]] = {}
     ports: dict[str, int] = {}
     """The port each installed App serves on, allocated when it was installed."""
 
 
-async def read_state(root: PurePath, /) -> HubState:
+async def read_state(root: PurePath, /) -> OperatingState:
     """Return the stored state, or an empty one when nothing readable has been stored."""
     return await asyncio.to_thread(_read_state, root)
 
 
-def _read_state(root: PurePath, /) -> HubState:
+def _read_state(root: PurePath, /) -> OperatingState:
     path = Path(root) / STATE_FILE
     if not path.is_file():
-        return HubState()
+        return OperatingState()
     try:
-        return HubState.model_validate_json(path.read_text(encoding="utf-8"))
+        return OperatingState.model_validate_json(path.read_text(encoding="utf-8"))
     except ValidationError:
         logger.warning("ignoring an unreadable state file: %s", path)
-        return HubState()
+        return OperatingState()
 
 
-async def write_state(root: PurePath, state: HubState, /) -> None:
+async def write_state(root: PurePath, state: OperatingState, /) -> None:
     """Replace the stored state, readable by its owner and no one else.
 
     The write goes to a neighbouring file and is moved into place, because
@@ -77,7 +77,7 @@ async def write_state(root: PurePath, state: HubState, /) -> None:
     await asyncio.to_thread(_write_state, root, state)
 
 
-def _write_state(root: PurePath, state: HubState, /) -> None:
+def _write_state(root: PurePath, state: OperatingState, /) -> None:
     directory = Path(root)
     directory.mkdir(parents=True, exist_ok=True)
     write_whole(

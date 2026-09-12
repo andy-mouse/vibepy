@@ -2,7 +2,7 @@
 
 ## Definition
 
-An App is the unit of packaging and declaration. It is what a Hub installs, removes and
+An App is the unit of packaging and declaration. It is what the operating role installs, removes and
 updates, and what a channel is opened over. It is not a unit of execution: ADR-017 puts each
 channel of an installed App in its own operating-system process, so what runs is a channel.
 

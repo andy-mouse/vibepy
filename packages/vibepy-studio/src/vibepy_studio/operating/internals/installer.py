@@ -110,18 +110,18 @@ async def install(*, wheel: PurePath, source: PurePath, env: PurePath) -> None:
 
     `--find-links` names the wheelhouse the wheel came from, so its dependencies --
     the framework first -- resolve from the same folder. That is what a wheelhouse
-    is for, and what lets an in-house Hub install with no index reachable.
+    is for, and what lets an in-house operating role install with no index reachable.
 
     The link mode is stated rather than defaulted. uv links from its cache with
     `clone` on macOS and Linux and `hardlink` on Windows
     (<https://docs.astral.sh/uv/reference/settings/#link-mode>), and a clone
     gives every file a new inode. macOS assesses a `.so` it has not seen by
     inode, so an environment of cloned files is scanned in full the first time
-    the App is imported -- which the Hub does immediately, to describe it. Every
+    the App is imported -- which the operating role does immediately, to describe it. Every
     installed App pays that, and it is seconds
     (<https://github.com/astral-sh/uv/issues/18577>). Hardlinks reuse the
     cache's inodes, so the scan happens once for a dependency rather than once
-    per App that holds it. The Hub never writes inside an environment it
+    per App that holds it. The operating role never writes inside an environment it
     installed, which is what makes sharing an inode with the cache safe.
     """
     await _run(["uv", "venv", str(env)])
@@ -209,7 +209,7 @@ def _declarations(purelib: PurePath, /) -> tuple[AppRef, ...]:
 
 
 async def environments(root: PurePath, /) -> tuple[PurePath, ...]:
-    """Every environment this Hub created, in a stable order."""
+    """Every environment this operating role created, in a stable order."""
     return await asyncio.to_thread(_environments, root)
 
 

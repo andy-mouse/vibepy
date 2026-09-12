@@ -39,15 +39,15 @@ from vibepy_studio.operating.internals.routing import (
     remove_route,
     write_route,
 )
-from vibepy_studio.operating.internals.state import HubState, read_state, write_state
+from vibepy_studio.operating.internals.state import OperatingState, read_state, write_state
 from vibepy_studio.operating.internals.wheels import Candidate, candidates, readable
 
 __all__ = [
     "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
-    "HubState",
     "InstallFailed",
+    "OperatingState",
     "Processes",
     "StartFailed",
     "StudioDeps",

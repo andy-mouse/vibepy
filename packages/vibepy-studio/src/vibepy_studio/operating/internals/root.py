@@ -34,7 +34,7 @@ from vibepy_studio.operating.internals.routing import (
     write_install_config,
     write_route,
 )
-from vibepy_studio.operating.internals.state import HubState, read_state, write_state
+from vibepy_studio.operating.internals.state import OperatingState, read_state, write_state
 from vibepy_studio.operating.models import AppFacts
 
 
@@ -51,11 +51,13 @@ class StudioRoot:
         await asyncio.to_thread(self._path.mkdir, parents=True, exist_ok=True)
         await write_install_config(self._path, proxy_port=proxy_port)
 
-    async def state(self) -> HubState:
+    async def state(self) -> OperatingState:
         """Return the stored state, or an empty one when nothing readable has been stored."""
         return await read_state(self._path)
 
-    async def update_state(self, change: Callable[[HubState], HubState], /) -> HubState:
+    async def update_state(
+        self, change: Callable[[OperatingState], OperatingState], /
+    ) -> OperatingState:
         """Read, change and store the state, with no other call in between.
 
         The lock is this root's, which is where application-scoped state belongs.

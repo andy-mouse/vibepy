@@ -65,7 +65,7 @@ def _reported(path: Path, /) -> ErrorInfo | None:
 class _Child:
     """One started App: the process, and whether it has answered.
 
-    The port is not here. It belongs to the installation and the Hub holds it;
+    The port is not here. It belongs to the installation and the operating role holds it;
     this window is told which port to serve on and needs no memory of it.
     """
 
@@ -100,7 +100,7 @@ class Processes:
     def running(self, app_name: str, /) -> bool:
         """Whether an App is serving.
 
-        The port it serves on is the Hub's fact, held in its state and published
+        The port it serves on is the operating role's fact, held in its state and published
         as an address; this window only knows whether the child has answered.
         """
         child = self._held(app_name)
@@ -145,7 +145,7 @@ class Processes:
         opens the App's window, so an accepted connection proves only that the
         port is held. An answer proves the window opened, which is what makes a
         configuration the window refuses a failed start rather than a url that
-        never works. Any status counts — the Hub asks for a path no App has to
+        never works. Any status counts — the operating role asks for a path no App has to
         declare.
         """
         loop = asyncio.get_running_loop()
@@ -191,7 +191,7 @@ class Processes:
         """Serve one App on the port it was given, in an environment of its own.
 
         `app_name` is the name the App declares itself under, which is what its
-        environment answers to; `known_as` is what this Hub filed it under. The
+        environment answers to; `known_as` is what this operating role filed it under. The
         two need not match, because a folder's name is not a declaration.
 
         One name holds one child. The name is claimed with nothing awaited

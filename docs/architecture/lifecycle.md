@@ -5,7 +5,7 @@ An App's life has two layers, and the framework owns one of them.
 | Layer | What it covers | Whose it is |
 | --- | --- | --- |
 | runtime lifecycle | a channel's running window, from opening to closing | the channel host |
-| package lifecycle | a distribution installed, configured, addressed, started and stopped | a host App built on the framework, never the framework (Studio's operating role, called the Hub) |
+| package lifecycle | a distribution installed, configured, addressed, started and stopped | a host App built on the framework, never the framework (Studio's operating role) |
 
 What the framework implements is channel neutrality, and where a problem already has an owner it
 delegates; see
@@ -66,7 +66,7 @@ The steps run in order:
 Package -> install -> address -> configure -> open a channel
 ```
 
-`configure` is the host supplying the values the App declared it requires; the Hub holds those
+`configure` is the host supplying the values the App declared it requires; the operating role holds those
 values per installation, secrets included, and gives a secret's value back to no channel: it
 reports such a field as set. What it holds is restricted to its owner by whatever access control
 its platform gives a file; `vibepy_studio/internals/files.py` owns the mechanism. The App's
@@ -76,8 +76,8 @@ acquired;
 step before it — how a Host learns which App a distribution contains and what it requires, and
 what commands exist for it.
 
-Operations such as install, remove, upgrade, and version migration belong to the package/Hub
-control plane. The Hub also opens the Web channel's window, which it does by running
+Operations such as install, remove, upgrade, and version migration belong to the package/operating
+control plane. The operating role also opens the Web channel's window, which it does by running
 `python -m vibepy_core.serve` with the App environment's interpreter, handing that process the
 App's configuration through its environment (`docs/architecture/packaging.md`); starting and
 stopping an App is starting and stopping that process, and no window is reached from outside
@@ -89,27 +89,27 @@ itself. See
 
 Because the layer is an App rather than a capability inside the framework, its capabilities are
 Tools, which makes them reachable from either channel and neutral between them. Ten exist, as
-the Hub declares them.
+the operating role declares them.
 
 | Tools | What they act on |
 | --- | --- |
-| `register_package_source`, `remove_package_source` | the one folder of wheels the Hub installs from |
+| `register_package_source`, `remove_package_source` | the one folder of wheels the operating role installs from |
 | `list_apps` | what is offered, what is installed, what is running, and what is newer |
 | `install_app`, `update_app`, `remove_app` | an environment of its own per App: created, remade at a newer version, destroyed |
 | `describe_config`, `configure_app` | the values an App runs with, read and written |
 | `start_app`, `stop_app` | the Web channel window of an installed App |
 
-An update keeps what the Hub holds for an App — its configuration values, its port, its route —
+An update keeps what the operating role holds for an App — its configuration values, its port, its route —
 and remakes only the environment. A running App is refused rather than restarted.
 
-The Hub's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
-`list_apps` and redraws on a timer, so what it shows is Hub Core's state rather than the last thing
+The operating role's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
+`list_apps` and redraws on a timer, so what it shows is the operating role's core state rather than the last thing
 that tab did.
 
 ### How an installed App is described
 
 A state is one of three: `available` for an App a registered source offers, `installed` for one
-whose environment exists, `running` for one whose Web channel this Hub has started. `AppRow.state`
+whose environment exists, `running` for one whose Web channel this operating role has started. `AppRow.state`
 in `vibepy_studio/operating/models.py` publishes the three values.
 
 An address belongs to an App only if it declares Pages. `install_app` allocates a port and
@@ -119,15 +119,17 @@ rather than to a run, so a refusal to start still says where the App lives. See
 `docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`.
 
 An address takes the form `http://<app>.localhost:<proxy port>`: the hostname is the App's
-canonical distribution name, and the port is the one `HubConfig` configures the Hub with. The Hub
-writes this shape into Traefik's routing configuration and owns no proxy: it starts, supervises
-and health-checks none. An App's own port — allocated at install and held in the Hub's state — is
-not what is published; only the proxy port is. An address therefore answers only while a proxy is
-running against that configuration, not because the Hub published it. See
+canonical distribution name, and the port is the one `StudioConfig` configures the operating role with.
+The operating role writes this shape into Traefik's routing configuration and owns no proxy: it
+starts, supervises and health-checks none. An App's own port — allocated at install and held in
+the operating role's state — is not what is published; only the proxy port is. An address
+therefore answers only while a proxy is running against that configuration, not because the
+operating role published it. See
 `docs/decisions/ADR-031-the-proxy-is-traefik.md`;
 `vibepy_studio/operating/internals/routing.py` is the module that owns the mechanism.
 
-A diagnostic travels in the `hub.*` vocabulary, whose codes, categories and what each reports are
-defined in `vibepy_studio/operating/models.py` and are not restated here. A failure the Hub expects travels as
+A diagnostic travels in the `operating.*` vocabulary, whose codes, categories and what each reports
+are defined in `vibepy_studio/operating/models.py` and are not restated here. A failure the
+operating role expects travels as
 data rather than as an exception. See
 `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`
