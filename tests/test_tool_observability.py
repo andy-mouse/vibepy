@@ -7,11 +7,28 @@ Contract in docs/architecture/runtime.md (the record) and docs/architecture/erro
 import asyncio
 import logging
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
+from mcp.client import Client
+from nicegui.testing import User
 from pydantic import BaseModel, ConfigDict, ValidationError
 
-from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord, Principal
+from lifecycle import no_dependencies
+from test_dual_channel import one_store
+from todo_app.entry import TODO_APP
+from vibepy_core import (
+    AppDefinition,
+    Channel,
+    ErrorCategory,
+    ErrorInfo,
+    InvocationRecord,
+    NoConfig,
+    Principal,
+)
+from vibepy_core.adapters.mcp import build_mcp_server
+from vibepy_core.adapters.nicegui import register_pages
+from vibepy_core.app import page_runtime_for
 from vibepy_core.errors import (
     ToolForbiddenError,
     ToolInputValidationError,
@@ -294,3 +311,81 @@ async def test_a_cancelled_invocation_is_recorded_as_interrupted_and_propagates(
     assert record.error.code == "tool.cancelled"
     assert record.error.category is ErrorCategory.INTERRUPTED
     assert log.exc_info is None
+
+
+ADAPTER_LOGGER = "vibepy_core.adapters.mcp.server"
+
+
+async def fail_for_none(ctx: ToolContext[None], _payload: Empty) -> Empty:
+    raise RuntimeError("the handler failed")
+
+
+FAILING: AppDefinition[None, NoConfig] = AppDefinition(
+    app_id="failing",
+    name="Failing",
+    version="0.0.0",
+    config=NoConfig,
+    tools=[
+        Tool(
+            definition=ToolDefinition(
+                name="fail",
+                description="fail",
+                input_model=Empty,
+                output_model=Empty,
+                read_only=True,
+            ),
+            handler=fail_for_none,
+        )
+    ],
+    pages=[],
+)
+
+
+async def test_both_channels_leave_the_same_record(
+    user: User, tmp_path: Path, records: pytest.LogCaptureFixture
+) -> None:
+    """Consistency is structural: one writer, so the two channels cannot differ in kind."""
+    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}
+    lifespan = one_store(config)
+
+    async with page_runtime_for(TODO_APP, lifespan, config=config) as pages:
+        register_pages(TODO_APP, pages, principal=Principal(id="operator"))
+        async with Client(
+            build_mcp_server(TODO_APP, lifespan, config=config, principal=Principal(id="agent"))
+        ) as agent:
+            await agent.call_tool("list_todos", {})
+            await user.open("/todos")
+            await user.should_see("Add")
+
+    listed = [record for record, _ in written(records) if record.tool == "list_todos"]
+    by_channel = {record.channel: record for record in listed}
+    assert set(by_channel) == {Channel.AGENT, Channel.WEB}
+    web, agent_side = by_channel[Channel.WEB], by_channel[Channel.AGENT]
+    assert agent_side.principal == Principal(id="agent")
+    assert web.principal == Principal(id="operator")
+    assert agent_side.invocation_id != web.invocation_id
+    assert (agent_side.app_id, agent_side.tool, agent_side.error) == (
+        web.app_id,
+        web.tool,
+        web.error,
+    )
+
+
+async def test_a_handler_failure_over_mcp_is_recorded_once(
+    records: pytest.LogCaptureFixture,
+) -> None:
+    """The adapter writes nothing of its own about a failure; the record is the one line."""
+    records.set_level(logging.INFO, logger=ADAPTER_LOGGER)
+    async with Client(
+        build_mcp_server(FAILING, no_dependencies, config={}, principal=Principal(id="agent"))
+    ) as agent:
+        failed = await agent.call_tool("fail", {})
+
+    assert failed.is_error is True
+    assert [log.name for log in records.records if log.name.startswith("vibepy_core")] == [
+        RUNTIME_LOGGER
+    ]
+    [(record, log)] = written(records)
+    assert record.error is not None
+    assert record.error.code == "app.unhandled"
+    assert log.exc_info is not None

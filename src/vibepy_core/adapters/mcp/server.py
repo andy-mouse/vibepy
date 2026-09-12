@@ -12,7 +12,6 @@ process, so the entrypoint belongs to package metadata rather than here.
 """
 
 import json
-import logging
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import asynccontextmanager
 
@@ -34,8 +33,6 @@ from vibepy_core.errors import (
 )
 from vibepy_core.principal import Principal
 from vibepy_core.tool.runtime import ToolRuntime
-
-logger = logging.getLogger(__name__)
 
 
 def _payload(error: Exception) -> dict[str, object]:
@@ -105,16 +102,11 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
             )
         except ToolNotFoundError as error:
             raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
-        except ToolForbiddenError as error:
-            return _failure(error)
-        except ToolInputValidationError as error:
-            return _failure(error)
-        except ToolOutputValidationError as error:
-            logger.error("Tool %r returned output its own model rejected", params.name)
+        except (ToolForbiddenError, ToolInputValidationError, ToolOutputValidationError) as error:
             return _failure(error)
         # Broad on purpose: an app defect must not surface as a protocol error.
+        # ToolRuntime has already recorded it, traceback included.
         except Exception as error:
-            logger.exception("Tool %r raised", params.name)
             return _failure(error)
         data = result.model_dump(by_alias=True, mode="json")
         return types.CallToolResult(
