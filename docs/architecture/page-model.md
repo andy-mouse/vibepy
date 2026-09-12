@@ -59,7 +59,7 @@ Minimal initial metadata:
 - tools
 
 `name` is the identifier the framework addresses a Page by, and it is stable across a
-route change. `route` and `title` are consumed by the Web channel adapter, so route format,
+route change. `route` and `title` are consumed by the Web channel adapter. Route format,
 route uniqueness, and that each declared Tool exists and is exposed to the Web channel are
 validated as the `AppDefinition` holding the Page is constructed
 (`docs/architecture/app-model.md`).

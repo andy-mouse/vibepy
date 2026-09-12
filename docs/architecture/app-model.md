@@ -65,9 +65,8 @@ running it. See `docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.
 ## Construction validates
 
 An `AppDefinition` that exists conforms. Everything a channel or a host would otherwise have to
-check about the shape of a declaration is checked once, as the dataclass is constructed, so
-nothing downstream — a window, `describe`, an adapter — checks it again: what exists is already
-valid, and there is no half-valid `AppDefinition` to hand around.
+check about the shape of a declaration is checked once, as the dataclass is constructed: what
+exists is already valid, and there is no half-valid `AppDefinition` to hand around.
 
 `__post_init__` collects every violation rather than raising on the first, so an author sees all
 of them at once:

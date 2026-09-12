@@ -161,8 +161,8 @@ that cannot open means: a server that sees `lifespan.startup.failed` logs the me
 window refuses therefore has no server, rather than a server answering for an App that never
 opened.
 
-A failure of the command and a window that will not open are each one report line, as What a
-command writes to standard error says; see
+A window that will not open is one report line; a failure of the command itself is reported as
+What a command writes to standard error says; see
 `docs/decisions/ADR-030-a-window-reports-its-own-failure.md`.
 
 All four commands exist for one reason. Reading a declaration, running one, invoking a Tool and
@@ -209,8 +209,8 @@ transport requires; the framework's own records go to standard error. There is n
 on standard input here — standard input is the wire — so this command has only the one channel
 Configuration above owns.
 
-A failure of the command itself, and a window that will not open, are each one report line on
-standard error and exit 1, as everywhere else.
+A window that will not open is one report line; a failure of the command itself is reported as
+What a command writes to standard error says, as everywhere else.
 
 An agent platform is configured with the command, its arguments and the App's variables. Codex
 takes `command`, `args` and `env` under `[mcp_servers.<name>]`
@@ -237,10 +237,10 @@ Claude Code takes the same three keys in `.mcp.json`
 
 ## How a failure is reported
 
-All four commands report a failure the same way: one line of `code`, `category`, `message` and
-`details` on standard error and exit 1, written by `report`, shaped by `report_line` and read back
-by `read_report_line`, all in `vibepy_core.errors`. A lifespan or handler that raises is reported
-as `app.unhandled`, as ADR-030 has a window report its own failure.
+All four commands report a failure as What a command writes to standard error says, and exit 1;
+`report` is shaped by `report_line` and read back by `read_report_line`, all in
+`vibepy_core.errors`. A lifespan or handler that raises is reported as `app.unhandled`, as ADR-030
+has a window report its own failure.
 
 ## What an environment holds
 
