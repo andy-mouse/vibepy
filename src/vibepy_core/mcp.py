@@ -25,6 +25,10 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     report,
 )
+from vibepy_core.principal import Principal
+
+AGENT = Principal(id="agent")
+"""The party that launched this process."""
 
 
 def _unwrapped(error: Exception, /) -> Exception:
@@ -48,7 +52,9 @@ async def _serve(entrypoint: AppEntrypoint[object, AppConfig], /) -> None:
 
     `Server.run` enters the App's window, so the window is the process.
     """
-    server = build_mcp_server(entrypoint.definition, entrypoint.lifespan, config={})
+    server = build_mcp_server(
+        entrypoint.definition, entrypoint.lifespan, config={}, principal=AGENT
+    )
     async with stdio_server() as (read_stream, write_stream):
         await server.run(read_stream, write_stream, server.create_initialization_options())
 

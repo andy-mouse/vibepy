@@ -24,6 +24,7 @@ from mcp.types import TextContent
 from nicegui.testing import User
 
 from todo_app.entry import TODO_APP, TodoConfig, TodoList, TodoStore
+from vibepy_core import Principal
 from vibepy_core.adapters.mcp import build_mcp_server
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import Lifespan, page_runtime_for
@@ -57,7 +58,9 @@ async def test_both_channels_reach_one_backend(user: User, tmp_path: Path) -> No
     async with page_runtime_for(TODO_APP, lifespan, config=config) as pages:
         register_pages(TODO_APP, pages)
 
-        async with Client(build_mcp_server(TODO_APP, lifespan, config=config)) as agent:
+        async with Client(
+            build_mcp_server(TODO_APP, lifespan, config=config, principal=Principal(id="agent"))
+        ) as agent:
             await agent.call_tool("create_todo", {"title": "from the agent"})
 
             await user.open("/todos")

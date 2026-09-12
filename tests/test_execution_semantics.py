@@ -232,7 +232,9 @@ async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     Passing a Server straight to Client is the SDK's documented in-memory
     transport, which it names as the testing path.
     """
-    server = build_mcp_server(RENDEZVOUS, rendezvous_lifespan(), config={})
+    server = build_mcp_server(
+        RENDEZVOUS, rendezvous_lifespan(), config={}, principal=Principal(id="agent")
+    )
 
     async with Client(server) as agent:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):

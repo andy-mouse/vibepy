@@ -26,6 +26,7 @@ from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.channel import Channel
 from vibepy_core.errors import (
+    ToolForbiddenError,
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
@@ -65,8 +66,14 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
     /,
     *,
     config: Mapping[str, object],
+    principal: Principal,
 ) -> Server[ToolRuntime[DepsT]]:
-    """Build the MCP projection of one App's Tools."""
+    """Build the MCP projection of one App's Tools, invoked as `principal`.
+
+    The principal is the host's to assert and this adapter's to carry: the
+    process serves whoever launched it, so it is fixed for the server's life
+    rather than read off a request.
+    """
 
     @asynccontextmanager
     async def server_lifespan(
@@ -82,7 +89,11 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
         params: types.PaginatedRequestParams | None,
     ) -> types.ListToolsResult:
         return types.ListToolsResult(
-            tools=[to_mcp_tool(tool.definition) for tool in definition.tools]
+            tools=[
+                to_mcp_tool(tool.definition)
+                for tool in definition.tools
+                if Channel.AGENT in tool.definition.channels
+            ]
         )
 
     async def call_tool(
@@ -90,10 +101,12 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
     ) -> types.CallToolResult:
         try:
             result = await ctx.lifespan_context.invoke(
-                params.name, params.arguments or {}, principal=Principal(id="agent")
+                params.name, params.arguments or {}, principal=principal
             )
         except ToolNotFoundError as error:
             raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
+        except ToolForbiddenError as error:
+            return _failure(error)
         except ToolInputValidationError as error:
             return _failure(error)
         except ToolOutputValidationError as error:
