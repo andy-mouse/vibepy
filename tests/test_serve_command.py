@@ -206,3 +206,35 @@ def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
         process.terminate()
         process.wait(timeout=10)
     assert "<html" in body.lower()
+
+
+@pytest.mark.integration
+def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -> None:
+    """Studio holds the pipe; the OS closes it when Studio is gone for any
+    reason. The App sees end-of-file and leaves through its own shutdown: the
+    lifespan's exit runs, and the exit code is a clean one.
+
+    `communicate` closes the pipe itself, which is the EOF."""
+    port = free_port()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "vibepy_core.serve",
+            "todo-app",
+            "--port",
+            str(port),
+            "--until-stdin-closes",
+        ],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=todo_environment(tmp_path),
+    )
+    assert process.stdin is not None
+    wait_for(f"http://127.0.0.1:{port}/todos", process)
+
+    _, stderr = process.communicate(timeout=30)
+
+    assert process.returncode == 0, stderr.decode(errors="replace")
+    with pytest.raises(URLError):
+        urlopen(f"http://127.0.0.1:{port}/todos", timeout=5)
