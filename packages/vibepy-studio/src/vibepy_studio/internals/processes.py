@@ -19,8 +19,7 @@ from pathlib import Path
 
 from pydantic import JsonValue
 
-from vibepy_core import environment_for
-from vibepy_core.app.config import ENV_PREFIX
+from vibepy_core.app.config import ENV_PREFIX, environment_for
 from vibepy_core.errors import ErrorInfo, read_report_line
 
 logger = logging.getLogger(__name__)

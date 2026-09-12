@@ -15,13 +15,20 @@ which App it contains, and how a reader learns that without importing it.
 
 ## The import surface
 
-An App author reaches for `vibepy_core`, the package root: `tests/test_package.py` holds its
+The package root is the App author's vocabulary, and nothing else: what an author declares, what
+a declaration is described as, and what the framework raises. `tests/test_package.py` holds its
 exact contents, so a name that is not exported there is not public. The subpackages beneath it —
-`vibepy_core.tool`, `.page`, `.app`, `.errors` — are how the framework is organised, and they keep
-working for anything already written against them. A module whose handlers must never reach a
-blocking call (`docs/architecture/runtime.md` says why) imports the narrower subpackage instead of
-the root that re-exports it; the Hub's Tool modules are that case, held by
-`packages/vibepy-studio/tests/test_no_blocking_handlers.py`.
+`vibepy_core.tool`, `.page`, `.app`, `.errors` — are how the framework is organised, and they
+follow the same rule.
+
+An operation a host performs is not vocabulary, and is reached at its own module: discovery and
+loading at `vibepy_core.app.package`, the environment's configuration at `vibepy_core.app.config`,
+the entry point group at `vibepy_core.app.group`, reporting at `vibepy_core.errors`. A boundary
+model lives with the vocabulary it is made of, never with the command that transports it —
+`InvocationRequest` in `vibepy_core.tool`, `DescribedApp` beside the `AppDescription` it wraps.
+Together these mean importing the root, or any aggregating subpackage, never brings a blocking
+loader with it, so a module whose handlers must never reach a blocking call
+(`docs/architecture/runtime.md` says why) cannot reach one by accident. ADR-035 says why.
 
 ## AppDefinition
 

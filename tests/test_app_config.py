@@ -8,7 +8,8 @@ import pytest
 from pydantic import BaseModel, SecretStr
 
 from vibepy_core import Channel
-from vibepy_core.app import AppConfig, AppDefinition, NoConfig, environment_for, tool_runtime_for
+from vibepy_core.app import AppConfig, AppDefinition, NoConfig, tool_runtime_for
+from vibepy_core.app.config import environment_for
 from vibepy_core.errors import AppConfigInvalidError
 
 

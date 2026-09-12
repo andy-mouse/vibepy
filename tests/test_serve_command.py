@@ -12,8 +12,9 @@ from urllib.request import urlopen
 
 import pytest
 
-from vibepy_core import ErrorCategory, ErrorInfo, environment_for, read_report_line
-from vibepy_core.app.config import ENV_PREFIX
+from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_core.app.config import ENV_PREFIX, environment_for
+from vibepy_core.errors import read_report_line
 
 
 def child_environment() -> dict[str, str]:

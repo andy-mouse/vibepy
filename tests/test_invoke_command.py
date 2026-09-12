@@ -10,7 +10,8 @@ import pytest
 from expense_app.entry import Decision
 from notes_app.entry import Note
 from test_serve_command import child_environment
-from vibepy_core import ErrorCategory, ErrorInfo, environment_for
+from vibepy_core import ErrorCategory, ErrorInfo
+from vibepy_core.app.config import environment_for
 
 
 def run_invoke(

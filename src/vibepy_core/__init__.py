@@ -1,12 +1,17 @@
-"""Agent-native application framework."""
+"""Agent-native application framework.
+
+The package root is the App author's vocabulary: what an author declares, what a
+declaration is described as, and what the framework raises. An operation a host
+performs — discovering, loading, describing or reporting — is reached at its own
+module (`vibepy_core.app.package`, `.app.config`, `.app.group`, `.errors`), so
+importing the root never brings a blocking loader with it. ADR-035 says why.
+"""
 
 from vibepy_core.app import (
-    APP_GROUP,
     AppConfig,
     AppDefinition,
     AppDescription,
     AppEntrypoint,
-    AppRef,
     ConfigFieldDescription,
     ConfigFieldType,
     DescribedApp,
@@ -14,12 +19,6 @@ from vibepy_core.app import (
     NoConfig,
     PageDescription,
     ToolDescription,
-    config_fields_of,
-    describe_app,
-    described,
-    discover_apps,
-    environment_for,
-    load_app,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -43,10 +42,6 @@ from vibepy_core.errors import (
     ToolNotFoundError,
     ToolOutputValidationError,
     VibepyError,
-    read_report_line,
-    report,
-    report_line,
-    to_error_info,
 )
 from vibepy_core.page import (
     Page,
@@ -72,7 +67,6 @@ from vibepy_core.tool import (
 )
 
 __all__ = [
-    "APP_GROUP",
     "ERROR_CATALOG",
     "AppConfig",
     "AppConfigInvalidError",
@@ -82,7 +76,6 @@ __all__ = [
     "AppEntrypointInvalidError",
     "AppEntrypointUnloadableError",
     "AppNotDeclaredError",
-    "AppRef",
     "AuthorizationRequest",
     "Channel",
     "ConfigFieldDescription",
@@ -122,16 +115,6 @@ __all__ = [
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",
-    "config_fields_of",
-    "describe_app",
-    "described",
-    "discover_apps",
-    "environment_for",
-    "load_app",
     "page_runtime_for",
-    "read_report_line",
-    "report",
-    "report_line",
-    "to_error_info",
     "tool_runtime_for",
 ]

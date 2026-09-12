@@ -1,4 +1,10 @@
-"""The App: one unit of packaging and declaration."""
+"""The App: one unit of packaging and declaration.
+
+This surface follows the root's rule (ADR-035): declarations and descriptions,
+not the operations that read or import a distribution. `discover_apps`,
+`load_app`, `describe_app`, `described` and `AppRef` are reached at
+`vibepy_core.app.package`, and `APP_GROUP` at `vibepy_core.app.group`.
+"""
 
 from vibepy_core.app.composition import (
     Lifespan,
@@ -12,8 +18,6 @@ from vibepy_core.app.config import (
     ConfigFieldDescription,
     ConfigFieldType,
     NoConfig,
-    config_fields_of,
-    environment_for,
 )
 from vibepy_core.app.entrypoint import (
     AppDescription,
@@ -22,23 +26,13 @@ from vibepy_core.app.entrypoint import (
     PageDescription,
     ToolDescription,
 )
-from vibepy_core.app.group import APP_GROUP
 from vibepy_core.app.model import AppDefinition
-from vibepy_core.app.package import (
-    AppRef,
-    describe_app,
-    described,
-    discover_apps,
-    load_app,
-)
 
 __all__ = [
-    "APP_GROUP",
     "AppConfig",
     "AppDefinition",
     "AppDescription",
     "AppEntrypoint",
-    "AppRef",
     "ConfigFieldDescription",
     "ConfigFieldType",
     "DescribedApp",
@@ -46,12 +40,6 @@ __all__ = [
     "NoConfig",
     "PageDescription",
     "ToolDescription",
-    "config_fields_of",
-    "describe_app",
-    "described",
-    "discover_apps",
-    "environment_for",
-    "load_app",
     "page_registry_for",
     "page_runtime_for",
     "tool_registry_for",

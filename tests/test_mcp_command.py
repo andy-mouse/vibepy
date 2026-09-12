@@ -11,7 +11,8 @@ from mcp.client.stdio import StdioServerParameters
 from mcp.types import TextContent
 
 from test_serve_command import child_environment, reported_failure
-from vibepy_core import ErrorCategory, environment_for
+from vibepy_core import ErrorCategory
+from vibepy_core.app.config import environment_for
 
 
 def todo_server(tmp_path: Path) -> StdioServerParameters:
