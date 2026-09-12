@@ -84,6 +84,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
             config={**held, **payload.secrets},
             known_as=payload.app_name,
             port=port,
+            cwd=deps.root.app_folder(payload.app_name),
         )
     except AlreadyStarted:
         # One name holds one child, and `Processes` is the one place that
