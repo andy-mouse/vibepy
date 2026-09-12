@@ -196,9 +196,9 @@ Acceptance:
 - isolation does not change the App / Tool / Page programming contract
 
 
-## M18 - Codex dogfooding
+## M18 - Agent dogfooding
 
-A fresh Codex session builds an Issue Tracker app using docs + Authoring MCP, validates, runs, tests, packages, and installs it.
+A fresh Agent session builds an Issue Tracker app using docs + Authoring MCP, validates, runs, tests, packages, and installs it.
 
 Acceptance:
 - a fresh coding agent can complete the intended App authoring loop using Vibepy guidance and Authoring MCP
