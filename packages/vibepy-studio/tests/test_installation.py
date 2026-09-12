@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import SecretStr, ValidationError
 
-from tests_support import described_app, studio, write_wheel
+from tests_support import AGENT, described_app, studio, write_wheel
 from todo_app.entry import TodoStore
 from vibepy_core.errors import ErrorInfo, ToolInputValidationError
 from vibepy_studio.operating.internals import (
@@ -46,8 +46,8 @@ async def test_installing_an_app_creates_an_environment_of_its_own(
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-notes"}, principal=AGENT)
 
     assert isinstance(installed, Installation)
     assert installed.diagnostic is None
@@ -60,7 +60,7 @@ async def test_installing_an_app_creates_an_environment_of_its_own(
 @pytest.mark.integration
 async def test_an_installed_app_is_listed_apart_from_an_offered_one(installed: Path) -> None:
     async with studio(installed) as tools:
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
@@ -96,8 +96,11 @@ async def test_an_app_is_started_by_the_name_it_declares(tmp_path: Path, install
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
             },
+            principal=AGENT,
         )
-        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
 
     # Starting is the assertion: `vibepy_core.serve` is addressed by the name
     # the App declares, so an App filed under `vibepy-todo` and run under
@@ -120,12 +123,13 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
         await tools.invoke(
             "configure_app",
             {"app_name": "vibepy-todo", "values": {"db_path": str(data), "db_key": "k"}},
+            principal=AGENT,
         )
         await asyncio.to_thread(TodoStore(data, SecretStr("k")).create, "keep me")
         assert data.is_file()
 
-        await tools.invoke("remove_app", {"app_name": "vibepy-todo"})
-        listed = await tools.invoke("list_apps", {})
+        await tools.invoke("remove_app", {"app_name": "vibepy-todo"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["available"]
@@ -136,7 +140,7 @@ async def test_removing_an_app_deletes_its_environment_and_leaves_its_data(
 
 async def test_an_app_no_source_offers_is_a_diagnostic(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("install_app", {"app_name": "absent"})
+        answered = await tools.invoke("install_app", {"app_name": "absent"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -152,8 +156,8 @@ async def test_a_wheel_that_declares_no_app_is_refused_before_an_environment_exi
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
-        answered = await tools.invoke("install_app", {"app_name": "plain-package"})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
+        answered = await tools.invoke("install_app", {"app_name": "plain-package"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -169,8 +173,10 @@ async def test_list_apps_offers_only_wheels_that_declare_an_app(tmp_path: Path) 
     write_wheel(source, name="some-library", version="1.0.0", declares=False)
 
     async with studio(tmp_path / "hub") as tools:
-        registered = await tools.invoke("register_package_source", {"path": str(source)})
-        listed = await tools.invoke("list_apps", {})
+        registered = await tools.invoke(
+            "register_package_source", {"path": str(source)}, principal=AGENT
+        )
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(registered, SourceListing)
     assert sorted((row.name, row.declares_app) for row in registered.candidates) == [
@@ -191,8 +197,8 @@ async def test_an_uninstallable_folder_is_a_diagnostic(
     monkeypatch.setenv("PATH", str(empty))
 
     async with studio(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -211,7 +217,7 @@ async def test_a_traversing_app_name_deletes_nothing(tmp_path: Path) -> None:
 
     async with studio(root) as tools:
         with pytest.raises(ToolInputValidationError):
-            await tools.invoke("remove_app", {"app_name": "../../../victim"})
+            await tools.invoke("remove_app", {"app_name": "../../../victim"}, principal=AGENT)
 
     assert (victim / "keep.txt").is_file()
 
@@ -222,7 +228,7 @@ async def test_an_absolute_app_name_is_refused(tmp_path: Path) -> None:
 
     async with studio(tmp_path / "hub") as tools:
         with pytest.raises(ToolInputValidationError):
-            await tools.invoke("remove_app", {"app_name": str(victim)})
+            await tools.invoke("remove_app", {"app_name": str(victim)}, principal=AGENT)
 
     assert victim.is_dir()
 
@@ -264,9 +270,9 @@ async def test_one_app_is_one_row_however_it_was_installed(
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        await tools.invoke("install_app", {"app_name": "vibepy-notes"})
-        listed = await tools.invoke("list_apps", {})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        await tools.invoke("install_app", {"app_name": "vibepy-notes"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     rows = [row for row in listed.apps if row.app_name == "vibepy-notes"]
@@ -276,8 +282,8 @@ async def test_one_app_is_one_row_however_it_was_installed(
 
 async def test_a_folder_name_is_not_an_app_name(tmp_path: Path, wheelhouse: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        answered = await tools.invoke("install_app", {"app_name": "todo"})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        answered = await tools.invoke("install_app", {"app_name": "todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -290,9 +296,9 @@ async def test_two_spellings_of_one_name_address_one_app(tmp_path: Path, wheelho
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        await tools.invoke("install_app", {"app_name": "Vibepy_Notes"})
-        listed = await tools.invoke("list_apps", {})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        await tools.invoke("install_app", {"app_name": "Vibepy_Notes"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     assert [row.state for row in listed.apps if row.app_name == "vibepy-notes"] == ["installed"]
@@ -330,8 +336,8 @@ async def test_a_distribution_declaring_two_apps_is_refused(
     monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -354,9 +360,9 @@ async def test_a_failed_description_leaves_no_environment_behind(
     monkeypatch.setattr("vibepy_studio.operating.tools.installation.purelib", refuse)
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        answered = await tools.invoke("install_app", {"app_name": "vibepy-notes"})
-        listed = await tools.invoke("list_apps", {})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        answered = await tools.invoke("install_app", {"app_name": "vibepy-notes"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -371,7 +377,7 @@ async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Pat
     (root / "envs" / "vibepy-todo").mkdir(parents=True)
 
     async with studio(root) as tools:
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
@@ -390,7 +396,7 @@ async def test_an_environment_that_no_longer_declares_its_app_says_so(
         for info in facts.purelib.glob("vibepy_notes-*.dist-info"):
             shutil.rmtree(info)
 
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
@@ -434,8 +440,8 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
     monkeypatch.setattr("vibepy_studio.operating.tools.installation.describe", describes_two)
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(wheelhouse)})
-        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
+        installed = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     # The row carries the facts that were kept, so the name it reports is which
     # of the two descriptions was joined: taking the first would say Aardvark.
@@ -459,7 +465,7 @@ async def test_installing_again_after_a_removal_that_kept_the_port_reuses_it(
     await remove_environment(environment(installed, "vibepy-todo"))
 
     async with studio(installed) as tools:
-        again = await tools.invoke("install_app", {"app_name": "vibepy-todo"})
+        again = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(again, Installation)
     assert again.diagnostic is None

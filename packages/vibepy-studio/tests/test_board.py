@@ -6,7 +6,7 @@ import pytest
 from nicegui import ui
 from nicegui.testing import User
 
-from tests_support import studio, write_wheel
+from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
 from vibepy_studio.entry import APP, STUDIO_APP
@@ -83,7 +83,9 @@ async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path
         await user.should_see("Notes configured")
 
     async with studio(installed) as tools:
-        described = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
+        described = await tools.invoke(
+            "describe_config", {"app_name": "vibepy-notes"}, principal=AGENT
+        )
 
     assert isinstance(described, ConfigDescription)
     assert described.values == {"api_base_url": "https://notes.internal"}
@@ -103,7 +105,7 @@ async def test_install_invokes_the_tool_and_shows_its_answer(user: User, tmp_pat
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
     root = tmp_path / "hub"
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
     async with hub_pages(root) as pages:
         register_pages(STUDIO_APP, pages)

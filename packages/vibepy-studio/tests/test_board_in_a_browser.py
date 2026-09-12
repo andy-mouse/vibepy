@@ -17,7 +17,7 @@ import pytest
 from nicegui.testing import Screen
 from selenium.webdriver.common.keys import Keys
 
-from tests_support import studio, write_wheel
+from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
 from vibepy_studio.entry import APP, STUDIO_APP
@@ -46,7 +46,7 @@ async def crowded(root: Path, source: Path) -> None:
     for index in range(CROWD):
         write_wheel(source, name=f"demo-app-{index}", version="1.0.0", declares=True)
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
 
 @pytest.mark.browser

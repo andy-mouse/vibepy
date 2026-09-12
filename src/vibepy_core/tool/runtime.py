@@ -12,8 +12,11 @@ from uuid import uuid4
 
 from pydantic import BaseModel, ValidationError
 
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ToolInputValidationError, ToolOutputValidationError
+from vibepy_core.principal import Principal
 from vibepy_core.tool.model import ToolContext, ToolDefinition, ToolHandler
+from vibepy_core.tool.policy import AuthorizationRequest, ToolPolicy, default_policy
 
 if TYPE_CHECKING:
     from vibepy_core.tool.registry import ToolRegistry
@@ -71,31 +74,58 @@ class ToolRuntime[DepsT]:
     acquired. The runtime holds it and puts it into every ToolContext it creates,
     so a channel never constructs a context.
 
+    ``channel`` is the window's, fixed when it opened; the principal is the
+    call's, given per invocation. Authorization runs from the two and the
+    declaration before input is validated, so what a caller may not invoke it
+    also may not probe.
+
     Concurrent invocations are permitted. Nothing here serializes them.
     """
 
     def __init__(
-        self, *, app_id: str, registry: "ToolRegistry[DepsT]", dependencies: DepsT
+        self,
+        *,
+        app_id: str,
+        registry: "ToolRegistry[DepsT]",
+        dependencies: DepsT,
+        channel: Channel,
+        policy: ToolPolicy | None = None,
     ) -> None:
-        """Hold `app_id`, `registry`, and the `dependencies` every invocation will receive."""
+        """Hold what every invocation uses, this window's `channel` and `policy` included."""
         self._app_id = app_id
         self._registry = registry
         self._dependencies = dependencies
+        self._channel = channel
+        self._policy = policy
 
-    async def invoke(self, name: str, raw_input: Mapping[str, object]) -> BaseModel:
-        """Resolve `name` in the registry and invoke it with `raw_input`.
+    async def invoke(
+        self, name: str, raw_input: Mapping[str, object], /, *, principal: Principal
+    ) -> BaseModel:
+        """Authorize `principal` for `name`, then invoke it with `raw_input`.
+
+        The framework's policy always runs, and the App's runs after it: an App
+        may refuse further, never admit what the declaration refuses.
 
         Raises:
             ToolNotFoundError: no Tool is registered under `name`.
+            ToolForbiddenError: `principal` may not invoke this Tool here.
             ToolInputValidationError: `raw_input` does not satisfy the Tool's
                 input model.
             ToolOutputValidationError: the Tool returned what its own output
                 model rejects.
         """
         tool = self._registry.resolve(name)
+        request = AuthorizationRequest(
+            definition=tool.definition, principal=principal, channel=self._channel
+        )
+        default_policy.authorize(request)
+        if self._policy is not None:
+            self._policy.authorize(request)
         ctx = ToolContext(
             app_id=self._app_id,
             invocation_id=str(uuid4()),
             dependencies=self._dependencies,
+            principal=principal,
+            channel=self._channel,
         )
         return await tool.bound(ctx, raw_input)

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import studio, write_wheel
+from tests_support import AGENT, studio, write_wheel
 from vibepy_core.errors import ToolInputValidationError
 from vibepy_studio.operating.models import AppListing, SourceListing
 
@@ -16,7 +16,9 @@ async def test_registering_a_folder_lists_what_it_offers(tmp_path: Path) -> None
     write_wheel(source, name="alpha-app", version="0.4.0", declares=False)
 
     async with studio(tmp_path / "hub") as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(source)})
+        listed = await tools.invoke(
+            "register_package_source", {"path": str(source)}, principal=AGENT
+        )
 
     assert isinstance(listed, SourceListing)
     assert listed.source == source
@@ -34,9 +36,11 @@ async def test_registering_a_second_folder_replaces_the_first(tmp_path: Path) ->
     write_wheel(second, name="two", version="1.0.0", declares=True)
 
     async with studio(tmp_path / "hub") as tools:
-        await tools.invoke("register_package_source", {"path": str(first)})
-        listed = await tools.invoke("register_package_source", {"path": str(second)})
-        apps = await tools.invoke("list_apps", {})
+        await tools.invoke("register_package_source", {"path": str(first)}, principal=AGENT)
+        listed = await tools.invoke(
+            "register_package_source", {"path": str(second)}, principal=AGENT
+        )
+        apps = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, SourceListing)
     assert listed.source == second
@@ -51,7 +55,9 @@ async def test_an_empty_folder_offers_nothing(tmp_path: Path) -> None:
     source.mkdir()
 
     async with studio(tmp_path / "hub") as tools:
-        listed = await tools.invoke("register_package_source", {"path": str(source)})
+        listed = await tools.invoke(
+            "register_package_source", {"path": str(source)}, principal=AGENT
+        )
 
     assert isinstance(listed, SourceListing)
     assert listed.source == source
@@ -60,7 +66,9 @@ async def test_an_empty_folder_offers_nothing(tmp_path: Path) -> None:
 
 async def test_an_absent_folder_is_a_diagnostic_and_registers_nothing(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("register_package_source", {"path": str(tmp_path / "no")})
+        answered = await tools.invoke(
+            "register_package_source", {"path": str(tmp_path / "no")}, principal=AGENT
+        )
 
     assert isinstance(answered, SourceListing)
     assert answered.source is None
@@ -76,11 +84,11 @@ async def test_a_registered_folder_outlives_the_window_and_removing_clears_it(
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
     async with studio(root) as tools:
-        kept = await tools.invoke("list_apps", {})
-        removed = await tools.invoke("remove_package_source", {})
+        kept = await tools.invoke("list_apps", {}, principal=AGENT)
+        removed = await tools.invoke("remove_package_source", {}, principal=AGENT)
 
     assert isinstance(kept, AppListing)
     assert [row.app_name for row in kept.apps] == ["demo"]
@@ -89,7 +97,7 @@ async def test_a_registered_folder_outlives_the_window_and_removing_clears_it(
     assert removed.candidates == []
 
     async with studio(root) as tools:
-        after = await tools.invoke("list_apps", {})
+        after = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(after, AppListing)
     assert after.source is None
@@ -103,13 +111,13 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
     root = tmp_path / "hub"
 
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
     shutil.rmtree(source)
 
     async with studio(root) as tools:
-        listed = await tools.invoke("list_apps", {})
-        withdrawn = await tools.invoke("remove_package_source", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
+        withdrawn = await tools.invoke("remove_package_source", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     assert listed.diagnostic is not None
@@ -121,4 +129,4 @@ async def test_a_source_that_has_disappeared_is_a_diagnostic_not_an_exception(
 async def test_an_empty_path_is_refused_rather_than_the_working_directory(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
         with pytest.raises(ToolInputValidationError):
-            await tools.invoke("register_package_source", {"path": ""})
+            await tools.invoke("register_package_source", {"path": ""}, principal=AGENT)

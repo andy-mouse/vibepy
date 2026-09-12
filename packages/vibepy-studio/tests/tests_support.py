@@ -14,6 +14,7 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from vibepy_core import Channel, Principal
 from vibepy_core.app import DescribedApp
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
@@ -45,12 +46,19 @@ TRAEFIK = (
 """The proxy `make install` fetched. Required: a skipped test cannot fail."""
 
 
+AGENT = Principal(id="agent")
+"""Who a Studio test invokes as. A placeholder until a host asserts one."""
+
+
 def studio(
     root: Path, /, *, proxy_port: int = 8080
 ) -> AbstractAsyncContextManager[ToolRuntime[StudioDeps]]:
     """One Studio window over a temporary root, published at one proxy port."""
     return tool_runtime_for(
-        STUDIO_APP, APP.lifespan, config={"root": str(root), "proxy_port": proxy_port}
+        STUDIO_APP,
+        APP.lifespan,
+        config={"root": str(root), "proxy_port": proxy_port},
+        channel=Channel.AGENT,
     )
 
 

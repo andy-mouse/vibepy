@@ -30,7 +30,7 @@ from todo_app.entry import (
     TodoStoreUnreadable,
     todo_lifespan,
 )
-from vibepy_core import ErrorCategory
+from vibepy_core import Channel, ErrorCategory, Principal
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.package import AppRef, describe_app, discover_apps
 
@@ -83,8 +83,12 @@ async def test_the_timer_app_answers_from_what_its_window_acquired() -> None:
     It is the only App here whose lifespan yields a value, so it is the only
     place that shows a handler receiving what the window acquired.
     """
-    async with tool_runtime_for(TIMER_APP, timer_lifespan, config={}) as tools:
-        answered = Elapsed.model_validate(await tools.invoke("elapsed", {}))
+    async with tool_runtime_for(
+        TIMER_APP, timer_lifespan, config={}, channel=Channel.AGENT
+    ) as tools:
+        answered = Elapsed.model_validate(
+            await tools.invoke("elapsed", {}, principal=Principal(id="test"))
+        )
 
     assert answered.seconds >= 0.0
 
@@ -122,19 +126,27 @@ async def test_a_completed_todo_is_done_in_a_later_window(tmp_path: Path) -> Non
     """
     config = {"db_path": tmp_path / "todo.json", "db_key": "k"}
 
-    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
-        created = Todo.model_validate(await tools.invoke("create_todo", {"title": "buy milk"}))
+    async with tool_runtime_for(
+        TODO_APP, todo_lifespan, config=config, channel=Channel.AGENT
+    ) as tools:
+        created = Todo.model_validate(
+            await tools.invoke("create_todo", {"title": "buy milk"}, principal=Principal(id="test"))
+        )
         assert created.done is False
         completed = Completion.model_validate(
-            await tools.invoke("complete_todo", {"id": created.id})
+            await tools.invoke("complete_todo", {"id": created.id}, principal=Principal(id="test"))
         )
 
     assert completed.diagnostic is None
     assert completed.todo is not None
     assert completed.todo.done is True
 
-    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
-        listed = TodoList.model_validate(await tools.invoke("list_todos", {}))
+    async with tool_runtime_for(
+        TODO_APP, todo_lifespan, config=config, channel=Channel.AGENT
+    ) as tools:
+        listed = TodoList.model_validate(
+            await tools.invoke("list_todos", {}, principal=Principal(id="test"))
+        )
 
     assert [todo.done for todo in listed.todos if todo.id == created.id] == [True]
 
@@ -143,8 +155,12 @@ async def test_completing_an_unknown_id_answers_a_diagnostic(tmp_path: Path) -> 
     """An unknown id is the App's expected failure, and travels as data (ADR-029)."""
     config = {"db_path": tmp_path / "todo.json", "db_key": "k"}
 
-    async with tool_runtime_for(TODO_APP, todo_lifespan, config=config) as tools:
-        completed = Completion.model_validate(await tools.invoke("complete_todo", {"id": 1}))
+    async with tool_runtime_for(
+        TODO_APP, todo_lifespan, config=config, channel=Channel.AGENT
+    ) as tools:
+        completed = Completion.model_validate(
+            await tools.invoke("complete_todo", {"id": 1}, principal=Principal(id="test"))
+        )
 
     assert completed.todo is None
     assert completed.diagnostic is not None

@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import build_wheelhouse, studio
+from tests_support import AGENT, build_wheelhouse, studio
 from vibepy_studio.operating.internals.installer import FACTS_FILE
 from vibepy_studio.operating.models import Installation
 
@@ -68,9 +68,13 @@ def template_root(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) ->
 
     async def build() -> None:
         async with studio(root) as tools:
-            await tools.invoke("register_package_source", {"path": str(wheelhouse)})
+            await tools.invoke(
+                "register_package_source", {"path": str(wheelhouse)}, principal=AGENT
+            )
             for app_name in APPS:
-                installed = await tools.invoke("install_app", {"app_name": app_name})
+                installed = await tools.invoke(
+                    "install_app", {"app_name": app_name}, principal=AGENT
+                )
                 assert isinstance(installed, Installation)
                 assert installed.diagnostic is None, installed.diagnostic
 
@@ -126,7 +130,7 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
         async with studio(root) as tools:
             for app_name in APPS:
                 if app_name not in named:
-                    await tools.invoke("remove_app", {"app_name": app_name})
+                    await tools.invoke("remove_app", {"app_name": app_name}, principal=AGENT)
 
     asyncio.run(prune())
     return root

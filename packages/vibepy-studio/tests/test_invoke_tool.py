@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import FIXTURES, studio
+from tests_support import AGENT, FIXTURES, studio
 from vibepy_core import ErrorCategory
 from vibepy_studio.authoring.models import Invocation
 
@@ -27,10 +27,12 @@ async def test_a_tool_is_invoked_and_a_later_call_sees_what_it_wrote(tmp_path: P
                 "input": {"title": "milk"},
                 "config": config(tmp_path),
             },
+            principal=AGENT,
         )
         listed = await tools.invoke(
             "invoke_tool",
             {"project": TODO, "app": "todo-app", "tool": "list_todos", "config": config(tmp_path)},
+            principal=AGENT,
         )
     assert isinstance(created, Invocation) and isinstance(listed, Invocation)
     assert created.diagnostic is None, created.diagnostic
@@ -50,6 +52,7 @@ async def test_a_tool_the_app_does_not_declare_arrives_as_the_childs_report(tmp_
                 "tool": "no_such_tool",
                 "config": config(tmp_path),
             },
+            principal=AGENT,
         )
     assert isinstance(answered, Invocation)
     assert answered.output is None
@@ -64,9 +67,12 @@ async def test_invalid_input_and_invalid_configuration_arrive_as_data(tmp_path: 
         bad_input = await tools.invoke(
             "invoke_tool",
             {"project": TODO, "app": "todo-app", "tool": "create_todo", "config": config(tmp_path)},
+            principal=AGENT,
         )
         bad_config = await tools.invoke(
-            "invoke_tool", {"project": TODO, "app": "todo-app", "tool": "list_todos"}
+            "invoke_tool",
+            {"project": TODO, "app": "todo-app", "tool": "list_todos"},
+            principal=AGENT,
         )
     assert isinstance(bad_input, Invocation) and bad_input.diagnostic is not None
     assert bad_input.diagnostic.code == "tool.input_invalid"
@@ -77,7 +83,9 @@ async def test_invalid_input_and_invalid_configuration_arrive_as_data(tmp_path: 
 async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) -> None:
     async with studio(tmp_path / "studio") as tools:
         answered = await tools.invoke(
-            "invoke_tool", {"project": str(tmp_path / "nowhere"), "app": "x", "tool": "y"}
+            "invoke_tool",
+            {"project": str(tmp_path / "nowhere"), "app": "x", "tool": "y"},
+            principal=AGENT,
         )
     assert isinstance(answered, Invocation) and answered.diagnostic is not None
     assert answered.diagnostic.code == "authoring.project_not_found"

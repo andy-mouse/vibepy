@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 from vibepy_core.app.config import AppConfig, NoConfig
 from vibepy_core.page.model import Page
+from vibepy_core.tool.policy import ToolPolicy
 from vibepy_core.tool.runtime import Tool
 
 __all__ = ["AppConfig", "AppDefinition", "NoConfig"]
@@ -24,6 +25,9 @@ class AppDefinition[DepsT, ConfigT: AppConfig]:
     ``config`` is the opposite kind of type: an `AppConfig` subclass the
     framework instantiates and projects. It is what this App requires of its
     host, and it is readable without acquiring anything.
+
+    ``policy`` is the App's own authorization. It runs after the framework's, so
+    it may refuse further and never admit what a declaration refuses.
     """
 
     app_id: str
@@ -32,3 +36,4 @@ class AppDefinition[DepsT, ConfigT: AppConfig]:
     config: type[ConfigT]
     tools: Sequence[Tool[DepsT]]
     pages: Sequence[Page]
+    policy: ToolPolicy | None = None

@@ -24,12 +24,14 @@ from vibepy_core.adapters.mcp.projection import to_mcp_tool
 from vibepy_core.app.composition import Lifespan, tool_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     to_error_info,
 )
+from vibepy_core.principal import Principal
 from vibepy_core.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
@@ -70,7 +72,9 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
     async def server_lifespan(
         server: Server[ToolRuntime[DepsT]],
     ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-        async with tool_runtime_for(definition, lifespan, config=config) as runtime:
+        async with tool_runtime_for(
+            definition, lifespan, config=config, channel=Channel.AGENT
+        ) as runtime:
             yield runtime
 
     async def list_tools(
@@ -85,7 +89,9 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
         ctx: ServerRequestContext[ToolRuntime[DepsT]], params: types.CallToolRequestParams
     ) -> types.CallToolResult:
         try:
-            result = await ctx.lifespan_context.invoke(params.name, params.arguments or {})
+            result = await ctx.lifespan_context.invoke(
+                params.name, params.arguments or {}, principal=Principal(id="agent")
+            )
         except ToolNotFoundError as error:
             raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
         except ToolInputValidationError as error:

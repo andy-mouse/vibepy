@@ -21,6 +21,7 @@ from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppEntrypoint
 from vibepy_core.app.package import load_app
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
@@ -28,6 +29,7 @@ from vibepy_core.errors import (
     InvokeRequestInvalidError,
     report,
 )
+from vibepy_core.principal import Principal
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +50,10 @@ async def _invoke(
     entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: InvocationRequest, /
 ) -> BaseModel:
     """Open the window, invoke once, close the window."""
-    async with tool_runtime_for(entrypoint.definition, entrypoint.lifespan, config={}) as runtime:
-        return await runtime.invoke(tool_name, request.input)
+    async with tool_runtime_for(
+        entrypoint.definition, entrypoint.lifespan, config={}, channel=Channel.AGENT
+    ) as runtime:
+        return await runtime.invoke(tool_name, request.input, principal=Principal(id="agent"))
 
 
 def main(argv: Sequence[str], /) -> int:

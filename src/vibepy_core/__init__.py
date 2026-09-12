@@ -56,14 +56,17 @@ from vibepy_core.page import (
     PageHandler,
     PageRegistry,
     PageRuntime,
+    PrincipalToolInvoker,
     ToolInvoker,
 )
 from vibepy_core.principal import Principal
 from vibepy_core.tool import (
+    AuthorizationRequest,
     Tool,
     ToolContext,
     ToolDefinition,
     ToolHandler,
+    ToolPolicy,
     ToolRegistry,
     ToolRuntime,
 )
@@ -80,6 +83,7 @@ __all__ = [
     "AppEntrypointUnloadableError",
     "AppNotDeclaredError",
     "AppRef",
+    "AuthorizationRequest",
     "Channel",
     "ConfigFieldDescription",
     "ConfigFieldType",
@@ -102,6 +106,7 @@ __all__ = [
     "PageRouteInvalidError",
     "PageRuntime",
     "Principal",
+    "PrincipalToolInvoker",
     "Tool",
     "ToolContext",
     "ToolDefinition",
@@ -113,6 +118,7 @@ __all__ = [
     "ToolNameConflictError",
     "ToolNotFoundError",
     "ToolOutputValidationError",
+    "ToolPolicy",
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",

@@ -7,6 +7,7 @@ from typing import Protocol
 from pydantic import BaseModel, JsonValue
 
 from vibepy_core.channel import Channel
+from vibepy_core.principal import Principal
 
 
 @dataclass(frozen=True)
@@ -16,11 +17,17 @@ class ToolContext[DepsT]:
     ``dependencies`` is the App's own application-scoped resource. The
     channel's running window acquires it once and every invocation inside that
     window receives that same value, typed by the app itself.
+
+    ``principal`` and ``channel`` are who this invocation is for and where it
+    came through, as the runtime authorized it. A handler reads them; it does
+    not decide with them, because the decision was already taken.
     """
 
     app_id: str
     invocation_id: str
     dependencies: DepsT
+    principal: Principal
+    channel: Channel
 
 
 @dataclass(frozen=True)

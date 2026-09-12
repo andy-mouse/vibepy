@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import first_frame, free_port, served_body, studio, traefik
+from tests_support import AGENT, first_frame, free_port, served_body, studio, traefik
 from vibepy_studio.operating.models import RunningApp
 
 SOCKET_IO = "/_nicegui_ws/socket.io/?EIO=4&transport=websocket"
@@ -27,7 +27,9 @@ async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
     proxy_port = free_port()
 
     async with studio(installed, proxy_port=proxy_port) as tools:
-        started = await tools.invoke("start_app", {"app_name": "vibepy-timer", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-timer", "secrets": {}}, principal=AGENT
+        )
         assert isinstance(started, RunningApp)
         assert started.diagnostic is None
 
@@ -68,10 +70,13 @@ async def test_two_apps_are_served_through_one_configuration(
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             },
+            principal=AGENT,
         )
 
         for name in ("vibepy-todo", "vibepy-timer"):
-            started = await tools.invoke("start_app", {"app_name": name, "secrets": {}})
+            started = await tools.invoke(
+                "start_app", {"app_name": name, "secrets": {}}, principal=AGENT
+            )
             assert isinstance(started, RunningApp)
             assert started.diagnostic is None
 

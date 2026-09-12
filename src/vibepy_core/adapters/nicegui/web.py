@@ -21,6 +21,7 @@ from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import PageRouteConflictError, PageRouteInvalidError
 from vibepy_core.page.runtime import PageRuntime
+from vibepy_core.principal import Principal
 
 
 def register_pages[DepsT, ConfigT: AppConfig](
@@ -54,6 +55,6 @@ def _builder(runtime: PageRuntime, name: str) -> Callable[[], Awaitable[None]]:
     """
 
     async def build() -> None:
-        await runtime.render(name)
+        await runtime.render(name, principal=Principal(id="operator"))
 
     return build

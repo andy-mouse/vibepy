@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel, SecretStr
 
+from vibepy_core import Channel
 from vibepy_core.app import AppConfig, AppDefinition, NoConfig, environment_for, tool_runtime_for
 from vibepy_core.errors import AppConfigInvalidError
 
@@ -75,6 +76,7 @@ async def test_a_valid_mapping_reaches_the_lifespan_as_the_declared_model() -> N
         configured_definition(),
         lifespan,
         config={"db_path": "/tmp/todo.db", "api_token": "shhh"},
+        channel=Channel.AGENT,
     ):
         pass
 
@@ -91,6 +93,7 @@ async def test_an_invalid_mapping_is_rejected_before_the_lifespan_is_entered() -
             configured_definition(),
             store_lifespan(entered),
             config={"api_token": "shhh"},
+            channel=Channel.AGENT,
         ):
             pass
 
@@ -104,7 +107,9 @@ async def test_an_app_requiring_nothing_declares_the_empty_model() -> None:
     async def lifespan(_config: NoConfig) -> AsyncGenerator[None]:
         yield None
 
-    async with tool_runtime_for(unconfigured_definition(), lifespan, config={}) as tools:
+    async with tool_runtime_for(
+        unconfigured_definition(), lifespan, config={}, channel=Channel.AGENT
+    ) as tools:
         assert tools is not None
 
 
@@ -120,6 +125,7 @@ async def test_a_secret_is_not_disclosed_by_the_configuration_object() -> None:
         configured_definition(),
         lifespan,
         config={"db_path": "/tmp/todo.db", "api_token": "shhh"},
+        channel=Channel.AGENT,
     ):
         pass
 
@@ -137,10 +143,16 @@ async def test_two_windows_over_one_definition_do_not_share_configuration() -> N
         yield Acquired(config)
 
     async with tool_runtime_for(
-        definition, lifespan, config={"db_path": "/tmp/one.db", "api_token": "a"}
+        definition,
+        lifespan,
+        config={"db_path": "/tmp/one.db", "api_token": "a"},
+        channel=Channel.AGENT,
     ):
         async with tool_runtime_for(
-            definition, lifespan, config={"db_path": "/tmp/two.db", "api_token": "b"}
+            definition,
+            lifespan,
+            config={"db_path": "/tmp/two.db", "api_token": "b"},
+            channel=Channel.AGENT,
         ):
             pass
 
@@ -168,7 +180,9 @@ async def test_a_window_reads_its_declaration_from_the_environment(
         seen.append(config)
         yield Acquired(config)
 
-    async with tool_runtime_for(configured_definition(), lifespan, config={}):
+    async with tool_runtime_for(
+        configured_definition(), lifespan, config={}, channel=Channel.AGENT
+    ):
         pass
 
     assert seen[0].db_path == Path("/tmp/env.db")
@@ -189,7 +203,10 @@ async def test_an_explicit_value_stands_above_the_environment(
         yield Acquired(config)
 
     async with tool_runtime_for(
-        configured_definition(), lifespan, config={"db_path": "/tmp/explicit.db"}
+        configured_definition(),
+        lifespan,
+        config={"db_path": "/tmp/explicit.db"},
+        channel=Channel.AGENT,
     ):
         pass
 
@@ -205,6 +222,7 @@ async def test_a_value_for_an_undeclared_field_is_refused() -> None:
             configured_definition(),
             store_lifespan(entered),
             config={"db_path": "/tmp/x.db", "api_token": "s", "db_pth": "typo"},
+            channel=Channel.AGENT,
         ):
             pass
 

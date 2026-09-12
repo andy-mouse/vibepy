@@ -11,6 +11,7 @@ import pytest
 from pydantic import BaseModel
 
 from lifecycle import no_dependencies
+from vibepy_core import Channel, Principal
 from vibepy_core.app import (
     AppDefinition,
     Lifespan,
@@ -87,7 +88,9 @@ def journal_lifespan(log: list[str]) -> Lifespan[Journal, NoConfig]:
 async def test_the_lifespan_runs_on_both_sides_of_the_window() -> None:
     log: list[str] = []
 
-    async with tool_runtime_for(journal_definition(log), journal_lifespan(log), config={}):
+    async with tool_runtime_for(
+        journal_definition(log), journal_lifespan(log), config={}, channel=Channel.AGENT
+    ):
         assert log == ["acquired"]
 
     assert log == ["acquired", "released"]
@@ -96,8 +99,10 @@ async def test_the_lifespan_runs_on_both_sides_of_the_window() -> None:
 async def test_a_tool_receives_what_the_lifespan_yielded() -> None:
     log: list[str] = []
 
-    async with tool_runtime_for(journal_definition(log), journal_lifespan(log), config={}) as tools:
-        result = await tools.invoke("read", {})
+    async with tool_runtime_for(
+        journal_definition(log), journal_lifespan(log), config={}, channel=Channel.AGENT
+    ) as tools:
+        result = await tools.invoke("read", {}, principal=Principal(id="test"))
 
     assert isinstance(result, Entry)
     assert result.seen == "journal"
@@ -108,10 +113,14 @@ async def test_two_windows_enter_two_lifespans() -> None:
     log: list[str] = []
     definition = journal_definition(log)
 
-    async with tool_runtime_for(definition, journal_lifespan(log), config={}) as first:
-        async with tool_runtime_for(definition, journal_lifespan(log), config={}) as second:
-            first_seen = await first.invoke("read", {})
-            second_seen = await second.invoke("read", {})
+    async with tool_runtime_for(
+        definition, journal_lifespan(log), config={}, channel=Channel.AGENT
+    ) as first:
+        async with tool_runtime_for(
+            definition, journal_lifespan(log), config={}, channel=Channel.AGENT
+        ) as second:
+            first_seen = await first.invoke("read", {}, principal=Principal(id="test"))
+            second_seen = await second.invoke("read", {}, principal=Principal(id="test"))
 
     assert first is not second
     assert isinstance(first_seen, Entry)
@@ -124,7 +133,7 @@ async def test_a_page_reaches_a_tool_through_the_window() -> None:
     log: list[str] = []
 
     async with page_runtime_for(journal_definition(log), journal_lifespan(log), config={}) as pages:
-        await pages.render("journal")
+        await pages.render("journal", principal=Principal(id="operator"))
 
     assert log == ["acquired", "invoked", "released"]
 
@@ -156,7 +165,10 @@ async def test_a_failing_acquisition_reaches_the_caller() -> None:
 
     with pytest.raises(Boom):
         async with tool_runtime_for(
-            journal_definition(log), lambda _config: FailingAcquire(log), config={}
+            journal_definition(log),
+            lambda _config: FailingAcquire(log),
+            config={},
+            channel=Channel.AGENT,
         ):
             pass  # pragma: no cover - the block is never entered
 
@@ -184,7 +196,9 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             yield journal
 
     with pytest.raises(Boom):
-        async with tool_runtime_for(journal_definition(log), both, config={}):
+        async with tool_runtime_for(
+            journal_definition(log), both, config={}, channel=Channel.AGENT
+        ):
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]
@@ -255,7 +269,7 @@ async def test_two_tools_declaring_one_name_do_not_open_a_window() -> None:
     )
 
     with pytest.raises(ToolNameConflictError) as error:
-        async with tool_runtime_for(definition, no_dependencies, config={}):
+        async with tool_runtime_for(definition, no_dependencies, config={}, channel=Channel.AGENT):
             raise AssertionError("the window must not open")
 
     assert error.value.tool_name == "read"
