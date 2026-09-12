@@ -8,7 +8,7 @@ observes the proxy.
 import asyncio
 import logging
 from collections.abc import Collection
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import yaml
 
@@ -53,7 +53,7 @@ ROUTES = "routes"
 INSTALL_CONFIG = "traefik.yml"
 
 
-async def write_install_config(root: Path, /, *, proxy_port: int) -> None:
+async def write_install_config(root: PurePath, /, *, proxy_port: int) -> None:
     """Write the half of the proxy's configuration that does not follow an App.
 
     Written when a window opens rather than when an App arrives, because it says
@@ -65,30 +65,32 @@ async def write_install_config(root: Path, /, *, proxy_port: int) -> None:
     await asyncio.to_thread(_write_install_config, root, proxy_port)
 
 
-def _write_install_config(root: Path, proxy_port: int, /) -> None:
-    (root / ROUTES).mkdir(parents=True, exist_ok=True)
+def _write_install_config(root: PurePath, proxy_port: int, /) -> None:
+    directory = Path(root)
+    (directory / ROUTES).mkdir(parents=True, exist_ok=True)
     _replace(
-        root,
-        root / INSTALL_CONFIG,
+        directory,
+        directory / INSTALL_CONFIG,
         {
             "entryPoints": {"web": {"address": f":{proxy_port}"}},
-            "providers": {"file": {"directory": str(root / ROUTES), "watch": True}},
+            "providers": {"file": {"directory": str(directory / ROUTES), "watch": True}},
         },
     )
 
 
-async def write_route(root: Path, app_name: str, /, *, port: int) -> None:
+async def write_route(root: PurePath, app_name: str, /, *, port: int) -> None:
     """One App's routing configuration, where the provider is watching."""
     await asyncio.to_thread(_write_route, root, app_name, port)
 
 
-def _write_route(root: Path, app_name: str, port: int, /) -> None:
+def _write_route(root: PurePath, app_name: str, port: int, /) -> None:
     # The directory is the window's, made when the install configuration that
     # names it is written. An App arrives through a window, so there is no
     # moment when a route is written and the directory it goes in is absent.
+    directory = Path(root)
     _replace(
-        root,
-        root / ROUTES / f"{app_name}.yml",
+        directory,
+        directory / ROUTES / f"{app_name}.yml",
         {
             "http": {
                 "routers": {
@@ -105,13 +107,13 @@ def _write_route(root: Path, app_name: str, port: int, /) -> None:
     )
 
 
-async def remove_route(root: Path, app_name: str, /) -> None:
+async def remove_route(root: PurePath, app_name: str, /) -> None:
     """Withdraw one App's route, if it has one."""
     await asyncio.to_thread(_remove_route, root, app_name)
 
 
-def _remove_route(root: Path, app_name: str, /) -> None:
-    (root / ROUTES / f"{app_name}.yml").unlink(missing_ok=True)
+def _remove_route(root: PurePath, app_name: str, /) -> None:
+    (Path(root) / ROUTES / f"{app_name}.yml").unlink(missing_ok=True)
 
 
 def _replace(root: Path, path: Path, document: object, /) -> None:

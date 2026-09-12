@@ -3,7 +3,7 @@
 import asyncio
 import shutil
 import sys
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import pytest
 from pydantic import SecretStr, ValidationError
@@ -32,6 +32,12 @@ from vibepy_studio.operating.models import (
 def environment(root: Path, app_name: str, /) -> Path:
     """Where Studio's declared root holds one App, as the spec describes it."""
     return root / "envs" / app_name
+
+
+def forget_the_declaration(purelib: PurePath, /) -> None:
+    """Delete an App's distribution metadata, leaving the environment that held it."""
+    for info in Path(purelib).glob("vibepy_notes-*.dist-info"):
+        shutil.rmtree(info)
 
 
 def a_python_lives_in(env: Path, /) -> bool:
@@ -392,8 +398,7 @@ async def test_an_environment_that_no_longer_declares_its_app_says_so(
     async with studio(installed) as tools:
         facts = await read_facts(environment(installed, "vibepy-notes"))
         assert facts is not None and facts.purelib is not None
-        for info in facts.purelib.glob("vibepy_notes-*.dist-info"):
-            shutil.rmtree(info)
+        await asyncio.to_thread(forget_the_declaration, facts.purelib)
 
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
 

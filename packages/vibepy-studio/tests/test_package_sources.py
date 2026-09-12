@@ -1,7 +1,7 @@
 """Registering a folder of wheels is what makes its Apps installable."""
 
 import shutil
-from pathlib import Path
+from pathlib import Path, PurePath
 
 import pytest
 
@@ -130,3 +130,20 @@ async def test_an_empty_path_is_refused_rather_than_the_working_directory(tmp_pa
     async with studio(tmp_path / "hub") as tools:
         with pytest.raises(ToolInputValidationError):
             await tools.invoke("register_package_source", {"path": ""}, principal=AGENT)
+
+
+async def test_the_paths_a_tool_answers_with_reach_no_file_system(tmp_path: Path) -> None:
+    """A path in a Tool's model is a `PurePath`, which offers no operation that blocks."""
+    source = tmp_path / "wheels"
+    write_wheel(source, name="zulu-app", version="1.2.3", declares=True)
+
+    async with studio(tmp_path / "hub") as tools:
+        listed = await tools.invoke(
+            "register_package_source", {"path": str(source)}, principal=AGENT
+        )
+
+    assert isinstance(listed, SourceListing)
+    assert listed.source is not None
+    for path in [listed.source, *(row.wheel for row in listed.candidates)]:
+        assert isinstance(path, PurePath)
+        assert not hasattr(path, "is_dir")

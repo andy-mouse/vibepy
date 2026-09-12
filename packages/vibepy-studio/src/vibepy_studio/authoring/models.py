@@ -14,7 +14,7 @@ A framework failure the child reports travels with its own code and category and
 is not restated here.
 """
 
-from pathlib import Path
+from pathlib import PurePath
 
 from pydantic import BaseModel, JsonValue
 
@@ -43,7 +43,7 @@ class FrameworkDescription(BaseModel):
 class InspectRequest(BaseModel):
     """A project to inspect: the directory holding its `pyproject.toml`."""
 
-    project: Path
+    project: PurePath
 
 
 class AppInspection(BaseModel):
@@ -56,7 +56,7 @@ class AppInspection(BaseModel):
 class InvokeRequest(BaseModel):
     """One Tool of one App a project declares, with the App's configuration and the Tool's input."""
 
-    project: Path
+    project: PurePath
     app: str
     tool: str
     input: dict[str, JsonValue] = {}
@@ -70,7 +70,7 @@ class Invocation(BaseModel):
     diagnostic: ErrorInfo | None = None
 
 
-def uv_unavailable(project: Path, /) -> ErrorInfo:
+def uv_unavailable(project: PurePath, /) -> ErrorInfo:
     """Say uv is not runnable from this process."""
     return ErrorInfo(
         code="authoring.uv_unavailable",
@@ -80,7 +80,7 @@ def uv_unavailable(project: Path, /) -> ErrorInfo:
     )
 
 
-def environment_failed(project: Path, output: str, /) -> ErrorInfo:
+def environment_failed(project: PurePath, output: str, /) -> ErrorInfo:
     """Say uv exited non-zero and the child made no framework report of its own."""
     return ErrorInfo(
         code="authoring.environment_failed",
@@ -90,7 +90,7 @@ def environment_failed(project: Path, output: str, /) -> ErrorInfo:
     )
 
 
-def project_not_found(project: Path, reason: str, /) -> ErrorInfo:
+def project_not_found(project: PurePath, reason: str, /) -> ErrorInfo:
     """Say why `project` is not a project a Tool can read."""
     return ErrorInfo(
         code="authoring.project_not_found",
@@ -100,7 +100,7 @@ def project_not_found(project: Path, reason: str, /) -> ErrorInfo:
     )
 
 
-def no_apps_declared(project: Path, distribution: str, /) -> ErrorInfo:
+def no_apps_declared(project: PurePath, distribution: str, /) -> ErrorInfo:
     """Say the project's own distribution declares no App."""
     return ErrorInfo(
         code="authoring.no_apps_declared",
@@ -111,7 +111,7 @@ def no_apps_declared(project: Path, distribution: str, /) -> ErrorInfo:
 
 
 def from_report(
-    project: Path, reported: ErrorInfo | None, output: str, /, **details: str
+    project: PurePath, reported: ErrorInfo | None, output: str, /, **details: str
 ) -> ErrorInfo:
     """Carry the child's own report when it made one, else the environment as the failure.
 

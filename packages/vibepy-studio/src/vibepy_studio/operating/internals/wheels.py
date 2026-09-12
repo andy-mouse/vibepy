@@ -11,12 +11,13 @@ import configparser
 import logging
 import zipfile
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from packaging.utils import InvalidWheelFilename, parse_wheel_filename
 from packaging.version import Version
 
 from vibepy_core.app.group import APP_GROUP
+from vibepy_studio.operating.internals.files import is_directory
 
 logger = logging.getLogger(__name__)
 
@@ -29,21 +30,21 @@ class Candidate:
     this App by.
     """
 
-    wheel: Path
+    wheel: PurePath
     name: str
     version: str
     declares_app: bool
 
 
-async def candidates(source: Path, /) -> tuple[Candidate, ...]:
+async def candidates(source: PurePath, /) -> tuple[Candidate, ...]:
     """Every distribution the source offers, one wheel each: the highest version."""
     return await asyncio.to_thread(_candidates, source)
 
 
-def _candidates(source: Path, /) -> tuple[Candidate, ...]:
+def _candidates(source: PurePath, /) -> tuple[Candidate, ...]:
     try:
         wheels = sorted(
-            path for path in source.iterdir() if path.is_file() and path.suffix == ".whl"
+            path for path in Path(source).iterdir() if path.is_file() and path.suffix == ".whl"
         )
     except OSError:
         logger.info("unreadable source at %s", source)
@@ -59,7 +60,12 @@ def _candidates(source: Path, /) -> tuple[Candidate, ...]:
         if held is None or version > held[0]:
             best[name] = (version, wheel)
     return tuple(
-        Candidate(wheel=wheel, name=name, version=str(version), declares_app=_declares_app(wheel))
+        Candidate(
+            wheel=PurePath(wheel),
+            name=name,
+            version=str(version),
+            declares_app=_declares_app(wheel),
+        )
         for name, (version, wheel) in sorted(best.items())
     )
 
@@ -80,6 +86,6 @@ def _declares_app(wheel: Path, /) -> bool:
     return parser.has_section(APP_GROUP)
 
 
-async def readable(source: Path, /) -> bool:
+async def readable(source: PurePath, /) -> bool:
     """Whether a registered source is still there to be read."""
-    return await asyncio.to_thread(Path.is_dir, source)
+    return await asyncio.to_thread(is_directory, source)

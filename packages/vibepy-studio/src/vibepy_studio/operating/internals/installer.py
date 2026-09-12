@@ -13,7 +13,7 @@ import os
 import shutil
 import sys
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pydantic import ValidationError
 
@@ -21,6 +21,7 @@ from vibepy_core.app.package import AppRef, discover_apps
 from vibepy_studio.internals.describing import DescribeFailed
 from vibepy_studio.internals.describing import describe as describe_with
 from vibepy_studio.internals.processes import NotRunnable, run
+from vibepy_studio.operating.internals.files import is_directory
 from vibepy_studio.operating.models import AppFacts
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ class AppNameInvalid(Exception):
         self.app_name = app_name
 
 
-def environment(root: Path, app_name: str, /) -> Path:
+def environment(root: PurePath, app_name: str, /) -> PurePath:
     """Where Studio keeps one App's environment.
 
     The name is refused unless the join names a direct child of the environments
@@ -67,18 +68,18 @@ def environment(root: Path, app_name: str, /) -> Path:
     of the file system: a symlink inside `envs` still aliases.
     """
     envs = root / "envs"
-    candidate = Path(os.path.normpath(envs / app_name))
+    candidate = PurePath(os.path.normpath(envs / app_name))
     if candidate.parent != envs or candidate.name != app_name:
         raise AppNameInvalid(app_name)
     return candidate
 
 
-def interpreter(env: Path, /) -> Path:
+def interpreter(env: PurePath, /) -> PurePath:
     """Return the Python of an environment, on either platform."""
     return env / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
-async def purelib(env: Path, /) -> Path:
+async def purelib(env: PurePath, /) -> PurePath:
     """Where an environment keeps its distribution metadata.
 
     Asked of that environment rather than derived from this one. A virtual
@@ -89,7 +90,7 @@ async def purelib(env: Path, /) -> Path:
     written = await _run(
         [str(interpreter(env)), "-c", "import sysconfig;print(sysconfig.get_path('purelib'))"]
     )
-    return Path(written.strip())
+    return PurePath(written.strip())
 
 
 async def _run(command: Sequence[str], /) -> str:
@@ -104,7 +105,7 @@ async def _run(command: Sequence[str], /) -> str:
     return completed.stdout
 
 
-async def install(*, wheel: Path, source: Path, env: Path) -> None:
+async def install(*, wheel: PurePath, source: PurePath, env: PurePath) -> None:
     """Create an environment of its own for one App and install one wheel there.
 
     `--find-links` names the wheelhouse the wheel came from, so its dependencies --
@@ -140,7 +141,7 @@ async def install(*, wheel: Path, source: Path, env: Path) -> None:
     )
 
 
-async def describe(env: Path, /) -> tuple[AppFacts, ...]:
+async def describe(env: PurePath, /) -> tuple[AppFacts, ...]:
     """Return what the Apps in one environment declare, read in that environment."""
     try:
         described = await describe_with([str(interpreter(env))])
@@ -149,13 +150,13 @@ async def describe(env: Path, /) -> tuple[AppFacts, ...]:
     return tuple(AppFacts(described=entry) for entry in described)
 
 
-async def read_facts(env: Path, /) -> AppFacts | None:
+async def read_facts(env: PurePath, /) -> AppFacts | None:
     """Return what an installation learned when it was installed, or nothing."""
     return await asyncio.to_thread(_read_facts, env)
 
 
-def _read_facts(env: Path, /) -> AppFacts | None:
-    path = env / FACTS_FILE
+def _read_facts(env: PurePath, /) -> AppFacts | None:
+    path = Path(env) / FACTS_FILE
     if not path.is_file():
         return None
     try:
@@ -165,7 +166,7 @@ def _read_facts(env: Path, /) -> AppFacts | None:
         return None
 
 
-async def write_facts(env: Path, facts: AppFacts, /) -> None:
+async def write_facts(env: PurePath, facts: AppFacts, /) -> None:
     """Keep what an App declared beside the environment that holds it.
 
     The file lives inside the environment it describes and disappears with it, so
@@ -175,37 +176,45 @@ async def write_facts(env: Path, facts: AppFacts, /) -> None:
     await asyncio.to_thread(_write_facts, env, facts)
 
 
-def _write_facts(env: Path, facts: AppFacts, /) -> None:
-    (env / FACTS_FILE).write_text(facts.model_dump_json(indent=1), encoding="utf-8")
+def _write_facts(env: PurePath, facts: AppFacts, /) -> None:
+    (Path(env) / FACTS_FILE).write_text(facts.model_dump_json(indent=1), encoding="utf-8")
 
 
-async def installed_facts(root: Path, app_name: str, /) -> AppFacts | None:
+async def installed_facts(root: PurePath, app_name: str, /) -> AppFacts | None:
     """Return what one installed App declared, or nothing when it is not installed."""
     env = environment(root, app_name)
-    return await read_facts(env) if await asyncio.to_thread(Path.is_dir, env) else None
+    return await read_facts(env) if await asyncio.to_thread(is_directory, env) else None
 
 
-async def remove_environment(env: Path, /) -> None:
+async def remove_environment(env: PurePath, /) -> None:
     """Delete one App's environment, if it is there."""
-    await asyncio.to_thread(shutil.rmtree, env, ignore_errors=True)
+    await asyncio.to_thread(_remove_environment, env)
 
 
-async def declarations(purelib: Path, /) -> tuple[AppRef, ...]:
+def _remove_environment(env: PurePath, /) -> None:
+    shutil.rmtree(Path(env), ignore_errors=True)
+
+
+async def declarations(purelib: PurePath, /) -> tuple[AppRef, ...]:
     """Return what one environment declares, read from its metadata.
 
     `discover_apps` scans a `site-packages` directory, so it blocks for as long
     as that directory takes to read. A Tool handler asks this instead.
     """
-    return await asyncio.to_thread(discover_apps, path=[purelib])
+    return await asyncio.to_thread(_declarations, purelib)
 
 
-async def environments(root: Path, /) -> tuple[Path, ...]:
+def _declarations(purelib: PurePath, /) -> tuple[AppRef, ...]:
+    return discover_apps(path=[Path(purelib)])
+
+
+async def environments(root: PurePath, /) -> tuple[PurePath, ...]:
     """Every environment this Hub created, in a stable order."""
     return await asyncio.to_thread(_environments, root)
 
 
-def _environments(root: Path, /) -> tuple[Path, ...]:
-    envs = root / "envs"
+def _environments(root: PurePath, /) -> tuple[PurePath, ...]:
+    envs = Path(root) / "envs"
     if not envs.is_dir():
         return ()
-    return tuple(sorted(path for path in envs.iterdir() if path.is_dir()))
+    return tuple(PurePath(path) for path in sorted(envs.iterdir()) if path.is_dir())

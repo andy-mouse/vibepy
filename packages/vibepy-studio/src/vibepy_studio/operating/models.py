@@ -30,7 +30,7 @@ Hub was configured with; the port the App itself serves on is allocated when
 it is installed and does not leave the Hub.
 """
 
-from pathlib import Path
+from pathlib import PurePath
 from typing import Annotated
 
 from packaging.utils import canonicalize_name
@@ -41,9 +41,9 @@ from vibepy_core.errors import ErrorInfo
 
 
 def _a_named_folder(value: object) -> object:
-    """Refuse an empty path before `Path` turns it into the working directory.
+    """Refuse an empty path before `PurePath` turns it into the working directory.
 
-    `Path("")` is `.`, which is a directory that exists, so an empty string
+    `PurePath("")` is `.`, which is a directory that exists, so an empty string
     would register whatever folder the server happens to run in. Refusing it
     here is what makes the channel answer `tool.input_invalid`.
     """
@@ -52,7 +52,7 @@ def _a_named_folder(value: object) -> object:
     return value
 
 
-SourcePathField = Annotated[Path, BeforeValidator(_a_named_folder)]
+SourcePathField = Annotated[PurePath, BeforeValidator(_a_named_folder)]
 """The folder a Tool takes as the package source."""
 
 
@@ -65,7 +65,7 @@ class SourcePath(BaseModel):
 class CandidateRow(BaseModel):
     """One wheel the source offers: the highest version of one distribution."""
 
-    wheel: Path
+    wheel: PurePath
     name: str
     version: str
     declares_app: bool
@@ -74,7 +74,7 @@ class CandidateRow(BaseModel):
 class SourceListing(BaseModel):
     """The registered source, if any, and the candidates found in it."""
 
-    source: Path | None
+    source: PurePath | None
     candidates: list[CandidateRow]
     diagnostic: ErrorInfo | None = None
 
@@ -90,7 +90,7 @@ class AppFacts(BaseModel):
     """
 
     described: DescribedApp
-    purelib: Path | None = None
+    purelib: PurePath | None = None
 
     @property
     def has_pages(self) -> bool:
@@ -158,7 +158,7 @@ class AppListing(BaseModel):
     """Every App the control plane knows of."""
 
     apps: list[AppRow]
-    source: Path | None = None
+    source: PurePath | None = None
     """The registered folder, said with the rows so one read draws the whole board."""
 
     diagnostic: ErrorInfo | None = None

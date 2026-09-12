@@ -1,4 +1,4 @@
-"""Writing a file whole, so that nothing reads half of one.
+"""The file system as Studio's internals touch it: writing a file whole, and asking about one.
 
 Two of Studio's files are read by something other than Studio while it is
 writing them: its state file, which a second window reads, and the routing
@@ -11,13 +11,22 @@ places does.
 import logging
 import os
 import stat
-from pathlib import Path
+from pathlib import Path, PurePath
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 OWNER_ONLY_FILE = stat.S_IRUSR | stat.S_IWUSR
 OWNER_ONLY_DIRECTORY = stat.S_IRWXU
+
+
+def is_directory(path: PurePath, /) -> bool:
+    """Whether `path` is a directory.
+
+    A handler holds a `PurePath`, which cannot answer this; the concrete `Path`
+    is made here, where the call blocks and a caller wraps it in a thread.
+    """
+    return Path(path).is_dir()
 
 
 def write_whole(path: Path, text: str, /, *, staging: Path, owner_only: bool = False) -> None:
