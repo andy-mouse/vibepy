@@ -13,7 +13,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.entrypoint import DescribedApp
 from vibepy_core.errors import ErrorInfo
-from vibepy_studio.internals.processes import reported, run
+from vibepy_studio.internals.processes import reports, run
 
 logger = logging.getLogger(__name__)
 
@@ -21,13 +21,18 @@ _DESCRIBED = TypeAdapter(list[DescribedApp])
 
 
 class DescribeFailed(Exception):
-    """The command did not describe. Carries what it wrote and any report among it."""
+    """The command did not describe. Carries what it wrote and every report among it."""
 
-    def __init__(self, output: str, *, reported: ErrorInfo | None) -> None:
-        """Record `output` for the message and the child's `reported` failure, if any."""
+    def __init__(self, output: str, *, reports: tuple[ErrorInfo, ...]) -> None:
+        """Record `output` for the message and the child's `reports`, in order."""
         super().__init__(output)
         self.output = output
-        self.reported = reported
+        self.reports = reports
+
+    @property
+    def reported(self) -> ErrorInfo | None:
+        """The first report, for a caller that shows one failure."""
+        return self.reports[0] if self.reports else None
 
 
 async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
@@ -41,9 +46,9 @@ async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
     completed = await run([*python, "-m", "vibepy_core.describe"])
     if completed.returncode != 0:
         raise DescribeFailed(
-            (completed.stdout + completed.stderr).strip(), reported=reported(completed.stderr)
+            (completed.stdout + completed.stderr).strip(), reports=reports(completed.stderr)
         )
     try:
         return tuple(_DESCRIBED.validate_json(completed.stdout))
     except ValidationError as invalid:
-        raise DescribeFailed(str(invalid), reported=None) from invalid
+        raise DescribeFailed(str(invalid), reports=()) from invalid

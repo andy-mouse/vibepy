@@ -18,6 +18,7 @@ from vibepy_studio.internals.processes import (
     NotRunnable,
     child_environment,
     reported,
+    reports,
     run,
 )
 from vibepy_studio.operating.internals import interpreter
@@ -216,7 +217,7 @@ def test_child_environment_drops_vibepy_prefixed_variables(
     assert env.get("AN_UNRELATED_VARIABLE") == "survives"
 
 
-def test_reported_reads_the_last_report_among_other_lines() -> None:
+def test_reported_reads_the_report_among_other_lines() -> None:
     text = (
         'noise\n{"code": "tool.not_found", "category": "caller", "message": "m",'
         ' "details": {}}\nTraceback\n'
@@ -226,3 +227,17 @@ def test_reported_reads_the_last_report_among_other_lines() -> None:
     assert found.code == "tool.not_found"
     assert found.category == ErrorCategory.CALLER
     assert reported("nothing here") is None
+
+
+def test_reports_reads_every_report_line_in_order() -> None:
+    text = (
+        '{"code": "app.declaration_invalid", "category": "declaration", "message": "m",'
+        ' "details": {"count": "1"}}\n'
+        '{"code": "tool.name_conflict", "category": "declaration", "message": "m",'
+        ' "details": {}}\nTraceback\n'
+    )
+    found = reports(text)
+    assert [info.code for info in found] == ["app.declaration_invalid", "tool.name_conflict"]
+    first = reported(text)
+    assert first is not None and first.code == "app.declaration_invalid"
+    assert reports("nothing here") == ()

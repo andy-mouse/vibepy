@@ -111,15 +111,22 @@ async def run(
     )
 
 
-def reported(text: str, /) -> ErrorInfo | None:
-    """Return the failure a child described in `text`, found by parsing, not position.
+def reports(text: str, /) -> tuple[ErrorInfo, ...]:
+    """Return every failure a child described in `text`, in the order it wrote them.
 
-    The report is one line among whatever else the child wrote, and a traceback
-    the framework writes after it is as much a part of that output as the report.
-    Scanning in reverse finds the report regardless of what follows it.
+    A report is one line among whatever else the child wrote; a declaration that
+    failed several ways is several lines. Parsing rather than position finds them,
+    and what does not validate -- a traceback, the Web technology's lines -- is
+    skipped.
     """
-    for line in reversed(text.splitlines()):
-        found = read_report_line(line)
-        if found is not None:
-            return found
-    return None
+    return tuple(found for line in text.splitlines() if (found := read_report_line(line)))
+
+
+def reported(text: str, /) -> ErrorInfo | None:
+    """Return the first failure a child described in `text`, or nothing.
+
+    The first is the whole story when a child failed once, and the aggregate when
+    it failed several ways; a caller that shows one line shows this one.
+    """
+    found = reports(text)
+    return found[0] if found else None
