@@ -19,7 +19,7 @@ reached.
 The framework should provide deterministic feedback surfaces for agents:
 
 - structural validation
-- type validation
+- type validation, delegated to pyright and run by `validate_app`
 - runtime errors
 - policy/conformance errors
 - Tool invocation tests
@@ -50,6 +50,7 @@ answers for are those its `[project].name` declares.
 | `inspect_framework` | Agent | what `vibepy_core` asserts about itself: version, entry point group, channel extras, error catalogue. Read by import; carries no documentation |
 | `inspect_app` | Agent | the project's Apps with every Tool schema, Page and configuration schema — or the framework's own diagnostic when the declaration will not load |
 | `invoke_tool` | Agent | one Tool of one App, invoked once through the framework's invocation window, with configuration supplied by the caller |
+| `validate_app` | Agent | every declaration violation and every pyright diagnostic of the project, each a `Diagnostic` at its severity, and whether the project conforms |
 | `list_apps`, `describe_config`, `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | Web | Studio's operating half, which the Hub's Pages reach |
 
 An agent connected to Studio therefore neither sees the operating Tools nor can call them by
@@ -65,10 +66,11 @@ App; the environment is still the project's.
 call an agent verifies through Studio is authorized exactly as the agent's own call would be,
 and Studio grants nothing it was not given.
 
-Inspection and validation are one Tool: what the framework validates today is that a declaration
-loads, and that is the failure path of describing. A failure the project's environment reports
-travels with its own code and category; authoring's own diagnostics are the `authoring.*`
-vocabulary that `vibepy_studio/authoring/models.py` defines.
+Validation is the failure path of describing, permanently: a declaration validates itself as it
+is constructed, so what `describe` reports when it cannot describe is the list of violations, and
+`validate_app` reads it beside pyright's. A failure the project's environment reports travels with
+its own code and category; authoring's own diagnostics are the `authoring.*` vocabulary that
+`vibepy_studio/authoring/models.py` defines.
 
 Studio keeps no authoring state. The Web channel of a project is opened by the agent with
 `python -m vibepy_core.serve` under `uv run`; the Agent channel's server command is
@@ -76,9 +78,11 @@ Studio keeps no authoring state. The Web channel of a project is opened by the a
 
 | Conceptual capability | Where it lives |
 | --- | --- |
-| inspect_framework, inspect_app, validate_app, invoke_tool | Studio, M12 (`validate_app` is `inspect_app`'s failure path until M16) |
+| inspect_framework, inspect_app, invoke_tool | Studio, M12 |
+| validate_app | Studio, M16 |
+| type validation | pyright, run by validate_app (M16) |
 | validate_package, package_app | `uv build`, the agent's own; M9's `describe` reads the result |
-| run_conformance_tests | M16 |
+| run_conformance_tests | unassigned |
 | get_app_errors, get_runtime_logs | M15 |
 
 ## Authoring MCP

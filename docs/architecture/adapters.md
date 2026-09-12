@@ -76,9 +76,7 @@ state: NiceGUI documents no lifespan and mounts as a sub-application, and Starle
 document lifespan state reaching one, so a closure is used because it is a language guarantee
 rather than a library one.
 
-Route format and route uniqueness are validated here, which is where
-`docs/architecture/page-model.md` places them. Every declaration is checked before any
-route is registered, so a rejected registry leaves no half-registered app behind.
+A declaration reaching the adapter already conforms; the adapter registers.
 
 Errors are not translated. A Tool error or a handler exception propagates into NiceGUI,
 which renders it. The MCP adapter wraps failures in a result because the MCP protocol

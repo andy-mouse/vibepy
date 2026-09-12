@@ -62,6 +62,31 @@ A definition contains no live connections, no request state, no UI sessions and 
 adapters, and no factory for any of them. It is a value, so a later milestone can read it without
 running it. See `docs/decisions/ADR-021-a-declaration-holds-no-resource-factory.md`.
 
+## Construction validates
+
+An `AppDefinition` that exists conforms. Everything a channel or a host would otherwise have to
+check about the shape of a declaration is checked once, as the dataclass is constructed, so
+nothing downstream — a window, `describe`, an adapter — checks it again: what exists is already
+valid, and there is no half-valid `AppDefinition` to hand around.
+
+`__post_init__` collects every violation rather than raising on the first, so an author sees all
+of them at once:
+
+| Check | Violation |
+| --- | --- |
+| Tool names are unique | name conflict |
+| Page names are unique | name conflict |
+| every route starts with `/`, and routes are unique | invalid route, route conflict |
+| every Page's declared Tool exists and is exposed to `Channel.WEB` | missing, not_exposed |
+
+All of it is raised as one `AppDefinitionInvalidError(app_id, errors)` (`app.declaration_invalid`),
+whose members are the individual violations above. `docs/architecture/errors.md` owns how it is
+reported. `docs/decisions/ADR-037-an-app-declaration-validates-itself-at-construction.md` records
+why validation moved here.
+
+`tool_registry_for`, `page_registry_for` and the NiceGUI adapter's `register_pages` register what
+they are given; a window, `describe` and an adapter check nothing.
+
 ## The running window
 
 A channel obtains its runtime from an async context manager that pairs a definition with a
@@ -156,6 +181,7 @@ needs a session per call takes one from the pool its application-scoped resource
 - An App declares what it requires of its host as a type, and a window validates against that
   declaration before it acquires anything.
 - A declaration is not a running channel.
+- An AppDefinition that exists conforms; no rule is checked twice.
 - ToolRuntime and PageRuntime exist only inside a window.
 - Page/session state must not leak into application-scoped state.
 - Tool handlers must not receive unrestricted access to a window's internals. A handler receives

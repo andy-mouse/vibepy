@@ -78,7 +78,7 @@ the App's environment and not in a Host's.
 It carries no type parameter and every schema is typed as the JSON it becomes there. A
 `ToolDescription` carries the declaration's `read_only`, `channels` and `required_roles` beside
 its schemas, so a reader outside the process learns what the Tool declares rather than a
-projection of part of it.
+projection of part of it. A `PageDescription` carries the Page's declared `tools`.
 
 ## The self-description command
 
@@ -135,7 +135,8 @@ input.
 `serve`, `mcp` and `invoke` share one logging configuration, `vibepy_core.logs`, so the three
 processes that run an App write the framework's lines the same way: the `vibepy_core` loggers
 at INFO, each record as its message alone, to standard error. Two kinds of line come from the
-framework — a report (`ErrorInfo`, one per failure of the process or of opening its window) and
+framework — a report (`ErrorInfo`, one per failure of the process or of opening its window; a
+declaration that fails several ways is its aggregate line followed by one line per violation) and
 an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`)
 — and each is one JSON object on one line, followed by a traceback when the record's failure is
 an `execution` one. Everything else on the stream — the Web technology's own lines — is neither,
