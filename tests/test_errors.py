@@ -320,6 +320,12 @@ def test_a_report_line_round_trips_as_the_same_error_info() -> None:
     assert read_report_line(report_line(info)) == info
 
 
+def test_a_diagnostic_without_a_category_is_refused() -> None:
+    """A category is required rather than defaulted, so no site inherits a guess."""
+    with pytest.raises(ValidationError):
+        ErrorInfo.model_validate({"code": "tool.not_found", "message": "no"})
+
+
 def test_a_line_naming_an_unknown_category_is_not_a_report() -> None:
     line = '{"code": "a.b", "category": "weather", "message": "", "details": {}}'
     assert read_report_line(line) is None

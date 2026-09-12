@@ -85,8 +85,8 @@ which renders it. The MCP adapter wraps failures in a result because the MCP pro
 demands an answer to every call; the Web channel makes no such demand.
 `docs/architecture/errors.md` describes what the MCP adapter sends.
 
-`build_web_app(definition, lifespan, *, config=…, principal=…)` returns the ASGI application those routes are
-served through, with the running window as that application's own lifespan: a window that refuses
+`build_web_app(definition, lifespan, *, config=…, principal=…)` returns the ASGI application
+those routes are served through, with the running window as that application's own lifespan: a window that refuses
 to open fails the application's startup rather than leaving a server answering for nothing. What
 the window bounds is the PageRuntime each builder closes over, not the routes themselves — those
 are registered on the Web technology's process-global table and stay there, which is why one
@@ -97,7 +97,8 @@ The adapter registers routes and starts no server; building the application it h
 running one. `vibepy_core.serve` owns the process and runs it. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
-The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
+The app owns the actual Page UI implementation. The framework owns the integration/runtime
+mechanism.
 
 ## Future adapters
 

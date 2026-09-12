@@ -112,7 +112,7 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
         except ToolOutputValidationError as error:
             logger.error("Tool %r returned output its own model rejected", params.name)
             return _failure(error)
-        # Broad on purpose: a app defect must not surface as a protocol error.
+        # Broad on purpose: an app defect must not surface as a protocol error.
         except Exception as error:
             logger.exception("Tool %r raised", params.name)
             return _failure(error)

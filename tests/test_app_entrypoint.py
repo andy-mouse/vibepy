@@ -163,6 +163,7 @@ def test_a_description_derives_its_configuration_fields_from_the_types() -> None
         token: SecretStr
         port: int = 8080
         note: str | None = None
+        fallback_token: SecretStr | None = None
 
     described = entrypoint_with_config(Config).describe()
 
@@ -171,7 +172,8 @@ def test_a_description_derives_its_configuration_fields_from_the_types() -> None
         "root": (ConfigFieldType.PATH, True),
         "token": (ConfigFieldType.SECRET, True),
         "port": (ConfigFieldType.INTEGER, False),
-        "note": (ConfigFieldType.OTHER, False),
+        "note": (ConfigFieldType.STRING, False),
+        "fallback_token": (ConfigFieldType.SECRET, False),
     }
 
 

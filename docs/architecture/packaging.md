@@ -123,8 +123,9 @@ A parent that starts a framework process renders the values it holds into those 
 
 `config_schema`, which `describe` projects from the declaration, is therefore the list of
 variables a host sets. Beside it, `config_fields` names each declared field with what it holds
-— `string`, `path`, `integer`, `secret` or `other` — derived from the declared type, so a host
-tells a secret from an ordinary string without reading JSON Schema.
+— `string`, `path`, `integer`, `secret` or `other` — derived from the declared type, an optional
+field holding what its one non-`None` member holds, so a host tells a secret from an ordinary
+string without reading JSON Schema.
 
 The environment is the only configuration channel. No command reads configuration from standard
 input.
@@ -169,9 +170,10 @@ This command stands in for a host, so it is told what a host decides: `--channel
 would make this command a caller of its own rather than a stand-in. Its trust model is stdio's:
 whoever can run it already holds the App's environment, so naming a principal here is no
 escalation, and the Tool is authorized against that channel and principal exactly as it would be
-through the channel itself. Standard input carries one
-JSON object whose `input` is the Tool's input, and nothing else; any other key is
-`invoke.request_invalid`. Standard output receives the Tool's output as one JSON
+through the channel itself.
+
+Standard input carries one JSON object whose `input` is the Tool's input, and nothing else; any
+other key is `invoke.request_invalid`. Standard output receives the Tool's output as one JSON
 object. This is how a host verifies that a Tool behaves without importing the App, and why the
 verification runs the same path both channels run. The request written to the child's stdin and
 everything the child writes back are `json.dumps` with its default `ensure_ascii=True`, so a

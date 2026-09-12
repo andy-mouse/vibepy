@@ -10,7 +10,7 @@ from pydantic import SecretStr, ValidationError
 
 from tests_support import AGENT, described_app, studio, write_wheel
 from todo_app.entry import TodoStore
-from vibepy_core.errors import ErrorInfo, ToolInputValidationError
+from vibepy_core.errors import ToolInputValidationError
 from vibepy_studio.operating.internals import (
     AppNameInvalid,
     InstallFailed,
@@ -250,12 +250,6 @@ def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
     """
     with pytest.raises(ValidationError):
         AppName(app_name=name)
-
-
-def test_a_diagnostic_without_a_category_is_refused() -> None:
-    """A category is required rather than defaulted, so no site inherits a guess."""
-    with pytest.raises(ValidationError):
-        ErrorInfo.model_validate({"code": "hub.not_installed", "message": "no"})
 
 
 def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:

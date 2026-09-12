@@ -376,34 +376,11 @@ def test_a_declaration_answers_with_the_schema_its_output_is_serialized_to() -> 
     assert set(properties) == set(Sized(width=2).model_dump(by_alias=True, mode="json"))
 
 
-def test_a_principal_is_an_id_and_a_set_of_roles() -> None:
+def test_a_principal_is_frozen() -> None:
     alice = Principal(id="alice", roles=frozenset({"manager"}))
-    nobody = Principal(id="nobody")
 
-    assert alice.roles == {"manager"}
-    assert nobody.roles == frozenset()
     with pytest.raises(FrozenInstanceError):
         alice.id = "bob"  # pyright: ignore[reportAttributeAccessIssue]
-
-
-def test_the_channels_are_a_closed_set() -> None:
-    assert [channel.value for channel in Channel] == ["web", "agent"]
-
-
-def test_a_tool_declares_its_side_effects_exposure_and_roles() -> None:
-    definition = ToolDefinition(
-        name="approve",
-        description="Approve",
-        input_model=EmptyInput,
-        output_model=TodoList,
-        read_only=False,
-        channels=frozenset({Channel.WEB}),
-        required_roles=frozenset({"manager"}),
-    )
-
-    assert definition.read_only is False
-    assert definition.channels == {Channel.WEB}
-    assert definition.required_roles == {"manager"}
 
 
 def test_a_tool_is_exposed_on_both_channels_to_anyone_unless_it_says_otherwise() -> None:

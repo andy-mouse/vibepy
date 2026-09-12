@@ -1,5 +1,7 @@
 """The refusal contract: ToolRuntime authorizes before it validates, from the declaration."""
 
+from dataclasses import replace
+
 import pytest
 from pydantic import BaseModel
 
@@ -193,3 +195,12 @@ async def test_expense_shows_the_two_levels_of_authorization() -> None:
             "approve_expense", {"id": submitted.model_dump()["id"]}, principal=carol
         )
         assert approved.model_dump()["expense"]["status"] == "approved"
+
+
+async def test_an_app_policy_reaches_the_runtime_the_window_opens() -> None:
+    audited = replace(EXPENSE_APP, policy=RefuseEveryone())
+    async with tool_runtime_for(audited, expense_lifespan, config={}, channel=Channel.AGENT) as run:
+        with pytest.raises(ToolForbiddenError) as refused:
+            await run.invoke("list_expenses", {}, principal=Principal(id="alice"))
+
+    assert refused.value.reason == "closed_for_audit"

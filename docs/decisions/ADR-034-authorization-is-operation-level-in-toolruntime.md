@@ -1,7 +1,5 @@
 # ADR-034: Authorization is operation-level, decided in ToolRuntime
 
-Date: 2026-09-12
-
 Status: Accepted
 
 ## Context

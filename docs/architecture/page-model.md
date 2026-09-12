@@ -106,8 +106,8 @@ canonical invocation path. What a Page can reach is what this Protocol declares:
 operation, addressed by name.
 
 Tool errors are not translated. `ToolNotFoundError`, `ToolForbiddenError`,
-`ToolInputValidationError` and `ToolOutputValidationError` reach the caller of the Page unchanged, as does an exception
-raised by a PageHandler. `docs/architecture/errors.md` carries their codes.
+`ToolInputValidationError` and `ToolOutputValidationError` reach the caller of the Page
+unchanged, as does an exception raised by a PageHandler. `docs/architecture/errors.md` carries their codes.
 
 ### PageContext
 

@@ -11,7 +11,10 @@ than named in the file. That is behaviour, and it is what this checks.
 
 The third invariant is the Tool's own: a Tool does not branch on the channel it
 is reached through. What varies is where it is exposed, which the declaration
-says and the runtime enforces, and that is checked here through both windows.
+says and the runtime enforces, and that is checked here through a ToolRuntime
+window opened on each channel. What each adapter then does with that exposure is
+proven where the adapter is: `test_mcp_adapter.py` for the Agent channel's
+listing and refusal, `test_nicegui_adapter.py` for the Web channel's Page path.
 """
 
 import json

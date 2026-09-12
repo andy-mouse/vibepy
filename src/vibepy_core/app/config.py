@@ -9,6 +9,8 @@ declaration reads the same variables wherever it is instantiated. See
 """
 
 import json
+import types
+import typing
 from collections.abc import Mapping
 from enum import StrEnum
 from pathlib import Path
@@ -70,14 +72,28 @@ _FIELD_TYPES: Mapping[type, ConfigFieldType] = {
 """The annotations a reader of a declaration recognises. Anything else is `OTHER`."""
 
 
+def _declared_type(annotation: object, /) -> ConfigFieldType:
+    """Classify a declared annotation, seeing through `X | None`.
+
+    An optional field holds what its one non-`None` member holds: a reader that
+    saw `OTHER` there would ask for a secret in the clear.
+    """
+    origin = typing.get_origin(annotation)
+    if origin is types.UnionType or origin is typing.Union:
+        members = [member for member in typing.get_args(annotation) if member is not type(None)]
+        if len(members) == 1:
+            annotation = members[0]
+    if not isinstance(annotation, type):
+        return ConfigFieldType.OTHER
+    return _FIELD_TYPES.get(annotation, ConfigFieldType.OTHER)
+
+
 def config_fields_of(model: type[AppConfig], /) -> list[ConfigFieldDescription]:
     """Describe every field a configuration model declares, in declaration order."""
     return [
         ConfigFieldDescription(
             name=name,
-            type=_FIELD_TYPES.get(field.annotation, ConfigFieldType.OTHER)
-            if isinstance(field.annotation, type)
-            else ConfigFieldType.OTHER,
+            type=_declared_type(field.annotation),
             required=field.is_required(),
         )
         for name, field in model.model_fields.items()

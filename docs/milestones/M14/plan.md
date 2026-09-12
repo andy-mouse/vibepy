@@ -67,7 +67,7 @@ Done first, so that every field M14 adds lands on a derived surface once, instea
   - `report_line(info) -> str` = `info.model_dump_json() + "\n"`; `read_report_line(line) -> ErrorInfo | None` = `ErrorInfo.model_validate_json(line)` or `None` on `ValidationError`
   - `class ToolDescription(BaseModel): name, description, input_schema: dict[str, JsonValue], output_schema: dict[str, JsonValue]` (Task 2 adds `read_only`, `channels`, `required_roles`)
   - `class PageDescription(BaseModel): name, route, title`
-  - `class ConfigFieldType(StrEnum): STRING="string"; PATH="path"; INTEGER="integer"; SECRET="secret"; OTHER="other"` and `class ConfigFieldDescription(BaseModel): name: str; type: ConfigFieldType; required: bool` (in `app/config.py`, with `config_fields_of(model: type[AppConfig]) -> list[ConfigFieldDescription]` deriving them: for each `name, field in model.model_fields.items()`, `type` from the annotation — `SecretStr` → SECRET, `Path` → PATH, `int` → INTEGER, `str` → STRING, else OTHER; `required = field.is_required()`)
+  - `class ConfigFieldType(StrEnum): STRING="string"; PATH="path"; INTEGER="integer"; SECRET="secret"; OTHER="other"` and `class ConfigFieldDescription(BaseModel): name: str; type: ConfigFieldType; required: bool` (in `app/config.py`, with `config_fields_of(model: type[AppConfig]) -> list[ConfigFieldDescription]` deriving them: for each `name, field in model.model_fields.items()`, `type` from the annotation, seeing through `X | None` to its one non-`None` member — `SecretStr` → SECRET, `Path` → PATH, `int` → INTEGER, `str` → STRING, else OTHER; `required = field.is_required()`)
   - `class AppDescription(BaseModel): app_id, name, version, config_schema: dict[str, JsonValue], config_fields: list[ConfigFieldDescription], tools: list[ToolDescription], pages: list[PageDescription]`
   - `class DescribedApp(AppDescription): app_name: str; distribution: str; distribution_version: str` — the `describe` command's per-App entry, in `vibepy_core/app/package.py` beside `AppRef`, built by `described(ref: AppRef) -> DescribedApp`
   - `class InvocationRequest(BaseModel): model_config = ConfigDict(extra="forbid"); input: dict[str, JsonValue] = {}` in `vibepy_core/invoke.py`, exported from `vibepy_core`; replaces `_Request`
@@ -99,13 +99,15 @@ def test_a_description_derives_its_configuration_fields_from_the_types() -> None
         token: SecretStr
         port: int = 8080
         note: str | None = None
+        fallback_token: SecretStr | None = None
 
     fields = {f.name: (f.type, f.required) for f in entrypoint_with_config(Config).describe().config_fields}
     assert fields == {
         "root": (ConfigFieldType.PATH, True),
         "token": (ConfigFieldType.SECRET, True),
         "port": (ConfigFieldType.INTEGER, False),
-        "note": (ConfigFieldType.OTHER, False),
+        "note": (ConfigFieldType.STRING, False),
+        "fallback_token": (ConfigFieldType.SECRET, False),
     }
 ```
 (`entrypoint_with_config` builds an `AppEntrypoint` over a definition with that config; add it beside the file's existing helpers.)
@@ -199,18 +201,11 @@ Keep `describe_app(ref) -> AppDescription` as it is (Studio and tests use it). `
 from vibepy_core import Channel, Principal
 
 
-def test_a_principal_is_an_id_and_a_set_of_roles() -> None:
+def test_a_principal_is_frozen() -> None:
     alice = Principal(id="alice", roles=frozenset({"manager"}))
-    nobody = Principal(id="nobody")
 
-    assert alice.roles == {"manager"}
-    assert nobody.roles == frozenset()
     with pytest.raises(FrozenInstanceError):
         alice.id = "bob"  # pyright: ignore[reportAttributeAccessIssue]
-
-
-def test_the_channels_are_a_closed_set() -> None:
-    assert [channel.value for channel in Channel] == ["web", "agent"]
 ```
 
 - [ ] **Step 2: Run** `uv run pytest tests/test_tool_core.py -q` — expect `ImportError` on `Channel, Principal`.
@@ -266,22 +261,6 @@ class Channel(StrEnum):
 - [ ] **Step 1: Write the failing tests** — append to `tests/test_tool_core.py`:
 
 ```python
-def test_a_tool_declares_its_side_effects_exposure_and_roles() -> None:
-    definition = ToolDefinition(
-        name="approve",
-        description="Approve",
-        input_model=EmptyInput,
-        output_model=TodoList,
-        read_only=False,
-        channels=frozenset({Channel.WEB}),
-        required_roles=frozenset({"manager"}),
-    )
-
-    assert definition.read_only is False
-    assert definition.channels == {Channel.WEB}
-    assert definition.required_roles == {"manager"}
-
-
 def test_a_tool_is_exposed_on_both_channels_to_anyone_unless_it_says_otherwise() -> None:
     definition = list_todos_tool().definition
 

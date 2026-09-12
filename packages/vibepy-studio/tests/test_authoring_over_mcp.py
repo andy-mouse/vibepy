@@ -15,6 +15,7 @@ from vibepy_core import environment_for
 from vibepy_studio.internals import child_environment
 
 TODO = FIXTURES / "todo-app"
+EXPENSE = FIXTURES / "expense-app"
 
 
 def studio_server(root: Path) -> StdioServerParameters:
@@ -91,3 +92,27 @@ async def test_invalid_input_arrives_as_the_framework_payload(tmp_path: Path) ->
     block = refused.content[0]
     assert isinstance(block, TextContent)
     assert json.loads(block.text)["code"] == "tool.input_invalid"
+
+
+@pytest.mark.integration
+async def test_the_agents_own_channel_and_principal_reach_the_invoked_tool(tmp_path: Path) -> None:
+    """Studio forwards what it was given, and grants itself no role on the way."""
+    async with Client(studio_server(tmp_path / "studio")) as agent:
+        invoked = await agent.call_tool(
+            "invoke_tool",
+            {
+                "project": str(EXPENSE),
+                "app": "expense-app",
+                "tool": "approve_expense",
+                "input": {"id": 1},
+                "config": {},
+            },
+        )
+
+    assert invoked.is_error is False
+    assert invoked.structured_content is not None
+    diagnostic = invoked.structured_content["diagnostic"]
+    assert diagnostic["code"] == "tool.forbidden"
+    assert diagnostic["details"]["reason"] == "role_required"
+    assert diagnostic["details"]["principal"] == "agent"
+    assert diagnostic["details"]["channel"] == "agent"

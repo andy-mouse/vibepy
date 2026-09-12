@@ -138,7 +138,8 @@ Business logic does not belong in ToolRuntime.
 `invoke` returns the validated output model instance. Serialization belongs to channel adapters.
 
 Framework errors are `ToolNotFoundError`, raised by the registry when no Tool answers to the
-name, `ToolForbiddenError`, raised by a policy, and `ToolInputValidationError` and `ToolOutputValidationError`, raised by the Tool.
+name, `ToolForbiddenError`, raised by a policy, and `ToolInputValidationError` and
+`ToolOutputValidationError`, raised by the Tool.
 Nothing translates them: they reach the caller as raised, as does an exception from a
 handler. A channel adapter decides what its protocol does with them, and
 `docs/architecture/errors.md` carries their codes.
@@ -179,7 +180,6 @@ needs them.
 
 `read_only` refuses nothing. It is what a policy, an audit record and the Agent channel's
 projection read; refusal is Authorization's, below.
-
 
 ## Authorization
 

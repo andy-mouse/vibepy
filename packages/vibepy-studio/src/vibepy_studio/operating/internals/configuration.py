@@ -5,13 +5,10 @@ Studio never imports an App, so what it knows about configuration is what
 Reading them is the App's answer, not a second reading of its JSON Schema.
 """
 
-import logging
 from collections.abc import Mapping, Sequence
 
 from vibepy_core.app import ConfigFieldDescription, ConfigFieldType
 from vibepy_studio.operating.models import AppFacts
-
-logger = logging.getLogger(__name__)
 
 
 def config_fields(facts: AppFacts, /) -> tuple[ConfigFieldDescription, ...]:

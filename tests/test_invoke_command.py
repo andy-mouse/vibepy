@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from expense_app.entry import Decision
 from test_serve_command import child_environment
 from vibepy_core import ErrorCategory, ErrorInfo, environment_for
 
@@ -146,4 +147,20 @@ def test_a_manager_passes_the_role_gate_through_the_command() -> None:
         "expense-app", "approve_expense", {"input": {"id": 1}}, principal="bob", roles=("manager",)
     )
     assert result.returncode == 0, result.stderr
-    assert json.loads(result.stdout)["failure"]["code"] == "expense.not_found"
+    decision = Decision.model_validate(json.loads(result.stdout))
+    assert decision.failure is not None
+    assert decision.failure.code == "expense.not_found"
+
+
+@pytest.mark.integration
+def test_the_web_channel_reaches_a_tool_that_declares_no_channels() -> None:
+    result = run_invoke(
+        "notes",
+        "measure_note",
+        {
+            "input": {"body": "hello"},
+        },
+        config={"api_base_url": "https://example.invalid", "api_token": "t"},
+        channel="web",
+    )
+    assert result.returncode == 0, result.stderr

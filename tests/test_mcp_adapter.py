@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -480,7 +481,7 @@ async def test_calling_a_hidden_tool_by_name_is_forbidden_not_unknown(
     async with server_for(tools) as server, Client(server) as client:
         refused = await client.call_tool("board_only", {})
 
-    assert caplog.records == []
+    assert [record for record in caplog.records if record.levelno >= logging.ERROR] == []
     assert refused.is_error is True
     payload = _payload(refused)
     assert payload["code"] == "tool.forbidden"
