@@ -8,6 +8,9 @@ on:
 jobs:
   check:
     runs-on: ${{ matrix.os }}
+    # A green run takes ~4 min on macOS and ~9 min on Windows; the default cap is 360.
+    # A hang once held the Windows runner for the full six hours (run 34671028347).
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
