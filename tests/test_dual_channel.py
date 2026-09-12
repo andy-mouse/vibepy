@@ -56,7 +56,7 @@ async def test_both_channels_reach_one_backend(user: User, tmp_path: Path) -> No
     lifespan = one_store(config)
 
     async with page_runtime_for(TODO_APP, lifespan, config=config) as pages:
-        register_pages(TODO_APP, pages)
+        register_pages(TODO_APP, pages, principal=Principal(id="operator"))
 
         async with Client(
             build_mcp_server(TODO_APP, lifespan, config=config, principal=Principal(id="agent"))

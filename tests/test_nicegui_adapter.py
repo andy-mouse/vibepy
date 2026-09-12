@@ -12,11 +12,12 @@ from pathlib import Path
 import pytest
 from nicegui import app, ui
 from nicegui.testing import User, user_simulation  # pyright: ignore[reportUnknownVariableType]
+from pydantic import BaseModel
 from starlette.routing import Route
 
 from lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, todo_lifespan
-from vibepy_core.adapters.nicegui import register_pages
+from vibepy_core.adapters.nicegui import build_web_app, register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
 from vibepy_core.errors import (
     PageRouteConflictError,
@@ -24,6 +25,8 @@ from vibepy_core.errors import (
     ToolNotFoundError,
 )
 from vibepy_core.page import Page, PageContext, PageDefinition, PageHandler
+from vibepy_core.principal import Principal
+from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
 APP_ID = "test-app"
 
@@ -58,7 +61,7 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
     )
 
     async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-        register_pages(definition, pages)
+        register_pages(definition, pages, principal=Principal(id="operator"))
 
         assert "/todos" in registered_paths()
         await user.open("/todos")
@@ -82,7 +85,7 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
     )
 
     async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-        register_pages(definition, pages)
+        register_pages(definition, pages, principal=Principal(id="operator"))
         await user.open("/todos")
 
     assert len(seen) == 1
@@ -105,7 +108,7 @@ async def test_a_route_that_is_not_a_path_is_rejected(user: User) -> None:
 
     async with page_runtime_for(definition, no_dependencies, config={}) as pages:
         with pytest.raises(PageRouteInvalidError) as error:
-            register_pages(definition, pages)
+            register_pages(definition, pages, principal=Principal(id="operator"))
 
     assert error.value.page_name == "todos"
     assert error.value.route == "todos"
@@ -116,7 +119,7 @@ async def test_two_pages_may_not_claim_one_route(user: User) -> None:
 
     async with page_runtime_for(definition, no_dependencies, config={}) as pages:
         with pytest.raises(PageRouteConflictError) as error:
-            register_pages(definition, pages)
+            register_pages(definition, pages, principal=Principal(id="operator"))
 
     assert error.value.route == "/todos"
     assert {error.value.page_name, error.value.conflicting_page_name} == {"todos", "archive"}
@@ -127,7 +130,7 @@ async def test_a_rejected_registry_registers_nothing(user: User) -> None:
 
     async with page_runtime_for(definition, no_dependencies, config={}) as pages:
         with pytest.raises(PageRouteInvalidError):
-            register_pages(definition, pages)
+            register_pages(definition, pages, principal=Principal(id="operator"))
 
     assert "/todos" not in registered_paths()
 
@@ -135,11 +138,58 @@ async def test_a_rejected_registry_registers_nothing(user: User) -> None:
 async def test_page_interaction_invokes_a_tool(user: User, tmp_path: Path) -> None:
     config = {"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}
     async with page_runtime_for(TODO_APP, todo_lifespan, config=config) as pages:
-        register_pages(TODO_APP, pages)
+        register_pages(TODO_APP, pages, principal=Principal(id="operator"))
         await user.open("/todos")
         user.find("title").type("write the spec")
         user.find("Add").click()
         await user.should_see("todo: write the spec")
+
+
+class EmptyInput(BaseModel):
+    pass
+
+
+async def test_the_hosts_principal_reaches_a_pages_tool_call(user: User) -> None:
+    seen: list[Principal] = []
+
+    async def who(ctx: ToolContext[None], _payload: EmptyInput) -> EmptyInput:
+        seen.append(ctx.principal)
+        return EmptyInput()
+
+    async def handler(ctx: PageContext) -> None:
+        await ctx.tools.invoke("who", {})
+
+    definition = AppDefinition(
+        app_id=APP_ID,
+        name="Test",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[
+            Tool(
+                definition=ToolDefinition(
+                    name="who",
+                    description="Report the invoking principal",
+                    input_model=EmptyInput,
+                    output_model=EmptyInput,
+                    read_only=True,
+                ),
+                handler=who,
+            )
+        ],
+        pages=[
+            Page(
+                definition=PageDefinition(name="home", route="/home", title="Home"),
+                handler=handler,
+            )
+        ],
+    )
+    served = build_web_app(
+        definition, no_dependencies, config={}, principal=Principal(id="operator")
+    )
+    async with served.router.lifespan_context(served):
+        await user.open("/home")
+
+    assert seen == [Principal(id="operator")]
 
 
 class HandlersOwnError(Exception):
@@ -173,7 +223,7 @@ async def test_a_framework_error_raised_in_a_render_is_not_translated() -> None:
 
     async with user_simulation() as user:
         async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-            register_pages(definition, pages)
+            register_pages(definition, pages, principal=Principal(id="operator"))
 
             with pytest.raises(ToolNotFoundError):
                 await user.open("/boom")
@@ -187,7 +237,7 @@ async def test_an_app_exception_raised_in_a_render_is_not_translated() -> None:
 
     async with user_simulation() as user:
         async with page_runtime_for(definition, no_dependencies, config={}) as pages:
-            register_pages(definition, pages)
+            register_pages(definition, pages, principal=Principal(id="operator"))
 
             with pytest.raises(HandlersOwnError):
                 await user.open("/boom")

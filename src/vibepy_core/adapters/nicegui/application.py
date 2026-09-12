@@ -24,6 +24,7 @@ from vibepy_core.app.composition import Lifespan, page_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import to_error_info
+from vibepy_core.principal import Principal
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ def build_web_app[DepsT, ConfigT: AppConfig](
     /,
     *,
     config: Mapping[str, object],
+    principal: Principal,
 ) -> FastAPI:
     """Build the Web projection of one App's Pages.
 
@@ -52,7 +54,7 @@ def build_web_app[DepsT, ConfigT: AppConfig](
                 pages = await opening.enter_async_context(
                     page_runtime_for(definition, lifespan, config=config)
                 )
-                register_pages(definition, pages)
+                register_pages(definition, pages, principal=principal)
             except Exception as failure:
                 _report(failure)
                 raise

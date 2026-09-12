@@ -25,7 +25,7 @@ from vibepy_core.principal import Principal
 
 
 def register_pages[DepsT, ConfigT: AppConfig](
-    definition: AppDefinition[DepsT, ConfigT], pages: PageRuntime, /
+    definition: AppDefinition[DepsT, ConfigT], pages: PageRuntime, /, *, principal: Principal
 ) -> None:
     """Project every declared Page of one App onto a NiceGUI route.
 
@@ -44,10 +44,12 @@ def register_pages[DepsT, ConfigT: AppConfig](
 
     for page in definition.pages:
         declared = page.definition
-        ui.page(declared.route, title=declared.title)(_builder(pages, declared.name))
+        ui.page(declared.route, title=declared.title)(_builder(pages, declared.name, principal))
 
 
-def _builder(runtime: PageRuntime, name: str) -> Callable[[], Awaitable[None]]:
+def _builder(
+    runtime: PageRuntime, name: str, principal: Principal
+) -> Callable[[], Awaitable[None]]:
     """Build the page builder NiceGUI calls per visitor.
 
     Addressed by name rather than by route, so a route change never reaches
@@ -55,6 +57,6 @@ def _builder(runtime: PageRuntime, name: str) -> Callable[[], Awaitable[None]]:
     """
 
     async def build() -> None:
-        await runtime.render(name, principal=Principal(id="operator"))
+        await runtime.render(name, principal=principal)
 
     return build

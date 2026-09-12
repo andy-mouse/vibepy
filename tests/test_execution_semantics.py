@@ -266,7 +266,7 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
     lifespan = rendezvous_lifespan()
 
     async with page_runtime_for(RENDEZVOUS, lifespan, config={}) as pages:
-        register_pages(RENDEZVOUS, pages)
+        register_pages(RENDEZVOUS, pages, principal=Principal(id="operator"))
 
         first = create_user()
         second = create_user()
