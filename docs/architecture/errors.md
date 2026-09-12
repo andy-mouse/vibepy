@@ -21,6 +21,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `tool.input_invalid` | caller | `ToolInputValidationError` |
 | `tool.output_invalid` | execution | `ToolOutputValidationError` |
 | `tool.forbidden` | caller | `ToolForbiddenError` |
+| `tool.cancelled` | interrupted | — |
 | `tool.name_conflict` | declaration | `ToolNameConflictError` |
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
@@ -33,6 +34,8 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 
 `app.unhandled` is the code for a failure the framework did not define. It belongs to no
 exception class: an exception raised by an App's own code is described, not classified.
+`tool.cancelled` likewise belongs to no class of the framework's: it is `asyncio.CancelledError`,
+which the framework does not wrap, classified when a record or a report is written.
 
 Two codes are retired and are never reused: `lifecycle.transition_forbidden` and
 `lifecycle.not_running`, whose state machine no longer exists. The `lifecycle` category is
@@ -49,14 +52,21 @@ it to learn whether a different call could succeed.
 | `caller` | the call itself was wrong; a different call may succeed |
 | `execution` | the call was well formed and running it failed; the same call fails again |
 | `declaration` | the App declared something the framework rejects, raised at registration or at the point a package's declaration is read |
+| `interrupted` | the call was well formed and something outside it ended the execution; the same call may succeed |
 
 The set is closed and is an enum, so a branch over it ends with `assert_never` and a category
 added later cannot be silently unhandled.
 
+`interrupted` is the family gRPC calls `CANCELLED` and `DEADLINE_EXCEEDED`, distinct from a
+client's error and a server's. Cancellation is its first code; a timeout, when
+`docs/decisions/ADR-005-tool-handlers-async-first.md`'s open question is decided, is its second.
+
 ## ErrorInfo
 
 `ErrorInfo` is one failure in the form every channel reports: `code`, `category`, `message`
-and `details`. `to_error_info(error)` builds one from any exception. It crosses a process
+and `details`. `to_error_info(error)` builds one from any `Exception`, and from
+`asyncio.CancelledError`, the one `BaseException` an invocation ends with that is not the
+process ending. It crosses a process
 boundary — `report_line` writes it and `read_report_line` reads it back — so it is one frozen
 pydantic model the writer dumps and the reader validates, and a line naming a category the
 framework does not know is not a report.
