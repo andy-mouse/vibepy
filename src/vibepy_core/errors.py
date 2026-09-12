@@ -221,6 +221,77 @@ class PageNameConflictError(VibepyError):
         }
 
 
+class ToolChannelsEmptyError(VibepyError):
+    """A Tool declared no channel to be exposed through."""
+
+    code = "tool.channels_empty"
+
+    def __init__(self, tool_name: str) -> None:
+        """Record `tool_name` for the message and for `details()`."""
+        super().__init__(f"Tool {tool_name!r} is exposed through no channel")
+        self.tool_name = tool_name
+
+    def details(self) -> Mapping[str, str]:
+        """Return `tool_name`."""
+        return {"tool_name": self.tool_name}
+
+
+class PageToolUnresolvedError(VibepyError):
+    """A Page declared a Tool the App does not declare, or does not expose to the Web channel."""
+
+    code = "page.tool_unresolved"
+
+    def __init__(self, page_name: str, tool_name: str, *, reason: str) -> None:
+        """Record `page_name`, `tool_name` and `reason` — `missing` or `not_exposed`."""
+        super().__init__(f"Page {page_name!r} declares the Tool {tool_name!r}, which is {reason}")
+        self.page_name = page_name
+        self.tool_name = tool_name
+        self.reason = reason
+
+    def details(self) -> Mapping[str, str]:
+        """Return `page_name`, `tool_name` and `reason`."""
+        return {"page_name": self.page_name, "tool_name": self.tool_name, "reason": self.reason}
+
+
+class PageToolUndeclaredError(VibepyError):
+    """A Page invoked a Tool it did not declare."""
+
+    code = "page.tool_undeclared"
+
+    def __init__(self, page_name: str, tool_name: str) -> None:
+        """Record `page_name` and `tool_name` for the message and for `details()`."""
+        super().__init__(f"Page {page_name!r} invoked the undeclared Tool {tool_name!r}")
+        self.page_name = page_name
+        self.tool_name = tool_name
+
+    def details(self) -> Mapping[str, str]:
+        """Return `page_name` and `tool_name`."""
+        return {"page_name": self.page_name, "tool_name": self.tool_name}
+
+
+class AppDefinitionInvalidError(VibepyError):
+    """An App's declaration broke one or more rules; `errors` holds every one found."""
+
+    code = "app.declaration_invalid"
+
+    def __init__(self, app_id: str, errors: Sequence[VibepyError]) -> None:
+        """Record `app_id` and the member `errors`, in the order they were found."""
+        self.app_id = app_id
+        self.errors = tuple(errors)
+        codes = ", ".join(error.code for error in self.errors)
+        super().__init__(
+            f"App {app_id!r} declaration is invalid: {len(self.errors)} violation(s): {codes}"
+        )
+
+    def details(self) -> Mapping[str, str]:
+        """Return `app_id`, the `count` of members and their `codes`, joined."""
+        return {
+            "app_id": self.app_id,
+            "count": str(len(self.errors)),
+            "codes": ", ".join(error.code for error in self.errors),
+        }
+
+
 class AppConfigInvalidError(VibepyError):
     """Raw configuration did not satisfy the App's declared configuration model."""
 
@@ -313,6 +384,10 @@ ERROR_CATALOG: Mapping[str, ErrorCategory] = {
     AppEntrypointInvalidError.code: ErrorCategory.DECLARATION,
     AppNotDeclaredError.code: ErrorCategory.CALLER,
     InvokeRequestInvalidError.code: ErrorCategory.CALLER,
+    ToolChannelsEmptyError.code: ErrorCategory.DECLARATION,
+    PageToolUnresolvedError.code: ErrorCategory.DECLARATION,
+    PageToolUndeclaredError.code: ErrorCategory.CALLER,
+    AppDefinitionInvalidError.code: ErrorCategory.DECLARATION,
     CANCELLED_CODE: ErrorCategory.INTERRUPTED,
     UNHANDLED_CODE: ErrorCategory.EXECUTION,
 }
@@ -394,8 +469,16 @@ def report_line(info: ErrorInfo, /) -> str:
 
 
 def report(error: Exception, /) -> None:
-    """Write one failure where whatever started this process can read it."""
+    """Write one failure where whatever started this process can read it.
+
+    A declaration that failed several ways is written as its aggregate line
+    followed by one line per member, so a reader that takes every line that
+    validates gets each violation as its own report.
+    """
     sys.stderr.write(report_line(to_error_info(error)))
+    if isinstance(error, AppDefinitionInvalidError):
+        for member in error.errors:
+            sys.stderr.write(report_line(to_error_info(member)))
 
 
 def read_report_line(line: str, /) -> ErrorInfo | None:
