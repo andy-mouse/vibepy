@@ -87,7 +87,9 @@ def main(argv: Sequence[str], /) -> int:
     parser.add_argument(
         "--until-stdin-closes",
         action="store_true",
-        help="end the server when standard input reaches end-of-file; for a launcher holding a pipe",  # noqa: E501
+        help=(
+            "end the server when standard input reaches end-of-file; for a launcher holding a pipe"
+        ),
     )
     parsed = parser.parse_args(argv)
     try:
