@@ -29,6 +29,7 @@ from vibepy_core.errors import (
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
+    ToolForbiddenError,
     ToolInputValidationError,
     ToolNameConflictError,
     ToolNotFoundError,
@@ -100,6 +101,22 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "tool.output_invalid",
         ErrorCategory.EXECUTION,
         {"tool_name": "create_todo"},
+    ),
+    (
+        ToolForbiddenError(
+            "approve_expense",
+            principal="alice",
+            channel="agent",
+            reason="role_required",
+        ),
+        "tool.forbidden",
+        ErrorCategory.CALLER,
+        {
+            "tool_name": "approve_expense",
+            "principal": "alice",
+            "channel": "agent",
+            "reason": "role_required",
+        },
     ),
     (
         PageNotFoundError("todos"),
@@ -311,3 +328,19 @@ def test_a_line_naming_an_unknown_category_is_not_a_report() -> None:
 def test_a_line_that_is_not_a_report_reads_as_nothing() -> None:
     assert read_report_line("Traceback (most recent call last):") is None
     assert read_report_line('{"category": "caller"}') is None
+
+
+def test_a_forbidden_call_names_who_where_and_why() -> None:
+    error = ToolForbiddenError(
+        "approve_expense", principal="alice", channel="agent", reason="role_required"
+    )
+    info = to_error_info(error)
+
+    assert info.code == "tool.forbidden"
+    assert info.category is ErrorCategory.CALLER
+    assert info.details == {
+        "tool_name": "approve_expense",
+        "principal": "alice",
+        "channel": "agent",
+        "reason": "role_required",
+    }

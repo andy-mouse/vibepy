@@ -91,6 +91,34 @@ class ToolOutputValidationError(VibepyError):
         return {"tool_name": self.tool_name}
 
 
+class ToolForbiddenError(VibepyError):
+    """The caller may not invoke this Tool here.
+
+    Not exposed on the channel, a role missing, or refused by the App's policy.
+    """
+
+    code = "tool.forbidden"
+
+    def __init__(self, tool_name: str, *, principal: str, channel: str, reason: str) -> None:
+        """Record who was refused, where, and why."""
+        super().__init__(
+            f"{principal!r} may not invoke {tool_name!r} through the {channel} channel: {reason}"
+        )
+        self.tool_name = tool_name
+        self.principal = principal
+        self.channel = channel
+        self.reason = reason
+
+    def details(self) -> Mapping[str, str]:
+        """Return the Tool, the principal id, the channel and the reason."""
+        return {
+            "tool_name": self.tool_name,
+            "principal": self.principal,
+            "channel": self.channel,
+            "reason": self.reason,
+        }
+
+
 class ToolNameConflictError(VibepyError):
     """Two Tools declared the same name."""
 
@@ -264,6 +292,7 @@ ERROR_CATALOG: Mapping[str, ErrorCategory] = {
     ToolNotFoundError.code: ErrorCategory.CALLER,
     ToolInputValidationError.code: ErrorCategory.CALLER,
     ToolOutputValidationError.code: ErrorCategory.EXECUTION,
+    ToolForbiddenError.code: ErrorCategory.CALLER,
     ToolNameConflictError.code: ErrorCategory.DECLARATION,
     PageNotFoundError.code: ErrorCategory.CALLER,
     PageRouteInvalidError.code: ErrorCategory.DECLARATION,
