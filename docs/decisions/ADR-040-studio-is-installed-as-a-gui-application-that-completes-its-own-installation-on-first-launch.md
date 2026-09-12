@@ -58,13 +58,30 @@ Launching it completes the installation and opens the Hub:
    machine: the platform's configuration is read, and the entry is written when it is absent or
    differs from what this launch would write — the tool environment's interpreter and
    `-m vibepy_core.mcp studio` with Studio's variables. Every launch does this, not the first
-   alone: a launch keeps no record of having registered, it observes the platform, which is the
-   stance `docs/roadmap.md` M19 states for an App's registration, and this is the same
-   registration with Studio as its first user.
+   alone, because the platform's configuration is state outside Studio: a platform installed
+   after Studio has no entry yet, a user may have edited or removed the entry, and a new Studio
+   may register with different arguments or variables. A launch keeps no record of having
+   registered; it observes the platform, which is the stance `docs/roadmap.md` M19 states for an
+   App's registration, and this is the same registration with Studio as its first user.
 
 Closing the launcher closes its children. The Agent channel process is still launched by the
 agent platform (ADR-010, ADR-017); what changes is that its registration is written by Studio
 rather than by hand.
+
+Studio updates and removes itself, because the operating role's `update_app` and `remove_app`
+act on environments Studio created and Studio's own is not one, and because a GUI application
+does not send its user to a terminal:
+
+- **update**: at launch and on request from the board, Studio asks its installer whether a newer
+  `vibepy-studio` exists; with the user's consent it runs `uv tool upgrade vibepy-studio` as a
+  child and relaunches itself — running code cannot replace itself, so upgrade-then-relaunch is
+  the shape every self-updating application has. The tool environment's path does not change
+  across an upgrade, so the registration written at step 5 stays valid.
+- **remove**: on request from the board, Studio stops its running Apps, removes the Agent channel
+  registration it wrote from every platform that holds it, runs `uv tool uninstall
+  vibepy-studio`, and exits. The root — `~/vibepy-apps`, the installed Apps and what they hold —
+  is left in place and its path shown: it is the user's data, as `remove_app` leaves an App's
+  data outside its folder.
 
 ADR-031 stands as written for the Hub: its Tools write routing configuration and start,
 supervise, signal and observe no proxy. This record decides who does — the launcher, which is
@@ -77,14 +94,15 @@ that launcher under a development name.
   one launch; nothing is typed into a terminal after installation
 - the first launch does what a native installer would have done at install time; every later
   launch finds it done or repairs it. The steps are idempotent, because a launch keeps no record
-  of being the first: an upgrade, a reinstall into another environment, or a new interpreter is
-  corrected at the next launch without anyone knowing it was needed
+  of being the first
 - Studio publishes an address of the same shape as its Apps, and the user sees one port
 - the tool environment's interpreter path appears in the agent platform's configuration, written
-  by Studio; a user who moves or reinstalls Studio's environment relaunches it, and the
-  registration is rewritten. Uninstalling Studio leaves its registration behind, because there is
-  no launch after an uninstall to observe it; the platform then reports a command it cannot run,
-  which is the same limit M19 accepts for an App removed outside Studio
+  by Studio. Removing Studio through its own board removes it; removing Studio by hand
+  (`uv tool uninstall` in a terminal) leaves it, because no launch follows to observe that, and
+  the platform then reports a command it cannot run
+- update and removal depend on `uv` being present, which the installer this record chooses
+  guarantees; a Studio installed by another installer of wheels updates and removes itself the
+  way that installer provides, and the board says so rather than guessing
 - whether `uv tool install` exposes `gui_scripts` is verified against uv's documentation before
   implementation: its tools document names "console entry points, script entry points, and
   binary scripts" and does not name GUI scripts. If it does not expose them, the record is
