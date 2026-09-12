@@ -18,7 +18,7 @@ from vibepy_studio.operating.internals import (
     read_state,
     remove_environment,
 )
-from vibepy_studio.operating.internals import environment as hub_environment
+from vibepy_studio.operating.internals import environment as root_environment
 from vibepy_studio.operating.models import (
     AppFacts,
     AppListing,
@@ -249,7 +249,7 @@ async def test_an_absolute_app_name_is_refused(tmp_path: Path) -> None:
 def test_environment_refuses_a_name_that_does_not_resolve_inside(tmp_path: Path, name: str) -> None:
     """The sink's guarantee: whatever this platform reads as leaving the root."""
     with pytest.raises(AppNameInvalid):
-        hub_environment(tmp_path, name)
+        root_environment(tmp_path, name)
 
 
 @pytest.mark.parametrize("name", ["../../victim", "..", ".", "", "a/b", "a\\b", "C:x"])
@@ -265,7 +265,7 @@ def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
 
 
 def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:
-    assert hub_environment(tmp_path, "todo") == tmp_path / "envs" / "todo"
+    assert root_environment(tmp_path, "todo") == tmp_path / "envs" / "todo"
 
 
 @pytest.mark.integration

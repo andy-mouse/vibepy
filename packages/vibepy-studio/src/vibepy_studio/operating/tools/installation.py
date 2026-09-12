@@ -290,7 +290,7 @@ async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListi
 
 
 async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installation:
-    """Replace an installed App with the version its source offers, keeping what operating holds.
+    """Replace an installed App with the offered version, keeping what the operating role holds.
 
     Configuration values, the port, the route and the data the App wrote elsewhere
     all survive: only the environment is remade. A running App is refused rather
