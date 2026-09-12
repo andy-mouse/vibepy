@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Goal:** (Task 0b first renames the operating role out of "Hub"; the tasks below are written in the names they will find after it — read `HubState` as `OperatingState`, `hub.*` as `operating.*`, and "the Hub" as Studio's operating role.)
+
 **Goal:** A Web channel process the Hub starts lives inside the Hub's window and sees only its own environment: isolated mode, an App folder of its own as working directory, and a stdin pipe whose closing ends it — proven by tests that kill one App, plant modules on the Hub, and kill the Hub.
 
 **Architecture:** All changes are in how Studio (the Hub) runs the framework's commands and where it puts an App; one framework command, `vibepy_core.serve`, gains an opt-in flag. The App / Tool / Page contract is untouched. Spec: `docs/milestones/M17/spec.md`.
@@ -57,6 +59,54 @@ implementing it is its own follow-up after M17 merges, not a task of this plan.
   Hub's Tools and the launcher is who starts the proxy; the `uv tool` GUI-script verification
   named as a consequence.
 - [x] **Step 2: Commit**
+
+---
+
+### Task 0b: The operating role is named `operating`, not `Hub`
+
+**Files:**
+- Modify: every file under `packages/vibepy-studio/src/vibepy_studio/operating/`, `packages/vibepy-studio/src/vibepy_studio/entry.py`, `src/vibepy_core/logs.py`
+- Modify: `packages/vibepy-studio/tests/*.py` wherever a renamed name or code is used
+- Modify: `docs/architecture/lifecycle.md`, `packaging.md`, `authoring.md`, `app-model.md`, `runtime.md`
+- Do not modify: `docs/decisions/ADR-*.md` (Accepted records keep the word as a statement of their date), `docs/roadmap.md`
+
+**Interfaces:**
+- Produces: diagnostic codes `operating.<name>` for every former `hub.<name>` (`not_installed`, `already_running`, `facts_unreadable`, `candidate_absent`, `source_unreadable`, `install_failed`, `up_to_date`, `no_app_declared`, `not_running`, `no_web_channel`, `no_address`, `multiple_apps_declared`, `declaration_missing`, `already_installed`, `start_failed`); `OperatingState` for `HubState`; `OPERATING_TOOLS` for `HUB_TOOLS`; `operating_pages` for `hub_pages`.
+- Prose rule for docstrings and architecture documents: where "the Hub" means the running Studio process or the App, write "Studio"; where it means the half of Studio that installs, configures and starts Apps, write "the operating role" (or "operating") — the pair of "authoring". `docs/architecture/lifecycle.md:8` becomes "(Studio's operating role)" with "called the Hub" removed. `HubConfig` in `packaging.md` is a stale name for `StudioConfig`; fix it.
+- No compatibility shims: pre-production, one wave.
+
+Why here and now, at the owner's direction (2026-09-13): authoring/operating is the frame, and a legacy name for one half of a symmetric pair misdescribes it. Done before Task 1 so that every line M17 adds is written in the new vocabulary and the rename is one wave rather than two.
+
+- [ ] **Step 1: Rename identifiers and codes**
+
+Run, from the repository root, and review every hunk before staging (a `github.com` is not a `hub.`):
+
+```bash
+grep -rlI "hub\.\|HubState\|HUB_TOOLS\|hub_pages" src packages/vibepy-studio/src packages/vibepy-studio/tests tests docs/architecture docs/architecture.md \
+  | xargs sed -i '' -e 's/\bhub\.\([a-z_]\)/operating.\1/g' -e 's/HubState/OperatingState/g' -e 's/HUB_TOOLS/OPERATING_TOOLS/g' -e 's/hub_pages/operating_pages/g'
+git diff --stat
+```
+
+Then read every remaining `Hub`/`hub` by hand — `grep -rnI "\bHub\b\|\bhub\b" src packages/vibepy-studio/src packages/vibepy-studio/tests tests docs/architecture docs/architecture.md` — and apply the prose rule. The test alias `hub_environment` in `test_installation.py` becomes `root_environment`.
+
+- [ ] **Step 2: Run the whole gate**
+
+Run: `make lint typecheck test`
+Expected: PASS. A failure here is a code string a test asserted by value; rename the assertion, not the code back.
+
+- [ ] **Step 3: Check nothing is left**
+
+Run: `grep -rnI "\bHub\b\|\bhub\b\|hub\." src packages/vibepy-studio/src fixtures scripts docs/architecture docs/architecture.md | grep -v "github.com"`
+Expected: no output.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add -A
+git commit -m "The operating role is named operating, not Hub: authoring and operating are the two halves of Studio, and a legacy name for one of them misdescribed it — operating.* codes, OperatingState, OPERATING_TOOLS, and the architecture documents say Studio or the operating role; Accepted records keep the word as a statement of their date
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
+```
 
 ---
 
