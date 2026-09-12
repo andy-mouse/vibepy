@@ -10,8 +10,7 @@ from mcp.client import Client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.types import TextContent
 
-from test_invoke_command import records_in
-from test_serve_command import child_environment, reported_failure
+from test_serve_command import child_environment, records_in, reported_failure
 from vibepy_core import Channel, ErrorCategory
 from vibepy_core.app.config import environment_for
 

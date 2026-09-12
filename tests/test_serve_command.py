@@ -166,6 +166,9 @@ def records_in(stderr: str) -> list[InvocationRecord]:
 def test_a_page_render_is_recorded_on_standard_error(tmp_path: Path) -> None:
     """Rendering `/todos` invokes `list_todos` through the Page; the record says so."""
     port = free_port()
+    # stderr is read only after terminate(): a single page render writes a handful
+    # of lines, far below the pipe buffer, so the child cannot block on a full
+    # pipe while unread, and communicate(timeout=10) bounds the wait regardless.
     process = subprocess.Popen(
         [sys.executable, "-m", "vibepy_core.serve", "todo-app", "--port", str(port)],
         stdin=subprocess.DEVNULL,

@@ -128,11 +128,11 @@ async def echo(ctx: ToolContext[Seen], _payload: Empty) -> Empty:
     return Empty()
 
 
-async def fail(ctx: ToolContext[Seen], _payload: Empty) -> Empty:
+async def fail(_ctx: ToolContext[Seen], _payload: Empty) -> Empty:
     raise RuntimeError("the handler failed")
 
 
-async def bad_output(ctx: ToolContext[Seen], _payload: Empty) -> Strict:
+async def bad_output(_ctx: ToolContext[Seen], _payload: Empty) -> Strict:
     return Strict.model_construct(n="not an int")
 
 
@@ -293,7 +293,7 @@ async def test_a_cancelled_invocation_is_recorded_as_interrupted_and_propagates(
     entered = asyncio.Event()
     hold = asyncio.Event()
 
-    async def wait(ctx: ToolContext[Seen], _payload: Empty) -> Empty:
+    async def wait(_ctx: ToolContext[Seen], _payload: Empty) -> Empty:
         entered.set()
         await hold.wait()
         return Empty()
@@ -316,7 +316,7 @@ async def test_a_cancelled_invocation_is_recorded_as_interrupted_and_propagates(
 ADAPTER_LOGGER = "vibepy_core.adapters.mcp.server"
 
 
-async def fail_for_none(ctx: ToolContext[None], _payload: Empty) -> Empty:
+async def fail_for_none(_ctx: ToolContext[None], _payload: Empty) -> Empty:
     raise RuntimeError("the handler failed")
 
 

@@ -127,8 +127,12 @@ class ToolRuntime[DepsT]:
         may refuse further, never admit what the declaration refuses.
 
         A cancellation is recorded and re-raised, as asyncio requires of anything
-        that catches it. `KeyboardInterrupt` and `SystemExit` are not caught: they
-        end the process, and the process reports its own ending.
+        that catches it. The `except` arm below catches `Exception` and
+        `asyncio.CancelledError` and nothing else: an exception group
+        (`BaseExceptionGroup`) carrying a cancellation is not one exception and
+        so is not caught, and `KeyboardInterrupt` and `SystemExit` are not caught
+        either, because they end the process, and the process reports its own
+        ending (ADR-030). None of these leave a record.
 
         Raises:
             ToolNotFoundError: no Tool is registered under `name`.
@@ -178,9 +182,14 @@ class ToolRuntime[DepsT]:
     ) -> None:
         """Write the one record of an invocation that has just ended.
 
-        The traceback follows an `execution` failure only: that category alone is
-        a defect in code a developer must find. Called inside the `except` for a
-        failure, so `exc_info=True` names the exception being handled.
+        Called after a successful return and, from the `except` arm, after a
+        failure. `logging` tests `exc_info` for truthiness before deciding
+        whether to attach a traceback, but stores whatever value it is given
+        verbatim on the `LogRecord`: passing `False` leaves `log.exc_info` as
+        `False`, not `None`, so `with_traceback` is narrowed to `None` when it
+        is falsy. The traceback follows an `execution` failure only: that
+        category alone is a defect in code a developer must find, and inside
+        the `except` arm `exc_info=True` names the exception being handled.
         """
         record = InvocationRecord(
             invocation_id=invocation_id,
