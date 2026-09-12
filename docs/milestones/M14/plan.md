@@ -999,20 +999,23 @@ Define `EmptyInput` and `Count(n: int)` at the top of the file if absent; import
 async def test_the_hosts_principal_reaches_a_pages_tool_call(user: User) -> None:
     seen: list[Principal] = []
 
-    async def who(ctx: ToolContext[None], _payload: EmptyInput) -> Nothing:
+    async def who(ctx: ToolContext[None], _payload: EmptyInput) -> EmptyInput:
         seen.append(ctx.principal)
-        return Nothing()
+        return EmptyInput()
 
     async def handler(ctx: PageContext) -> None:
         await ctx.tools.invoke("who", {})
 
     definition = AppDefinition(..., tools=[Tool(definition=ToolDefinition(name="who", ..., read_only=True), handler=who)], pages=[page("home", "/home", handler)])
-    build_web_app(definition, no_dependencies, config={}, principal=Principal(id="operator"))
-    await user.open("/home")
+    async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+        register_pages(definition, pages, principal=Principal(id="host"))
+        await user.open("/home")
 
-    assert seen == [Principal(id="operator")]
+    assert seen == [Principal(id="host")]
 ```
-Use the file's own model/lifespan helpers for the elided parts.
+Use the file's own model/lifespan helpers for the elided parts. A distinct id
+(`"host"`, not the Task 5 placeholder `"operator"`) is what makes the assertion
+fail against the unmodified placeholder.
 
 - [ ] **Step 2: Run** `uv run pytest tests/test_nicegui_adapter.py -q` — FAIL.
 

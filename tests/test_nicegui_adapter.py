@@ -17,7 +17,7 @@ from starlette.routing import Route
 
 from lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, todo_lifespan
-from vibepy_core.adapters.nicegui import build_web_app, register_pages
+from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
 from vibepy_core.errors import (
     PageRouteConflictError,
@@ -183,13 +183,11 @@ async def test_the_hosts_principal_reaches_a_pages_tool_call(user: User) -> None
             )
         ],
     )
-    served = build_web_app(
-        definition, no_dependencies, config={}, principal=Principal(id="operator")
-    )
-    async with served.router.lifespan_context(served):
+    async with page_runtime_for(definition, no_dependencies, config={}) as pages:
+        register_pages(definition, pages, principal=Principal(id="host"))
         await user.open("/home")
 
-    assert seen == [Principal(id="operator")]
+    assert seen == [Principal(id="host")]
 
 
 class HandlersOwnError(Exception):
