@@ -70,7 +70,7 @@ Validation is the failure path of describing, permanently: a declaration validat
 is constructed, so what `describe` reports when it cannot describe is the list of violations, and
 `validate_app` reads it beside pyright's. A failure the project's environment reports travels with
 its own code and category; authoring's own diagnostics are the `authoring.*` vocabulary that
-`vibepy_studio/authoring/models.py` defines. The two Tools shape one failure differently on purpose: `inspect_app` answers why it could not describe, so its list opens with the aggregate `app.declaration_invalid`; `validate_app` answers what to fix, so its list holds the members alone.
+`vibepy_studio/authoring/models.py` defines. The two Tools shape one failure differently on purpose: `inspect_app` answers why it could not describe, so its list opens with the aggregate `app.declaration_invalid`; `validate_app` answers what to fix, so its list holds the members alone. The pyright it runs is Studio's own dependency, pinned by Studio's lockfile, pointed at the project's interpreter, so a verdict does not change with the day; the project's own `[tool.pyright]` still decides what is checked.
 
 Studio keeps no authoring state. The Web channel of a project is opened by the agent with
 `python -m vibepy_core.serve` under `uv run`; the Agent channel's server command is

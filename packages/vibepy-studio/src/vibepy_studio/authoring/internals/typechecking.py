@@ -1,11 +1,15 @@
-"""Running the type checker over a source project, in that project's environment.
+"""Running the type checker over a source project, pointed at that project's environment.
 
 The framework's contracts for a handler, a configuration and a lifespan are
 types, and PEP 484 places their checking in an offline type checker. pyright is
-that authority here, as it is for this repository. `uv run --with` lays it over
-the project's own environment for one invocation, so the project's
-`pyproject.toml`, lock and environment are untouched and the project's own
-`[tool.pyright]`, or pyright's default `standard` mode, applies.
+that authority here, as it is for this repository. The version held to is
+Studio's own: `pyright[nodejs]` is a declared dependency, pinned by Studio's
+`uv.lock` like every other dependency, so a project's verdict does not change
+with the day. pyright's documented `--pythonpath` option points it at another
+interpreter for import resolution, so `sys.executable -m pyright` -- Studio's
+own environment's pyright -- checks the project's environment without two
+Python environments mixing. The project's own `[tool.pyright]`, or pyright's
+default `standard` mode, still applies.
 
 pyright's `--outputjson` is read as the shape it documents; nothing is dropped.
 
@@ -19,18 +23,17 @@ an inherited one -- decided how to check them.
 """
 
 import logging
+import sys
 from collections.abc import Sequence
 from pathlib import PurePath
 
 from pydantic import BaseModel, ValidationError
 
+from vibepy_studio.authoring.internals.projects import interpreter
 from vibepy_studio.authoring.models import Severity
 from vibepy_studio.internals import run
 
 logger = logging.getLogger(__name__)
-
-PYRIGHT = "pyright[nodejs]"
-"""The distribution `uv run --with` injects: pyright with Node bundled as wheels."""
 
 
 class PyrightPosition(BaseModel):
@@ -70,17 +73,15 @@ class TypecheckFailed(Exception):
         self.output = output
 
 
-def command(project: PurePath, /) -> list[str]:
-    """Return the command that type-checks `project` inside its environment. Pure."""
+def command(project: PurePath, interpreter: PurePath, /) -> list[str]:
+    """Return the command that type-checks `project` against `interpreter`'s environment. Pure."""
     return [
-        "uv",
-        "run",
-        "--project",
-        str(project),
-        "--with",
-        PYRIGHT,
+        sys.executable,
+        "-m",
         "pyright",
         "--outputjson",
+        "--pythonpath",
+        str(interpreter),
         "-p",
         str(project),
         str(project),
@@ -92,9 +93,11 @@ async def typecheck(project: PurePath, /) -> Sequence[PyrightDiagnostic]:
 
     Raises:
         NotRunnable: uv is not runnable.
+        EnvironmentUnavailable: the project's interpreter could not be found.
         TypecheckFailed: pyright exited 2, 3 or 4, or wrote something that is not its JSON.
     """
-    completed = await run(command(project))
+    project_interpreter = await interpreter(project)
+    completed = await run(command(project, project_interpreter))
     if completed.returncode not in (0, 1):
         raise TypecheckFailed((completed.stdout + completed.stderr).strip())
     try:

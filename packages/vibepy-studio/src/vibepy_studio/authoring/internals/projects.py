@@ -16,7 +16,18 @@ from pathlib import Path, PurePath
 
 from packaging.utils import canonicalize_name
 
+from vibepy_studio.internals import run
+
 PYPROJECT = "pyproject.toml"
+
+
+class EnvironmentUnavailable(Exception):
+    """A project's environment could not be asked for its interpreter."""
+
+    def __init__(self, output: str) -> None:
+        """Record what uv wrote."""
+        super().__init__(output)
+        self.output = output
 
 
 async def locate(project: PurePath, /) -> PurePath | None:
@@ -52,3 +63,18 @@ def python(project: PurePath, /) -> list[str]:
     Pure: it builds a command line and reads nothing, so it stays synchronous.
     """
     return ["uv", "run", "--project", str(project), "python"]
+
+
+async def interpreter(project: PurePath, /) -> PurePath:
+    """Return the Python of this project's environment, asked of uv rather than guessed.
+
+    `uv run --project` syncs the environment and runs inside it, so the path it
+    prints is the interpreter whose site-packages resolve the project's imports.
+
+    Raises:
+        NotRunnable: uv is not runnable.
+    """
+    completed = await run([*python(project), "-c", "import sys; print(sys.executable)"])
+    if completed.returncode != 0:
+        raise EnvironmentUnavailable((completed.stdout + completed.stderr).strip())
+    return PurePath(completed.stdout.strip())

@@ -7,6 +7,7 @@ from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import (
+    EnvironmentUnavailable,
     TypecheckFailed,
     declared_name,
     locate,
@@ -72,6 +73,8 @@ async def validate_app(_ctx: ToolContext[object], payload: ValidateRequest) -> A
                 )
             )
     except TypecheckFailed as failed:
+        found.append(_error(environment_failed(project, failed.output)))
+    except EnvironmentUnavailable as failed:
         found.append(_error(environment_failed(project, failed.output)))
     return validation(found)
 

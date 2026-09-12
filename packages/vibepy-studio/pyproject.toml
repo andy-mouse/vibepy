@@ -8,6 +8,7 @@ dependencies = [
     "pydantic>=2.9",
     "packaging>=24.0",
     "pyyaml>=6.0",
+    "pyright[nodejs]>=1.1.400",
 ]
 
 [project.entry-points."vibepy.apps"]

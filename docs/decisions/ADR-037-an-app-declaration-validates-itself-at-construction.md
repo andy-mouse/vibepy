@@ -3,6 +3,16 @@
 Status: Accepted; supersedes ADR-012's statement that the adapter validates route format and
 uniqueness
 
+Amendment, appended: the "Rejected: pyright in Studio's dependencies" entry below has been
+reversed. The reason given there — that the checker belongs to the project being checked, at
+the project's version — did not hold: a project has no pyright of its own, and Studio was
+choosing the version anyway, through an unpinned `--with` that resolved the newest pyright at
+every run. That put a dependency outside the lockfile and made a verdict depend on the day,
+against the acceptance criterion that conforming Apps validate deterministically. pyright is now
+Studio's declared dependency, pinned by `uv.lock`, run with `--pythonpath` at the project's own
+interpreter so import resolution still comes from the project's environment. Upgrades now travel
+the path every dependency travels: `uv lock --upgrade-package pyright`, the gate, a commit.
+
 ## Context
 
 As of 2026-09-12 the rules an App must satisfy all existed, but each lived where its failure
