@@ -12,31 +12,31 @@ operation here, it never wraps one.
 
 import asyncio
 import tomllib
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from packaging.utils import canonicalize_name
 
 PYPROJECT = "pyproject.toml"
 
 
-async def locate(project: Path, /) -> Path | None:
+async def locate(project: PurePath, /) -> PurePath | None:
     """Return the resolved project directory, or nothing when it holds no `pyproject.toml`."""
     return await asyncio.to_thread(_locate, project)
 
 
-def _locate(project: Path, /) -> Path | None:
-    resolved = project.resolve()
+def _locate(project: PurePath, /) -> PurePath | None:
+    resolved = Path(project).resolve()
     return resolved if (resolved / PYPROJECT).is_file() else None
 
 
-async def declared_name(project: Path, /) -> str | None:
+async def declared_name(project: PurePath, /) -> str | None:
     """Return the canonical `[project].name`, or nothing when the file declares none."""
     return await asyncio.to_thread(_declared_name, project)
 
 
-def _declared_name(project: Path, /) -> str | None:
+def _declared_name(project: PurePath, /) -> str | None:
     try:
-        document = tomllib.loads((project / PYPROJECT).read_text(encoding="utf-8"))
+        document = tomllib.loads((Path(project) / PYPROJECT).read_text(encoding="utf-8"))
     except (OSError, tomllib.TOMLDecodeError):
         return None
     table = document.get("project")
@@ -46,7 +46,7 @@ def _declared_name(project: Path, /) -> str | None:
     return canonicalize_name(name) if isinstance(name, str) else None
 
 
-def python(project: Path, /) -> list[str]:
+def python(project: PurePath, /) -> list[str]:
     """Return the command prefix that runs Python inside this project's environment.
 
     Pure: it builds a command line and reads nothing, so it stays synchronous.

@@ -10,7 +10,7 @@ what is read and writes what is stored.
 
 import asyncio
 import logging
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pydantic import BaseModel, JsonValue, ValidationError
 
@@ -29,7 +29,7 @@ class HubState(BaseModel):
     the next field someone adds, silently and everywhere at once.
     """
 
-    source: Path | None = None
+    source: PurePath | None = None
     """The one folder of wheels this Hub installs from. One, because in-house deployment is one
     wheelhouse, and two folders offering one App is a mistake to prevent rather than a case to
     explain."""
@@ -39,13 +39,13 @@ class HubState(BaseModel):
     """The port each installed App serves on, allocated when it was installed."""
 
 
-async def read_state(root: Path, /) -> HubState:
+async def read_state(root: PurePath, /) -> HubState:
     """Return the stored state, or an empty one when nothing readable has been stored."""
     return await asyncio.to_thread(_read_state, root)
 
 
-def _read_state(root: Path, /) -> HubState:
-    path = root / STATE_FILE
+def _read_state(root: PurePath, /) -> HubState:
+    path = Path(root) / STATE_FILE
     if not path.is_file():
         return HubState()
     try:
@@ -55,7 +55,7 @@ def _read_state(root: Path, /) -> HubState:
         return HubState()
 
 
-async def write_state(root: Path, state: HubState, /) -> None:
+async def write_state(root: PurePath, state: HubState, /) -> None:
     """Replace the stored state, readable by its owner and no one else.
 
     The write goes to a neighbouring file and is moved into place, because
@@ -77,11 +77,12 @@ async def write_state(root: Path, state: HubState, /) -> None:
     await asyncio.to_thread(_write_state, root, state)
 
 
-def _write_state(root: Path, state: HubState, /) -> None:
-    root.mkdir(parents=True, exist_ok=True)
+def _write_state(root: PurePath, state: HubState, /) -> None:
+    directory = Path(root)
+    directory.mkdir(parents=True, exist_ok=True)
     write_whole(
-        root / STATE_FILE,
+        directory / STATE_FILE,
         state.model_dump_json(indent=1),
-        staging=root,
+        staging=directory,
         owner_only=True,
     )

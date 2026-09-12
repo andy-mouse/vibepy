@@ -1,4 +1,4 @@
-"""Writing a file whole, so that nothing reads half of one.
+"""The file system as Studio's internals touch it: writing a file whole, and asking about one.
 
 Two of Studio's files are read by something other than Studio while it is
 writing them: its state file, which a second window reads, and the routing
@@ -6,18 +6,31 @@ files, which the proxy watches. Both need the same guarantee, and it was
 written twice before it was written here -- once with a staged name unique to
 the write and once without, which is what re-deriving one argument in two
 places does.
+
+Asking about a path belongs here for the same reason: a handler holds a `PurePath`, so
+the one existence check both the installer and the wheelhouse need is written once,
+where the concrete `Path` is made.
 """
 
 import logging
 import os
 import stat
-from pathlib import Path
+from pathlib import Path, PurePath
 from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 OWNER_ONLY_FILE = stat.S_IRUSR | stat.S_IWUSR
 OWNER_ONLY_DIRECTORY = stat.S_IRWXU
+
+
+def is_directory(path: PurePath, /) -> bool:
+    """Whether `path` is a directory.
+
+    A handler holds a `PurePath`, which cannot answer this; the concrete `Path`
+    is made here, where the call blocks and a caller wraps it in a thread.
+    """
+    return Path(path).is_dir()
 
 
 def write_whole(path: Path, text: str, /, *, staging: Path, owner_only: bool = False) -> None:

@@ -2,7 +2,10 @@
 
 A Tool handler reaches this through its ToolContext. It holds the path
 privately and offers no way to read it, so a handler acts on the root by naming
-an operation rather than by holding a `Path` and calling a method of its own.
+an operation rather than by holding a path and calling a method of its own. The
+paths it returns are `PurePath`, which has no method that touches the file
+system (AGENTS.md, Python conventions).
+
 Every operation here is `async` and wraps its blocking work in
 `asyncio.to_thread` (`docs/architecture/runtime.md` says why), or is pure.
 
@@ -12,7 +15,7 @@ is what `Processes.start` is given, and starting a child is itself async.
 
 import asyncio
 from collections.abc import Callable
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from vibepy_studio.operating.internals.installer import describe as describe_environment
 from vibepy_studio.operating.internals.installer import (
@@ -78,7 +81,7 @@ class StudioRoot:
         """Return what an environment records about itself, without asking whether it is there."""
         return await read_facts(environment(self._path, app_name))
 
-    async def install(self, app_name: str, /, *, wheel: Path, source: Path) -> None:
+    async def install(self, app_name: str, /, *, wheel: PurePath, source: PurePath) -> None:
         """Create an environment of its own for this App and install one wheel there."""
         await install(wheel=wheel, source=source, env=environment(self._path, app_name))
 
@@ -86,7 +89,7 @@ class StudioRoot:
         """Return what the Apps in this App's environment declare, read in that environment."""
         return await describe_environment(environment(self._path, app_name))
 
-    async def purelib(self, app_name: str, /) -> Path:
+    async def purelib(self, app_name: str, /) -> PurePath:
         """Return where this App's environment keeps its distribution metadata."""
         return await purelib(environment(self._path, app_name))
 
@@ -98,7 +101,7 @@ class StudioRoot:
         """Delete one App's environment, if it is there."""
         await remove_environment(environment(self._path, app_name))
 
-    def interpreter(self, app_name: str, /) -> Path:
+    def interpreter(self, app_name: str, /) -> PurePath:
         """Return the Python of this App's environment. Computes a path and reads nothing."""
         return interpreter(environment(self._path, app_name))
 

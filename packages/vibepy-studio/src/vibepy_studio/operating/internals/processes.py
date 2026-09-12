@@ -13,7 +13,7 @@ import asyncio
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from pydantic import JsonValue
 
@@ -183,7 +183,7 @@ class Processes:
         self,
         *,
         app_name: str,
-        interpreter: Path,
+        interpreter: PurePath,
         config: Mapping[str, JsonValue],
         known_as: str,
         port: int,

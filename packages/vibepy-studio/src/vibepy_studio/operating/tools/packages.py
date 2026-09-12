@@ -1,7 +1,7 @@
 """Offering the Apps of a local folder, and withdrawing that offer."""
 
 from collections.abc import Sequence
-from pathlib import Path
+from pathlib import PurePath
 
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
@@ -40,7 +40,7 @@ async def _listing(deps: StudioDeps, /) -> SourceListing:
     )
 
 
-def _unreadable(path: Path, /) -> ErrorInfo:
+def _unreadable(path: PurePath, /) -> ErrorInfo:
     """Describe a source this Hub could not read, named so a caller can replace it."""
     return ErrorInfo(
         code="hub.source_unreadable",

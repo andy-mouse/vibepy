@@ -6,7 +6,7 @@ import pytest
 
 from tests_support import AGENT, FIXTURES, studio
 from vibepy_core import Channel, ErrorCategory
-from vibepy_studio.authoring.models import AppInspection
+from vibepy_studio.authoring.models import AppInspection, InspectRequest
 
 
 @pytest.mark.integration
@@ -57,3 +57,10 @@ async def test_a_project_whose_environment_lacks_the_framework_fails_as_an_envir
     assert inspected.diagnostic.code == "authoring.environment_failed"
     assert inspected.diagnostic.category == ErrorCategory.EXECUTION
     assert "vibepy_core" in inspected.diagnostic.message
+
+
+def test_the_project_a_request_names_reaches_no_file_system() -> None:
+    """The path a handler is handed is a `PurePath`, so it offers nothing that blocks."""
+    request = InspectRequest.model_validate({"project": "/somewhere/a-project"})
+
+    assert not hasattr(request.project, "is_dir")

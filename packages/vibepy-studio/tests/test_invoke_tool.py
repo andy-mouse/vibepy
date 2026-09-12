@@ -6,7 +6,7 @@ import pytest
 
 from tests_support import AGENT, FIXTURES, studio
 from vibepy_core import Channel, ErrorCategory
-from vibepy_studio.authoring.models import Invocation
+from vibepy_studio.authoring.models import Invocation, InvokeRequest
 
 TODO = str(FIXTURES / "todo-app")
 
@@ -89,3 +89,12 @@ async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) 
         )
     assert isinstance(answered, Invocation) and answered.diagnostic is not None
     assert answered.diagnostic.code == "authoring.project_not_found"
+
+
+def test_the_project_a_request_names_reaches_no_file_system() -> None:
+    """The path a handler is handed is a `PurePath`, so it offers nothing that blocks."""
+    request = InvokeRequest.model_validate(
+        {"project": "/somewhere/a-project", "app": "todo-app", "tool": "list_todos"}
+    )
+
+    assert not hasattr(request.project, "is_dir")
