@@ -251,6 +251,9 @@ Contract in docs/architecture/runtime.md (the record) and docs/architecture/erro
 
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord, Principal
 from vibepy_core.errors import read_report_line, report_line, to_error_info
 from vibepy_core.tool import read_invocation_record
@@ -307,14 +310,9 @@ def test_a_record_requires_its_outcome() -> None:
 
 
 def test_a_record_is_frozen() -> None:
-    import pytest
-    from pydantic import ValidationError
-
     with pytest.raises(ValidationError):
         a_record().tool = "other"
 ```
-
-(Move the two imports in the last test to the module top when writing the file; they are shown inline only so the block is self-contained.)
 
 In `tests/test_package.py`, insert `"InvocationRecord",` directly before `"InvocationRequest",` in the root `__all__` list.
 
@@ -829,11 +827,36 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Consumes: `one_store` from `tests/test_dual_channel.py`, `TODO_APP` from the `todo-app` fixture, `register_pages`, `page_runtime_for`, `build_mcp_server`, NiceGUI `User`.
 - Produces: nothing new; removes two `logger` calls and the module's unused `logger`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Write the failing tests**
 
-Append to `tests/test_tool_observability.py`. Imports to add: `from pathlib import Path`, `from mcp.client import Client`, `from nicegui.testing import User`, `from test_dual_channel import one_store`, `from todo_app.entry import TODO_APP`, `from vibepy_core.adapters.mcp import build_mcp_server`, `from vibepy_core.adapters.nicegui import register_pages`, `from vibepy_core.app import page_runtime_for`.
+Append to `tests/test_tool_observability.py`. Imports to add: `from pathlib import Path`, `from lifecycle import no_dependencies`, `from mcp.client import Client`, `from nicegui.testing import User`, `from test_dual_channel import one_store`, `from todo_app.entry import TODO_APP`, `from vibepy_core import AppDefinition, NoConfig`, `from vibepy_core.adapters.mcp import build_mcp_server`, `from vibepy_core.adapters.nicegui import register_pages`, `from vibepy_core.app import page_runtime_for`. Check `AppDefinition`'s constructor fields in `src/vibepy_core/app/model.py` and match them in `failing` below.
 
 ```python
+ADAPTER_LOGGER = "vibepy_core.adapters.mcp.server"
+
+
+async def fail_for_none(ctx: ToolContext[None], _payload: Empty) -> Empty:
+    raise RuntimeError("the handler failed")
+
+
+FAILING: AppDefinition[None, NoConfig] = AppDefinition(
+    app_id="failing",
+    name="Failing",
+    version="0.0.0",
+    config=NoConfig,
+    tools=[
+        Tool(
+            definition=ToolDefinition(
+                name="fail", description="fail", input_model=Empty, output_model=Empty,
+                read_only=True,
+            ),
+            handler=fail_for_none,
+        )
+    ],
+    pages=[],
+)
+
+
 async def test_both_channels_leave_the_same_record(
     user: User, tmp_path: Path, records: pytest.LogCaptureFixture
 ) -> None:
@@ -864,76 +887,26 @@ async def test_a_handler_failure_over_mcp_is_recorded_once(
     records: pytest.LogCaptureFixture,
 ) -> None:
     """The adapter writes nothing of its own about a failure; the record is the one line."""
-    run_tools = [tool("fail", fail)]
-    registry: ToolRegistry[Seen] = ToolRegistry()
-    for one in run_tools:
-        registry.register(one)
-    # Drive the runtime the adapter drives, with the adapter's own logger captured too.
-    records.set_level(logging.INFO, logger="vibepy_core.adapters.mcp.server")
-    run = ToolRuntime(app_id="observed", registry=registry, dependencies=Seen(), channel=Channel.AGENT)
-    with pytest.raises(RuntimeError):
-        await run.invoke("fail", {}, principal=TESTER)
-    assert [log.name for log in records.records] == [RUNTIME_LOGGER]
-```
-
-Then replace the second test's body with one that goes through the adapter for real — the version above only proves the runtime, and the adapter's lines are what must be gone:
-
-```python
-async def test_a_handler_failure_over_mcp_is_recorded_once(
-    tmp_path: Path, records: pytest.LogCaptureFixture
-) -> None:
-    """The adapter writes nothing of its own about a failure; the record is the one line."""
-    records.set_level(logging.INFO, logger="vibepy_core.adapters.mcp.server")
-    config = {"db_path": str(tmp_path / "todo.json"), "db_key": "test-key"}
+    records.set_level(logging.INFO, logger=ADAPTER_LOGGER)
     async with Client(
-        build_mcp_server(TODO_APP, one_store(config), config=config, principal=Principal(id="agent"))
-    ) as agent:
-        failed = await agent.call_tool("complete_todo", {"id": "not-an-int"})
-
-    assert failed.is_error is True
-    assert [log.name for log in records.records] == [RUNTIME_LOGGER]
-    [(record, _)] = written(records)
-    assert record.error is not None
-    assert record.error.code == "tool.input_invalid"
-```
-
-(Use only the second version. It is shown twice so the intent is unambiguous: the adapter is exercised, and the only line on any `vibepy_core` logger is the record.)
-
-- [ ] **Step 2: Run to verify failure**
-
-Run: `uv run pytest tests/test_tool_observability.py -q -k "both_channels or recorded_once"`
-Expected: `both_channels` PASSES already (the writer is one; this test pins it). `recorded_once` PASSES too for `tool.input_invalid`, because the adapter logs only for output-invalid and unhandled — so change the call to one that raises in the handler if the fixture has one; the Todo App has none. Therefore switch the test to an App built in the test: register `tool("fail", fail)` in a one-Tool `AppDefinition` and drive it through `build_mcp_server` with `no_dependencies` from `tests/lifecycle.py`:
-
-```python
-from lifecycle import no_dependencies
-from vibepy_core import AppDefinition, NoConfig
-
-
-async def test_a_handler_failure_over_mcp_is_recorded_once(
-    records: pytest.LogCaptureFixture,
-) -> None:
-    """The adapter writes nothing of its own about a failure; the record is the one line."""
-    records.set_level(logging.INFO, logger="vibepy_core.adapters.mcp.server")
-    failing: AppDefinition[None, NoConfig] = AppDefinition(
-        app_id="failing", name="Failing", version="0.0.0", config=NoConfig,
-        tools=[tool_for_none("fail", fail_for_none)], pages=[],
-    )
-    async with Client(
-        build_mcp_server(failing, no_dependencies, config={}, principal=Principal(id="agent"))
+        build_mcp_server(FAILING, no_dependencies, config={}, principal=Principal(id="agent"))
     ) as agent:
         failed = await agent.call_tool("fail", {})
 
     assert failed.is_error is True
-    assert [log.name for log in records.records] == [RUNTIME_LOGGER]
+    assert [log.name for log in records.records if log.name.startswith("vibepy_core")] == [
+        RUNTIME_LOGGER
+    ]
     [(record, log)] = written(records)
     assert record.error is not None
     assert record.error.code == "app.unhandled"
     assert log.exc_info is not None
 ```
 
-where `fail_for_none` is `async def fail_for_none(ctx: ToolContext[None], _payload: Empty) -> Empty: raise RuntimeError("the handler failed")` and `tool_for_none` builds a `Tool[None]` exactly as `tool` builds a `Tool[Seen]`. Check `AppDefinition`'s constructor fields in `src/vibepy_core/app/model.py` before writing it and match them.
+- [ ] **Step 2: Run to verify failure**
 
-Expected now: FAIL — the list of logger names contains `vibepy_core.adapters.mcp.server` as well.
+Run: `uv run pytest tests/test_tool_observability.py -q -k "both_channels or recorded_once"`
+Expected: `both_channels` PASSES already — the writer is one, and this test pins it. `recorded_once` FAILS: the logger names include `vibepy_core.adapters.mcp.server`, because the adapter still writes `Tool 'fail' raised`.
 
 - [ ] **Step 3: Implement**
 
