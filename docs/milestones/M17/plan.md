@@ -47,7 +47,7 @@
 ### Task 0: Record how Studio is installed — ADR-040 (Proposed)
 
 **Files:**
-- Create: `docs/decisions/ADR-040-studio-is-installed-as-a-gui-application-that-completes-its-own-installation-on-first-launch.md`
+- Create: `docs/decisions/ADR-040-one-bootstrap-application-installs-updates-and-removes-studio.md`
 
 Done while planning, at the owner's direction (2026-09-13): the decision is taken now so that
 the root layout M17 builds (`<root>/<distribution>/`, Studio's own folder included) is built
@@ -55,9 +55,10 @@ for the deployment that will use it. The record stays `Proposed` until the launc
 implementing it is its own follow-up after M17 merges, not a task of this plan.
 
 - [x] **Step 1: Write the record** — Nygard format; alternatives (console script, `python -m`,
-  native installer) and why each was not taken; the five launch steps; ADR-031 stands for the
-  Hub's Tools and the launcher is who starts the proxy; the `uv tool` GUI-script verification
-  named as a consequence.
+  typed `uv tool install`, self-update from the board, freezing Studio natively) and why each
+  was not taken; one PyInstaller bootstrap per platform with Install / Update / Remove; the
+  platforms' own MCP commands; Studio's entry point and pidfile; ADR-031 stands for the Hub's
+  Tools and the entry point is who starts the proxy; the verifications named as consequences.
 - [x] **Step 2: Commit**
 
 ---
