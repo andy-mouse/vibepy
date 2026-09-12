@@ -1,6 +1,7 @@
 # ADR-037: An App declaration validates itself at construction
 
-Status: Accepted
+Status: Accepted; supersedes ADR-012's statement that the adapter validates route format and
+uniqueness
 
 ## Context
 
@@ -72,12 +73,9 @@ entrypoint, and its failure path *is* the validation.
 
 Studio's `validate_app` (Agent channel) runs two authorities independently in the project's
 environment and concatenates what they report: `describe`, and
-`uv run --project <dir> --with "pyright[nodejs]" pyright --outputjson -p <dir> <dir>`. The
-trailing positional path scopes analysis to the project's own files, because pyright resolves
-configuration upward from `-p` and a project sitting under a parent that carries
-`[tool.pyright]` would otherwise be analysed as that parent. Configuration resolution itself
-stays pyright's. Each finding is a `Diagnostic(severity, error: ErrorInfo)` and nothing pyright
-reports is dropped; `conforms` is the absence of an `error`-severity diagnostic, stated as a
+`uv run --with "pyright[nodejs]" pyright --outputjson` over the project. Configuration
+resolution stays pyright's. Each finding is a `Diagnostic(severity, error: ErrorInfo)` and
+nothing pyright reports is dropped; `conforms` is the absence of an `error`-severity diagnostic, stated as a
 field so an agent does not recompute it. A `Diagnostic` is not an `ErrorInfo`: a failure
 happened and has no degree, a finding about a declaration may be advisory. It lives in Studio's
 authoring vocabulary, where its only producer is.
@@ -119,6 +117,3 @@ Rejected:
 - A generation-time violation — `tool.channels_empty` — fails the import before the aggregate can
   collect it, so an author may see it alone and the cross-declaration ones on the next run. That
   is the price of making the state unrepresentable at the object that owns it.
-
-Supersedes ADR-012's statement that the adapter validates route format and uniqueness;
-registration stands as recorded.
