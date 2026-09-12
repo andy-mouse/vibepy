@@ -19,13 +19,13 @@ async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: 
     assert inspected.diagnostic is None, inspected.diagnostic
     assert [app.app_name for app in inspected.apps] == ["todo-app"]
     todo = inspected.apps[0]
-    assert sorted(tool.name for tool in todo.tools) == [
+    assert sorted(tool.name for tool in todo.description.tools) == [
         "complete_todo",
         "create_todo",
         "list_todos",
     ]
-    assert [page.route for page in todo.pages] == ["/todos"]
-    assert set(todo.config_schema["properties"]) == {"db_path", "db_key"}  # type: ignore[index]
+    assert [page.route for page in todo.description.pages] == ["/todos"]
+    assert set(todo.description.config_schema["properties"]) == {"db_path", "db_key"}  # type: ignore[index]
 
 
 async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) -> None:

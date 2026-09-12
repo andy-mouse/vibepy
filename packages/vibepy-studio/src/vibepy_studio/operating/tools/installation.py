@@ -86,8 +86,8 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
         held_port = stored.ports.get(env.name)
         rows[env.name] = AppRow(
             app_name=env.name,
-            name=facts.described.name,
-            version=facts.described.version,
+            name=facts.described.description.name,
+            version=facts.described.description.version,
             distribution_version=facts.described.distribution_version,
             state="running" if deps.processes.running(env.name) else "installed",
             url=None if held_port is None else address(env.name, deps.proxy_port),
@@ -222,8 +222,8 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
     return Installation(
         app=AppRow(
             app_name=app_name,
-            name=facts.described.name,
-            version=facts.described.version,
+            name=facts.described.description.name,
+            version=facts.described.description.version,
             distribution_version=facts.described.distribution_version,
             state="installed",
             url=address(app_name, deps.proxy_port) if facts.has_pages else None,

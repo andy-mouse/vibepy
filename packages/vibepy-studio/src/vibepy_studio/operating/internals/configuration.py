@@ -13,14 +13,14 @@ from vibepy_studio.operating.models import AppFacts
 
 def config_fields(facts: AppFacts, /) -> tuple[ConfigFieldDescription, ...]:
     """Return every field the App declared, as it described them."""
-    return tuple(facts.described.config_fields)
+    return tuple(facts.described.description.config_fields)
 
 
 def secret_fields(facts: AppFacts, /) -> tuple[str, ...]:
     """Return the fields the App declared as secret."""
     return tuple(
         field.name
-        for field in facts.described.config_fields
+        for field in facts.described.description.config_fields
         if field.type is ConfigFieldType.SECRET
     )
 
@@ -39,6 +39,6 @@ def is_configured(facts: AppFacts, held: Mapping[str, object], /) -> bool:
     """Whether every field an App declared as required has a value."""
     return all(
         held.get(field.name) not in (None, "")
-        for field in facts.described.config_fields
+        for field in facts.described.description.config_fields
         if field.required
     )

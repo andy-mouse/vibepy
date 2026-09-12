@@ -76,8 +76,11 @@ async def test_the_facts_kept_carry_the_whole_description_the_app_wrote(installe
     facts = await read_facts(environment(installed, "vibepy-todo"))
 
     assert facts is not None
-    assert facts.described.tools[0].name == "create_todo"
-    assert [field.name for field in facts.described.config_fields] == ["db_path", "db_key"]
+    assert facts.described.description.tools[0].name == "create_todo"
+    assert [field.name for field in facts.described.description.config_fields] == [
+        "db_path",
+        "db_key",
+    ]
 
 
 @pytest.mark.apps("vibepy-todo")
