@@ -130,6 +130,13 @@ which has one consequence a app author must know: a Tool handler that blocks the
 serializes every channel in its process, and that is exactly the case where ToolRuntime's
 absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
+An App's own internals are where that wrapping belongs, and the type a handler receives as its
+dependencies is what makes it hold: when every value reachable through `ToolContext.dependencies`
+answers with an `async` or a pure operation, a handler has nothing to block on. Studio is that
+shape — `StudioRoot` holds its root directory privately and offers operations on it, and
+`Processes` does the same for its children — so a blocking call there would have to be imported
+into a Tool module deliberately.
+
 Sources:
 
 - <https://modelcontextprotocol.io/specification/2025-06-18/basic/transports>

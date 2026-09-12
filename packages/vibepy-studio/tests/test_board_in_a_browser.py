@@ -7,8 +7,8 @@ each one asks something a simulation cannot answer.
 The Screen fixture serves the page from uvicorn in a thread of its own, with an
 event loop of its own, so every Tool the page invokes runs there while this
 test's loop only holds the runtime open for the length of the `async with`.
-That works because `StudioDeps.state_lock` is an `asyncio.Lock` first awaited on
-the server's loop, and so binds to the loop that actually uses it.
+That works because the lock `StudioRoot` holds is an `asyncio.Lock` first awaited
+on the server's loop, and so binds to the loop that actually uses it.
 """
 
 from pathlib import Path

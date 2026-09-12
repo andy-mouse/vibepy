@@ -24,6 +24,7 @@ from vibepy_studio.operating.internals.installer import (
     remove_environment,
     write_facts,
 )
+from vibepy_studio.operating.internals.root import StudioRoot
 from vibepy_studio.operating.internals.routing import (
     address,
     allocate,
@@ -31,12 +32,7 @@ from vibepy_studio.operating.internals.routing import (
     write_install_config,
     write_route,
 )
-from vibepy_studio.operating.internals.state import (
-    HubState,
-    read_state,
-    update_state,
-    write_state,
-)
+from vibepy_studio.operating.internals.state import HubState, read_state, write_state
 from vibepy_studio.operating.internals.wheels import Candidate, candidates, readable
 
 __all__ = [
@@ -44,6 +40,7 @@ __all__ = [
     "Candidate",
     "HubState",
     "InstallFailed",
+    "StudioRoot",
     "address",
     "allocate",
     "candidates",
@@ -63,7 +60,6 @@ __all__ = [
     "remove_environment",
     "remove_route",
     "secret_fields",
-    "update_state",
     "without_secrets",
     "write_facts",
     "write_install_config",

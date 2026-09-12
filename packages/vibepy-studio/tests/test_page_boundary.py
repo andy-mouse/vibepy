@@ -7,11 +7,10 @@ boundary at the import level: no module under `vibepy_studio/pages/` may import
 `vibepy_core.tool` — a Page's whole reach into Hub Core is `ctx.tools.invoke`.
 """
 
+import ast
 from pathlib import Path
 
 import pytest
-
-from test_no_blocking_handlers import imported
 
 PAGES = Path(__file__).resolve().parents[1] / "src" / "vibepy_studio" / "operating" / "pages"
 
@@ -24,6 +23,22 @@ FORBIDDEN_IMPORTS = frozenset(
 )
 """What a Page module may never import: Hub Core's internals, its Tool modules, and the
 framework's Tool machinery. A Page reaches Hub Core only through `ctx.tools.invoke`."""
+
+
+def imported(source: str, /) -> set[str]:
+    """Every module this source imports, by the name it imports it from."""
+    found: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            found.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            found.add(node.module)
+    return found
+
+
+def test_the_import_surface_sees_a_forbidden_import() -> None:
+    """A guard that cannot fail is not a guard."""
+    assert imported("from vibepy_core.tool import Tool\n") & FORBIDDEN_IMPORTS != set()
 
 
 @pytest.mark.parametrize("module", sorted(PAGES.glob("*.py")), ids=lambda path: path.name)

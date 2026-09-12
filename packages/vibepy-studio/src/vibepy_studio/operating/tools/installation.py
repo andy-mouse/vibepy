@@ -24,21 +24,8 @@ from vibepy_studio.operating.internals import (
     allocate,
     candidates,
     declarations,
-    describe,
-    environment,
-    environments,
-    install,
-    installed_facts,
     is_configured,
-    purelib,
-    read_facts,
-    read_state,
     readable,
-    remove_environment,
-    remove_route,
-    update_state,
-    write_facts,
-    write_route,
 )
 from vibepy_studio.operating.models import (
     AppListing,
@@ -52,7 +39,7 @@ logger = logging.getLogger(__name__)
 
 async def _offered(deps: StudioDeps, app_name: str, /) -> Candidate | None:
     """Return the wheel the registered source offers under this name, or nothing."""
-    source = (await read_state(deps.root)).source
+    source = (await deps.root.state()).source
     if source is None or not await readable(source):
         return None
     return next((row for row in await candidates(source) if row.name == app_name), None)
@@ -61,18 +48,18 @@ async def _offered(deps: StudioDeps, app_name: str, /) -> Candidate | None:
 async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
     """One row per environment this Hub created, read without importing."""
     rows: dict[str, AppRow] = {}
-    stored = await read_state(deps.root)
-    for env in await environments(deps.root):
-        facts = await read_facts(env)
+    stored = await deps.root.state()
+    for app_name in await deps.root.installed():
+        facts = await deps.root.facts(app_name)
         if facts is None or facts.purelib is None:
-            rows[env.name] = AppRow(
-                app_name=env.name,
+            rows[app_name] = AppRow(
+                app_name=app_name,
                 state="installed",
                 diagnostic=ErrorInfo(
                     code="hub.facts_unreadable",
                     category=ErrorCategory.EXECUTION,
-                    message=f"{env} holds no readable record of what was installed",
-                    details={"app_name": env.name},
+                    message=f"{app_name!r} holds no readable record of what was installed",
+                    details={"app_name": app_name},
                 ),
             )
             continue
@@ -83,23 +70,23 @@ async def _installed(deps: StudioDeps, /) -> dict[str, AppRow]:
             ref.app_name == wanted and ref.distribution == facts.described.distribution
             for ref in declared
         )
-        held_port = stored.ports.get(env.name)
-        rows[env.name] = AppRow(
-            app_name=env.name,
+        held_port = stored.ports.get(app_name)
+        rows[app_name] = AppRow(
+            app_name=app_name,
             name=facts.described.description.name,
             version=facts.described.description.version,
             distribution_version=facts.described.distribution_version,
-            state="running" if deps.processes.running(env.name) else "installed",
-            url=None if held_port is None else address(env.name, deps.proxy_port),
-            configured=is_configured(facts, stored.config.get(env.name, {})),
+            state="running" if deps.processes.running(app_name) else "installed",
+            url=None if held_port is None else address(app_name, deps.proxy_port),
+            configured=is_configured(facts, stored.config.get(app_name, {})),
             has_pages=facts.has_pages,
             diagnostic=None
             if present
             else ErrorInfo(
                 code="hub.declaration_missing",
                 category=ErrorCategory.DECLARATION,
-                message=f"{env} no longer declares {wanted!r}",
-                details={"app_name": env.name, "declared_name": wanted},
+                message=f"{app_name!r} no longer declares {wanted!r}",
+                details={"app_name": app_name, "declared_name": wanted},
             ),
         )
     return rows
@@ -119,8 +106,7 @@ async def install_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Install
                 details={"app_name": payload.app_name},
             ),
         )
-    env = environment(deps.root, payload.app_name)
-    if env in await environments(deps.root):
+    if await deps.root.is_installed(payload.app_name):
         # Installing over an installation is refused rather than given a meaning
         # of its own: `update_app` is the operation that remakes an environment
         # while keeping what the Hub holds, and `remove_app` is the one that
@@ -155,18 +141,17 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
     Shared by installing and updating: an update is this, over an environment that
     was removed while the Hub kept everything else it held for the App.
     """
-    env = environment(deps.root, app_name)
     try:
-        await install(wheel=offered.wheel, source=offered.wheel.parent, env=env)
-        described = await describe(env)
-        metadata = await purelib(env)
+        await deps.root.install(app_name, wheel=offered.wheel, source=offered.wheel.parent)
+        described = await deps.root.describe(app_name)
+        metadata = await deps.root.purelib(app_name)
         mine = [
             facts
             for facts in described
             if str(canonicalize_name(facts.described.distribution)) == app_name
         ]
         if not mine:
-            await remove_environment(env)
+            await deps.root.remove_environment(app_name)
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
                 diagnostic=ErrorInfo(
@@ -177,7 +162,7 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
                 ),
             )
         if len(mine) > 1:
-            await remove_environment(env)
+            await deps.root.remove_environment(app_name)
             return Installation(
                 app=AppRow(app_name=app_name, state="available"),
                 diagnostic=ErrorInfo(
@@ -191,9 +176,9 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
                 ),
             )
         facts = mine[0].model_copy(update={"purelib": metadata})
-        await write_facts(env, facts)
+        await deps.root.write_facts(app_name, facts)
     except InstallFailed as failure:
-        await remove_environment(env)
+        await deps.root.remove_environment(app_name)
         return Installation(
             app=AppRow(app_name=app_name, state="available"),
             diagnostic=ErrorInfo(
@@ -217,8 +202,8 @@ async def _install_offered(deps: StudioDeps, app_name: str, offered: Candidate, 
                 update={"ports": {**state.ports, app_name: allocate(state.ports.values())}}
             )
 
-        port = (await update_state(deps, hold)).ports[app_name]
-        await write_route(deps.root, app_name, port=port)
+        port = (await deps.root.update_state(hold)).ports[app_name]
+        await deps.root.write_route(app_name, port=port)
     return Installation(
         app=AppRow(
             app_name=app_name,
@@ -241,7 +226,7 @@ async def list_apps(ctx: ToolContext[StudioDeps], _payload: Empty) -> AppListing
     """
     deps = ctx.dependencies
     rows = await _installed(deps)
-    source = (await read_state(deps.root)).source
+    source = (await deps.root.state()).source
     unreadable = source is not None and not await readable(source)
     if source is not None and not unreadable:
         for row in await candidates(source):
@@ -280,7 +265,7 @@ async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListi
     """Delete an App's environment, leaving the data it wrote elsewhere."""
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
-    await remove_environment(environment(deps.root, payload.app_name))
+    await deps.root.remove_environment(payload.app_name)
 
     def forget(state: HubState) -> HubState:
         return state.model_copy(
@@ -296,11 +281,11 @@ async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListi
             }
         )
 
-    await update_state(deps, forget)
+    await deps.root.update_state(forget)
     # After the state, so that a failure in between leaves a route to a child
     # that is gone -- which the proxy answers as 502 -- rather than a port held
     # by an App that no longer has one, which nothing would report at all.
-    await remove_route(deps.root, payload.app_name)
+    await deps.root.remove_route(payload.app_name)
     return await list_apps(ctx, Empty())
 
 
@@ -313,7 +298,7 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
     and the user has Stop.
     """
     deps = ctx.dependencies
-    facts = await installed_facts(deps.root, payload.app_name)
+    facts = await deps.root.installed_facts(payload.app_name)
     if facts is None:
         return _refused(
             payload.app_name,
@@ -347,7 +332,7 @@ async def update_app(ctx: ToolContext[StudioDeps], payload: AppName) -> Installa
             state="installed",
             version=facts.described.distribution_version,
         )
-    await remove_environment(environment(deps.root, payload.app_name))
+    await deps.root.remove_environment(payload.app_name)
     return await _install_offered(deps, payload.app_name, offered)
 
 

@@ -9,10 +9,7 @@ from vibepy_studio.internals import StudioDeps
 from vibepy_studio.operating.internals import (
     HubState,
     held_secrets,
-    installed_facts,
-    read_state,
     secret_fields,
-    update_state,
     without_secrets,
 )
 from vibepy_studio.operating.models import (
@@ -36,7 +33,7 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
     keeps it, and nothing this returns can overwrite one.
     """
     deps = ctx.dependencies
-    facts = await installed_facts(deps.root, payload.app_name)
+    facts = await deps.root.installed_facts(payload.app_name)
     if facts is None:
         return HeldConfig(
             app_name=payload.app_name,
@@ -62,7 +59,7 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
             }
         )
 
-    changed = await update_state(deps, hold)
+    changed = await deps.root.update_state(hold)
     kept = changed.config[payload.app_name]
     return HeldConfig(
         app_name=payload.app_name,
@@ -75,7 +72,7 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
 async def describe_config(ctx: ToolContext[StudioDeps], payload: AppName) -> ConfigDescription:
     """Return what one App declares it needs, and what the Hub holds for it so far."""
     deps = ctx.dependencies
-    facts = await installed_facts(deps.root, payload.app_name)
+    facts = await deps.root.installed_facts(payload.app_name)
     if facts is None:
         return ConfigDescription(
             app_name=payload.app_name,
@@ -87,7 +84,7 @@ async def describe_config(ctx: ToolContext[StudioDeps], payload: AppName) -> Con
             ),
         )
     secrets = secret_fields(facts)
-    held = (await read_state(deps.root)).config.get(payload.app_name, {})
+    held = (await deps.root.state()).config.get(payload.app_name, {})
     return ConfigDescription(
         app_name=payload.app_name,
         fields=list(facts.described.description.config_fields),
