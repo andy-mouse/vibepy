@@ -29,7 +29,6 @@ from vibepy_studio.operating.internals.routing import (
     address,
     allocate,
     remove_route,
-    write_install_config,
     write_route,
 )
 from vibepy_studio.operating.internals.state import HubState, read_state, write_state
@@ -62,7 +61,6 @@ __all__ = [
     "secret_fields",
     "without_secrets",
     "write_facts",
-    "write_install_config",
     "write_route",
     "write_state",
 ]

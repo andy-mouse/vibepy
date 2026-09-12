@@ -130,12 +130,15 @@ which has one consequence a app author must know: a Tool handler that blocks the
 serializes every channel in its process, and that is exactly the case where ToolRuntime's
 absence of a lock delivers nothing. Wrap blocking calls in `asyncio.to_thread`.
 
-An App's own internals are where that wrapping belongs, and the type a handler receives as its
-dependencies is what makes it hold: when every value reachable through `ToolContext.dependencies`
-answers with an `async` or a pure operation, a handler has nothing to block on. Studio is that
-shape — `StudioRoot` holds its root directory privately and offers operations on it, and
-`Processes` does the same for its children — so a blocking call there would have to be imported
-into a Tool module deliberately.
+An App's own internals are where that wrapping belongs, and what an App gives its Tool modules is
+what makes the rule hold rather than a handler remembering it. Two properties say it: every
+operation reachable through `ToolContext.dependencies`, and every operation an App's internals
+export to its Tool modules, is `async` or pure; and a `Path` a Tool's model or such a facade
+carries is passed to an internal that acts on it, never acted on by a method called in the
+handler. Studio is that shape — `StudioRoot` holds its root directory privately and offers
+operations on it, `Processes` does the same for its children, and `vibepy_studio.authoring.internals`
+exports `async` operations over a project directory — so a handler that blocked would be one that
+reached past all of them.
 
 Sources:
 

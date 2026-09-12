@@ -1,6 +1,5 @@
 """Invoking one Tool of a project's App, in the project's own environment."""
 
-import asyncio
 import logging
 from collections.abc import Sequence
 
@@ -28,7 +27,7 @@ _OUTPUT = TypeAdapter(dict[str, object])
 
 async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
     """Invoke one Tool once through the framework's own window, and return what it said."""
-    project = await asyncio.to_thread(locate, payload.project)
+    project = await locate(payload.project)
     if project is None:
         return Invocation(diagnostic=project_not_found(payload.project, "holds no pyproject.toml"))
     request = InvocationRequest(input=payload.input).model_dump_json()

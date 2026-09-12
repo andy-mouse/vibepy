@@ -1,10 +1,8 @@
 """Agent-native application framework.
 
-The package root is the App author's vocabulary: what an author declares, what a
-declaration is described as, and what the framework raises. An operation a host
-performs — discovering, loading, describing or reporting — is reached at its own
-module (`vibepy_core.app.package`, `.app.config`, `.app.group`, `.errors`), so
-importing the root never brings a blocking loader with it. ADR-035 says why.
+The package root is the App author's vocabulary, and an operation a host performs
+is reached at its own module. `docs/architecture/app-model.md`, "The import
+surface", says which is where; ADR-035 says why.
 """
 
 from vibepy_core.app import (

@@ -13,8 +13,8 @@ did the same one level down.
 `docs/architecture/packaging.md` already draws the line the root blurred: "What can be read
 without running is read from metadata. What requires an import happens in the App's own
 environment. Two operations, one on each side of that line, and nothing that spans it"
-(packaging.md:37). Its isolation invariant is "the Host never imports an App" (packaging.md:255,
-enforced as ADR-023 records), and `load_app`'s own docstring says "`serve`, `invoke` and `mcp`
+(`docs/architecture/packaging.md`, Inspection and loading). Its isolation invariant is "the Host
+never imports an App" (the same document, The isolation invariant, enforced as ADR-023 records), and `load_app`'s own docstring says "`serve`, `invoke` and `mcp`
 call it there, and a host reaches it only through them" — while the root offered it to everyone.
 
 The invariant was held instead by a test in the consuming App:

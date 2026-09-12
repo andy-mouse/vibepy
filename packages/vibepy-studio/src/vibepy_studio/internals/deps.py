@@ -10,10 +10,8 @@ from vibepy_studio.operating.internals.root import StudioRoot
 class StudioDeps:
     """Its root directory, its child processes, and the port its proxy listens on.
 
-    Every value here answers with an async or a pure operation. Nothing a handler
-    reaches through it carries a blocking method of its own, which is how
-    `docs/architecture/runtime.md`'s rule holds without a handler having to
-    remember it.
+    Every value here answers with an async or a pure operation, which is the shape
+    `docs/architecture/runtime.md` asks a handler's dependencies to have.
     """
 
     root: StudioRoot

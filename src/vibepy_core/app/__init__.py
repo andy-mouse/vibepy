@@ -1,9 +1,8 @@
 """The App: one unit of packaging and declaration.
 
-This surface follows the root's rule (ADR-035): declarations and descriptions,
-not the operations that read or import a distribution. `discover_apps`,
-`load_app`, `describe_app`, `described` and `AppRef` are reached at
-`vibepy_core.app.package`, and `APP_GROUP` at `vibepy_core.app.group`.
+This surface follows the root's rule: declarations and descriptions, not the
+operations that read or import a distribution. `docs/architecture/app-model.md`,
+"The import surface", says where those are reached; ADR-035 says why.
 """
 
 from vibepy_core.app.composition import (
