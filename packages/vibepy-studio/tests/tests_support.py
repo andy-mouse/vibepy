@@ -264,6 +264,84 @@ def _build(command: Sequence[str], /) -> None:
     subprocess.run(command, cwd=REPO, check=True, capture_output=True)
 
 
+BROKEN_ENTRY = """
+from pydantic import BaseModel
+
+from vibepy_core import (
+    AppDefinition, AppEntrypoint, NoConfig, Page, PageContext, PageDefinition,
+    Tool, ToolContext, ToolDefinition,
+)
+
+
+class Empty(BaseModel):
+    pass
+
+
+def read(_ctx: ToolContext[None], _payload: Empty) -> Empty:  # not async: pyright's one error
+    return Empty()
+
+
+async def home(_ctx: PageContext) -> None:
+    return None
+
+
+def tool(name: str) -> Tool[None]:
+    return Tool(
+        definition=ToolDefinition(
+            name=name, description=name, input_model=Empty, output_model=Empty, read_only=True
+        ),
+        handler=read,
+    )
+
+
+def app_definition():
+    return AppDefinition(
+        app_id="broken-app",
+        name="Broken",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[tool("read"), tool("read")],
+        pages=[
+            Page(
+                definition=PageDefinition(
+                    name="home", route="home", title="Home", tools=frozenset({"absent"})
+                ),
+                handler=home,
+            )
+        ],
+    )
+
+
+async def lifespan(_config: NoConfig):
+    yield None
+
+
+APP = AppEntrypoint(definition=app_definition(), lifespan=lifespan)
+"""
+
+
+def broken_project(root: Path, /) -> Path:
+    """A source project whose declaration breaks three rules and whose handler is not async.
+
+    It depends on this repository's `vibepy-core` by path, so `uv run --project`
+    resolves it without the workspace.
+    """
+    (root / "src" / "broken_app").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "broken-app"\nversion = "0.0.0"\nrequires-python = ">=3.12"\n'
+        'dependencies = ["vibepy-core"]\n'
+        '[project.entry-points."vibepy.apps"]\nbroken-app = "broken_app.entry:APP"\n'
+        '[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n'
+        '[tool.hatch.build.targets.wheel]\npackages = ["src/broken_app"]\n'
+        f'[tool.uv.sources]\nvibepy-core = {{ path = "{REPO.as_posix()}", editable = true }}\n',
+        encoding="utf-8",
+    )
+    (root / "src" / "broken_app" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "broken_app" / "entry.py").write_text(BROKEN_ENTRY, encoding="utf-8")
+    return root
+
+
 def write_wheel(folder: Path, /, *, name: str, version: str, declares: bool) -> Path:
     """A wheel that installs nothing, shaped as the specification shapes one.
 

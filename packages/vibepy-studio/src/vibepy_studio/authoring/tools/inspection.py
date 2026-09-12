@@ -20,13 +20,13 @@ from vibepy_studio.authoring.models import (
     ErrorCode,
     FrameworkDescription,
     InspectRequest,
-    from_report,
+    environment_failed,
     no_apps_declared,
     project_not_found,
     uv_unavailable,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, describe
-from vibepy_studio.models import Empty
+from vibepy_studio.models import Empty, diagnostic_of
 
 logger = logging.getLogger(__name__)
 
@@ -50,24 +50,27 @@ async def inspect_app(_ctx: ToolContext[object], payload: InspectRequest) -> App
     project = await locate(payload.project)
     if project is None:
         return AppInspection(
-            apps=[], diagnostic=project_not_found(payload.project, "holds no pyproject.toml")
+            apps=[], diagnostics=[project_not_found(payload.project, "holds no pyproject.toml")]
         )
     name = await declared_name(project)
     if name is None:
         return AppInspection(
-            apps=[], diagnostic=project_not_found(project, "declares no [project] name")
+            apps=[], diagnostics=[project_not_found(project, "declares no [project] name")]
         )
     try:
         described = await describe(python(project))
     except NotRunnable:
-        return AppInspection(apps=[], diagnostic=uv_unavailable(project))
+        return AppInspection(apps=[], diagnostics=[uv_unavailable(project)])
     except DescribeFailed as failed:
-        return AppInspection(
-            apps=[], diagnostic=from_report(project, failed.reported, failed.output)
-        )
+        if failed.reports:
+            return AppInspection(
+                apps=[],
+                diagnostics=[diagnostic_of(info, project=str(project)) for info in failed.reports],
+            )
+        return AppInspection(apps=[], diagnostics=[environment_failed(project, failed.output)])
     own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
-        return AppInspection(apps=[], diagnostic=no_apps_declared(project, name))
+        return AppInspection(apps=[], diagnostics=[no_apps_declared(project, name)])
     return AppInspection(apps=own)
 
 

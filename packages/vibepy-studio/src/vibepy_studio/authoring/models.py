@@ -9,11 +9,15 @@
 |  |  | it wrote is the message |
 | `authoring.no_apps_declared` | declaration | the project's environment declares nothing under |
 |  |  | the project's distribution |
+| `authoring.type_error` | declaration | pyright reported this, at its own severity; `file`, |
+|  |  | `line` (1-based) and `rule` say where and which |
 
 A framework failure the child reports travels with its own code and category and
 is not restated here.
 """
 
+from collections.abc import Sequence
+from enum import StrEnum
 from pathlib import PurePath
 
 from pydantic import BaseModel, JsonValue
@@ -47,10 +51,38 @@ class InspectRequest(BaseModel):
 
 
 class AppInspection(BaseModel):
-    """What a project declares, or why that could not be read."""
+    """What a project declares, or every reason it could not be read."""
 
     apps: list[DescribedApp]
-    diagnostic: ErrorInfo | None = None
+    diagnostics: list[ErrorInfo] = []
+
+
+class Severity(StrEnum):
+    """A pyright diagnostic's own severity."""
+
+    ERROR = "error"
+    WARNING = "warning"
+    INFORMATION = "information"
+
+
+class Diagnostic(BaseModel):
+    """One conformance finding, at its own severity."""
+
+    severity: Severity
+    error: ErrorInfo
+
+
+class ValidateRequest(BaseModel):
+    """A project to validate: the directory holding its `pyproject.toml`."""
+
+    project: PurePath
+
+
+class AppValidation(BaseModel):
+    """Whether a project conforms, and every diagnostic that says why not."""
+
+    conforms: bool
+    diagnostics: list[Diagnostic]
 
 
 class InvokeRequest(BaseModel):
@@ -122,3 +154,26 @@ def from_report(
     if reported is None:
         return environment_failed(project, output)
     return diagnostic_of(reported, project=str(project), **details)
+
+
+def type_error(
+    project: PurePath, *, file: str, line: int, rule: str | None, message: str
+) -> ErrorInfo:
+    """Carry one pyright diagnostic as the framework's shape; pyright's sentence is the message."""
+    details = {"project": str(project), "file": file, "line": str(line)}
+    if rule is not None:
+        details["rule"] = rule
+    return ErrorInfo(
+        code="authoring.type_error",
+        category=ErrorCategory.DECLARATION,
+        message=message,
+        details=details,
+    )
+
+
+def validation(diagnostics: Sequence[Diagnostic], /) -> AppValidation:
+    """Say whether the project conforms: no diagnostic of severity `error`."""
+    return AppValidation(
+        conforms=not any(d.severity is Severity.ERROR for d in diagnostics),
+        diagnostics=list(diagnostics),
+    )
