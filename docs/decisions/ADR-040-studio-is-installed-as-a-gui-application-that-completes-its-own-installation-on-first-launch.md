@@ -38,9 +38,12 @@ do.
 
 ## Decision
 
-Studio is distributed as one wheel, `vibepy-studio`, and installed into a tool environment
-(`uv tool install vibepy-studio`, or any installer of wheels). It declares one `gui_scripts`
-entry point, `vibepy-studio`, and no `console_scripts`.
+Studio is distributed as one wheel, `vibepy-studio`, placed in the same folder of wheels the
+operating role installs Apps from, and installed into a tool environment from that folder:
+`uv tool install --find-links <wheelhouse> vibepy-studio`. That command is the one bootstrap step
+outside Studio. It declares one `gui_scripts` entry point, `vibepy-studio`, and no
+`console_scripts`. No package index is consulted for Studio or for Apps; the wheelhouse is the
+one supply of both.
 
 Launching it completes the installation and opens the Hub:
 
@@ -68,20 +71,28 @@ Closing the launcher closes its children. The Agent channel process is still lau
 agent platform (ADR-010, ADR-017); what changes is that its registration is written by Studio
 rather than by hand.
 
-Studio updates and removes itself, because the operating role's `update_app` and `remove_app`
-act on environments Studio created and Studio's own is not one, and because a GUI application
-does not send its user to a terminal:
+Studio is a row on its own board, like any App. `list_apps` reads the registered package source
+— the folder `register_package_source` recorded in Studio's own state, which is how it judges a
+newer version of any App — and finds `vibepy-studio` there the same way; a newer wheel shows as
+"newer" on Studio's row with the same Update, and the row has the same Remove. Its state is
+`running` whenever the board is seen, and it has no Start or Stop, as an App without a Web
+channel has none. No Tool and no Page is added for Studio's own sake. The one place Studio
+differs is the installer, for the structural reason that Studio's environment is not one the
+operating role created:
 
-- **update**: at launch and on request from the board, Studio asks its installer whether a newer
-  `vibepy-studio` exists; with the user's consent it runs `uv tool upgrade vibepy-studio` as a
-  child and relaunches itself — running code cannot replace itself, so upgrade-then-relaunch is
-  the shape every self-updating application has. The tool environment's path does not change
-  across an upgrade, so the registration written at step 5 stays valid.
-- **remove**: on request from the board, Studio stops its running Apps, removes the Agent channel
-  registration it wrote from every platform that holds it, runs `uv tool uninstall
+- **update**: for its own distribution the installer runs `uv tool install --find-links
+  <wheelhouse> vibepy-studio==<newer>` as a child and relaunches Studio — running code cannot
+  replace itself, so upgrade-then-relaunch is the shape every self-updating application has.
+  The tool environment's path does not change across an upgrade, so the registration written at
+  step 5 stays valid.
+- **remove**: for its own distribution the installer stops the running Apps, removes the Agent
+  channel registration it wrote from every platform that holds it, runs `uv tool uninstall
   vibepy-studio`, and exits. The root — `~/vibepy-apps`, the installed Apps and what they hold —
   is left in place and its path shown: it is the user's data, as `remove_app` leaves an App's
   data outside its folder.
+
+Before a source is registered, Studio knows of no newer version of anything, itself included;
+registering one is the step an App install already requires, and nothing is added for Studio.
 
 ADR-031 stands as written for the Hub: its Tools write routing configuration and start,
 supervise, signal and observe no proxy. This record decides who does — the launcher, which is
@@ -101,8 +112,13 @@ that launcher under a development name.
   (`uv tool uninstall` in a terminal) leaves it, because no launch follows to observe that, and
   the platform then reports a command it cannot run
 - update and removal depend on `uv` being present, which the installer this record chooses
-  guarantees; a Studio installed by another installer of wheels updates and removes itself the
-  way that installer provides, and the board says so rather than guessing
+  guarantees
+- whether uv records the `--find-links` folder of the bootstrap install where Studio could read
+  it back is verified against uv's documentation before implementation; if it does, the first
+  launch registers that folder as the package source and the operator registers nothing by
+  hand. Not promised here
+- the operating role's installer learns one distinction — the distribution it is itself — and
+  nothing above it does; the board renders Studio's row with the code that renders every row
 - whether `uv tool install` exposes `gui_scripts` is verified against uv's documentation before
   implementation: its tools document names "console entry points, script entry points, and
   binary scripts" and does not name GUI scripts. If it does not expose them, the record is
