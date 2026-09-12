@@ -82,7 +82,7 @@ Studio keeps no authoring state. The Web channel of a project is opened by the a
 | validate_app | Studio, M16 |
 | type validation | pyright, run by validate_app (M16) |
 | validate_package, package_app | `uv build`, the agent's own; M9's `describe` reads the result |
-| run_conformance_tests | unassigned |
+| run_conformance_tests | `uv run pytest`, the agent's own: an App's tests are its own domain, and that both channels reach one Tool implementation is held by the framework's structure and its own dual-channel test (`runtime.md`), not re-tested per App |
 | get_app_errors, get_runtime_logs | M15 |
 
 ## Authoring MCP
