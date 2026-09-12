@@ -29,11 +29,6 @@ class DescribeFailed(Exception):
         self.output = output
         self.reports = reports
 
-    @property
-    def reported(self) -> ErrorInfo | None:
-        """The first report, for a caller that shows one failure."""
-        return self.reports[0] if self.reports else None
-
 
 async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
     """Return what the environment `python` runs in declares.

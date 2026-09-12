@@ -142,18 +142,13 @@ def no_apps_declared(project: PurePath, distribution: str, /) -> ErrorInfo:
     )
 
 
-def from_report(
-    project: PurePath, reported: ErrorInfo | None, output: str, /, **details: str
-) -> ErrorInfo:
-    """Carry the child's own report when it made one, else the environment as the failure.
-
-    A child that reached the framework reports in the framework's vocabulary,
-    and that report travels as it is. `authoring.environment_failed` is what is
-    left to say when it did not.
-    """
-    if reported is None:
-        return environment_failed(project, output)
-    return diagnostic_of(reported, project=str(project), **details)
+def from_reports(
+    project: PurePath, reported: Sequence[ErrorInfo], output: str, /, **details: str
+) -> list[ErrorInfo]:
+    """Carry the child's own reports when it made any, else the environment as the failure."""
+    if not reported:
+        return [environment_failed(project, output)]
+    return [diagnostic_of(info, project=str(project), **details) for info in reported]
 
 
 def type_error(

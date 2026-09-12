@@ -34,5 +34,4 @@ async def test_a_python_that_is_not_there_is_not_runnable() -> None:
 async def test_a_command_that_exits_without_a_report_fails_to_describe() -> None:
     with pytest.raises(DescribeFailed) as failed:
         await describe([sys.executable, "-S", "-c", "import sys; sys.exit(2)", "--"])
-    assert failed.value.reported is None
     assert failed.value.reports == ()

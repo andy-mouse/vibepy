@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import AGENT, FIXTURES, broken_project, studio
+from tests_support import AGENT, FIXTURES, broken_project, studio, warning_project
 from vibepy_core import Channel, ErrorCategory
 from vibepy_studio.authoring.models import AppValidation, Severity
 
@@ -38,6 +38,19 @@ async def test_every_violation_and_every_type_error_is_one_diagnostic(tmp_path: 
     assert first.details["file"].endswith("entry.py")
     assert first.details["line"].isdigit()
     assert first.details.get("rule") == "reportArgumentType"
+
+
+@pytest.mark.integration
+async def test_a_pyright_warning_conforms_but_is_still_reported(tmp_path: Path) -> None:
+    project = warning_project(tmp_path / "warning")
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
+        validated = await tools.invoke("validate_app", {"project": str(project)}, principal=AGENT)
+    assert isinstance(validated, AppValidation)
+    assert validated.conforms is True
+    typed = [d for d in validated.diagnostics if d.error.code == "authoring.type_error"]
+    assert typed
+    assert all(d.severity is Severity.WARNING for d in typed)
+    assert typed[0].error.details["rule"] == "reportUnusedImport"
 
 
 async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) -> None:

@@ -88,8 +88,8 @@ async def test_an_expected_failure_arrives_as_structured_data(tmp_path: Path) ->
 
     assert inspected.is_error is False
     assert inspected.structured_content is not None
-    structured = inspected.structured_content
-    assert structured["diagnostics"][0]["code"] == "authoring.project_not_found"
+    inspection = AppInspection.model_validate(inspected.structured_content)
+    assert [d.code for d in inspection.diagnostics] == ["authoring.project_not_found"]
 
 
 @pytest.mark.integration

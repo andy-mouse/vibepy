@@ -342,6 +342,76 @@ def broken_project(root: Path, /) -> Path:
     return root
 
 
+WARNING_ENTRY = """
+import os
+from contextlib import asynccontextmanager
+
+from pydantic import BaseModel
+
+from vibepy_core import AppDefinition, AppEntrypoint, NoConfig, Tool, ToolContext, ToolDefinition
+
+
+class Empty(BaseModel):
+    pass
+
+
+async def read(_ctx: ToolContext[None], _payload: Empty) -> Empty:
+    return Empty()
+
+
+@asynccontextmanager
+async def lifespan(_config: NoConfig):
+    yield None
+
+
+APP = AppEntrypoint(
+    definition=AppDefinition(
+        app_id="warning-app",
+        name="Warning",
+        version="0.0.0",
+        config=NoConfig,
+        tools=[
+            Tool(
+                definition=ToolDefinition(
+                    name="read",
+                    description="read",
+                    input_model=Empty,
+                    output_model=Empty,
+                    read_only=True,
+                ),
+                handler=read,
+            )
+        ],
+        pages=[],
+    ),
+    lifespan=lifespan,
+)
+"""
+
+
+def warning_project(root: Path, /) -> Path:
+    """A source project that conforms, and whose `[tool.pyright]` turns one rule into a warning.
+
+    Its one unused import, `os`, is what `reportUnusedImport` finds; conforming
+    is otherwise identical to `broken_project`'s shape, minus what breaks it.
+    """
+    (root / "src" / "warning_app").mkdir(parents=True)
+    (root / "pyproject.toml").write_text(
+        "[project]\n"
+        'name = "warning-app"\nversion = "0.0.0"\nrequires-python = ">=3.12"\n'
+        'dependencies = ["vibepy-core"]\n'
+        '[project.entry-points."vibepy.apps"]\nwarning-app = "warning_app.entry:APP"\n'
+        '[build-system]\nrequires = ["hatchling"]\nbuild-backend = "hatchling.build"\n'
+        '[tool.hatch.build.targets.wheel]\npackages = ["src/warning_app"]\n'
+        f'[tool.uv.sources]\nvibepy-core = {{ path = "{REPO.as_posix()}", editable = true }}\n'
+        '[tool.pyright]\nreportUnusedImport = "warning"\n',
+        encoding="utf-8",
+    )
+    (root / "src" / "warning_app" / "__init__.py").write_text("", encoding="utf-8")
+    (root / "src" / "warning_app" / "entry.py").write_text(WARNING_ENTRY, encoding="utf-8")
+    return root
+
+
 def write_wheel(folder: Path, /, *, name: str, version: str, declares: bool) -> Path:
     """A wheel that installs nothing, shaped as the specification shapes one.
 

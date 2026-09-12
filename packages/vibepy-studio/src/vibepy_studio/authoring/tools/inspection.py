@@ -20,13 +20,13 @@ from vibepy_studio.authoring.models import (
     ErrorCode,
     FrameworkDescription,
     InspectRequest,
-    environment_failed,
+    from_reports,
     no_apps_declared,
     project_not_found,
     uv_unavailable,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, describe
-from vibepy_studio.models import Empty, diagnostic_of
+from vibepy_studio.models import Empty
 
 logger = logging.getLogger(__name__)
 
@@ -62,12 +62,9 @@ async def inspect_app(_ctx: ToolContext[object], payload: InspectRequest) -> App
     except NotRunnable:
         return AppInspection(apps=[], diagnostics=[uv_unavailable(project)])
     except DescribeFailed as failed:
-        if failed.reports:
-            return AppInspection(
-                apps=[],
-                diagnostics=[diagnostic_of(info, project=str(project)) for info in failed.reports],
-            )
-        return AppInspection(apps=[], diagnostics=[environment_failed(project, failed.output)])
+        return AppInspection(
+            apps=[], diagnostics=from_reports(project, failed.reports, failed.output)
+        )
     own = [entry for entry in described if canonicalize_name(entry.distribution) == name]
     if not own:
         return AppInspection(apps=[], diagnostics=[no_apps_declared(project, name)])

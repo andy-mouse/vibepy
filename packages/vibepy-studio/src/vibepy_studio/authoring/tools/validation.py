@@ -19,13 +19,13 @@ from vibepy_studio.authoring.models import (
     Severity,
     ValidateRequest,
     environment_failed,
+    from_reports,
     project_not_found,
     type_error,
     uv_unavailable,
     validation,
 )
 from vibepy_studio.internals import DescribeFailed, NotRunnable, describe
-from vibepy_studio.models import diagnostic_of
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +55,7 @@ async def validate_app(_ctx: ToolContext[object], payload: ValidateRequest) -> A
         return validation([_error(uv_unavailable(project))])
     except DescribeFailed as failed:
         members = [info for info in failed.reports if info.code != "app.declaration_invalid"]
-        if members:
-            found.extend(_error(diagnostic_of(info, project=str(project))) for info in members)
-        else:
-            found.append(_error(environment_failed(project, failed.output)))
+        found.extend(_error(info) for info in from_reports(project, members, failed.output))
 
     try:
         for entry in await typecheck(project):
@@ -74,8 +71,6 @@ async def validate_app(_ctx: ToolContext[object], payload: ValidateRequest) -> A
                     ),
                 )
             )
-    except NotRunnable:
-        found.append(_error(uv_unavailable(project)))
     except TypecheckFailed as failed:
         found.append(_error(environment_failed(project, failed.output)))
     return validation(found)

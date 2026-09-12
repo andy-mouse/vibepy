@@ -135,9 +135,8 @@ input.
 `serve`, `mcp` and `invoke` share one logging configuration, `vibepy_core.logs`, so the three
 processes that run an App write the framework's lines the same way: the `vibepy_core` loggers
 at INFO, each record as its message alone, to standard error. Two kinds of line come from the
-framework — a report (`ErrorInfo`, one per failure of the process or of opening its window; a
-declaration that fails several ways is its aggregate line followed by one line per violation) and
-an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`)
+framework — a report (`ErrorInfo`, one per failure of the process or of opening its window; an
+invalid declaration is several, as `docs/architecture/errors.md` says) and an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`)
 — and each is one JSON object on one line, followed by a traceback when the record's failure is
 an `execution` one. Everything else on the stream — the Web technology's own lines — is neither,
 and a reader takes what validates and skips the rest, as Studio's reader of a child's log does.
