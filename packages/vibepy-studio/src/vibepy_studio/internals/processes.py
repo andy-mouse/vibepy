@@ -12,7 +12,7 @@ import os
 import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePath
 
 from vibepy_core.app.config import ENV_PREFIX
 from vibepy_core.errors import ErrorInfo, read_report_line
@@ -21,12 +21,9 @@ logger = logging.getLogger(__name__)
 
 DESCRIBES_THIS_PROCESS = frozenset(
     {
-        # the environment this process runs in, which is not the App's
+        # the environment this process runs in, which is not the App's; the
+        # `PYTHON*` variables are not here because `-I` has Python ignore them
         "VIRTUAL_ENV",
-        "PYTHONHOME",
-        "PYTHONPATH",
-        "PYTHONEXECUTABLE",
-        "PYTHONSTARTUP",
         # the test this process is running, if it is running one
         "PYTEST_CURRENT_TEST",
         # the server this process is serving, if it is serving one
@@ -60,6 +57,20 @@ def child_environment() -> dict[str, str]:
     }
 
 
+def python_command(python: Sequence[str], /, *args: str) -> list[str]:
+    """Return the command that runs `args` with the interpreter `python` names, isolated.
+
+    `-I` is Python's own flag for running one party's code with another party's
+    interpreter: `sys.path` holds neither the current directory nor the user's
+    site-packages, and every `PYTHON*` variable is ignored
+    (Python docs, Command line and environment). A virtual environment is still
+    recognised, because that is decided by the `pyvenv.cfg` beside the
+    interpreter and not by anything `-I` ignores. Every framework command Studio
+    runs in an App's environment is built here, so the flag is written once.
+    """
+    return [*python, "-I", *args]
+
+
 @dataclass(frozen=True, kw_only=True)
 class Completed:
     """What one finished child left: its exit code and both streams, decoded."""
@@ -84,7 +95,12 @@ def is_runnable(program: str, /) -> bool:
 
 
 async def run(
-    command: Sequence[str], /, *, stdin: str | None = None, env: Mapping[str, str] | None = None
+    command: Sequence[str],
+    /,
+    *,
+    stdin: str | None = None,
+    env: Mapping[str, str] | None = None,
+    cwd: PurePath | None = None,
 ) -> Completed:
     """Run one command to completion and return what it left.
 
@@ -92,7 +108,8 @@ async def run(
     describes Studio's own process describes no child and what the caller hands
     the child reaches it. Standard output and standard error are returned
     apart, unmerged, so a report a child wrote to standard error stays separate
-    from what it wrote to standard output.
+    from what it wrote to standard output. `cwd` is where the child runs; nothing
+    here derives it.
     """
     if not await asyncio.to_thread(is_runnable, command[0]):
         raise NotRunnable(command[0])
@@ -102,6 +119,7 @@ async def run(
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         env={**child_environment(), **(env or {})},
+        cwd=None if cwd is None else str(cwd),
     )
     out, err = await process.communicate(None if stdin is None else stdin.encode())
     return Completed(

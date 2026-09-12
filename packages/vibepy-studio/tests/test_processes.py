@@ -17,6 +17,7 @@ from vibepy_core import ErrorCategory
 from vibepy_studio.internals.processes import (
     NotRunnable,
     child_environment,
+    python_command,
     reported,
     reports,
     run,
@@ -227,6 +228,47 @@ def test_reported_reads_the_report_among_other_lines() -> None:
     assert found.code == "tool.not_found"
     assert found.category == ErrorCategory.CALLER
     assert reported("nothing here") is None
+
+
+@pytest.mark.integration
+async def test_a_child_does_not_see_what_pythonpath_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The outcome, not the list: `-I` is Python's guarantee that `PYTHON*`
+    is ignored, and this is what that guarantee buys the App."""
+    planted = tmp_path / "planted"
+    planted.mkdir()
+    (planted / "planted_module.py").write_text("", encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(planted))
+
+    completed = await run(python_command([sys.executable], "-c", "import planted_module"))
+
+    assert completed.returncode != 0
+    assert "planted_module" in completed.stderr
+
+
+@pytest.mark.integration
+async def test_a_child_does_not_see_the_launchers_current_directory(tmp_path: Path) -> None:
+    """`python -m` and `python -c` put the current directory on `sys.path`;
+    `-I` does not, so a module beside Studio is not the App's."""
+    (tmp_path / "beside_studio.py").write_text("", encoding="utf-8")
+
+    completed = await run(
+        python_command([sys.executable], "-c", "import beside_studio"), cwd=tmp_path
+    )
+
+    assert completed.returncode != 0
+
+
+def test_python_command_puts_isolated_mode_before_the_program() -> None:
+    assert python_command(["uv", "run", "python"], "-m", "vibepy_core.describe") == [
+        "uv",
+        "run",
+        "python",
+        "-I",
+        "-m",
+        "vibepy_core.describe",
+    ]
 
 
 def test_reports_reads_every_report_line_in_order() -> None:

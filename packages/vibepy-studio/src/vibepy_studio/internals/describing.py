@@ -8,12 +8,13 @@ the whole shape the command writes.
 
 import logging
 from collections.abc import Sequence
+from pathlib import PurePath
 
 from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.entrypoint import DescribedApp
 from vibepy_core.errors import ErrorInfo
-from vibepy_studio.internals.processes import reports, run
+from vibepy_studio.internals.processes import python_command, reports, run
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,9 @@ class DescribeFailed(Exception):
         self.reports = reports
 
 
-async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
+async def describe(
+    python: Sequence[str], /, *, cwd: PurePath | None = None
+) -> tuple[DescribedApp, ...]:
     """Return what the environment `python` runs in declares.
 
     Raises:
@@ -38,7 +41,7 @@ async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
         DescribeFailed: the command exited non-zero, or wrote something that is
             not a list of descriptions.
     """
-    completed = await run([*python, "-m", "vibepy_core.describe"])
+    completed = await run(python_command(python, "-m", "vibepy_core.describe"), cwd=cwd)
     if completed.returncode != 0:
         raise DescribeFailed(
             (completed.stdout + completed.stderr).strip(), reports=reports(completed.stderr)
