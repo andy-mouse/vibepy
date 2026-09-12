@@ -41,8 +41,8 @@ def described_app(result: subprocess.CompletedProcess[str], app_id: str) -> Desc
     about rather than asserting how many there are.
     """
     described = described_apps(result)
-    found = [entry for entry in described if entry.app_id == app_id]
-    assert found, f"{app_id} was not described: {[entry.app_id for entry in described]}"
+    found = [entry for entry in described if entry.description.app_id == app_id]
+    assert found, f"{app_id} was not described: {[entry.description.app_id for entry in described]}"
     return found[0]
 
 
@@ -52,20 +52,20 @@ def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) 
 
     assert result.returncode == 0, result.stderr
     todo = described_app(result, "todo-app")
-    assert todo.version == "0.0.0"
-    assert sorted(properties(todo.config_schema)) == ["db_key", "db_path"]
-    assert [tool.name for tool in todo.tools] == [
+    assert todo.description.version == "0.0.0"
+    assert sorted(properties(todo.description.config_schema)) == ["db_key", "db_path"]
+    assert [tool.name for tool in todo.description.tools] == [
         "create_todo",
         "list_todos",
         "complete_todo",
     ]
-    assert [page.route for page in todo.pages] == ["/todos"]
-    assert described_app(result, "notes-app").pages == []
+    assert [page.route for page in todo.description.pages] == ["/todos"]
+    assert described_app(result, "notes-app").description.pages == []
 
 
 @pytest.mark.integration
 def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> None:
-    before = {entry.app_id for entry in described_apps(run_describe(tmp_path))}
+    before = {entry.description.app_id for entry in described_apps(run_describe(tmp_path))}
     dist_info = tmp_path / "plain-1.0.0.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text(
@@ -75,7 +75,7 @@ def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> No
     result = run_describe(tmp_path)
 
     assert result.returncode == 0, result.stderr
-    assert {entry.app_id for entry in described_apps(result)} == before
+    assert {entry.description.app_id for entry in described_apps(result)} == before
 
 
 @pytest.mark.integration

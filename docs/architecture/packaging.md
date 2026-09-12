@@ -91,9 +91,9 @@ object per App declared in that environment. A failure writes the framework's co
 to standard error and exits 1.
 
 Each object is one `DescribedApp`: the `app_name`, `distribution` and `distribution_version` of
-the declaration it describes, beside the description itself. A host that also enumerates the
-environment joins the two answers on identity rather than on position. The command writes that
-type and a reader validates it, so neither side restates its fields.
+the declaration it describes, and its `AppDescription` nested under `description`. A host that
+also enumerates the environment joins the two answers on identity rather than on position. The
+command writes that type and a reader validates it, so neither side restates its fields.
 
 This is how a Host reads an App it must not import. The Host runs the command with the App
 environment's interpreter and parses the result; the import happens on the far side of a process

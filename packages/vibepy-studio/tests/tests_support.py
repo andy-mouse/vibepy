@@ -15,7 +15,7 @@ from pathlib import Path
 from urllib.request import Request, urlopen
 
 from vibepy_core import Channel, Principal
-from vibepy_core.app import DescribedApp
+from vibepy_core.app import AppDescription, DescribedApp
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP
@@ -76,13 +76,15 @@ def described_app(
         app_name=app_name,
         distribution=distribution,
         distribution_version=distribution_version,
-        app_id=app_id,
-        name=name,
-        version=version,
-        config_schema={},
-        config_fields=[],
-        tools=[],
-        pages=[],
+        description=AppDescription(
+            app_id=app_id,
+            name=name,
+            version=version,
+            config_schema={},
+            config_fields=[],
+            tools=[],
+            pages=[],
+        ),
     )
 
 

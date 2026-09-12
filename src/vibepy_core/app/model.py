@@ -11,7 +11,7 @@ from vibepy_core.tool.runtime import Tool
 __all__ = ["AppConfig", "AppDefinition", "NoConfig"]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AppDefinition[DepsT, ConfigT: AppConfig]:
     """Everything a channel needs to know about an App without running it.
 

@@ -95,7 +95,7 @@ class AppFacts(BaseModel):
     @property
     def has_pages(self) -> bool:
         """Whether the App declares a Web channel."""
-        return bool(self.described.pages)
+        return bool(self.described.description.pages)
 
 
 _SEPARATORS = frozenset("/\\:\x00")

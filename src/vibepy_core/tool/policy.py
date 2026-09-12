@@ -11,7 +11,7 @@ from vibepy_core.principal import Principal
 from vibepy_core.tool.model import ToolDefinition
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AuthorizationRequest:
     """One call as a policy sees it: the Tool, who is calling, and through where."""
 

@@ -13,6 +13,8 @@ from importlib.metadata import EntryPoint, distributions
 from pathlib import Path
 from typing import TypeGuard
 
+from pydantic import BaseModel
+
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppDescription, AppEntrypoint
 from vibepy_core.app.group import APP_GROUP
@@ -25,7 +27,7 @@ from vibepy_core.errors import (
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class AppRef:
     """Where an App is declared. Carries no imported object and no declaration."""
 
@@ -82,22 +84,22 @@ def _load(ref: AppRef, /) -> AppEntrypoint[object, AppConfig]:
     return loaded
 
 
-class DescribedApp(AppDescription):
+class DescribedApp(BaseModel):
     """One entry of what `describe` writes: the declaration's identity, and its description."""
 
     app_name: str
     distribution: str
     distribution_version: str
+    description: AppDescription
 
 
 def described(ref: AppRef, /) -> DescribedApp:
     """Load one declared entrypoint and describe it with its identity."""
-    description = _load(ref).describe()
     return DescribedApp(
         app_name=ref.app_name,
         distribution=ref.distribution,
         distribution_version=ref.distribution_version,
-        **description.model_dump(),
+        description=_load(ref).describe(),
     )
 
 

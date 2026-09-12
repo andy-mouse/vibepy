@@ -103,7 +103,7 @@ def child_environment() -> dict[str, str]:
     }
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Completed:
     """What one finished child left: its exit code and both streams, decoded."""
 
@@ -168,7 +168,7 @@ def reported(text: str, /) -> ErrorInfo | None:
     return None
 
 
-@dataclass
+@dataclass(kw_only=True)
 class _Child:
     """One started App: the process, and whether it has answered.
 

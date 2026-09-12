@@ -67,7 +67,7 @@ async def test_an_inspection_arrives_as_structured_content(tmp_path: Path) -> No
     assert inspected.is_error is False
     assert inspected.structured_content is not None
     inspection = AppInspection.model_validate(inspected.structured_content)
-    assert [tool.name for tool in inspection.apps[0].tools] == [
+    assert [tool.name for tool in inspection.apps[0].description.tools] == [
         "create_todo",
         "list_todos",
         "complete_todo",

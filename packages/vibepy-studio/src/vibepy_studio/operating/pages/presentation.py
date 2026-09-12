@@ -16,7 +16,7 @@ STAGES: tuple[str, str, str, str] = ("Available", "Installed", "Configured", "Ru
 _ORDER = {"running": 0, "installed": 1, "available": 2}
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Mark:
     """One step of a row's rail."""
 
@@ -26,7 +26,7 @@ class Mark:
     tone: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Action:
     """One button, and the Tool it invokes."""
 
@@ -36,7 +36,7 @@ class Action:
     enabled: bool = True
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class RowView:
     """One App as the board shows it."""
 
@@ -106,20 +106,22 @@ def row_view(row: AppRow, /, *, declares_fields: bool) -> RowView:
 
 def _actions(row: AppRow, /, *, configured: bool, declares_fields: bool) -> tuple[Action, ...]:
     if row.state == "available":
-        return (Action("Install", "install_app", primary=True),)
+        return (Action(label="Install", tool="install_app", primary=True),)
     if row.state == "running":
-        return (Action("Stop", "stop_app", primary=False),)
+        return (Action(label="Stop", tool="stop_app", primary=False),)
     if row.diagnostic is not None:
-        return (Action("Uninstall", "remove_app", primary=False),)
-    actions = [Action("Uninstall", "remove_app", primary=False)]
+        return (Action(label="Uninstall", tool="remove_app", primary=False),)
+    actions = [Action(label="Uninstall", tool="remove_app", primary=False)]
     if declares_fields:
-        actions.append(Action("Configure", "describe_config", primary=not configured))
+        actions.append(Action(label="Configure", tool="describe_config", primary=not configured))
     if row.available_version is not None:
-        actions.append(Action("Update", "update_app", primary=configured))
+        actions.append(Action(label="Update", tool="update_app", primary=configured))
     else:
         # A window validates configuration before it acquires anything, so
         # starting an unconfigured App would only fail. Say so up front.
-        actions.append(Action("Start", "start_app", primary=configured, enabled=configured))
+        actions.append(
+            Action(label="Start", tool="start_app", primary=configured, enabled=configured)
+        )
     return tuple(actions)
 
 

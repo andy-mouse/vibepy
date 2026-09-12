@@ -36,14 +36,14 @@ class PrincipalToolInvoker(Protocol):
         ...
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PageContext:
     """Page-scoped context. Created by PageRuntime, never by a Page or a channel."""
 
     tools: ToolInvoker
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PageDefinition:
     """Static declaration of a Page.
 
@@ -70,7 +70,7 @@ class PageHandler(Protocol):
         ...
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Page:
     """A PageDefinition paired with the handler that implements it.
 
