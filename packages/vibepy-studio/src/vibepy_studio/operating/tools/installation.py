@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from packaging.utils import canonicalize_name
 from packaging.version import Version
 
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
@@ -373,6 +374,7 @@ INSTALLATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=Empty,
             output_model=AppListing,
             read_only=True,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=list_apps,
     ),
@@ -383,6 +385,7 @@ INSTALLATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=AppName,
             output_model=Installation,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=install_app,
     ),
@@ -393,6 +396,7 @@ INSTALLATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=AppName,
             output_model=AppListing,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=remove_app,
     ),
@@ -403,6 +407,7 @@ INSTALLATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=AppName,
             output_model=Installation,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=update_app,
     ),

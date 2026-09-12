@@ -38,11 +38,22 @@ async def test_authoring_tools_are_discoverable(tmp_path: Path) -> None:
     async with Client(studio_server(tmp_path / "studio")) as agent:
         listed = await agent.list_tools()
 
-    assert {tool.name for tool in listed.tools} >= {
+    assert {tool.name for tool in listed.tools} == {
         "inspect_framework",
         "inspect_app",
         "invoke_tool",
     }
+
+
+@pytest.mark.integration
+async def test_read_only_authoring_tools_say_so(tmp_path: Path) -> None:
+    async with Client(studio_server(tmp_path / "studio")) as agent:
+        listed = await agent.list_tools()
+    hints = {
+        tool.name: (tool.annotations.read_only_hint if tool.annotations else None)
+        for tool in listed.tools
+    }
+    assert hints == {"inspect_framework": True, "inspect_app": True, "invoke_tool": None}
 
 
 @pytest.mark.integration

@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.config import environment_for
+from vibepy_core.channel import Channel
 from vibepy_core.invoke import InvocationRequest
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
@@ -79,6 +80,7 @@ INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=InvokeRequest,
             output_model=Invocation,
             read_only=False,
+            channels=frozenset({Channel.AGENT}),
         ),
         handler=invoke_tool,
     ),

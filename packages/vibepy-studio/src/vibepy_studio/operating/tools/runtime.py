@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
@@ -140,6 +141,7 @@ RUNTIME_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=StartRequest,
             output_model=RunningApp,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=start_app,
     ),
@@ -150,6 +152,7 @@ RUNTIME_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=AppName,
             output_model=RunningApp,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=stop_app,
     ),

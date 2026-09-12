@@ -51,14 +51,14 @@ AGENT = Principal(id="agent")
 
 
 def studio(
-    root: Path, /, *, proxy_port: int = 8080
+    root: Path, /, *, proxy_port: int = 8080, channel: Channel = Channel.WEB
 ) -> AbstractAsyncContextManager[ToolRuntime[StudioDeps]]:
     """One Studio window over a temporary root, published at one proxy port."""
     return tool_runtime_for(
         STUDIO_APP,
         APP.lifespan,
         config={"root": str(root), "proxy_port": proxy_port},
-        channel=Channel.AGENT,
+        channel=channel,
     )
 
 

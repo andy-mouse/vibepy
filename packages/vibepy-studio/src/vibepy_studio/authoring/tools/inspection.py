@@ -8,6 +8,7 @@ from importlib.metadata import version
 from packaging.utils import canonicalize_name
 
 from vibepy_core.app.group import APP_GROUP
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ERROR_CATALOG
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import declared_name, locate, python
@@ -78,6 +79,7 @@ INSPECTION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=Empty,
             output_model=FrameworkDescription,
             read_only=True,
+            channels=frozenset({Channel.AGENT}),
         ),
         handler=inspect_framework,
     ),
@@ -90,6 +92,7 @@ INSPECTION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=InspectRequest,
             output_model=AppInspection,
             read_only=True,
+            channels=frozenset({Channel.AGENT}),
         ),
         handler=inspect_app,
     ),

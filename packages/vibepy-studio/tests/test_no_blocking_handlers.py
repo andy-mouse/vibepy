@@ -39,6 +39,7 @@ ALLOWED_IMPORTS = frozenset(
         "pathlib",
         "vibepy_core.app.config",
         "vibepy_core.app.group",
+        "vibepy_core.channel",
         "vibepy_core.errors",
         "vibepy_core.invoke",
         "vibepy_core.tool",

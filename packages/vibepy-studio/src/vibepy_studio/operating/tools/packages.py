@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from pathlib import Path
 
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
@@ -79,6 +80,7 @@ PACKAGE_SOURCE_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=SourcePath,
             output_model=SourceListing,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=register_package_source,
     ),
@@ -89,6 +91,7 @@ PACKAGE_SOURCE_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=Empty,
             output_model=SourceListing,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=remove_package_source,
     ),

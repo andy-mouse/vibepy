@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from tests_support import AGENT, FIXTURES, studio
-from vibepy_core import ErrorCategory
+from vibepy_core import Channel, ErrorCategory
 from vibepy_studio.authoring.models import Invocation
 
 TODO = str(FIXTURES / "todo-app")
@@ -17,7 +17,7 @@ def config(tmp_path: Path) -> dict[str, str]:
 
 @pytest.mark.integration
 async def test_a_tool_is_invoked_and_a_later_call_sees_what_it_wrote(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
         created = await tools.invoke(
             "invoke_tool",
             {
@@ -43,7 +43,7 @@ async def test_a_tool_is_invoked_and_a_later_call_sees_what_it_wrote(tmp_path: P
 
 @pytest.mark.integration
 async def test_a_tool_the_app_does_not_declare_arrives_as_the_childs_report(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
         answered = await tools.invoke(
             "invoke_tool",
             {
@@ -63,7 +63,7 @@ async def test_a_tool_the_app_does_not_declare_arrives_as_the_childs_report(tmp_
 
 @pytest.mark.integration
 async def test_invalid_input_and_invalid_configuration_arrive_as_data(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
         bad_input = await tools.invoke(
             "invoke_tool",
             {"project": TODO, "app": "todo-app", "tool": "create_todo", "config": config(tmp_path)},
@@ -81,7 +81,7 @@ async def test_invalid_input_and_invalid_configuration_arrive_as_data(tmp_path: 
 
 
 async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
         answered = await tools.invoke(
             "invoke_tool",
             {"project": str(tmp_path / "nowhere"), "app": "x", "tool": "y"},

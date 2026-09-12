@@ -2,6 +2,7 @@
 
 from collections.abc import Sequence
 
+from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
@@ -104,6 +105,7 @@ CONFIGURATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=ConfigureRequest,
             output_model=HeldConfig,
             read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=configure_app,
     ),
@@ -114,6 +116,7 @@ CONFIGURATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             input_model=AppName,
             output_model=ConfigDescription,
             read_only=True,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=describe_config,
     ),
