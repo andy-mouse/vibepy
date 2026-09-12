@@ -73,6 +73,7 @@ async def interpreter(project: PurePath, /) -> PurePath:
 
     Raises:
         NotRunnable: uv is not runnable.
+        EnvironmentUnavailable: uv could not resolve or run inside the project's environment.
     """
     completed = await run([*python(project), "-c", "import sys; print(sys.executable)"])
     if completed.returncode != 0:

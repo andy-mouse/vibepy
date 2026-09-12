@@ -72,9 +72,7 @@ async def validate_app(_ctx: ToolContext[object], payload: ValidateRequest) -> A
                     ),
                 )
             )
-    except TypecheckFailed as failed:
-        found.append(_error(environment_failed(project, failed.output)))
-    except EnvironmentUnavailable as failed:
+    except (EnvironmentUnavailable, TypecheckFailed) as failed:
         found.append(_error(environment_failed(project, failed.output)))
     return validation(found)
 

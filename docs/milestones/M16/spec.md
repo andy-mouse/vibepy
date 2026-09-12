@@ -37,7 +37,7 @@ diagnostics.*
 | A static checker reports declarations, not code bodies; references are checked only where they are declarations | Django system checks (`fields.E300` checks a declared relation; `reverse()` in view code is not checked); Terraform `validate`; Kubernetes admission (cross-object references fail at runtime) |
 | A component declares what its template uses, and the compiler refuses what is not declared | Angular, `imports` array; Relay, fragments and data masking |
 | A framework's build command runs the project's own type checker with the project's configuration and fails on errors | Next.js, `next build` ("fails your production build when TypeScript errors are present"; installs the checker when absent) |
-| A tool can be added to one invocation without changing the project | uv, `uv run --with` |
+| pyright is pointed at another environment's interpreter for import resolution | pyright `docs/command-line.md`, `--pythonpath` ("Path to the Python interpreter"; the same as the language server setting `python.pythonPath`) |
 | pyright's structured output and exit codes | pyright `docs/command-line.md`: `--outputjson` (`generalDiagnostics[]` with `file`, `severity`, `message`, `range`, `rule`), exit 0 clean, 1 errors, 2–4 failures; default `typeCheckingMode` is `standard` |
 | A diagnostic carries a severity; a failure does not | LSP `Diagnostic` (`severity`: Error, Warning, Information, Hint); Django `CheckMessage.level` and `check --fail-level`; Terraform `-json` (`severity`: error or warning, "errors invalidate the configuration, warnings are advisory") |
 | PyPI `pyright[nodejs]` bundles Node through `nodejs-wheel-binaries` | pypi.org/project/pyright |
