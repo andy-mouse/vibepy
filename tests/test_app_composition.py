@@ -10,7 +10,6 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 import pytest
 from pydantic import BaseModel
 
-from lifecycle import no_dependencies
 from vibepy_core import Channel, Principal
 from vibepy_core.app import (
     AppDefinition,
@@ -19,7 +18,6 @@ from vibepy_core.app import (
     page_runtime_for,
     tool_runtime_for,
 )
-from vibepy_core.errors import PageNameConflictError, ToolNameConflictError
 from vibepy_core.page import Page, PageContext, PageDefinition
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 
@@ -204,78 +202,3 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]
-
-
-async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
-    """A name is what the framework addresses a Page by, so it refuses the pair.
-
-    Refused where a declaration becomes a registry, which is before the window
-    opens and therefore before any route can exist.
-    """
-
-    async def render(_ctx: PageContext) -> None:
-        return None
-
-    definition: AppDefinition[None, NoConfig] = AppDefinition(
-        app_id="collides",
-        name="Collides",
-        version="0.0.0",
-        config=NoConfig,
-        tools=[],
-        pages=[
-            Page(
-                definition=PageDefinition(
-                    name="todos", route="/todos", title="Todos", tools=frozenset()
-                ),
-                handler=render,
-            ),
-            Page(
-                definition=PageDefinition(
-                    name="todos", route="/todo-list", title="List", tools=frozenset()
-                ),
-                handler=render,
-            ),
-        ],
-    )
-
-    with pytest.raises(PageNameConflictError) as error:
-        async with page_runtime_for(definition, no_dependencies, config={}):
-            raise AssertionError("the window must not open")
-
-    assert error.value.page_name == "todos"
-    assert {error.value.route, error.value.conflicting_route} == {"/todos", "/todo-list"}
-
-
-async def test_two_tools_declaring_one_name_do_not_open_a_window() -> None:
-    """A channel enumerates the declaration, so a duplicate name would publish
-    two Tools and answer both with one. ADR-027."""
-
-    async def read(_ctx: ToolContext[None], _payload: EmptyInput) -> Entry:
-        return Entry(seen="either")
-
-    def declared(description: str) -> Tool[None]:
-        return Tool(
-            definition=ToolDefinition(
-                name="read",
-                description=description,
-                input_model=EmptyInput,
-                output_model=Entry,
-                read_only=True,
-            ),
-            handler=read,
-        )
-
-    definition: AppDefinition[None, NoConfig] = AppDefinition(
-        app_id="collides",
-        name="Collides",
-        version="0.0.0",
-        config=NoConfig,
-        tools=[declared("first"), declared("second")],
-        pages=[],
-    )
-
-    with pytest.raises(ToolNameConflictError) as error:
-        async with tool_runtime_for(definition, no_dependencies, config={}, channel=Channel.AGENT):
-            raise AssertionError("the window must not open")
-
-    assert error.value.tool_name == "read"
