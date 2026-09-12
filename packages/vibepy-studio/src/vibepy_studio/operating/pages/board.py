@@ -439,6 +439,24 @@ def _said(tool: str, answer: object) -> str:
 
 
 BOARD = Page(
-    definition=PageDefinition(name="board", route="/", title="Hub"),
+    definition=PageDefinition(
+        name="board",
+        route="/",
+        title="Hub",
+        tools=frozenset(
+            {
+                "list_apps",
+                "install_app",
+                "update_app",
+                "remove_app",
+                "start_app",
+                "stop_app",
+                "describe_config",
+                "configure_app",
+                "register_package_source",
+                "remove_package_source",
+            }
+        ),
+    ),
     handler=board,
 )

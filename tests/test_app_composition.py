@@ -66,7 +66,9 @@ def journal_definition(log: list[str]) -> AppDefinition[Journal, NoConfig]:
         ],
         pages=[
             Page(
-                definition=PageDefinition(name="journal", route="/journal", title="Journal"),
+                definition=PageDefinition(
+                    name="journal", route="/journal", title="Journal", tools=frozenset({"read"})
+                ),
                 handler=render,
             )
         ],
@@ -222,11 +224,15 @@ async def test_two_pages_declaring_one_name_do_not_open_a_window() -> None:
         tools=[],
         pages=[
             Page(
-                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                definition=PageDefinition(
+                    name="todos", route="/todos", title="Todos", tools=frozenset()
+                ),
                 handler=render,
             ),
             Page(
-                definition=PageDefinition(name="todos", route="/todo-list", title="List"),
+                definition=PageDefinition(
+                    name="todos", route="/todo-list", title="List", tools=frozenset()
+                ),
                 handler=render,
             ),
         ],

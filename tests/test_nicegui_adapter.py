@@ -54,7 +54,9 @@ async def test_a_page_definition_becomes_a_web_route(user: User) -> None:
     definition = web_definition(
         [
             Page(
-                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                definition=PageDefinition(
+                    name="todos", route="/todos", title="Todos", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]
@@ -78,7 +80,9 @@ async def test_the_handler_receives_a_page_context(user: User) -> None:
     definition = web_definition(
         [
             Page(
-                definition=PageDefinition(name="todos", route="/todos", title="Todos"),
+                definition=PageDefinition(
+                    name="todos", route="/todos", title="Todos", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]
@@ -96,9 +100,9 @@ async def noop_handler(ctx: PageContext) -> None:
     ui.label("Todos")
 
 
-def page(name: str, route: str) -> Page:
+def page(name: str, route: str, *, tools: frozenset[str] = frozenset()) -> Page:
     return Page(
-        definition=PageDefinition(name=name, route=route, title=name),
+        definition=PageDefinition(name=name, route=route, title=name, tools=tools),
         handler=noop_handler,
     )
 
@@ -178,7 +182,9 @@ async def test_the_hosts_principal_reaches_a_pages_tool_call(user: User) -> None
         ],
         pages=[
             Page(
-                definition=PageDefinition(name="home", route="/home", title="Home"),
+                definition=PageDefinition(
+                    name="home", route="/home", title="Home", tools=frozenset({"who"})
+                ),
                 handler=handler,
             )
         ],
@@ -198,7 +204,9 @@ def boom_definition(handler: PageHandler) -> AppDefinition[None, NoConfig]:
     return web_definition(
         [
             Page(
-                definition=PageDefinition(name="boom", route="/boom", title="Boom"),
+                definition=PageDefinition(
+                    name="boom", route="/boom", title="Boom", tools=frozenset()
+                ),
                 handler=handler,
             )
         ]

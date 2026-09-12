@@ -48,13 +48,17 @@ class PageDefinition:
     """Static declaration of a Page.
 
     ``name`` is the identifier the framework addresses the Page by, and it survives a
-    route change. ``route`` and ``title`` are consumed by the Web channel adapter, which
-    validates their format where it registers routes.
+    route change. ``route`` and ``title`` are consumed by the Web channel adapter.
+    ``tools`` names every Tool the handler may invoke: what the body uses is stated
+    here, so a reader knows the Page↔Tool relationship without reading the body, and
+    the runtime holds the body to it. A Page that invokes nothing declares an empty
+    set; there is no default.
     """
 
     name: str
     route: str
     title: str
+    tools: frozenset[str]
 
 
 class PageHandler(Protocol):

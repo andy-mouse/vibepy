@@ -80,7 +80,9 @@ TIMER_APP: AppDefinition[datetime, TimerConfig] = AppDefinition(
     ],
     pages=[
         Page(
-            definition=PageDefinition(name="home", route="/home", title="Timer"),
+            definition=PageDefinition(
+                name="home", route="/home", title="Timer", tools=frozenset({"elapsed"})
+            ),
             handler=home,
         )
     ],

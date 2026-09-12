@@ -100,8 +100,8 @@ def test_a_description_carries_every_tool_with_both_schemas() -> None:
 def test_a_description_carries_every_page_route() -> None:
     description = APP.describe()
 
-    assert [(page.name, page.route, page.title) for page in description.pages] == [
-        ("todos", "/todos", "Todos")
+    assert [(page.name, page.route, page.title, page.tools) for page in description.pages] == [
+        ("todos", "/todos", "Todos", ["create_todo", "list_todos"])
     ]
 
 

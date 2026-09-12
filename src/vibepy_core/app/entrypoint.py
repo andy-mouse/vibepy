@@ -28,6 +28,7 @@ class PageDescription(BaseModel):
     name: str
     route: str
     title: str
+    tools: list[str]
 
 
 class AppDescription(BaseModel):
@@ -96,6 +97,7 @@ class AppEntrypoint[DepsT, ConfigT: AppConfig]:
                     name=page.definition.name,
                     route=page.definition.route,
                     title=page.definition.title,
+                    tools=sorted(page.definition.tools),
                 )
                 for page in self.definition.pages
             ],
