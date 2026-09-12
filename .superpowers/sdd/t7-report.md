@@ -78,3 +78,25 @@ uv run ruff format --check .   122 files already formatted
 uv run pyright                 0 errors, 0 warnings, 0 informations
 uv run pytest                  369 passed in 180.06s (0:03:00)
 ```
+
+## Review follow-up
+
+Three minors from the T7 review, closed in one commit:
+
+1. `test_package_sources.py`: dropped `assert isinstance(path, PurePath)` — `Path` subclasses
+   `PurePath`, so it could not fail. The `not hasattr(path, "is_dir")` guard stays.
+2. The same guard now covers the other three paths a handler reaches, one assertion each in the
+   file that owns the model's contract:
+   - `test_installation.py::test_the_facts_kept_carry_the_whole_description_the_app_wrote` —
+     `AppFacts.purelib`, read back from the facts file.
+   - `test_inspect_app.py::test_the_project_a_request_names_reaches_no_file_system` —
+     `InspectRequest.project`, validated from JSON.
+   - `test_invoke_tool.py::test_the_project_a_request_names_reaches_no_file_system` —
+     `InvokeRequest.project`, validated from JSON.
+   Each fails if its field goes back to `Path`.
+3. `operating/internals/files.py`: the opening paragraph now says why `is_directory` lives
+   there — one `PurePath`-facing existence check, shared by the installer and the wheelhouse,
+   written where the concrete `Path` is made.
+
+Gate: ruff check and format clean, pyright 0 errors, `pytest packages/vibepy-studio -q`
+143 passed in 164.28s.

@@ -6,6 +6,10 @@ files, which the proxy watches. Both need the same guarantee, and it was
 written twice before it was written here -- once with a staged name unique to
 the write and once without, which is what re-deriving one argument in two
 places does.
+
+Asking about a path belongs here for the same reason: a handler holds a `PurePath`, so
+the one existence check both the installer and the wheelhouse need is written once,
+where the concrete `Path` is made.
 """
 
 import logging

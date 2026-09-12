@@ -1,7 +1,7 @@
 """Registering a folder of wheels is what makes its Apps installable."""
 
 import shutil
-from pathlib import Path, PurePath
+from pathlib import Path
 
 import pytest
 
@@ -145,5 +145,4 @@ async def test_the_paths_a_tool_answers_with_reach_no_file_system(tmp_path: Path
     assert isinstance(listed, SourceListing)
     assert listed.source is not None
     for path in [listed.source, *(row.wheel for row in listed.candidates)]:
-        assert isinstance(path, PurePath)
         assert not hasattr(path, "is_dir")
