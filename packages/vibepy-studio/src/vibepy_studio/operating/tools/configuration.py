@@ -8,7 +8,6 @@ from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
 from vibepy_studio.operating.internals import (
     HubState,
-    config_fields,
     held_secrets,
     installed_facts,
     read_state,
@@ -91,7 +90,7 @@ async def describe_config(ctx: ToolContext[StudioDeps], payload: AppName) -> Con
     held = (await read_state(deps.root)).config.get(payload.app_name, {})
     return ConfigDescription(
         app_name=payload.app_name,
-        fields=list(config_fields(facts)),
+        fields=list(facts.described.description.config_fields),
         values=without_secrets(held, secrets),
         secrets_set=list(held_secrets(held, secrets)),
     )

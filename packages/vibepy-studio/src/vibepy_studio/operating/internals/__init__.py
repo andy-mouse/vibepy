@@ -4,7 +4,6 @@ A Tool handler reaches them through its ToolContext and nothing else does.
 """
 
 from vibepy_studio.operating.internals.configuration import (
-    config_fields,
     held_secrets,
     is_configured,
     secret_fields,
@@ -48,7 +47,6 @@ __all__ = [
     "address",
     "allocate",
     "candidates",
-    "config_fields",
     "declarations",
     "describe",
     "environment",

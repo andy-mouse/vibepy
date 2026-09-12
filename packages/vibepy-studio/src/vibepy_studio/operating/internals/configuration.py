@@ -7,13 +7,8 @@ Reading them is the App's answer, not a second reading of its JSON Schema.
 
 from collections.abc import Mapping, Sequence
 
-from vibepy_core.app import ConfigFieldDescription, ConfigFieldType
+from vibepy_core.app import ConfigFieldType
 from vibepy_studio.operating.models import AppFacts
-
-
-def config_fields(facts: AppFacts, /) -> tuple[ConfigFieldDescription, ...]:
-    """Return every field the App declared, as it described them."""
-    return tuple(facts.described.description.config_fields)
 
 
 def secret_fields(facts: AppFacts, /) -> tuple[str, ...]:
