@@ -12,6 +12,7 @@ from mcp.types import TextContent
 
 from tests_support import FIXTURES
 from vibepy_core import environment_for
+from vibepy_core.errors import ErrorInfo
 from vibepy_studio.authoring.models import AppInspection, Invocation
 from vibepy_studio.internals import child_environment
 
@@ -94,7 +95,7 @@ async def test_invalid_input_arrives_as_the_framework_payload(tmp_path: Path) ->
     assert refused.is_error is True
     block = refused.content[0]
     assert isinstance(block, TextContent)
-    assert json.loads(block.text)["code"] == "tool.input_invalid"
+    assert ErrorInfo.model_validate(json.loads(block.text)).code == "tool.input_invalid"
 
 
 @pytest.mark.integration
