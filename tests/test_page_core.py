@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from vibepy_core import Channel, Principal
 from vibepy_core.errors import (
     PageNotFoundError,
+    PageToolUndeclaredError,
     ToolInputValidationError,
     ToolNotFoundError,
     VibepyError,
@@ -279,3 +280,24 @@ async def test_render_binds_the_principal_into_the_pages_invoker() -> None:
     await runtime.render("todos", principal=Principal(id="alice"))
 
     assert recorder.calls == [("list_todos", {}, Principal(id="alice"))]
+
+
+async def test_a_page_may_not_invoke_a_tool_it_did_not_declare() -> None:
+    """The declaration is an allow-list: what the body did not declare, it cannot reach."""
+    recorder = RecordingInvoker()
+    seen: list[PageToolUndeclaredError] = []
+
+    async def handler(ctx: PageContext) -> None:
+        try:
+            await ctx.tools.invoke("remove_todo", {})
+        except PageToolUndeclaredError as error:
+            seen.append(error)
+
+    registry = PageRegistry()
+    registry.register(Page(definition=todos_definition(), handler=handler))
+    runtime = PageRuntime(registry=registry, tools=recorder)
+
+    await runtime.render("todos", principal=Principal(id="alice"))
+
+    assert recorder.calls == []
+    assert [(e.page_name, e.tool_name) for e in seen] == [("todos", "remove_todo")]

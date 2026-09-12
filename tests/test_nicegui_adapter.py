@@ -19,7 +19,7 @@ from lifecycle import no_dependencies
 from todo_app.entry import TODO_APP, todo_lifespan
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, NoConfig, page_runtime_for
-from vibepy_core.errors import ToolNotFoundError
+from vibepy_core.errors import PageToolUndeclaredError
 from vibepy_core.page import Page, PageContext, PageDefinition, PageHandler
 from vibepy_core.principal import Principal
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
@@ -195,7 +195,7 @@ async def test_a_framework_error_raised_in_a_render_is_not_translated() -> None:
         async with page_runtime_for(definition, no_dependencies, config={}) as pages:
             register_pages(definition, pages, principal=Principal(id="operator"))
 
-            with pytest.raises(ToolNotFoundError):
+            with pytest.raises(PageToolUndeclaredError):
                 await user.open("/boom")
 
 

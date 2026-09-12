@@ -4,29 +4,46 @@ A Page reaches a Tool through PageContext and ToolInvoker, so PageRuntime owns
 PageContext creation and hands the Page the canonical invocation path itself.
 
 Who a render is for is the render's, not the Page's: PageRuntime is given a
-principal per render and binds it into the invoker the Page receives, so a Page
-cannot choose whom it invokes as.
+principal per render and binds it into the invoker the Page receives, together
+with the Tools the Page declared, so a Page cannot choose whom it invokes as
+nor reach what it did not declare.
 """
 
 from collections.abc import Awaitable, Mapping
 
 from pydantic import BaseModel
 
+from vibepy_core.errors import PageToolUndeclaredError
 from vibepy_core.page.model import PageContext, PrincipalToolInvoker, ToolInvoker
 from vibepy_core.page.registry import PageRegistry
 from vibepy_core.principal import Principal
 
 
 class _BoundInvoker:
-    """A ToolInvoker that invokes as one principal. Built per render, never by a Page."""
+    """A ToolInvoker bound to one principal and one Page's declared Tools. Built per render."""
 
-    def __init__(self, tools: PrincipalToolInvoker, principal: Principal) -> None:
-        """Hold the invoker to reach and the `principal` every call will carry."""
+    def __init__(
+        self,
+        tools: PrincipalToolInvoker,
+        principal: Principal,
+        *,
+        page: str,
+        declared: frozenset[str],
+    ) -> None:
+        """Hold the invoker to reach, the `principal` every call carries, and `page`'s declared."""
         self._tools = tools
         self._principal = principal
+        self._page = page
+        self._declared = declared
 
     def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
-        """Invoke `name` with `raw_input` as the principal this was bound to."""
+        """Invoke `name` as the bound principal, if the Page declared it.
+
+        Raises:
+            PageToolUndeclaredError: `name` is not among the Page's declared Tools.
+        """
+        if name not in self._declared:
+            raise PageToolUndeclaredError(self._page, name)
         return self._tools.invoke(name, raw_input, principal=self._principal)
 
 
@@ -52,6 +69,8 @@ class PageRuntime:
             PageNotFoundError: no Page is registered under `name`.
         """
         page = self._registry.resolve(name)
-        bound: ToolInvoker = _BoundInvoker(self._tools, principal)
+        bound: ToolInvoker = _BoundInvoker(
+            self._tools, principal, page=name, declared=page.definition.tools
+        )
         ctx = PageContext(tools=bound)
         await page.handler(ctx)
