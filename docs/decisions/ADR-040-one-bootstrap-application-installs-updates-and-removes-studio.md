@@ -94,6 +94,29 @@ carries the pinned Traefik binary for each platform beside the wheels, and Insta
 `<root>/vibepy-studio/tools/`. The wheelhouse model exists for machines without an index, and a
 first launch that fetched would contradict it.
 
+The desktop shortcut carries Studio's icon — the brand mark the board's header shows — and is
+made the way each platform documents:
+
+- **Windows**: a Shell Link, `<Desktop>\VibePy Studio.lnk`, written through Windows Script Host's
+  `WScript.Shell.CreateShortcut` (`TargetPath`, `WorkingDirectory`, `IconLocation`, `Save`)
+  invoked from PowerShell — no package beyond the standard library. The Desktop is
+  `SpecialFolders("Desktop")`, never `%USERPROFILE%\Desktop`, because Known Folders are
+  redirectable. The icon is an `.ico` holding 16, 24, 32, 48 and 256 pixels, the minimum
+  Microsoft's app-icon guidance names.
+- **macOS**: an application bundle, `~/Desktop/VibePy Studio.app`, because Apple documents a custom
+  icon (`CFBundleIconFile`, `Contents/Resources/*.icns`) for bundles and for nothing else a user
+  can double-click; a symlink or Finder alias has no documented icon of its own. The bundle is
+  built by PyInstaller `--windowed --icon <mark>.icns` in the same CI job as the bootstrap — a
+  launcher whose only act is to start the `vibepy-studio` entry point — and the bootstrap copies
+  it to the Desktop. A bundle created on the machine carries no quarantine attribute, so
+  Gatekeeper raises nothing for it (TN2206).
+- **Linux** is not a target of this record.
+
+The mark itself becomes one SVG file owned by Studio, which the board's header displays in
+place of today's styled text and which the build renders to PNG and converts to `.ico` and
+`.icns` with Pillow — so the header and the icon are one fact. Remove deletes the `.lnk` or the
+`.app`, and nothing else.
+
 ADR-031 stands as written for the Hub: its Tools write routing configuration and start,
 supervise, signal and observe no proxy. This record decides who does — Studio's process entry
 point, which is not a Tool.
@@ -118,6 +141,8 @@ point, which is not a Tool.
   placed in the wheelhouse and pointed at. Which uv option does that is verified against uv's
   documentation before implementation and recorded then — the offline case is a requirement of
   the wheelhouse model, not an option
+- what Finder does with a bare `gui_scripts` shebang file when double-clicked is not documented
+  by Apple or Python, which is one more reason the macOS shortcut is a bundle and not the script
 - three more facts are verified against the platforms' documentation before implementation:
   whether `claude mcp add-json` replaces an existing entry of the same name or must be preceded
   by `claude mcp remove`; whether Codex publishes `codex mcp remove`; and the documented way to
