@@ -315,6 +315,11 @@ made in the same commit for every App the repository holds. An App whose declara
 rule now fails at import, where before it failed when a window opened; the codes it fails with
 are the same, wrapped in `app.declaration_invalid`.
 
+`Diagnostic` lives in Studio's authoring vocabulary because pyright is today the only producer
+of a finding that is not an error. Should the framework itself one day report an advisory
+finding, the type moves to `vibepy_core` unchanged; it is not placed there now, where it would
+have no producer.
+
 `validate_app` downloads pyright and Node into uv's cache once per machine. Offline, that first
 run is `authoring.environment_failed`; the declaration diagnostics still arrive, because the two
 authorities are run independently.
