@@ -62,8 +62,8 @@ Rejected:
 ## Consequences
 
 - The Hub's per-App log file carries one structured line per Tool call on either channel, and
-  a reader exists for it. Showing them in the Hub is proposed to the owner as a follow-up
-  (`docs/milestones/M15/spec.md` at the time of writing; `docs/roadmap.md` thereafter).
+  a reader exists for it. Showing them in the Hub is proposed to the owner as a follow-up;
+  `docs/roadmap.md` records it if it is scheduled.
 - `ErrorCategory` has four members. A timeout code, when ADR-005's question is decided, joins
   `interrupted`.
 - `ToolRuntime.invoke`'s signature is unchanged. A host that wants records elsewhere attaches a
