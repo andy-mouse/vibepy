@@ -94,6 +94,13 @@ generic in the declared models, so `Tool(definition=..., handler=...)` reads as 
 declaration and an AppDefinition can hold a sequence of Tools. A Tool does not expose its
 handler.
 
+A Tool is bound once — both its attributes are `Final` — so it is contravariant in that
+dependency type. An App may therefore include a Tool written against a wider one than its
+own: a Tool that reads no dependencies at all, typed `ToolContext[object]`, or one typed
+against a Protocol the App's dependency type satisfies. Such a Tool belongs in the App's
+own `Sequence[Tool[Deps]]` unchanged, and receives the App's `ctx.dependencies`
+(`docs/architecture/runtime.md`, ToolContext) like any other.
+
 ### ToolRegistry
 
 Maps a Tool name to the Tool registered under it. Storage only; it implements no

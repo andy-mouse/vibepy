@@ -35,9 +35,8 @@ class Tool[DepsT]:
 
     Binding happens here rather than in a registry because a declaration is not
     useful before it is callable, and the erasure has exactly one cause. Both
-    attributes are `Final`: a Tool is bound once and never rebound, and because
-    ``DepsT`` is therefore read only in a contravariant position, a Tool whose
-    handler needs fewer dependencies fits an App that offers more.
+    attributes are `Final`: a Tool is bound once and never rebound, which is what
+    makes it contravariant in ``DepsT`` (`docs/architecture/tool-model.md`, Tool).
 
     The output is revalidated from its dump rather than accepted as-is, so a
     result built by ``model_construct`` or mutated after construction cannot pass
