@@ -34,7 +34,7 @@ async def test_a_page_s_websocket_survives_the_proxy(installed: Path) -> None:
         assert started.diagnostic is None
 
         async with traefik(
-            installed / "traefik.yml",
+            installed / "vibepy-studio" / "traefik.yml",
             port=proxy_port,
             host="vibepy-timer.localhost",
             path="/home",
@@ -61,7 +61,7 @@ async def test_two_apps_are_served_through_one_configuration(
     proxy_port = free_port()
 
     async with studio(installed, proxy_port=proxy_port) as tools:
-        config = installed / "traefik.yml"
+        config = installed / "vibepy-studio" / "traefik.yml"
         written = config.read_text(encoding="utf-8")
 
         await tools.invoke(

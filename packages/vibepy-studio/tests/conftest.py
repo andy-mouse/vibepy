@@ -91,7 +91,7 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
     those Apps' environments are linked -- a copy has the same unit of cost as
     an install, entries created, and a test that needs one App must not pay for
     three. The Apps left out are then removed through `remove_app`, so the
-    copy's state, ports and routes agree with its `envs/` directory. A test
+    copy's state, ports and routes agree with the folders it holds. A test
     that names nothing gets nothing: a copy whose contents nobody chose is
     what the spec measured at 3.5s.
 
@@ -112,13 +112,13 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
     assert not unknown, f"not fixture Apps: {sorted(unknown)}"
 
     def leave_out(directory: str, names: list[str]) -> list[str]:
-        if Path(directory) != template_root / "envs":
+        if Path(directory) != template_root:
             return []
-        return [name for name in names if name not in named]
+        return [name for name in names if name in APPS and name not in named]
 
     root = tmp_path / "root"
     shutil.copytree(template_root, root, copy_function=os.link, ignore=leave_out)
-    for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
+    for recorded in root.glob(f"*/env/{FACTS_FILE}"):
         facts = json.loads(recorded.read_text(encoding="utf-8"))
         facts["purelib"] = str(root / Path(facts["purelib"]).relative_to(template_root))
         # Unlinked first: every file here is a hardlink to the template's, and

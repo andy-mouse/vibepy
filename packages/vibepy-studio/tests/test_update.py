@@ -70,8 +70,12 @@ async def test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_an
             },
             principal=AGENT,
         )
-        port_before = (await read_state(installed)).ports["vibepy-todo"]
-        route_before = (installed / ROUTES / "vibepy-todo.yml").read_text(encoding="utf-8")
+        beside = installed / "vibepy-todo" / "kept.txt"
+        beside.write_text("kept", encoding="utf-8")
+        port_before = (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"]
+        route_before = (installed / "vibepy-studio" / ROUTES / "vibepy-todo.yml").read_text(
+            encoding="utf-8"
+        )
 
         updated = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
@@ -96,8 +100,11 @@ async def test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_an
     # version then runs is `test_runtime.py`'s subject, and starting it here
     # would pay for a child process to learn nothing this test is about.
     assert row.configured is True
-    assert (await read_state(installed)).ports["vibepy-todo"] == port_before
-    assert (installed / ROUTES / "vibepy-todo.yml").read_text(encoding="utf-8") == route_before
+    assert (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"] == port_before
+    assert (installed / "vibepy-studio" / ROUTES / "vibepy-todo.yml").read_text(
+        encoding="utf-8"
+    ) == route_before
+    assert beside.read_text(encoding="utf-8") == "kept"
 
 
 @pytest.mark.apps("vibepy-todo")

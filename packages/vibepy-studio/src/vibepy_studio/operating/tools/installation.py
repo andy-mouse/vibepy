@@ -262,10 +262,13 @@ async def list_apps(ctx: ToolContext[StudioDeps], _payload: Empty) -> AppListing
 
 
 async def remove_app(ctx: ToolContext[StudioDeps], payload: AppName) -> AppListing:
-    """Delete an App's environment, leaving the data it wrote elsewhere."""
+    """Delete an App's folder: its environment and what it wrote beside it.
+
+    The data it wrote elsewhere is left where it is.
+    """
     deps = ctx.dependencies
     await deps.processes.stop(payload.app_name)
-    await deps.root.remove_environment(payload.app_name)
+    await deps.root.remove_app_folder(payload.app_name)
 
     def forget(state: OperatingState) -> OperatingState:
         return state.model_copy(

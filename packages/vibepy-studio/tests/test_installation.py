@@ -18,6 +18,7 @@ from vibepy_studio.operating.internals import (
     read_state,
     remove_environment,
 )
+from vibepy_studio.operating.internals import app_folder as root_app_folder
 from vibepy_studio.operating.internals import environment as root_environment
 from vibepy_studio.operating.models import (
     AppFacts,
@@ -30,8 +31,8 @@ from vibepy_studio.operating.models import (
 
 
 def environment(root: Path, app_name: str, /) -> Path:
-    """Where Studio's declared root holds one App, as the spec describes it."""
-    return root / "envs" / app_name
+    """Where Studio's declared root holds one App's environment, as the spec describes it."""
+    return root / app_name / "env"
 
 
 def forget_the_declaration(purelib: PurePath, /) -> None:
@@ -222,7 +223,7 @@ async def test_a_traversing_app_name_deletes_nothing(tmp_path: Path) -> None:
     """ADR-024 exposes every operating Tool on the Agent channel, so this is a
     model-controlled string reaching shutil.rmtree."""
     root = tmp_path / "root" / "deep"
-    (root / "envs" / "todo").mkdir(parents=True)
+    (root / "todo" / "env").mkdir(parents=True)
     victim = tmp_path / "victim"
     victim.mkdir()
     (victim / "keep.txt").write_text("keep", encoding="utf-8")
@@ -265,7 +266,7 @@ def test_a_tool_input_refuses_a_name_that_is_not_one_segment(name: str) -> None:
 
 
 def test_environment_answers_for_a_plain_name(tmp_path: Path) -> None:
-    assert root_environment(tmp_path, "todo") == tmp_path / "envs" / "todo"
+    assert root_environment(tmp_path, "todo") == tmp_path / "todo" / "env"
 
 
 @pytest.mark.integration
@@ -319,7 +320,7 @@ async def test_a_distribution_declaring_two_apps_is_refused(
     than one of them silently dropped."""
     root = tmp_path / "root"
 
-    async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
+    async def describes_two(env: Path, /, *, cwd: PurePath | None = None) -> tuple[AppFacts, ...]:
         return (
             AppFacts(
                 described=described_app(
@@ -382,7 +383,7 @@ async def test_a_failed_description_leaves_no_environment_behind(
 
 async def test_an_environment_that_cannot_be_interrogated_is_a_row(tmp_path: Path) -> None:
     root = tmp_path / "root"
-    (root / "envs" / "vibepy-todo").mkdir(parents=True)
+    (root / "vibepy-todo" / "env").mkdir(parents=True)
 
     async with studio(root) as tools:
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
@@ -423,7 +424,7 @@ async def test_the_facts_kept_are_the_installed_apps_and_not_the_first_described
     """
     root = tmp_path / "root"
 
-    async def describes_two(env: Path, /) -> tuple[AppFacts, ...]:
+    async def describes_two(env: Path, /, *, cwd: PurePath | None = None) -> tuple[AppFacts, ...]:
         return (
             AppFacts(
                 described=described_app(
@@ -470,7 +471,7 @@ async def test_installing_again_after_a_removal_that_kept_the_port_reuses_it(
     Reached by `update_app`, whose remove step keeps the port. Driven here through
     the state directly because no Tool removes an environment without its port.
     """
-    before = (await read_state(installed)).ports["vibepy-todo"]
+    before = (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"]
     await remove_environment(environment(installed, "vibepy-todo"))
 
     async with studio(installed) as tools:
@@ -478,4 +479,34 @@ async def test_installing_again_after_a_removal_that_kept_the_port_reuses_it(
 
     assert isinstance(again, Installation)
     assert again.diagnostic is None
-    assert (await read_state(installed)).ports["vibepy-todo"] == before
+    assert (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"] == before
+
+
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_removing_an_app_deletes_its_whole_folder(installed: Path) -> None:
+    """The folder is Studio's unit: what the App wrote beside its environment goes with it."""
+    folder = installed / "vibepy-todo"
+    (folder / "scratch.txt").write_text("mine", encoding="utf-8")
+
+    async with studio(installed) as tools:
+        await tools.invoke("remove_app", {"app_name": "vibepy-todo"}, principal=AGENT)
+
+    assert not folder.exists()
+
+
+def test_app_folder_is_the_environments_parent(tmp_path: Path) -> None:
+    assert root_app_folder(tmp_path, "todo") == tmp_path / "todo"
+    assert root_environment(tmp_path, "todo").parent == root_app_folder(tmp_path, "todo")
+
+
+@pytest.mark.apps("vibepy-todo")
+@pytest.mark.integration
+async def test_studios_own_folder_is_not_an_installed_app(installed: Path) -> None:
+    """One rule for the root, and Studio is not an exception to it: its folder has no `env/`,
+    so it is neither listed nor startable, and installing it is refused as already there."""
+    assert (installed / "vibepy-studio" / "state.json").is_file()
+    async with studio(installed) as tools:
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
+        assert isinstance(listed, AppListing)
+        assert "vibepy-studio" not in {row.app_name for row in listed.apps}

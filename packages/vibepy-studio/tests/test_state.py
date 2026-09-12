@@ -34,7 +34,7 @@ async def test_two_overlapping_configurations_both_survive(installed: Path) -> N
         assert isinstance(first, HeldConfig)
         assert isinstance(second, HeldConfig)
 
-    held = (await read_state(installed)).config
+    held = (await read_state(installed / "vibepy-studio")).config
     assert set(held) == {"vibepy-notes"}
 
 

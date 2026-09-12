@@ -19,6 +19,10 @@ from vibepy_studio.operating.tools import OPERATING_TOOLS
 
 logger = logging.getLogger(__name__)
 
+APP_ID = "vibepy-studio"
+"""Studio's identity: its app_id, its MCP server name, and the name of its own
+folder under the root."""
+
 
 class StudioConfig(AppConfig):
     """What Studio requires of its host.
@@ -39,9 +43,9 @@ class StudioConfig(AppConfig):
 @asynccontextmanager
 async def studio_lifespan(config: StudioConfig) -> AsyncGenerator[StudioDeps]:
     """Acquire Studio's resource for the life of one window."""
-    root = StudioRoot(path=config.root)
+    root = StudioRoot(path=config.root, own=APP_ID)
     await root.prepare(proxy_port=config.proxy_port)
-    processes = Processes(logs=config.root / "logs")
+    processes = Processes(logs=config.root / APP_ID / "logs")
     try:
         yield StudioDeps(root=root, processes=processes, proxy_port=config.proxy_port)
     finally:
@@ -49,7 +53,7 @@ async def studio_lifespan(config: StudioConfig) -> AsyncGenerator[StudioDeps]:
 
 
 STUDIO_APP: AppDefinition[StudioDeps, StudioConfig] = AppDefinition(
-    app_id="vibepy-studio",
+    app_id=APP_ID,
     name="Studio",
     version="0.1.0",
     config=StudioConfig,

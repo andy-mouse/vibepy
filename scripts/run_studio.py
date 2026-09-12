@@ -40,7 +40,7 @@ def main() -> int:
         env={**os.environ, **environment_for({"root": str(root), "proxy_port": args.proxy_port})},
     )
 
-    install_config = root / "traefik.yml"
+    install_config = root / "vibepy-studio" / "traefik.yml"
     proxy: subprocess.Popen[bytes] | None = None
     try:
         while studio.poll() is None and not install_config.exists():

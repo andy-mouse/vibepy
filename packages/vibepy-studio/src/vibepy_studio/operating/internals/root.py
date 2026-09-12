@@ -17,8 +17,8 @@ import asyncio
 from collections.abc import Callable
 from pathlib import Path, PurePath
 
-from vibepy_studio.operating.internals.installer import describe as describe_environment
 from vibepy_studio.operating.internals.installer import (
+    app_folder,
     environment,
     environments,
     install,
@@ -26,9 +26,11 @@ from vibepy_studio.operating.internals.installer import (
     interpreter,
     purelib,
     read_facts,
+    remove_app_folder,
     remove_environment,
     write_facts,
 )
+from vibepy_studio.operating.internals.installer import describe as describe_environment
 from vibepy_studio.operating.internals.routing import (
     remove_route,
     write_install_config,
@@ -41,19 +43,20 @@ from vibepy_studio.operating.models import AppFacts
 class StudioRoot:
     """One Studio root directory and everything a handler does to it."""
 
-    def __init__(self, *, path: Path) -> None:
-        """Own `path`, and the lock that serializes changes to the state it holds."""
+    def __init__(self, *, path: Path, own: str) -> None:
+        """Own `path`; keep Studio's own files under `path / own`, a folder like any App's."""
         self._path = path
+        self._own = path / own
         self._state_lock = asyncio.Lock()
 
     async def prepare(self, *, proxy_port: int) -> None:
-        """Make the root and write the half of the proxy's configuration a window owns."""
-        await asyncio.to_thread(self._path.mkdir, parents=True, exist_ok=True)
-        await write_install_config(self._path, proxy_port=proxy_port)
+        """Make Studio's own folder and write the proxy configuration half a window owns."""
+        await asyncio.to_thread(self._own.mkdir, parents=True, exist_ok=True)
+        await write_install_config(self._own, proxy_port=proxy_port)
 
     async def state(self) -> OperatingState:
         """Return the stored state, or an empty one when nothing readable has been stored."""
-        return await read_state(self._path)
+        return await read_state(self._own)
 
     async def update_state(
         self, change: Callable[[OperatingState], OperatingState], /
@@ -63,13 +66,13 @@ class StudioRoot:
         The lock is this root's, which is where application-scoped state belongs.
         """
         async with self._state_lock:
-            changed = change(await read_state(self._path))
-            await write_state(self._path, changed)
+            changed = change(await read_state(self._own))
+            await write_state(self._own, changed)
             return changed
 
     async def installed(self) -> tuple[str, ...]:
         """Return the name of every App this Studio installed, in a stable order."""
-        return tuple(env.name for env in await environments(self._path))
+        return tuple(env.parent.name for env in await environments(self._path))
 
     async def is_installed(self, app_name: str, /) -> bool:
         """Whether this App has an environment here."""
@@ -87,9 +90,19 @@ class StudioRoot:
         """Create an environment of its own for this App and install one wheel there."""
         await install(wheel=wheel, source=source, env=environment(self._path, app_name))
 
+    def app_folder(self, app_name: str, /) -> PurePath:
+        """Return this App's folder, where its process runs. Computes a path and reads nothing."""
+        return app_folder(self._path, app_name)
+
+    async def remove_app_folder(self, app_name: str, /) -> None:
+        """Delete this App's folder whole, if it is there."""
+        await remove_app_folder(app_folder(self._path, app_name))
+
     async def describe(self, app_name: str, /) -> tuple[AppFacts, ...]:
-        """Return what the Apps in this App's environment declare, read in that environment."""
-        return await describe_environment(environment(self._path, app_name))
+        """Return what the Apps in this App's environment declare, read there, run in its folder."""
+        return await describe_environment(
+            environment(self._path, app_name), cwd=app_folder(self._path, app_name)
+        )
 
     async def purelib(self, app_name: str, /) -> PurePath:
         """Return where this App's environment keeps its distribution metadata."""
@@ -109,8 +122,8 @@ class StudioRoot:
 
     async def write_route(self, app_name: str, /, *, port: int) -> None:
         """Publish one App's route where the proxy's provider is watching."""
-        await write_route(self._path, app_name, port=port)
+        await write_route(self._own, app_name, port=port)
 
     async def remove_route(self, app_name: str, /) -> None:
         """Withdraw one App's route, if it has one."""
-        await remove_route(self._path, app_name)
+        await remove_route(self._own, app_name)

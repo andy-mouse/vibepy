@@ -142,8 +142,9 @@ async def test_what_is_held_is_readable_only_by_its_owner(installed: Path) -> No
 
     await held_notes_secret(root)
 
-    assert stat.S_IMODE((root / STATE_FILE).stat().st_mode) == 0o600
-    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    own = root / "vibepy-studio"
+    assert stat.S_IMODE((own / STATE_FILE).stat().st_mode) == 0o600
+    assert stat.S_IMODE(own.stat().st_mode) == 0o700
 
 
 @pytest.mark.apps("vibepy-notes", "vibepy-todo")

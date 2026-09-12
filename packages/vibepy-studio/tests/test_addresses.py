@@ -69,9 +69,9 @@ async def test_two_apps_hold_two_ports_and_removing_one_releases_it(
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
         await tools.invoke("install_app", {"app_name": "vibepy-timer"}, principal=AGENT)
-        both = (await read_state(root)).ports
+        both = (await read_state(root / "vibepy-studio")).ports
         await tools.invoke("remove_app", {"app_name": "vibepy-todo"}, principal=AGENT)
-        after = (await read_state(root)).ports
+        after = (await read_state(root / "vibepy-studio")).ports
 
     assert sorted(both.values()) == [PORT_BASE, PORT_BASE + 1]
     assert "vibepy-todo" not in after
@@ -90,10 +90,10 @@ async def test_installing_an_installed_app_is_refused(tmp_path: Path, wheelhouse
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
-        held = (await read_state(root)).ports["vibepy-todo"]
+        held = (await read_state(root / "vibepy-studio")).ports["vibepy-todo"]
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
-        after = await read_state(root)
-        env = (root / "envs" / "vibepy-todo").is_dir()
+        after = await read_state(root / "vibepy-studio")
+        env = (root / "vibepy-todo" / "env").is_dir()
 
     assert isinstance(again, Installation)
     assert again.diagnostic is not None
@@ -113,15 +113,15 @@ async def test_the_window_writes_a_configuration_that_apps_do_not_change(
     root = tmp_path / "root"
 
     async with studio(root, proxy_port=9999) as tools:
-        written = (root / "traefik.yml").read_text(encoding="utf-8")
+        written = (root / "vibepy-studio" / "traefik.yml").read_text(encoding="utf-8")
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
-        after = (root / "traefik.yml").read_text(encoding="utf-8")
+        after = (root / "vibepy-studio" / "traefik.yml").read_text(encoding="utf-8")
 
     assert written == after
     config = yaml.safe_load(written)
     assert config["entryPoints"]["web"]["address"] == ":9999"
-    assert config["providers"]["file"]["directory"] == str(root / "routes")
+    assert config["providers"]["file"]["directory"] == str(root / "vibepy-studio" / "routes")
     assert config["providers"]["file"]["watch"] is True
 
 
@@ -134,9 +134,9 @@ async def test_installing_writes_a_route_and_removing_deletes_it(
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(wheelhouse)}, principal=AGENT)
         await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
-        route = root / "routes" / "vibepy-todo.yml"
+        route = root / "vibepy-studio" / "routes" / "vibepy-todo.yml"
         written = yaml.safe_load(route.read_text(encoding="utf-8"))
-        port = (await read_state(root)).ports["vibepy-todo"]
+        port = (await read_state(root / "vibepy-studio")).ports["vibepy-todo"]
         await tools.invoke("remove_app", {"app_name": "vibepy-todo"}, principal=AGENT)
         gone = route.exists()
 
@@ -188,8 +188,8 @@ async def test_an_app_with_no_pages_gets_no_address(installed: Path) -> None:
     """
     async with studio(installed) as tools:
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
-        held = (await read_state(installed)).ports
-        route = (installed / "routes" / "vibepy-notes.yml").exists()
+        held = (await read_state(installed / "vibepy-studio")).ports
+        route = (installed / "vibepy-studio" / "routes" / "vibepy-notes.yml").exists()
 
     assert isinstance(listed, AppListing)
     rows = {row.app_name: row for row in listed.apps}
@@ -224,8 +224,8 @@ async def test_an_installed_app_holding_no_port_is_told_to_install_it_again(
         )
         # What either leaves behind: an installed App, its configuration, and
         # no port.
-        before = await read_state(installed)
-        await write_state(installed, before.model_copy(update={"ports": {}}))
+        before = await read_state(installed / "vibepy-studio")
+        await write_state(installed / "vibepy-studio", before.model_copy(update={"ports": {}}))
 
         refused = await tools.invoke(
             "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
