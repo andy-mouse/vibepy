@@ -67,21 +67,19 @@ async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invoc
         return Invocation(diagnostic=environment_failed(project, completed.stdout.strip()))
 
 
-def invocation_tools[DepsT]() -> Sequence[Tool[DepsT]]:  # pyright: ignore[reportInvalidTypeVarUse]
-    """Return authoring's invocation Tool, for whatever dependency type the App declares."""
-    return [
-        Tool(
-            definition=ToolDefinition(
-                name="invoke_tool",
-                description=(
-                    "Invoke one Tool of an App a source project declares, once, "
-                    "in the project's own environment"
-                ),
-                input_model=InvokeRequest,
-                output_model=Invocation,
-                read_only=False,
-                channels=frozenset({Channel.AGENT}),
+INVOCATION_TOOLS: Sequence[Tool[object]] = [
+    Tool(
+        definition=ToolDefinition(
+            name="invoke_tool",
+            description=(
+                "Invoke one Tool of an App a source project declares, once, "
+                "in the project's own environment"
             ),
-            handler=invoke_tool,
+            input_model=InvokeRequest,
+            output_model=Invocation,
+            read_only=False,
+            channels=frozenset({Channel.AGENT}),
         ),
-    ]
+        handler=invoke_tool,
+    ),
+]

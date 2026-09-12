@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import FrozenInstanceError
 
 import pytest
@@ -395,3 +396,42 @@ def test_read_only_has_no_default() -> None:
         ToolDefinition(  # pyright: ignore[reportCallIssue]
             name="x", description="x", input_model=EmptyInput, output_model=TodoList
         )
+
+
+def dependency_free_tool() -> Tool[object]:
+    """A Tool whose handler reads no dependencies, so it names none in its type."""
+
+    async def handler(_ctx: ToolContext[object], _payload: EmptyInput) -> TodoList:
+        return TodoList(todos=[])
+
+    return Tool(
+        definition=ToolDefinition(
+            name="no_todos",
+            description="Answer without reading any dependency",
+            input_model=EmptyInput,
+            output_model=TodoList,
+            read_only=True,
+        ),
+        handler=handler,
+    )
+
+
+async def test_a_tool_that_needs_no_dependencies_serves_an_app_that_offers_some() -> None:
+    """`Tool` is contravariant in its dependency type: both attributes are `Final`.
+
+    The assignment below is what a type checker verifies; the invocation is what
+    this asserts, because a Tool that type-checks into the sequence and then
+    refused the App's ToolContext would be no use.
+    """
+    tools: Sequence[Tool[TodoStore]] = [create_todo_tool(), dependency_free_tool()]
+    registry: ToolRegistry[TodoStore] = ToolRegistry()
+    for tool in tools:
+        registry.register(tool)
+    runtime = ToolRuntime(
+        app_id="todo", registry=registry, dependencies=TodoStore(), channel=Channel.AGENT
+    )
+
+    await runtime.invoke("create_todo", {"title": "buy milk"}, principal=Principal(id="test"))
+    result = await runtime.invoke("no_todos", {}, principal=Principal(id="test"))
+
+    assert result == TodoList(todos=[])

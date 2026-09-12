@@ -12,7 +12,7 @@ from pathlib import Path
 from pydantic import Field
 
 from vibepy_core import AppConfig, AppDefinition, AppEntrypoint
-from vibepy_studio.authoring.tools import authoring_tools
+from vibepy_studio.authoring.tools import AUTHORING_TOOLS
 from vibepy_studio.operating.internals import Processes, StudioDeps, StudioRoot
 from vibepy_studio.operating.pages.board import BOARD
 from vibepy_studio.operating.tools import HUB_TOOLS
@@ -53,7 +53,7 @@ STUDIO_APP: AppDefinition[StudioDeps, StudioConfig] = AppDefinition(
     name="Studio",
     version="0.1.0",
     config=StudioConfig,
-    tools=[*HUB_TOOLS, *authoring_tools()],
+    tools=[*HUB_TOOLS, *AUTHORING_TOOLS],
     pages=[BOARD],
 )
 

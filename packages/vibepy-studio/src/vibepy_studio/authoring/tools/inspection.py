@@ -71,39 +71,32 @@ async def inspect_app(_ctx: ToolContext[object], payload: InspectRequest) -> App
     return AppInspection(apps=own)
 
 
-def inspection_tools[DepsT]() -> Sequence[Tool[DepsT]]:  # pyright: ignore[reportInvalidTypeVarUse]
-    """Return authoring's inspection Tools, for whatever dependency type the App declares.
-
-    Generic because the handlers read no dependencies: `Tool` is invariant in
-    that type, so the declarations are built for the App that composes them.
-    """
-    return [
-        Tool(
-            definition=ToolDefinition(
-                name="inspect_framework",
-                description=(
-                    "What the framework asserts about itself: version, entry point group, "
-                    "channel extras, error catalogue"
-                ),
-                input_model=Empty,
-                output_model=FrameworkDescription,
-                read_only=True,
-                channels=frozenset({Channel.AGENT}),
+INSPECTION_TOOLS: Sequence[Tool[object]] = [
+    Tool(
+        definition=ToolDefinition(
+            name="inspect_framework",
+            description=(
+                "What the framework asserts about itself: version, entry point group, "
+                "channel extras, error catalogue"
             ),
-            handler=inspect_framework,
+            input_model=Empty,
+            output_model=FrameworkDescription,
+            read_only=True,
+            channels=frozenset({Channel.AGENT}),
         ),
-        Tool(
-            definition=ToolDefinition(
-                name="inspect_app",
-                description=(
-                    "Describe the Apps a source project declares, read in the "
-                    "project's own environment"
-                ),
-                input_model=InspectRequest,
-                output_model=AppInspection,
-                read_only=True,
-                channels=frozenset({Channel.AGENT}),
+        handler=inspect_framework,
+    ),
+    Tool(
+        definition=ToolDefinition(
+            name="inspect_app",
+            description=(
+                "Describe the Apps a source project declares, read in the project's own environment"
             ),
-            handler=inspect_app,
+            input_model=InspectRequest,
+            output_model=AppInspection,
+            read_only=True,
+            channels=frozenset({Channel.AGENT}),
         ),
-    ]
+        handler=inspect_app,
+    ),
+]
