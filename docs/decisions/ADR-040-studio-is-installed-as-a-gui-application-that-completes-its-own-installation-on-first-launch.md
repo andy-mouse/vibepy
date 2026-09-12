@@ -54,10 +54,13 @@ Launching it completes the installation and opens the Hub:
 4. Studio's own route is written, so the Hub is reached at
    `http://vibepy-studio.localhost:<proxy port>` like every other App, and the browser is opened
    there with the standard library's `webbrowser`;
-5. on a first launch, Studio's Agent channel is registered with every agent platform found on
-   the machine — the command is the tool environment's interpreter and
-   `-m vibepy_core.mcp studio` with Studio's variables — through the same registration the Hub
-   will perform for Apps (M19).
+5. Studio's Agent channel registration is reconciled with every agent platform found on the
+   machine: the platform's configuration is read, and the entry is written when it is absent or
+   differs from what this launch would write — the tool environment's interpreter and
+   `-m vibepy_core.mcp studio` with Studio's variables. Every launch does this, not the first
+   alone: a launch keeps no record of having registered, it observes the platform, which is the
+   stance `docs/roadmap.md` M19 states for an App's registration, and this is the same
+   registration with Studio as its first user.
 
 Closing the launcher closes its children. The Agent channel process is still launched by the
 agent platform (ADR-010, ADR-017); what changes is that its registration is written by Studio
@@ -73,11 +76,15 @@ that launcher under a development name.
 - installing Studio is one command an installer of wheels already provides, and using it is
   one launch; nothing is typed into a terminal after installation
 - the first launch does what a native installer would have done at install time; every later
-  launch finds it done. The steps are idempotent, because a launch cannot know it is the first
+  launch finds it done or repairs it. The steps are idempotent, because a launch keeps no record
+  of being the first: an upgrade, a reinstall into another environment, or a new interpreter is
+  corrected at the next launch without anyone knowing it was needed
 - Studio publishes an address of the same shape as its Apps, and the user sees one port
 - the tool environment's interpreter path appears in the agent platform's configuration, written
   by Studio; a user who moves or reinstalls Studio's environment relaunches it, and the
-  registration is rewritten
+  registration is rewritten. Uninstalling Studio leaves its registration behind, because there is
+  no launch after an uninstall to observe it; the platform then reports a command it cannot run,
+  which is the same limit M19 accepts for an App removed outside Studio
 - whether `uv tool install` exposes `gui_scripts` is verified against uv's documentation before
   implementation: its tools document names "console entry points, script entry points, and
   binary scripts" and does not name GUI scripts. If it does not expose them, the record is
