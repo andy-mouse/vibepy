@@ -6,9 +6,10 @@ import pytest
 from nicegui import ui
 from nicegui.testing import User
 
-from tests_support import studio, write_wheel
+from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
+from vibepy_core.principal import Principal
 from vibepy_studio.entry import APP, STUDIO_APP
 from vibepy_studio.operating.models import ConfigDescription
 
@@ -24,7 +25,7 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
 
     async with hub_pages(tmp_path / "hub") as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("No folder registered")
         await user.should_see("No package folder selected")
@@ -42,7 +43,7 @@ async def test_configuring_an_installed_app_names_what_it_lacks(
     user: User, installed: Path
 ) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")
         user.find("Configure").click()
@@ -57,7 +58,7 @@ async def test_configuring_an_installed_app_names_what_it_lacks(
 @pytest.mark.integration
 async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find("Configure").click()
         await user.should_see("api_base_url")
@@ -73,7 +74,7 @@ async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -
 @pytest.mark.integration
 async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find("Configure").click()
         await user.should_see("api_base_url")
@@ -83,7 +84,9 @@ async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path
         await user.should_see("Notes configured")
 
     async with studio(installed) as tools:
-        described = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
+        described = await tools.invoke(
+            "describe_config", {"app_name": "vibepy-notes"}, principal=AGENT
+        )
 
     assert isinstance(described, ConfigDescription)
     assert described.values == {"api_base_url": "https://notes.internal"}
@@ -103,10 +106,10 @@ async def test_install_invokes_the_tool_and_shows_its_answer(user: User, tmp_pat
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
     root = tmp_path / "hub"
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
     async with hub_pages(root) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find(marker="install-demo-app").click()
         await user.should_see("hub.install_failed", retries=600)
@@ -118,7 +121,7 @@ async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
     user: User, installed: Path
 ) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Timer")
         user.find("Configure").click()
@@ -130,7 +133,7 @@ async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
 @pytest.mark.integration
 async def test_configure_opens_a_panel_and_cancel_closes_it(user: User, installed: Path) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")
         user.find("Configure").click()
@@ -144,7 +147,7 @@ async def test_configure_opens_a_panel_and_cancel_closes_it(user: User, installe
 @pytest.mark.integration
 async def test_unregistering_is_confirmed_in_a_dialog(user: User, installed: Path) -> None:
     async with hub_pages(installed) as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")
         user.find("Unregister").click()

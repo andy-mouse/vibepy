@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import BaseModel, Field, computed_field
 
+from vibepy_core import Channel, Principal
 from vibepy_core.errors import (
     ToolInputValidationError,
     ToolNotFoundError,
@@ -83,6 +84,7 @@ def create_todo_tool() -> Tool[TodoStore]:
             description="Create a todo item",
             input_model=CreateTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=create_todo,
     )
@@ -95,6 +97,7 @@ def list_todos_tool() -> Tool[TodoStore]:
             description="List every todo item",
             input_model=EmptyInput,
             output_model=TodoList,
+            read_only=True,
         ),
         handler=list_todos,
     )
@@ -107,6 +110,7 @@ def complete_todo_tool() -> Tool[TodoStore]:
             description="Mark a todo item as done",
             input_model=CompleteTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=complete_todo,
     )
@@ -122,7 +126,13 @@ def test_tool_definition_declares_its_models() -> None:
 
 
 def test_tool_context_is_immutable() -> None:
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=None)
+    ctx = ToolContext(
+        app_id="todo",
+        invocation_id="inv-1",
+        dependencies=None,
+        principal=Principal(id="test"),
+        channel=Channel.AGENT,
+    )
 
     with pytest.raises(FrozenInstanceError):
         ctx.app_id = "other"  # pyright: ignore[reportAttributeAccessIssue]
@@ -130,7 +140,13 @@ def test_tool_context_is_immutable() -> None:
 
 async def test_handler_protocol_accepts_a_plain_async_function() -> None:
     store = TodoStore()
-    ctx = ToolContext(app_id="todo", invocation_id="inv-1", dependencies=store)
+    ctx = ToolContext(
+        app_id="todo",
+        invocation_id="inv-1",
+        dependencies=store,
+        principal=Principal(id="test"),
+        channel=Channel.AGENT,
+    )
 
     todo = await create_todo(ctx, CreateTodoInput(title="buy milk"))
 
@@ -169,6 +185,7 @@ def probe_tool() -> Tool[None]:
             description="Report the context of this invocation",
             input_model=EmptyInput,
             output_model=ProbeOutput,
+            read_only=True,
         ),
         handler=handler,
     )
@@ -184,25 +201,32 @@ def broken_output_tool() -> Tool[None]:
             description="Return a value that violates its own output model",
             input_model=EmptyInput,
             output_model=Todo,
+            read_only=True,
         ),
         handler=handler,
     )
 
 
 async def test_raw_input_round_trips_into_a_validated_output_model() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(
+        app_id="todo", registry=build_registry(), dependencies=TodoStore(), channel=Channel.AGENT
+    )
 
-    result = await runtime.invoke("create_todo", {"title": "buy milk"})
+    result = await runtime.invoke(
+        "create_todo", {"title": "buy milk"}, principal=Principal(id="test")
+    )
 
     assert result == Todo(id=1, title="buy milk", done=False)
 
 
 async def test_tools_share_the_dependencies_they_were_invoked_with() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
-    await runtime.invoke("create_todo", {"title": "buy milk"})
-    await runtime.invoke("create_todo", {"title": "walk the dog"})
+    runtime = ToolRuntime(
+        app_id="todo", registry=build_registry(), dependencies=TodoStore(), channel=Channel.AGENT
+    )
+    await runtime.invoke("create_todo", {"title": "buy milk"}, principal=Principal(id="test"))
+    await runtime.invoke("create_todo", {"title": "walk the dog"}, principal=Principal(id="test"))
 
-    result = await runtime.invoke("list_todos", {})
+    result = await runtime.invoke("list_todos", {}, principal=Principal(id="test"))
 
     assert result == TodoList(
         todos=[
@@ -214,19 +238,23 @@ async def test_tools_share_the_dependencies_they_were_invoked_with() -> None:
 
 async def test_invoking_an_unknown_name_raises() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
-    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
+    runtime = ToolRuntime(
+        app_id="todo", registry=registry, dependencies=None, channel=Channel.AGENT
+    )
 
     with pytest.raises(ToolNotFoundError) as raised:
-        await runtime.invoke("create_todo", {})
+        await runtime.invoke("create_todo", {}, principal=Principal(id="test"))
 
     assert raised.value.tool_name == "create_todo"
 
 
 async def test_malformed_raw_input_raises_input_validation_error() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(
+        app_id="todo", registry=build_registry(), dependencies=TodoStore(), channel=Channel.AGENT
+    )
 
     with pytest.raises(ToolInputValidationError) as raised:
-        await runtime.invoke("create_todo", {})
+        await runtime.invoke("create_todo", {}, principal=Principal(id="test"))
 
     assert raised.value.tool_name == "create_todo"
 
@@ -234,19 +262,23 @@ async def test_malformed_raw_input_raises_input_validation_error() -> None:
 async def test_a_result_violating_the_output_model_raises_output_validation_error() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(broken_output_tool())
-    runtime = ToolRuntime(app_id="todo", registry=registry, dependencies=None)
+    runtime = ToolRuntime(
+        app_id="todo", registry=registry, dependencies=None, channel=Channel.AGENT
+    )
 
     with pytest.raises(ToolOutputValidationError) as raised:
-        await runtime.invoke("broken_output", {})
+        await runtime.invoke("broken_output", {}, principal=Principal(id="test"))
 
     assert raised.value.tool_name == "broken_output"
 
 
 async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=TodoStore())
+    runtime = ToolRuntime(
+        app_id="todo", registry=build_registry(), dependencies=TodoStore(), channel=Channel.AGENT
+    )
 
     with pytest.raises(TodoNotFound) as raised:
-        await runtime.invoke("complete_todo", {"id": 999})
+        await runtime.invoke("complete_todo", {"id": 999}, principal=Principal(id="test"))
 
     assert raised.value.todo_id == 999
 
@@ -254,9 +286,11 @@ async def test_a_domain_exception_reaches_the_caller_unchanged() -> None:
 async def test_the_handler_receives_the_runtime_app_id() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
+    runtime = ToolRuntime(
+        app_id="todo-app", registry=registry, dependencies=None, channel=Channel.AGENT
+    )
 
-    result = await runtime.invoke("probe", {})
+    result = await runtime.invoke("probe", {}, principal=Principal(id="test"))
 
     assert isinstance(result, ProbeOutput)
     assert result.app_id == "todo-app"
@@ -265,10 +299,12 @@ async def test_the_handler_receives_the_runtime_app_id() -> None:
 async def test_each_invocation_receives_its_own_invocation_id() -> None:
     registry: ToolRegistry[None] = ToolRegistry()
     registry.register(probe_tool())
-    runtime = ToolRuntime(app_id="todo-app", registry=registry, dependencies=None)
+    runtime = ToolRuntime(
+        app_id="todo-app", registry=registry, dependencies=None, channel=Channel.AGENT
+    )
 
-    first = await runtime.invoke("probe", {})
-    second = await runtime.invoke("probe", {})
+    first = await runtime.invoke("probe", {}, principal=Principal(id="test"))
+    second = await runtime.invoke("probe", {}, principal=Principal(id="test"))
 
     assert isinstance(first, ProbeOutput)
     assert isinstance(second, ProbeOutput)
@@ -286,6 +322,7 @@ def test_registering_a_name_twice_replaces_the_earlier_tool() -> None:
             description="Replaced",
             input_model=CreateTodoInput,
             output_model=Todo,
+            read_only=False,
         ),
         handler=create_todo,
     )
@@ -296,9 +333,11 @@ def test_registering_a_name_twice_replaces_the_earlier_tool() -> None:
 
 async def test_the_handler_receives_the_runtime_dependencies() -> None:
     store = TodoStore()
-    runtime = ToolRuntime(app_id="todo", registry=build_registry(), dependencies=store)
+    runtime = ToolRuntime(
+        app_id="todo", registry=build_registry(), dependencies=store, channel=Channel.AGENT
+    )
 
-    await runtime.invoke("create_todo", {"title": "buy milk"})
+    await runtime.invoke("create_todo", {"title": "buy milk"}, principal=Principal(id="test"))
 
     assert [todo.title for todo in store.list()] == ["buy milk"]
 
@@ -316,7 +355,7 @@ class Sized(BaseModel):
 
 def test_a_declaration_answers_with_the_schema_its_input_is_validated_against() -> None:
     definition = ToolDefinition(
-        name="measure", description="d", input_model=Sized, output_model=Sized
+        name="measure", description="d", input_model=Sized, output_model=Sized, read_only=True
     )
 
     properties = definition.input_schema()["properties"]
@@ -328,10 +367,31 @@ def test_a_declaration_answers_with_the_schema_its_input_is_validated_against() 
 def test_a_declaration_answers_with_the_schema_its_output_is_serialized_to() -> None:
     """ADR-007: the published schema and the returned value cannot diverge."""
     definition = ToolDefinition(
-        name="measure", description="d", input_model=Sized, output_model=Sized
+        name="measure", description="d", input_model=Sized, output_model=Sized, read_only=True
     )
 
     properties = definition.output_schema()["properties"]
 
     assert isinstance(properties, dict)
     assert set(properties) == set(Sized(width=2).model_dump(by_alias=True, mode="json"))
+
+
+def test_a_principal_is_frozen() -> None:
+    alice = Principal(id="alice", roles=frozenset({"manager"}))
+
+    with pytest.raises(FrozenInstanceError):
+        alice.id = "bob"  # pyright: ignore[reportAttributeAccessIssue]
+
+
+def test_a_tool_is_exposed_on_both_channels_to_anyone_unless_it_says_otherwise() -> None:
+    definition = list_todos_tool().definition
+
+    assert definition.channels == frozenset(Channel)
+    assert definition.required_roles == frozenset()
+
+
+def test_read_only_has_no_default() -> None:
+    with pytest.raises(TypeError):
+        ToolDefinition(  # pyright: ignore[reportCallIssue]
+            name="x", description="x", input_model=EmptyInput, output_model=TodoList
+        )

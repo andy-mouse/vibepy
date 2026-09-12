@@ -73,6 +73,7 @@ TIMER_APP: AppDefinition[datetime, TimerConfig] = AppDefinition(
                 description="How long this window has been open",
                 input_model=Opened,
                 output_model=Elapsed,
+                read_only=True,
             ),
             handler=elapsed,
         )

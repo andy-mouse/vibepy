@@ -9,9 +9,13 @@ declaration reads the same variables wherever it is instantiated. See
 """
 
 import json
+import types
+import typing
 from collections.abc import Mapping
+from enum import StrEnum
+from pathlib import Path
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENV_PREFIX = "VIBEPY_"
@@ -35,6 +39,65 @@ class NoConfig(AppConfig):
     Declared explicitly rather than defaulted, so that one validation path serves
     every App and the framework never guesses that an App needs nothing.
     """
+
+
+class ConfigFieldType(StrEnum):
+    """What a configuration field holds, as much of it as a form needs.
+
+    Derived from the declared annotation rather than from the projected schema,
+    so a reader learns a field is a secret without reading JSON Schema.
+    """
+
+    STRING = "string"
+    PATH = "path"
+    INTEGER = "integer"
+    SECRET = "secret"
+    OTHER = "other"
+
+
+class ConfigFieldDescription(BaseModel):
+    """One field an App declares: its name, what it holds, and whether it is required."""
+
+    name: str
+    type: ConfigFieldType
+    required: bool
+
+
+_FIELD_TYPES: Mapping[type, ConfigFieldType] = {
+    SecretStr: ConfigFieldType.SECRET,
+    Path: ConfigFieldType.PATH,
+    int: ConfigFieldType.INTEGER,
+    str: ConfigFieldType.STRING,
+}
+"""The annotations a reader of a declaration recognises. Anything else is `OTHER`."""
+
+
+def _declared_type(annotation: object, /) -> ConfigFieldType:
+    """Classify a declared annotation, seeing through `X | None`.
+
+    An optional field holds what its one non-`None` member holds: a reader that
+    saw `OTHER` there would ask for a secret in the clear.
+    """
+    origin = typing.get_origin(annotation)
+    if origin is types.UnionType or origin is typing.Union:
+        members = [member for member in typing.get_args(annotation) if member is not type(None)]
+        if len(members) == 1:
+            annotation = members[0]
+    if not isinstance(annotation, type):
+        return ConfigFieldType.OTHER
+    return _FIELD_TYPES.get(annotation, ConfigFieldType.OTHER)
+
+
+def config_fields_of(model: type[AppConfig], /) -> list[ConfigFieldDescription]:
+    """Describe every field a configuration model declares, in declaration order."""
+    return [
+        ConfigFieldDescription(
+            name=name,
+            type=_declared_type(field.annotation),
+            required=field.is_required(),
+        )
+        for name, field in model.model_fields.items()
+    ]
 
 
 def environment_for(config: Mapping[str, JsonValue], /) -> dict[str, str]:

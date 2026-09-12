@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import studio
+from tests_support import AGENT, studio
 from vibepy_core.errors import ErrorCategory
 from vibepy_studio.operating.models import AppListing, RunningApp
 
@@ -29,18 +29,21 @@ async def test_an_installed_app_starts_and_stops(tmp_path: Path, installed: Path
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
             },
+            principal=AGENT,
         )
-        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
         assert isinstance(started, RunningApp)
         assert started.diagnostic is None
         assert started.url is not None
 
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
         assert isinstance(listed, AppListing)
         assert [row.url for row in listed.apps if row.app_name == "vibepy-todo"] == [started.url]
         assert [row.state for row in listed.apps if row.app_name == "vibepy-todo"] == ["running"]
 
-        stopped = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
+        stopped = await tools.invoke("stop_app", {"app_name": "vibepy-todo"}, principal=AGENT)
         assert isinstance(stopped, RunningApp)
         assert stopped.state == "installed"
 
@@ -48,7 +51,9 @@ async def test_an_installed_app_starts_and_stops(tmp_path: Path, installed: Path
 async def test_starting_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     """And it says a different call could succeed, which is what a category is for."""
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        answered = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
@@ -62,9 +67,11 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
     installed: Path,
 ) -> None:
     async with studio(installed) as tools:
-        answered = await tools.invoke("start_app", {"app_name": "vibepy-notes", "secrets": {}})
+        answered = await tools.invoke(
+            "start_app", {"app_name": "vibepy-notes", "secrets": {}}, principal=AGENT
+        )
 
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
         assert isinstance(listed, AppListing)
         rows = {row.app_name: row for row in listed.apps}
         assert rows["vibepy-notes"].has_pages is False
@@ -76,7 +83,7 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
 
 async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
+        answered = await tools.invoke("stop_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
@@ -94,7 +101,9 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     opens. The Hub must report that rather than hand over a url.
     """
     async with studio(installed) as tools:
-        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
 
     assert isinstance(started, RunningApp)
     assert started.state == "installed"
@@ -113,10 +122,15 @@ async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path, instal
         await tools.invoke(
             "configure_app",
             {"app_name": "vibepy-todo", "values": {"db_path": str(tmp_path / "todo.json")}},
+            principal=AGENT,
         )
-        refused = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        refused = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
         started = await tools.invoke(
-            "start_app", {"app_name": "vibepy-todo", "secrets": {"db_key": "supplied"}}
+            "start_app",
+            {"app_name": "vibepy-todo", "secrets": {"db_key": "supplied"}},
+            principal=AGENT,
         )
 
     assert isinstance(refused, RunningApp)
@@ -140,9 +154,12 @@ async def test_starting_a_running_app_says_it_is_already_running(
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             },
+            principal=AGENT,
         )
-        await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
-        again = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT)
+        again = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
 
     assert isinstance(again, RunningApp)
     assert again.diagnostic is not None
@@ -167,10 +184,12 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path, installed: Pat
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             },
+            principal=AGENT,
         )
         payload: dict[str, object] = {"app_name": "vibepy-todo", "secrets": {}}
         first, second = await asyncio.gather(
-            tools.invoke("start_app", payload), tools.invoke("start_app", payload)
+            tools.invoke("start_app", payload, principal=AGENT),
+            tools.invoke("start_app", payload, principal=AGENT),
         )
 
     assert isinstance(first, RunningApp)

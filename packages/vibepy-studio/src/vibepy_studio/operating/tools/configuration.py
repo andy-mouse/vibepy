@@ -2,10 +2,10 @@
 
 from collections.abc import Sequence
 
-from vibepy_core.errors import ErrorCategory
+from vibepy_core.channel import Channel
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import StudioDeps
-from vibepy_studio.models import Diagnostic
 from vibepy_studio.operating.internals import (
     HubState,
     config_fields,
@@ -44,14 +44,14 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
             values={},
             secret_fields=[],
             secrets_set=[],
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.not_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is not installed",
                 details={"app_name": payload.app_name},
             ),
         )
-    secrets = secret_fields(facts.config_schema)
+    secrets = secret_fields(facts)
 
     def hold(state: HubState) -> HubState:
         return state.model_copy(
@@ -80,18 +80,18 @@ async def describe_config(ctx: ToolContext[StudioDeps], payload: AppName) -> Con
     if facts is None:
         return ConfigDescription(
             app_name=payload.app_name,
-            diagnostic=Diagnostic(
+            diagnostic=ErrorInfo(
                 code="hub.not_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is not installed",
                 details={"app_name": payload.app_name},
             ),
         )
-    secrets = secret_fields(facts.config_schema)
+    secrets = secret_fields(facts)
     held = (await read_state(deps.root)).config.get(payload.app_name, {})
     return ConfigDescription(
         app_name=payload.app_name,
-        fields=list(config_fields(facts.config_schema)),
+        fields=list(config_fields(facts)),
         values=without_secrets(held, secrets),
         secrets_set=list(held_secrets(held, secrets)),
     )
@@ -104,6 +104,8 @@ CONFIGURATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             description="Hold the values an App runs with",
             input_model=ConfigureRequest,
             output_model=HeldConfig,
+            read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=configure_app,
     ),
@@ -113,6 +115,8 @@ CONFIGURATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             description="What an App declares it needs, and what is held for it",
             input_model=AppName,
             output_model=ConfigDescription,
+            read_only=True,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=describe_config,
     ),

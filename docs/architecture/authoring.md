@@ -39,15 +39,25 @@ project's environment — `uv run --project <dir> python -m vibepy_core.describe
 reads what they write; `docs/architecture/packaging.md` owns those commands. The Apps a project
 answers for are those its `[project].name` declares.
 
-| Tool | Answers |
-| --- | --- |
-| `inspect_framework` | what `vibepy_core` asserts about itself: version, entry point group, channel extras, error catalogue. Read by import; carries no documentation |
-| `inspect_app` | the project's Apps with every Tool schema, Page and configuration schema — or the framework's own diagnostic when the declaration will not load |
-| `invoke_tool` | one Tool of one App, invoked once through the framework's invocation window, with configuration supplied by the caller |
+| Tool | Channel | Answers |
+| --- | --- | --- |
+| `inspect_framework` | Agent | what `vibepy_core` asserts about itself: version, entry point group, channel extras, error catalogue. Read by import; carries no documentation |
+| `inspect_app` | Agent | the project's Apps with every Tool schema, Page and configuration schema — or the framework's own diagnostic when the declaration will not load |
+| `invoke_tool` | Agent | one Tool of one App, invoked once through the framework's invocation window, with configuration supplied by the caller |
+| `list_apps`, `describe_config`, `install_app`, `remove_app`, `update_app`, `configure_app`, `start_app`, `stop_app`, `register_package_source`, `remove_package_source` | Web | Studio's operating half, which the Hub's Pages reach |
+
+An agent connected to Studio therefore neither sees the operating Tools nor can call them by
+name. This is the outcome
+`docs/decisions/ADR-032-authoring-is-studios-agent-channel.md` deferred: exposure is a field of
+each declaration, and `docs/architecture/tool-model.md` owns what it means.
 
 `invoke_tool` names its App explicitly and does not filter by the project's `[project].name` as
 `inspect_app` does, so in a workspace whose members share one environment it can reach a sibling's
 App; the environment is still the project's.
+
+`invoke_tool` forwards its own `ctx.channel` and `ctx.principal` to the command it runs, so a
+call an agent verifies through Studio is authorized exactly as the agent's own call would be,
+and Studio grants nothing it was not given.
 
 Inspection and validation are one Tool: what the framework validates today is that a declaration
 loads, and that is the failure path of describing. A failure the project's environment reports

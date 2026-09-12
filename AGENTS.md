@@ -41,6 +41,7 @@ and is not repeated below.
 - Optional and configuration parameters are keyword-only.
 - Blocking calls inside async code are wrapped in `asyncio.to_thread`.
 - Framework exceptions derive from a single base class. Exception types are the contract, not message strings.
+- A value that crosses a process boundary is one pydantic `BaseModel` owned by `vibepy_core`: the writer dumps it, the reader validates it, and nobody re-declares its fields or decodes a projection of it to recover what the source knows. In-process declarations that hold types or callables are frozen dataclasses.
 - Tests verify public contracts, not internals. A test file is one subject, not one criterion; a test that cannot fail is deleted.
 - Standard `logging` only, `getLogger(__name__)` per module. No `print`.
 - Filesystem paths are `pathlib.Path`, never strings. The framework runs on macOS and Windows.

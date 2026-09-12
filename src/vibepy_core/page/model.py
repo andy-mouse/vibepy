@@ -6,6 +6,8 @@ from typing import Protocol
 
 from pydantic import BaseModel
 
+from vibepy_core.principal import Principal
+
 
 class ToolInvoker(Protocol):
     """The narrow interface a Page invokes Tools through.
@@ -21,6 +23,16 @@ class ToolInvoker(Protocol):
 
     def invoke(self, name: str, raw_input: Mapping[str, object], /) -> Awaitable[BaseModel]:
         """Invoke `name` with `raw_input` and return its validated result."""
+        ...
+
+
+class PrincipalToolInvoker(Protocol):
+    """What PageRuntime binds a ToolInvoker from: ToolRuntime.invoke's shape, principal included."""
+
+    def invoke(
+        self, name: str, raw_input: Mapping[str, object], /, *, principal: Principal
+    ) -> Awaitable[BaseModel]:
+        """Invoke `name` with `raw_input` as `principal` and return its validated result."""
         ...
 
 

@@ -1,13 +1,14 @@
 """Invoking one Tool of a project's App, in the project's own environment."""
 
 import asyncio
-import json
 import logging
 from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
 from vibepy_core.app.config import environment_for
+from vibepy_core.channel import Channel
+from vibepy_core.invoke import InvocationRequest
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.authoring.internals import locate, python
 from vibepy_studio.authoring.models import (
@@ -26,15 +27,26 @@ _OUTPUT = TypeAdapter(dict[str, object])
 """The command writes one JSON object: the Tool's output model, dumped."""
 
 
-async def invoke_tool(_ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
+async def invoke_tool(ctx: ToolContext[StudioDeps], payload: InvokeRequest) -> Invocation:
     """Invoke one Tool once through the framework's own window, and return what it said."""
     project = await asyncio.to_thread(locate, payload.project)
     if project is None:
         return Invocation(diagnostic=project_not_found(payload.project, "holds no pyproject.toml"))
-    request = json.dumps({"input": payload.input})
+    request = InvocationRequest(input=payload.input).model_dump_json()
     try:
         completed = await run(
-            [*python(project), "-m", "vibepy_core.invoke", payload.app, payload.tool],
+            [
+                *python(project),
+                "-m",
+                "vibepy_core.invoke",
+                payload.app,
+                payload.tool,
+                "--channel",
+                ctx.channel.value,
+                "--principal",
+                ctx.principal.id,
+                *[arg for role in sorted(ctx.principal.roles) for arg in ("--role", role)],
+            ],
             stdin=request,
             env=environment_for(payload.config),
         )
@@ -67,6 +79,8 @@ INVOCATION_TOOLS: Sequence[Tool[StudioDeps]] = [
             ),
             input_model=InvokeRequest,
             output_model=Invocation,
+            read_only=False,
+            channels=frozenset({Channel.AGENT}),
         ),
         handler=invoke_tool,
     ),

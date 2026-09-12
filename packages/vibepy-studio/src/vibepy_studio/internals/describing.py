@@ -11,13 +11,13 @@ from collections.abc import Sequence
 
 from pydantic import TypeAdapter, ValidationError
 
+from vibepy_core.app.package import DescribedApp
 from vibepy_core.errors import ErrorInfo
 from vibepy_studio.internals.processes import reported, run
-from vibepy_studio.models import Described
 
 logger = logging.getLogger(__name__)
 
-_DESCRIBED = TypeAdapter(list[Described])
+_DESCRIBED = TypeAdapter(list[DescribedApp])
 
 
 class DescribeFailed(Exception):
@@ -30,7 +30,7 @@ class DescribeFailed(Exception):
         self.reported = reported
 
 
-async def describe(python: Sequence[str], /) -> tuple[Described, ...]:
+async def describe(python: Sequence[str], /) -> tuple[DescribedApp, ...]:
     """Return what the environment `python` runs in declares.
 
     Raises:

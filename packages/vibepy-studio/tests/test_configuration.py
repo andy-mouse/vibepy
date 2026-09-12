@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import studio
+from tests_support import AGENT, studio
 from vibepy_studio.operating.internals.state import STATE_FILE
 from vibepy_studio.operating.models import AppListing, ConfigDescription, HeldConfig, RunningApp
 
@@ -25,8 +25,9 @@ async def test_values_are_held_for_an_installed_app(installed: Path) -> None:
                 "app_name": "vibepy-notes",
                 "values": {"api_base_url": str(data), "api_token": "k"},
             },
+            principal=AGENT,
         )
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(held, HeldConfig)
     assert held.diagnostic is None
@@ -41,7 +42,7 @@ async def test_values_are_held_for_an_installed_app(installed: Path) -> None:
 @pytest.mark.integration
 async def test_an_app_missing_a_required_value_is_not_configured(installed: Path) -> None:
     async with studio(installed) as tools:
-        listed = await tools.invoke("list_apps", {})
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     assert [row.configured for row in listed.apps if row.app_name == "vibepy-notes"] == [False]
@@ -49,7 +50,9 @@ async def test_an_app_missing_a_required_value_is_not_configured(installed: Path
 
 async def test_configuring_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("configure_app", {"app_name": "vibepy-todo", "values": {}})
+        answered = await tools.invoke(
+            "configure_app", {"app_name": "vibepy-todo", "values": {}}, principal=AGENT
+        )
 
     assert isinstance(answered, HeldConfig)
     assert answered.diagnostic is not None
@@ -65,6 +68,7 @@ async def held_notes_secret(root: Path) -> HeldConfig:
                 "app_name": "vibepy-notes",
                 "values": {"api_base_url": "https://notes.internal", "api_token": TOKEN},
             },
+            principal=AGENT,
         )
     assert isinstance(held, HeldConfig)
     return held
@@ -88,12 +92,15 @@ async def test_a_secret_is_held_so_a_restart_needs_no_one(tmp_path: Path, instal
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.json"), "db_key": "held"},
             },
+            principal=AGENT,
         )
         assert isinstance(held, HeldConfig)
         assert held.secrets_set == ["db_key"]
 
     async with studio(root) as tools:
-        started = await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
+        started = await tools.invoke(
+            "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
+        )
 
     assert isinstance(started, RunningApp)
     assert started.diagnostic is None
@@ -119,7 +126,7 @@ async def test_a_held_secret_is_never_handed_back(installed: Path) -> None:
 
     async with studio(root) as tools:
         again = await tools.invoke(
-            "configure_app", {"app_name": "vibepy-notes", "values": held.values}
+            "configure_app", {"app_name": "vibepy-notes", "values": held.values}, principal=AGENT
         )
 
     assert isinstance(again, HeldConfig)
@@ -144,8 +151,8 @@ async def test_what_is_held_is_readable_only_by_its_owner(installed: Path) -> No
 async def test_an_apps_configuration_is_described_by_field(installed: Path) -> None:
     """Notes declares a string and a secret; Todo a path and a secret. Both required."""
     async with studio(installed) as tools:
-        notes = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
-        todo = await tools.invoke("describe_config", {"app_name": "vibepy-todo"})
+        notes = await tools.invoke("describe_config", {"app_name": "vibepy-notes"}, principal=AGENT)
+        todo = await tools.invoke("describe_config", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(notes, ConfigDescription)
     assert notes.diagnostic is None
@@ -168,7 +175,9 @@ async def test_a_description_carries_held_values_and_names_held_secrets(installe
     await held_notes_secret(installed)
 
     async with studio(installed) as tools:
-        described = await tools.invoke("describe_config", {"app_name": "vibepy-notes"})
+        described = await tools.invoke(
+            "describe_config", {"app_name": "vibepy-notes"}, principal=AGENT
+        )
 
     assert isinstance(described, ConfigDescription)
     assert described.values == {"api_base_url": "https://notes.internal"}
@@ -178,7 +187,9 @@ async def test_a_description_carries_held_values_and_names_held_secrets(installe
 
 async def test_describing_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("describe_config", {"app_name": "vibepy-todo"})
+        answered = await tools.invoke(
+            "describe_config", {"app_name": "vibepy-todo"}, principal=AGENT
+        )
 
     assert isinstance(answered, ConfigDescription)
     assert answered.fields == []

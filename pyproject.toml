@@ -40,6 +40,7 @@ dev = [
     "vibepy-todo",
     "vibepy-notes",
     "vibepy-timer",
+    "vibepy-expense",
     "nicegui>=3.16",
     "ruff>=0.14",
     "pyright>=1.1.400",
@@ -54,6 +55,7 @@ vibepy-studio = { workspace = true }
 vibepy-todo = { workspace = true }
 vibepy-notes = { workspace = true }
 vibepy-timer = { workspace = true }
+vibepy-expense = { workspace = true }
 
 [tool.ruff]
 line-length = 100

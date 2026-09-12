@@ -20,6 +20,7 @@ code on the class and maps its category in `vibepy_core/errors.py`.
 | `tool.not_found` | caller | `ToolNotFoundError` |
 | `tool.input_invalid` | caller | `ToolInputValidationError` |
 | `tool.output_invalid` | execution | `ToolOutputValidationError` |
+| `tool.forbidden` | caller | `ToolForbiddenError` |
 | `tool.name_conflict` | declaration | `ToolNameConflictError` |
 | `page.not_found` | caller | `PageNotFoundError` |
 | `page.route_invalid` | declaration | `PageRouteInvalidError` |
@@ -55,7 +56,10 @@ added later cannot be silently unhandled.
 ## ErrorInfo
 
 `ErrorInfo` is one failure in the form every channel reports: `code`, `category`, `message`
-and `details`. `to_error_info(error)` builds one from any exception.
+and `details`. `to_error_info(error)` builds one from any exception. It crosses a process
+boundary — `report_line` writes it and `read_report_line` reads it back — so it is one frozen
+pydantic model the writer dumps and the reader validates, and a line naming a category the
+framework does not know is not a report.
 
 `details` carries every value the message interpolates, so an agent that needs to know which
 Tool failed reads a mapping rather than parsing a sentence. This is what allows a message to
@@ -72,9 +76,10 @@ own contract already covers. Normalization is not wrapping: `to_error_info` is c
 a channel must render an answer, and nowhere else.
 
 An App's own expected failures are not the framework's either. An App may publish an expected,
-actionable failure as data inside its own output model, provided it carries `code`, `category`,
-`message` and `details` — the same fields an `ErrorInfo` carries, so one reader parses both.
-The table above stays the framework's, and an App's codes are the App's to publish and document.
+actionable failure as data inside its own output model, and what it publishes is an `ErrorInfo`:
+one type rather than four fields restated, so one reader parses both kinds of failure and
+neither side re-declares the other's shape. The table above stays the framework's, and an App's
+codes are the App's to publish and document.
 See `docs/decisions/ADR-029-an-apps-expected-failures-travel-as-data.md`.
 
 ## What each channel does

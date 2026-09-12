@@ -24,12 +24,15 @@ from vibepy_core.adapters.mcp.projection import to_mcp_tool
 from vibepy_core.app.composition import Lifespan, tool_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
+    ToolForbiddenError,
     ToolInputValidationError,
     ToolNotFoundError,
     ToolOutputValidationError,
     to_error_info,
 )
+from vibepy_core.principal import Principal
 from vibepy_core.tool.runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
@@ -41,13 +44,7 @@ def _payload(error: Exception) -> dict[str, object]:
     Both MCP failure paths carry it, so the Agent channel reports one failure one
     way whether the protocol answers with an error or with a result.
     """
-    info = to_error_info(error)
-    return {
-        "code": info.code,
-        "category": info.category.value,
-        "message": info.message,
-        "details": dict(info.details),
-    }
+    return to_error_info(error).model_dump(mode="json")
 
 
 def _failure(error: Exception) -> types.CallToolResult:
@@ -69,14 +66,22 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
     /,
     *,
     config: Mapping[str, object],
+    principal: Principal,
 ) -> Server[ToolRuntime[DepsT]]:
-    """Build the MCP projection of one App's Tools."""
+    """Build the MCP projection of one App's Tools, invoked as `principal`.
+
+    The principal is the host's to assert and this adapter's to carry: the
+    process serves whoever launched it, so it is fixed for the server's life
+    rather than read off a request.
+    """
 
     @asynccontextmanager
     async def server_lifespan(
         server: Server[ToolRuntime[DepsT]],
     ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-        async with tool_runtime_for(definition, lifespan, config=config) as runtime:
+        async with tool_runtime_for(
+            definition, lifespan, config=config, channel=Channel.AGENT
+        ) as runtime:
             yield runtime
 
     async def list_tools(
@@ -84,22 +89,30 @@ def build_mcp_server[DepsT, ConfigT: AppConfig](
         params: types.PaginatedRequestParams | None,
     ) -> types.ListToolsResult:
         return types.ListToolsResult(
-            tools=[to_mcp_tool(tool.definition) for tool in definition.tools]
+            tools=[
+                to_mcp_tool(tool.definition)
+                for tool in definition.tools
+                if Channel.AGENT in tool.definition.channels
+            ]
         )
 
     async def call_tool(
         ctx: ServerRequestContext[ToolRuntime[DepsT]], params: types.CallToolRequestParams
     ) -> types.CallToolResult:
         try:
-            result = await ctx.lifespan_context.invoke(params.name, params.arguments or {})
+            result = await ctx.lifespan_context.invoke(
+                params.name, params.arguments or {}, principal=principal
+            )
         except ToolNotFoundError as error:
             raise MCPError(types.INVALID_PARAMS, str(error), _payload(error)) from error
+        except ToolForbiddenError as error:
+            return _failure(error)
         except ToolInputValidationError as error:
             return _failure(error)
         except ToolOutputValidationError as error:
             logger.error("Tool %r returned output its own model rejected", params.name)
             return _failure(error)
-        # Broad on purpose: a app defect must not surface as a protocol error.
+        # Broad on purpose: an app defect must not surface as a protocol error.
         except Exception as error:
             logger.exception("Tool %r raised", params.name)
             return _failure(error)

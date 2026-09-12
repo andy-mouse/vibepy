@@ -10,9 +10,9 @@ import importlib
 import json
 import pkgutil
 from collections.abc import Iterator, Mapping
-from dataclasses import FrozenInstanceError
 
 import pytest
+from pydantic import ValidationError
 
 import vibepy_core
 from vibepy_core.errors import (
@@ -29,6 +29,7 @@ from vibepy_core.errors import (
     PageNotFoundError,
     PageRouteConflictError,
     PageRouteInvalidError,
+    ToolForbiddenError,
     ToolInputValidationError,
     ToolNameConflictError,
     ToolNotFoundError,
@@ -100,6 +101,22 @@ CASES: list[tuple[VibepyError, str, ErrorCategory, Mapping[str, str]]] = [
         "tool.output_invalid",
         ErrorCategory.EXECUTION,
         {"tool_name": "create_todo"},
+    ),
+    (
+        ToolForbiddenError(
+            "approve_expense",
+            principal="alice",
+            channel="agent",
+            reason="role_required",
+        ),
+        "tool.forbidden",
+        ErrorCategory.CALLER,
+        {
+            "tool_name": "approve_expense",
+            "principal": "alice",
+            "channel": "agent",
+            "reason": "role_required",
+        },
     ),
     (
         PageNotFoundError("todos"),
@@ -267,8 +284,8 @@ def test_an_exception_the_framework_did_not_define_is_execution() -> None:
 def test_error_info_is_frozen() -> None:
     info = to_error_info(ToolNotFoundError("create_todo"))
 
-    with pytest.raises(FrozenInstanceError):
-        info.code = "tool.input_invalid"  # pyright: ignore[reportAttributeAccessIssue]
+    with pytest.raises(ValidationError):
+        info.code = "tool.input_invalid"
 
 
 def test_the_catalogue_is_public_and_includes_the_unhandled_code() -> None:
@@ -291,25 +308,45 @@ def test_a_report_line_is_one_json_object_of_the_four_fields() -> None:
 def test_a_category_reads_as_its_own_value() -> None:
     """The value crosses a channel boundary as a string."""
     assert ErrorCategory.CALLER == "caller"
-    assert ErrorInfo("tool.not_found", ErrorCategory.CALLER, "m", {}).category == "caller"
+    assert (
+        ErrorInfo(code="tool.not_found", category=ErrorCategory.CALLER, message="m").category
+        == "caller"
+    )
 
 
-def test_a_report_line_reads_back_as_the_failure_it_was_written_from() -> None:
+def test_a_report_line_round_trips_as_the_same_error_info() -> None:
     """One format, three writers, one reader: what core writes, core reads."""
-    info = to_error_info(ToolNotFoundError("create_todo"))
+    info = to_error_info(ToolNotFoundError("x"))
     assert read_report_line(report_line(info)) == info
 
 
-def test_a_category_a_report_names_that_the_framework_does_not_know_is_execution() -> None:
-    known = read_report_line('{"code": "tool.not_found", "category": "caller", "message": "m"}')
-    assert known is not None
-    assert known.category == ErrorCategory.CALLER
+def test_a_diagnostic_without_a_category_is_refused() -> None:
+    """A category is required rather than defaulted, so no site inherits a guess."""
+    with pytest.raises(ValidationError):
+        ErrorInfo.model_validate({"code": "tool.not_found", "message": "no"})
 
-    unknown = read_report_line('{"code": "app.unhandled", "category": "weird", "message": "m"}')
-    assert unknown is not None
-    assert unknown.category == ErrorCategory.EXECUTION
+
+def test_a_line_naming_an_unknown_category_is_not_a_report() -> None:
+    line = '{"code": "a.b", "category": "weather", "message": "", "details": {}}'
+    assert read_report_line(line) is None
 
 
 def test_a_line_that_is_not_a_report_reads_as_nothing() -> None:
     assert read_report_line("Traceback (most recent call last):") is None
     assert read_report_line('{"category": "caller"}') is None
+
+
+def test_a_forbidden_call_names_who_where_and_why() -> None:
+    error = ToolForbiddenError(
+        "approve_expense", principal="alice", channel="agent", reason="role_required"
+    )
+    info = to_error_info(error)
+
+    assert info.code == "tool.forbidden"
+    assert info.category is ErrorCategory.CALLER
+    assert info.details == {
+        "tool_name": "approve_expense",
+        "principal": "alice",
+        "channel": "agent",
+        "reason": "role_required",
+    }

@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import studio
+from tests_support import AGENT, studio
 from vibepy_studio.operating.internals.state import STATE_FILE, HubState, read_state, write_state
 from vibepy_studio.operating.models import HeldConfig
 
@@ -18,10 +18,12 @@ async def test_two_overlapping_configurations_both_survive(installed: Path) -> N
             tools.invoke(
                 "configure_app",
                 {"app_name": "vibepy-notes", "values": {"api_base_url": "/tmp/p.db"}},
+                principal=AGENT,
             ),
             tools.invoke(
                 "configure_app",
                 {"app_name": "vibepy-notes", "values": {"api_base_url": "https://n"}},
+                principal=AGENT,
             ),
         )
         assert isinstance(first, HeldConfig)

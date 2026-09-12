@@ -24,8 +24,12 @@ from vibepy_core.errors import (
     AppNotDeclaredError,
     report,
 )
+from vibepy_core.principal import Principal
 
 logger = logging.getLogger(__name__)
+
+OPERATOR = Principal(id="operator")
+"""The party that runs this process."""
 
 _LOG_CONFIG: dict[str, object] = {
     "version": 1,
@@ -64,7 +68,9 @@ one JSON object and a reader of this process's standard error parses it as such.
 
 def _serve(entrypoint: AppEntrypoint[object, AppConfig], port: int, /) -> None:
     """Serve one App for as long as its window is open."""
-    served = build_web_app(entrypoint.definition, entrypoint.lifespan, config={})
+    served = build_web_app(
+        entrypoint.definition, entrypoint.lifespan, config={}, principal=OPERATOR
+    )
     # The window is the served application's own lifespan, so the `async with`
     # that opens it is the whole of the server's life, and a window that
     # refuses to open fails the server's startup.

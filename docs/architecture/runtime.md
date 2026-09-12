@@ -12,9 +12,10 @@ MCP Adapter ---/
 
 This central boundary is where generic framework behavior can be added consistently over time.
 
+Authorization is decided here, which `docs/architecture/tool-model.md` owns.
+
 Potential future cross-cutting concerns include:
 
-- authorization
 - audit
 - timeout
 - tracing
@@ -33,17 +34,19 @@ It currently carries:
 - app id
 - invocation id
 - `dependencies`: the application-scoped resource, typed by the app itself
+- `principal`: who this invocation is for
+- `channel`: which channel it came through
 
 `dependencies` is one value of the app's own type, not a mapping and not the runtime.
 
+A handler reads `principal` for the record-level rules that are its own, and `channel` for audit
+or policy; the domain behaviour of a Tool stays channel-neutral, as Channel neutrality in
+`docs/architecture/tool-model.md` requires.
+
 Future fields may include:
 
-- principal
-- actor
-- channel metadata
 - tenant
 - locale
-- permissions
 - trace context
 
 ToolRuntime creates a ToolContext for every invocation, with an invocation id unique to
@@ -51,6 +54,22 @@ that invocation. Channels never construct one.
 
 Do not make ToolContext an untyped service-locator bag. See
 `docs/decisions/ADR-013-dependencies-reach-handlers-through-tool-context.md`.
+
+## Where a channel and a principal come from
+
+A channel is a property of the window. One process is one channel
+(`docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md`), so it is fixed when the
+window opens: `tool_runtime_for(..., channel=…)` takes it and ToolRuntime holds it beside the
+dependencies. `page_runtime_for` passes the Web channel, because it is the Web channel's window.
+
+A principal is a property of the invocation. One Web process serves many visitors, so a
+principal bound to the window would have to be undone the day a login exists; `invoke` therefore
+takes it per call.
+
+Whose it is, is the host's to say. The framework derives no principal and authenticates nobody
+(`docs/decisions/ADR-025-the-framework-implements-channel-neutrality-and-delegates-the-rest.md`);
+each host names one, and `docs/architecture/packaging.md` records which. An adapter carries what
+its host gave it and decides nothing.
 
 ## Dependency ownership
 

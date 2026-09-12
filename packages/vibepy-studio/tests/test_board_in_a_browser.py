@@ -17,9 +17,10 @@ import pytest
 from nicegui.testing import Screen
 from selenium.webdriver.common.keys import Keys
 
-from tests_support import studio, write_wheel
+from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import page_runtime_for
+from vibepy_core.principal import Principal
 from vibepy_studio.entry import APP, STUDIO_APP
 from vibepy_studio.operating.pages.board import REFRESH_SECONDS
 
@@ -46,7 +47,7 @@ async def crowded(root: Path, source: Path) -> None:
     for index in range(CROWD):
         write_wheel(source, name=f"demo-app-{index}", version="1.0.0", declares=True)
     async with studio(root) as tools:
-        await tools.invoke("register_package_source", {"path": str(source)})
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
 
 @pytest.mark.browser
@@ -55,7 +56,7 @@ async def test_the_board_arrives_dressed_in_its_own_stylesheet(
 ) -> None:
     await crowded(tmp_path / "hub", tmp_path / "wheels")
     async with hub_pages(tmp_path / "hub") as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         screen.selenium.set_window_size(1280, 600)  # pyright: ignore[reportUnknownMemberType]
         screen.open("/")
         screen.should_contain("Your apps")
@@ -97,7 +98,7 @@ async def test_the_clock_does_not_redraw_over_what_is_being_typed(
         "const kept = window.__watched; window.__watched = document.querySelector('.hub-empty');"
     )
     async with hub_pages(tmp_path / "hub") as pages:
-        register_pages(STUDIO_APP, pages)
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         screen.open("/")
         screen.should_contain("No folder registered")
         asked(screen, watched)

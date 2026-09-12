@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import FIXTURES, bumped_fixture_wheel, studio
+from tests_support import AGENT, FIXTURES, bumped_fixture_wheel, studio
 from vibepy_studio.operating.internals import read_state
 from vibepy_studio.operating.internals.routing import ROUTES
 from vibepy_studio.operating.models import AppListing, Installation
@@ -37,9 +37,11 @@ async def test_an_older_wheel_is_not_offered_as_an_update(
     installed: Path, older_wheelhouse: Path
 ) -> None:
     async with studio(installed) as tools:
-        await tools.invoke("register_package_source", {"path": str(older_wheelhouse)})
-        listed = await tools.invoke("list_apps", {})
-        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
+        await tools.invoke(
+            "register_package_source", {"path": str(older_wheelhouse)}, principal=AGENT
+        )
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
+        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(listed, AppListing)
     row = next(row for row in listed.apps if row.app_name == "vibepy-todo")
@@ -56,20 +58,23 @@ async def test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_an
     tmp_path: Path, installed: Path, newer_wheelhouse: Path
 ) -> None:
     async with studio(installed) as tools:
-        await tools.invoke("register_package_source", {"path": str(newer_wheelhouse)})
-        offered = await tools.invoke("list_apps", {})
+        await tools.invoke(
+            "register_package_source", {"path": str(newer_wheelhouse)}, principal=AGENT
+        )
+        offered = await tools.invoke("list_apps", {}, principal=AGENT)
         await tools.invoke(
             "configure_app",
             {
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
             },
+            principal=AGENT,
         )
         port_before = (await read_state(installed)).ports["vibepy-todo"]
         route_before = (installed / ROUTES / "vibepy-todo.yml").read_text(encoding="utf-8")
 
-        updated = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
-        listed = await tools.invoke("list_apps", {})
+        updated = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
 
     assert isinstance(offered, AppListing)
     before = next(row for row in offered.apps if row.app_name == "vibepy-todo")
@@ -101,18 +106,21 @@ async def test_updating_a_running_app_is_refused(
     tmp_path: Path, installed: Path, newer_wheelhouse: Path
 ) -> None:
     async with studio(installed) as tools:
-        await tools.invoke("register_package_source", {"path": str(newer_wheelhouse)})
+        await tools.invoke(
+            "register_package_source", {"path": str(newer_wheelhouse)}, principal=AGENT
+        )
         await tools.invoke(
             "configure_app",
             {
                 "app_name": "vibepy-todo",
                 "values": {"db_path": str(tmp_path / "todo.db"), "db_key": "k"},
             },
+            principal=AGENT,
         )
-        await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}})
-        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
-        listed = await tools.invoke("list_apps", {})
-        await tools.invoke("stop_app", {"app_name": "vibepy-todo"})
+        await tools.invoke("start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT)
+        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
+        listed = await tools.invoke("list_apps", {}, principal=AGENT)
+        await tools.invoke("stop_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -125,7 +133,7 @@ async def test_updating_a_running_app_is_refused(
 
 async def test_updating_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     async with studio(tmp_path / "hub") as tools:
-        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
+        answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
@@ -139,9 +147,13 @@ async def test_updating_to_nothing_better_is_a_diagnostic(tmp_path: Path, instal
     empty.mkdir()
 
     async with studio(installed) as tools:
-        at_the_offered_version = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
-        await tools.invoke("register_package_source", {"path": str(empty)})
-        no_longer_offered = await tools.invoke("update_app", {"app_name": "vibepy-todo"})
+        at_the_offered_version = await tools.invoke(
+            "update_app", {"app_name": "vibepy-todo"}, principal=AGENT
+        )
+        await tools.invoke("register_package_source", {"path": str(empty)}, principal=AGENT)
+        no_longer_offered = await tools.invoke(
+            "update_app", {"app_name": "vibepy-todo"}, principal=AGENT
+        )
 
     assert isinstance(at_the_offered_version, Installation)
     assert at_the_offered_version.diagnostic is not None

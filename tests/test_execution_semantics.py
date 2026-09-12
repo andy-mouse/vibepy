@@ -30,6 +30,7 @@ from nicegui import ui
 from nicegui.testing import User
 from pydantic import BaseModel
 
+from vibepy_core import Channel, Principal
 from vibepy_core.adapters.mcp import build_mcp_server
 from vibepy_core.adapters.nicegui import register_pages
 from vibepy_core.app import AppDefinition, Lifespan, NoConfig, page_runtime_for, tool_runtime_for
@@ -93,6 +94,7 @@ MEET = Tool(
         description="Wait for a concurrent invocation, then report this one's identity",
         input_model=EmptyInput,
         output_model=Meeting,
+        read_only=False,
     ),
     handler=meet,
 )
@@ -103,6 +105,7 @@ READ_LOG = Tool(
         description="Report the arrival and departure log",
         input_model=EmptyInput,
         output_model=LogSnapshot,
+        read_only=True,
     ),
     handler=read_log,
 )
@@ -151,7 +154,7 @@ RENDEZVOUS = AppDefinition(
 
 
 async def logged(tools: ToolRuntime[Rendezvous]) -> list[str]:
-    snapshot = await tools.invoke("read_log", {})
+    snapshot = await tools.invoke("read_log", {}, principal=Principal(id="test"))
     assert isinstance(snapshot, LogSnapshot)
     return snapshot.entries
 
@@ -160,8 +163,8 @@ async def overlap(tools: ToolRuntime[Rendezvous]) -> tuple[Meeting, Meeting]:
     """Invoke one window's Tool twice concurrently and return both reports."""
     async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
         first, second = await asyncio.gather(
-            tools.invoke("meet", {}),
-            tools.invoke("meet", {}),
+            tools.invoke("meet", {}, principal=Principal(id="test")),
+            tools.invoke("meet", {}, principal=Principal(id="test")),
         )
 
     assert isinstance(first, Meeting)
@@ -170,21 +173,27 @@ async def overlap(tools: ToolRuntime[Rendezvous]) -> tuple[Meeting, Meeting]:
 
 
 async def test_two_invocations_are_in_flight_at_once() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
+    async with tool_runtime_for(
+        RENDEZVOUS, rendezvous_lifespan(), config={}, channel=Channel.AGENT
+    ) as tools:
         await overlap(tools)
 
         assert await logged(tools) == ARRIVALS_THEN_DEPARTURES
 
 
 async def test_concurrent_invocations_receive_independent_contexts() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
+    async with tool_runtime_for(
+        RENDEZVOUS, rendezvous_lifespan(), config={}, channel=Channel.AGENT
+    ) as tools:
         first, second = await overlap(tools)
 
     assert first.invocation_id != second.invocation_id
 
 
 async def test_concurrent_invocations_share_app_scoped_dependencies() -> None:
-    async with tool_runtime_for(RENDEZVOUS, rendezvous_lifespan(), config={}) as tools:
+    async with tool_runtime_for(
+        RENDEZVOUS, rendezvous_lifespan(), config={}, channel=Channel.AGENT
+    ) as tools:
         first, second = await overlap(tools)
 
     assert first.dependency_id == second.dependency_id
@@ -197,11 +206,13 @@ async def test_two_page_renders_are_in_flight_at_once() -> None:
     async with page_runtime_for(RENDEZVOUS, lifespan, config={}) as pages:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
             await asyncio.gather(
-                pages.render("meeting"),
-                pages.render("meeting"),
+                pages.render("meeting", principal=Principal(id="operator")),
+                pages.render("meeting", principal=Principal(id="operator")),
             )
 
-        async with tool_runtime_for(RENDEZVOUS, lifespan, config={}) as tools:
+        async with tool_runtime_for(
+            RENDEZVOUS, lifespan, config={}, channel=Channel.AGENT
+        ) as tools:
             assert await logged(tools) == ARRIVALS_THEN_DEPARTURES
 
 
@@ -221,7 +232,9 @@ async def test_two_agent_channel_calls_are_in_flight_at_once() -> None:
     Passing a Server straight to Client is the SDK's documented in-memory
     transport, which it names as the testing path.
     """
-    server = build_mcp_server(RENDEZVOUS, rendezvous_lifespan(), config={})
+    server = build_mcp_server(
+        RENDEZVOUS, rendezvous_lifespan(), config={}, principal=Principal(id="agent")
+    )
 
     async with Client(server) as agent:
         async with asyncio.timeout(DEADLOCK_TIMEOUT_SECONDS):
@@ -253,7 +266,7 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
     lifespan = rendezvous_lifespan()
 
     async with page_runtime_for(RENDEZVOUS, lifespan, config={}) as pages:
-        register_pages(RENDEZVOUS, pages)
+        register_pages(RENDEZVOUS, pages, principal=Principal(id="operator"))
 
         first = create_user()
         second = create_user()
@@ -266,5 +279,7 @@ async def test_two_web_channel_interactions_are_in_flight_at_once(
         await first.should_see("met")
         await second.should_see("met")
 
-        async with tool_runtime_for(RENDEZVOUS, lifespan, config={}) as tools:
+        async with tool_runtime_for(
+            RENDEZVOUS, lifespan, config={}, channel=Channel.AGENT
+        ) as tools:
             assert await logged(tools) == ARRIVALS_THEN_DEPARTURES

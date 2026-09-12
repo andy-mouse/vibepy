@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     AppConfigInvalidError,
     PageNameConflictError,
@@ -94,10 +95,13 @@ async def tool_runtime_for[DepsT, ConfigT: AppConfig](
     /,
     *,
     config: Mapping[str, object],
+    channel: Channel,
 ) -> AsyncGenerator[ToolRuntime[DepsT]]:
-    """Open the invocation window: one ToolRuntime over one acquired resource.
+    """Open the invocation window for one channel: one ToolRuntime over one acquired resource.
 
-    Channel-neutral, and named so. The Agent channel adds nothing to it and
+    Channel-neutral in what it composes, and named so. `channel` says which
+    channel opened the window, and the runtime authorizes against it; it is not
+    a branch in a Tool. The Agent channel adds nothing to it and
     hands it straight to its server's lifespan; the Web channel composes over
     it. Calling this one channel's would give a channel-neutral concern a
     channel's name, and then the other channel reaches Tools by borrowing from
@@ -107,7 +111,13 @@ async def tool_runtime_for[DepsT, ConfigT: AppConfig](
     registry = tool_registry_for(definition)
     validated = _validated(definition, config)
     async with lifespan(validated) as dependencies:
-        yield ToolRuntime(app_id=definition.app_id, registry=registry, dependencies=dependencies)
+        yield ToolRuntime(
+            app_id=definition.app_id,
+            registry=registry,
+            dependencies=dependencies,
+            channel=channel,
+            policy=definition.policy,
+        )
 
 
 @asynccontextmanager
@@ -121,10 +131,11 @@ async def page_runtime_for[DepsT, ConfigT: AppConfig](
     """Open the Web channel's window: the invocation window, with Pages over it.
 
     It opens `tool_runtime_for` rather than repeating it, so the configuration
-    is instantiated once and a resource acquired once. A Page reaches Tools through
-    ToolInvoker, which ToolRuntime satisfies, so the Web channel gets the
+    is instantiated once and a resource acquired once. The window is the Web
+    channel's, so it is opened as `Channel.WEB`. A Page reaches Tools through
+    PrincipalToolInvoker, which ToolRuntime satisfies, so the Web channel gets the
     canonical invocation path without seeing the runtime.
     """
     registry = page_registry_for(definition)
-    async with tool_runtime_for(definition, lifespan, config=config) as tools:
+    async with tool_runtime_for(definition, lifespan, config=config, channel=Channel.WEB) as tools:
         yield PageRuntime(registry=registry, tools=tools)

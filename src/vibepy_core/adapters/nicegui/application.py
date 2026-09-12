@@ -12,7 +12,6 @@ technology's own startup hook carries no such meaning: its documentation says
 when the hook runs and nothing about a hook that raises.
 """
 
-import json
 import logging
 from collections.abc import AsyncGenerator, Mapping
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -25,6 +24,7 @@ from vibepy_core.app.composition import Lifespan, page_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import to_error_info
+from vibepy_core.principal import Principal
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +35,7 @@ def build_web_app[DepsT, ConfigT: AppConfig](
     /,
     *,
     config: Mapping[str, object],
+    principal: Principal,
 ) -> FastAPI:
     """Build the Web projection of one App's Pages.
 
@@ -53,7 +54,7 @@ def build_web_app[DepsT, ConfigT: AppConfig](
                 pages = await opening.enter_async_context(
                     page_runtime_for(definition, lifespan, config=config)
                 )
-                register_pages(definition, pages)
+                register_pages(definition, pages, principal=principal)
             except Exception as failure:
                 _report(failure)
                 raise
@@ -73,14 +74,4 @@ def _report(failure: Exception, /) -> None:
     and nothing is swallowed: the exception propagates as raised, and this is a
     log record beside it.
     """
-    info = to_error_info(failure)
-    logger.error(
-        json.dumps(
-            {
-                "code": info.code,
-                "category": info.category,
-                "message": info.message,
-                "details": dict(info.details),
-            }
-        )
-    )
+    logger.error(to_error_info(failure).model_dump_json())

@@ -14,6 +14,8 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from urllib.request import Request, urlopen
 
+from vibepy_core import Channel, Principal
+from vibepy_core.app import DescribedApp
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP
@@ -44,12 +46,43 @@ TRAEFIK = (
 """The proxy `make install` fetched. Required: a skipped test cannot fail."""
 
 
+AGENT = Principal(id="agent")
+"""Who a Studio test invokes as. A placeholder until a host asserts one."""
+
+
 def studio(
-    root: Path, /, *, proxy_port: int = 8080
+    root: Path, /, *, proxy_port: int = 8080, channel: Channel = Channel.WEB
 ) -> AbstractAsyncContextManager[ToolRuntime[StudioDeps]]:
     """One Studio window over a temporary root, published at one proxy port."""
     return tool_runtime_for(
-        STUDIO_APP, APP.lifespan, config={"root": str(root), "proxy_port": proxy_port}
+        STUDIO_APP,
+        APP.lifespan,
+        config={"root": str(root), "proxy_port": proxy_port},
+        channel=channel,
+    )
+
+
+def described_app(
+    *,
+    app_id: str,
+    name: str,
+    app_name: str,
+    distribution: str,
+    version: str = "0.0.0",
+    distribution_version: str = "0.0.0",
+) -> DescribedApp:
+    """One entry of what `describe` writes, for a test that stands in for the command."""
+    return DescribedApp(
+        app_name=app_name,
+        distribution=distribution,
+        distribution_version=distribution_version,
+        app_id=app_id,
+        name=name,
+        version=version,
+        config_schema={},
+        config_fields=[],
+        tools=[],
+        pages=[],
     )
 
 

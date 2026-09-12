@@ -36,7 +36,8 @@ from typing import Annotated
 from packaging.utils import canonicalize_name
 from pydantic import AfterValidator, BaseModel, BeforeValidator, JsonValue
 
-from vibepy_studio.models import Diagnostic
+from vibepy_core.app import ConfigFieldDescription, DescribedApp
+from vibepy_core.errors import ErrorInfo
 
 
 def _a_named_folder(value: object) -> object:
@@ -75,34 +76,26 @@ class SourceListing(BaseModel):
 
     source: Path | None
     candidates: list[CandidateRow]
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
 class AppFacts(BaseModel):
-    """What an App declares, read from its environment after installation."""
+    """What an App declares, read from its environment after installation.
 
-    app_id: str
-    name: str
-    version: str
-    distribution_version: str
-    """The version of the wheel that was installed, which is what an update changes.
-
-    An App's own `version` is what its definition declares; the two need not agree,
-    and only the distribution's is compared with what the source offers.
+    The declaration is carried as the one shape `describe` writes, so nothing
+    here restates a field the App already said. `write_facts` is the only
+    writer and always states the whole description: a record without one is
+    one this Hub did not write, and saying so as `hub.facts_unreadable` is
+    truer than reporting the App it describes as no longer declared.
     """
-    config_schema: dict[str, object] = {}
-    has_pages: bool = False
+
+    described: DescribedApp
     purelib: Path | None = None
-    declared_name: str
-    """The name the App declares itself under, which a folder's need not match."""
-    distribution: str
-    """The distribution that declared this App, which is what the Hub files it under.
 
-    Required, with `declared_name`, because `write_facts` is the only writer and
-    always states both. A record without them is one this Hub did not write, and
-    saying so as `hub.facts_unreadable` is truer than reporting the App it
-    describes as no longer declared.
-    """
+    @property
+    def has_pages(self) -> bool:
+        """Whether the App declares a Web channel."""
+        return bool(self.described.pages)
 
 
 _SEPARATORS = frozenset("/\\:\x00")
@@ -158,7 +151,7 @@ class AppRow(BaseModel):
     url: str | None = None
     configured: bool = False
     has_pages: bool = False
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
 class AppListing(BaseModel):
@@ -168,14 +161,14 @@ class AppListing(BaseModel):
     source: Path | None = None
     """The registered folder, said with the rows so one read draws the whole board."""
 
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
 class Installation(BaseModel):
     """One App, as `install_app` and `remove_app` answer with it."""
 
     app: AppRow
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
 class ConfigureRequest(BaseModel):
@@ -199,20 +192,7 @@ class HeldConfig(BaseModel):
     values: dict[str, object]
     secret_fields: list[str]
     secrets_set: list[str]
-    diagnostic: Diagnostic | None = None
-
-
-class ConfigField(BaseModel):
-    """One field an App declares, as much of it as a form needs.
-
-    `type` is `string`, `path`, `integer`, `secret` or `other`, read from the
-    projected schema's `type` and `format`. A string because an output model
-    round-trips through JSON and the set is the Hub's to publish.
-    """
-
-    name: str
-    type: str
-    required: bool
+    diagnostic: ErrorInfo | None = None
 
 
 class ConfigDescription(BaseModel):
@@ -224,10 +204,10 @@ class ConfigDescription(BaseModel):
     """
 
     app_name: str
-    fields: list[ConfigField] = []
+    fields: list[ConfigFieldDescription] = []
     values: dict[str, object] = {}
     secrets_set: list[str] = []
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None
 
 
 class StartRequest(BaseModel):
@@ -243,4 +223,4 @@ class RunningApp(BaseModel):
     app_name: str
     url: str | None = None
     state: str
-    diagnostic: Diagnostic | None = None
+    diagnostic: ErrorInfo | None = None

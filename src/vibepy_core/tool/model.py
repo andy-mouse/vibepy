@@ -6,6 +6,9 @@ from typing import Protocol
 
 from pydantic import BaseModel, JsonValue
 
+from vibepy_core.channel import Channel
+from vibepy_core.principal import Principal
+
 
 @dataclass(frozen=True)
 class ToolContext[DepsT]:
@@ -14,21 +17,30 @@ class ToolContext[DepsT]:
     ``dependencies`` is the App's own application-scoped resource. The
     channel's running window acquires it once and every invocation inside that
     window receives that same value, typed by the app itself.
+
+    ``principal`` and ``channel`` are who this invocation is for and where it
+    came through, as the runtime authorized it. A handler reads them; it does
+    not decide with them, because the decision was already taken.
     """
 
     app_id: str
     invocation_id: str
     dependencies: DepsT
+    principal: Principal
+    channel: Channel
 
 
 @dataclass(frozen=True)
 class ToolDefinition[InputT: BaseModel, OutputT: BaseModel]:
-    """Static declaration of a Tool. Both models are required."""
+    """Static declaration of a Tool. Both models are required, and so is `read_only`."""
 
     name: str
     description: str
     input_model: type[InputT]
     output_model: type[OutputT]
+    read_only: bool
+    channels: frozenset[Channel] = frozenset(Channel)
+    required_roles: frozenset[str] = frozenset()
 
     def input_schema(self) -> dict[str, JsonValue]:
         """Return what an argument mapping is validated against.

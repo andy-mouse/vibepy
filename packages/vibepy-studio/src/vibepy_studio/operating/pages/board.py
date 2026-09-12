@@ -14,8 +14,8 @@ from pathlib import Path
 
 from nicegui import ui
 
-from vibepy_core import Page, PageContext, PageDefinition
-from vibepy_studio.models import Diagnostic
+from vibepy_core import ConfigFieldType, Page, PageContext, PageDefinition
+from vibepy_core.errors import ErrorInfo
 from vibepy_studio.operating.models import (
     AppListing,
     ConfigDescription,
@@ -121,7 +121,7 @@ async def board(ctx: PageContext) -> None:
         """Invoke one Tool and tell the user what it said; return the answer."""
         answer = await ctx.tools.invoke(name, payload)
         diagnostic = getattr(answer, "diagnostic", None)
-        if isinstance(diagnostic, Diagnostic):
+        if isinstance(diagnostic, ErrorInfo):
             ui.notify(f"{diagnostic.code}: {diagnostic.message}", type="warning")
         return answer
 
@@ -289,7 +289,7 @@ async def board(ctx: PageContext) -> None:
             inputs: dict[str, ui.input] = {}
             rows: dict[str, ui.element] = {}
             for field in described.fields:
-                secret = field.type == "secret"
+                secret = field.type is ConfigFieldType.SECRET
                 held = secret and field.name in described.secrets_set
                 row = ui.element("div").classes("hub-field")
                 if field.name in lacking:
@@ -299,7 +299,7 @@ async def board(ctx: PageContext) -> None:
                     with ui.element("label"):
                         _text("span", field.name, "hub-field-name")
                         need = "required" if field.required else "optional"
-                        _text("span", f"{field.type} · {need}", "hub-field-type")
+                        _text("span", f"{field.type.value} · {need}", "hub-field-type")
                     entry = ui.input(
                         password=secret,
                         placeholder="•••••••• (set)" if held else "",

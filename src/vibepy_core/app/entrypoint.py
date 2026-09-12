@@ -1,27 +1,28 @@
 """The composition root as a value, and the projection a reader gets from it."""
 
-from collections.abc import Mapping
 from dataclasses import dataclass
 
-from pydantic import JsonValue
+from pydantic import BaseModel, JsonValue
 
 from vibepy_core.app.composition import Lifespan
-from vibepy_core.app.config import AppConfig
+from vibepy_core.app.config import AppConfig, ConfigFieldDescription, config_fields_of
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.channel import Channel
 
 
-@dataclass(frozen=True)
-class ToolDescription:
+class ToolDescription(BaseModel):
     """One Tool, as a reader that cannot import the App sees it."""
 
     name: str
     description: str
-    input_schema: Mapping[str, JsonValue]
-    output_schema: Mapping[str, JsonValue]
+    input_schema: dict[str, JsonValue]
+    output_schema: dict[str, JsonValue]
+    read_only: bool
+    channels: list[Channel]
+    required_roles: list[str]
 
 
-@dataclass(frozen=True)
-class PageDescription:
+class PageDescription(BaseModel):
     """One Page, as a reader that cannot import the App sees it."""
 
     name: str
@@ -29,20 +30,21 @@ class PageDescription:
     title: str
 
 
-@dataclass(frozen=True)
-class AppDescription:
+class AppDescription(BaseModel):
     """One App's declarations, carrying no type parameter and no resource.
 
-    This is what crosses a process boundary, which is why every schema is typed
-    as the JSON it becomes there and nothing here is generic.
+    This is what crosses a process boundary, which is why it is one model a
+    writer dumps and a reader validates, every schema is typed as the JSON it
+    becomes there, and nothing here is generic.
     """
 
     app_id: str
     name: str
     version: str
-    config_schema: Mapping[str, JsonValue]
-    tools: tuple[ToolDescription, ...]
-    pages: tuple[PageDescription, ...]
+    config_schema: dict[str, JsonValue]
+    config_fields: list[ConfigFieldDescription]
+    tools: list[ToolDescription]
+    pages: list[PageDescription]
 
 
 @dataclass(frozen=True)
@@ -63,21 +65,25 @@ class AppEntrypoint[DepsT, ConfigT: AppConfig]:
             name=self.definition.name,
             version=self.definition.version,
             config_schema=self.definition.config.model_json_schema(),
-            tools=tuple(
+            config_fields=config_fields_of(self.definition.config),
+            tools=[
                 ToolDescription(
                     name=tool.definition.name,
                     description=tool.definition.description,
                     input_schema=tool.definition.input_schema(),
                     output_schema=tool.definition.output_schema(),
+                    read_only=tool.definition.read_only,
+                    channels=sorted(tool.definition.channels),
+                    required_roles=sorted(tool.definition.required_roles),
                 )
                 for tool in self.definition.tools
-            ),
-            pages=tuple(
+            ],
+            pages=[
                 PageDescription(
                     name=page.definition.name,
                     route=page.definition.route,
                     title=page.definition.title,
                 )
                 for page in self.definition.pages
-            ),
+            ],
         )

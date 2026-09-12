@@ -1,4 +1,5 @@
 import json
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,7 @@ from mcp.types import INVALID_PARAMS, CallToolResult, TextContent
 from pydantic import BaseModel, Field, TypeAdapter, computed_field
 
 from lifecycle import no_dependencies
+from vibepy_core import Channel, Principal
 from vibepy_core.adapters.mcp import build_mcp_server, to_mcp_tool
 from vibepy_core.app import AppDefinition, NoConfig
 from vibepy_core.errors import UNHANDLED_CODE, ErrorCategory, VibepyError
@@ -44,6 +46,7 @@ def create_todo_definition() -> ToolDefinition[CreateTodoInput, Todo]:
         description="Create a todo",
         input_model=CreateTodoInput,
         output_model=Todo,
+        read_only=False,
     )
 
 
@@ -53,6 +56,18 @@ def list_todos_definition() -> ToolDefinition[EmptyInput, TodoList]:
         description="List every todo",
         input_model=EmptyInput,
         output_model=TodoList,
+        read_only=True,
+    )
+
+
+def web_only_definition() -> ToolDefinition[EmptyInput, TodoList]:
+    return ToolDefinition(
+        name="board_only",
+        description="For humans",
+        input_model=EmptyInput,
+        output_model=TodoList,
+        read_only=True,
+        channels=frozenset({Channel.WEB}),
     )
 
 
@@ -62,6 +77,7 @@ def complete_todo_definition() -> ToolDefinition[CompleteTodoInput, Todo]:
         description="Mark a todo done",
         input_model=CompleteTodoInput,
         output_model=Todo,
+        read_only=False,
     )
 
 
@@ -82,6 +98,7 @@ def measured_definition() -> ToolDefinition[Measured, Measured]:
         description="Carries a computed member",
         input_model=Measured,
         output_model=Measured,
+        read_only=False,
     )
 
 
@@ -110,6 +127,7 @@ def test_the_published_output_schema_names_properties_as_the_payload_does() -> N
             description="Serializes under an alias",
             input_model=EmptyInput,
             output_model=Renamed,
+            read_only=False,
         )
     )
 
@@ -149,6 +167,7 @@ def test_a_nested_output_model_keeps_its_definitions() -> None:
 
 
 APP_ID = "test-app"
+AGENT = Principal(id="agent")
 
 
 class TodoFixture:
@@ -184,7 +203,9 @@ class TodoFixture:
 
 
 @asynccontextmanager
-async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[ToolRuntime[None]]]:
+async def server_for(
+    tools: list[Tool[None]], *, principal: Principal = AGENT
+) -> AsyncGenerator[Server[ToolRuntime[None]]]:
     """One App with no application-scoped resource: these fixtures hold their own."""
     yield build_mcp_server(
         AppDefinition(
@@ -197,6 +218,7 @@ async def server_for(tools: list[Tool[None]]) -> AsyncGenerator[Server[ToolRunti
         ),
         no_dependencies,
         config={},
+        principal=principal,
     )
 
 
@@ -293,6 +315,7 @@ class BrokenFixture:
                     description="Always raises",
                     input_model=EmptyInput,
                     output_model=Todo,
+                    read_only=False,
                 ),
                 handler=self.explode,
             ),
@@ -302,6 +325,7 @@ class BrokenFixture:
                     description="Returns invalid output",
                     input_model=EmptyInput,
                     output_model=Todo,
+                    read_only=False,
                 ),
                 handler=self.lie,
             ),
@@ -380,6 +404,7 @@ async def test_an_app_defined_error_answers_with_a_result_not_a_protocol_error()
                 description="Raises an App-defined subclass of the public base",
                 input_model=EmptyInput,
                 output_model=Todo,
+                read_only=False,
             ),
             handler=raises,
         )
@@ -417,3 +442,70 @@ async def test_a_failure_never_carries_a_structured_result() -> None:
 
     assert explode.structured_content is None
     assert lie.structured_content is None
+
+
+def test_a_read_only_tool_is_projected_with_the_standard_hint() -> None:
+    projected = to_mcp_tool(list_todos_definition())
+
+    assert projected.annotations is not None
+    assert projected.annotations.read_only_hint is True
+
+
+def test_a_tool_that_writes_carries_no_annotation() -> None:
+    assert to_mcp_tool(create_todo_definition()).annotations is None
+
+
+def _todos_and_board(fixture: TodoFixture) -> list[Tool[None]]:
+    """The App's list Tool, plus one exposed to the Web channel only."""
+    return [
+        Tool(definition=list_todos_definition(), handler=fixture.list_todos),
+        Tool(definition=web_only_definition(), handler=fixture.list_todos),
+    ]
+
+
+async def test_discovery_omits_a_tool_not_exposed_to_agents() -> None:
+    tools = _todos_and_board(TodoFixture())
+
+    async with server_for(tools) as server, Client(server) as client:
+        listed = await client.list_tools()
+
+    assert [tool.name for tool in listed.tools] == ["list_todos"]
+
+
+async def test_calling_a_hidden_tool_by_name_is_forbidden_not_unknown(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A refusal is the caller's answer, not an App defect: it is reported, not logged."""
+    tools = _todos_and_board(TodoFixture())
+
+    async with server_for(tools) as server, Client(server) as client:
+        refused = await client.call_tool("board_only", {})
+
+    assert [record for record in caplog.records if record.levelno >= logging.ERROR] == []
+    assert refused.is_error is True
+    payload = _payload(refused)
+    assert payload["code"] == "tool.forbidden"
+    assert payload["details"] == {
+        "tool_name": "board_only",
+        "principal": "agent",
+        "channel": Channel.AGENT.value,
+        "reason": "not_exposed",
+    }
+
+
+async def test_the_hosts_principal_reaches_the_handler() -> None:
+    seen: list[Principal] = []
+
+    async def who(ctx: ToolContext[None], _payload: EmptyInput) -> TodoList:
+        seen.append(ctx.principal)
+        return TodoList(todos=[])
+
+    tools = [Tool(definition=list_todos_definition(), handler=who)]
+
+    async with (
+        server_for(tools, principal=Principal(id="codex")) as server,
+        Client(server) as client,
+    ):
+        await client.call_tool("list_todos", {})
+
+    assert seen == [Principal(id="codex")]

@@ -5,11 +5,12 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import TypedDict
 
 import pytest
 
+from test_app_entrypoint import properties
 from test_app_package import write_distribution
+from vibepy_core.app import DescribedApp
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -27,41 +28,21 @@ def run_describe(environment_root: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-class DescribedTool(TypedDict):
-    name: str
+def described_apps(result: subprocess.CompletedProcess[str]) -> list[DescribedApp]:
+    """Everything the environment declared, read as the type the command writes."""
+    entries: list[object] = json.loads(result.stdout)
+    return [DescribedApp.model_validate(entry) for entry in entries]
 
 
-class DescribedPage(TypedDict):
-    route: str
-
-
-class DescribedConfig(TypedDict):
-    properties: dict[str, object]
-
-
-class Described(TypedDict):
-    """The JSON shape `vibepy_core.describe` writes, as a test reads it."""
-
-    app_name: str
-    distribution: str
-    distribution_version: str
-    app_id: str
-    name: str
-    version: str
-    config_schema: DescribedConfig
-    tools: list[DescribedTool]
-    pages: list[DescribedPage]
-
-
-def described_app(result: subprocess.CompletedProcess[str], app_id: str) -> Described:
+def described_app(result: subprocess.CompletedProcess[str], app_id: str) -> DescribedApp:
     """One App out of everything the environment declares.
 
     The environment declares more than one App, so a test names the one it is
     about rather than asserting how many there are.
     """
-    described: list[Described] = json.loads(result.stdout)
-    found = [entry for entry in described if entry["app_id"] == app_id]
-    assert found, f"{app_id} was not described: {[entry['app_id'] for entry in described]}"
+    described = described_apps(result)
+    found = [entry for entry in described if entry.app_id == app_id]
+    assert found, f"{app_id} was not described: {[entry.app_id for entry in described]}"
     return found[0]
 
 
@@ -71,21 +52,20 @@ def test_the_command_writes_a_description_of_every_declared_app(tmp_path: Path) 
 
     assert result.returncode == 0, result.stderr
     todo = described_app(result, "todo-app")
-    assert todo["version"] == "0.0.0"
-    assert sorted(todo["config_schema"]["properties"]) == ["db_key", "db_path"]
-    assert [tool["name"] for tool in todo["tools"]] == [
+    assert todo.version == "0.0.0"
+    assert sorted(properties(todo.config_schema)) == ["db_key", "db_path"]
+    assert [tool.name for tool in todo.tools] == [
         "create_todo",
         "list_todos",
         "complete_todo",
     ]
-    assert [page["route"] for page in todo["pages"]] == ["/todos"]
-    assert described_app(result, "notes-app")["pages"] == []
+    assert [page.route for page in todo.pages] == ["/todos"]
+    assert described_app(result, "notes-app").pages == []
 
 
 @pytest.mark.integration
 def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> None:
-    first: list[Described] = json.loads(run_describe(tmp_path).stdout)
-    before = {entry["app_id"] for entry in first}
+    before = {entry.app_id for entry in described_apps(run_describe(tmp_path))}
     dist_info = tmp_path / "plain-1.0.0.dist-info"
     dist_info.mkdir()
     (dist_info / "METADATA").write_text(
@@ -95,8 +75,7 @@ def test_a_distribution_declaring_no_app_describes_nothing(tmp_path: Path) -> No
     result = run_describe(tmp_path)
 
     assert result.returncode == 0, result.stderr
-    again: list[Described] = json.loads(result.stdout)
-    assert {entry["app_id"] for entry in again} == before
+    assert {entry.app_id for entry in described_apps(result)} == before
 
 
 @pytest.mark.integration
@@ -125,6 +104,6 @@ def test_a_description_says_which_declaration_it_describes(tmp_path: Path) -> No
 
     assert result.returncode == 0, result.stderr
     described = described_app(result, "todo-app")
-    assert described["app_name"] == "todo-app"
-    assert described["distribution"] == "vibepy-todo"
-    assert described["distribution_version"] == "0.1.0"
+    assert described.app_name == "todo-app"
+    assert described.distribution == "vibepy-todo"
+    assert described.distribution_version == "0.1.0"

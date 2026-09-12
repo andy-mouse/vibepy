@@ -6,6 +6,11 @@ through ToolRuntime, and closes the window. It is how a host that must not impor
 an App verifies that a Tool behaves. Its configuration is the environment's
 (`docs/architecture/packaging.md`, Configuration); standard input carries one
 JSON object of `input`, the Tool's own per-call data.
+
+`vibepy_core.invoke` is a host that opens a window on behalf of another host, so
+channel and principal are its arguments and are required. Its trust model is
+stdio's: whoever can run it already holds the App's environment, so naming a
+principal there is no escalation. Its stdin keeps its shape.
 """
 
 import argparse
@@ -15,12 +20,13 @@ import logging
 import sys
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import BaseModel, ConfigDict, JsonValue, ValidationError
 
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppEntrypoint
 from vibepy_core.app.package import load_app
+from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     AppEntrypointInvalidError,
     AppEntrypointUnloadableError,
@@ -28,11 +34,12 @@ from vibepy_core.errors import (
     InvokeRequestInvalidError,
     report,
 )
+from vibepy_core.principal import Principal
 
 logger = logging.getLogger(__name__)
 
 
-class _Request(BaseModel):
+class InvocationRequest(BaseModel):
     """What standard input carries: one JSON object of the Tool's `input`.
 
     Any other key is refused rather than ignored, so a request written for the
@@ -41,37 +48,54 @@ class _Request(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    input: dict[str, object] = {}
+    input: dict[str, JsonValue] = {}
 
 
 async def _invoke(
-    entrypoint: AppEntrypoint[object, AppConfig], tool_name: str, request: _Request, /
+    entrypoint: AppEntrypoint[object, AppConfig],
+    tool_name: str,
+    request: InvocationRequest,
+    /,
+    *,
+    channel: Channel,
+    principal: Principal,
 ) -> BaseModel:
     """Open the window, invoke once, close the window."""
-    async with tool_runtime_for(entrypoint.definition, entrypoint.lifespan, config={}) as runtime:
-        return await runtime.invoke(tool_name, request.input)
+    async with tool_runtime_for(
+        entrypoint.definition, entrypoint.lifespan, config={}, channel=channel
+    ) as runtime:
+        return await runtime.invoke(tool_name, request.input, principal=principal)
 
 
 def main(argv: Sequence[str], /) -> int:
-    """Read a request from standard input and invoke one Tool.
+    """Read a request from standard input and invoke one Tool as the named caller.
 
-    Standard input carries one JSON object of `input`; configuration is the
-    environment's, `VIBEPY_<FIELD>` per declared field.
+    `--channel` and `--principal` are required and `--role` is repeatable: this
+    command stands in for a host, and a host decides both. Standard input
+    carries one JSON object of `input`; configuration is the environment's,
+    `VIBEPY_<FIELD>` per declared field.
 
     Exits 0 with the Tool's output as one JSON object on standard output. Exits 1
-    with one report line on standard error for any failure: a request that is
-    not one JSON object of `input`, an App this environment does not declare or
-    cannot load,
-    configuration the window refuses, a Tool the App does not declare, input or
-    output its models reject, and anything the lifespan or handler raised,
-    which is reported as `app.unhandled`.
+    with one report line on standard error for any failure: arguments argparse
+    refuses exit 2 with its usage instead. The reported failures are a request
+    that is not one JSON object of `input`, an App this environment does not
+    declare or cannot load, configuration the window refuses, a Tool the App
+    does not declare, a Tool this channel and principal may not invoke, input or
+    output its models reject, and anything the lifespan or handler raised, which
+    is reported as `app.unhandled`.
     """
     parser = argparse.ArgumentParser(prog="vibepy_core.invoke")
     parser.add_argument("app_name")
     parser.add_argument("tool_name")
+    parser.add_argument("--channel", type=Channel, choices=list(Channel), required=True)
+    parser.add_argument("--principal", required=True)
+    parser.add_argument("--role", action="append", default=None)
     parsed = parser.parse_args(argv)
+    principal = Principal(
+        id=str(parsed.principal), roles=frozenset(str(r) for r in (parsed.role or ()))
+    )
     try:
-        request = _Request.model_validate_json(sys.stdin.read() or "{}")
+        request = InvocationRequest.model_validate_json(sys.stdin.read() or "{}")
     except ValidationError as invalid:
         report(InvokeRequestInvalidError())
         logger.debug("the request on standard input was unreadable", exc_info=invalid)
@@ -82,7 +106,15 @@ def main(argv: Sequence[str], /) -> int:
         report(error)
         return 1
     try:
-        result = asyncio.run(_invoke(entrypoint, str(parsed.tool_name), request))
+        result = asyncio.run(
+            _invoke(
+                entrypoint,
+                str(parsed.tool_name),
+                request,
+                channel=parsed.channel,
+                principal=principal,
+            )
+        )
     except Exception as error:
         # The window reports its own failure (ADR-030): any exception the
         # lifespan or handler raises is normalized and written the same way.

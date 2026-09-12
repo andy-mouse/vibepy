@@ -4,15 +4,17 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import FIXTURES, studio
-from vibepy_core import ErrorCategory
+from tests_support import AGENT, FIXTURES, studio
+from vibepy_core import Channel, ErrorCategory
 from vibepy_studio.authoring.models import AppInspection
 
 
 @pytest.mark.integration
 async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
-        inspected = await tools.invoke("inspect_app", {"project": str(FIXTURES / "todo-app")})
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
+        inspected = await tools.invoke(
+            "inspect_app", {"project": str(FIXTURES / "todo-app")}, principal=AGENT
+        )
     assert isinstance(inspected, AppInspection)
     assert inspected.diagnostic is None, inspected.diagnostic
     assert [app.app_name for app in inspected.apps] == ["todo-app"]
@@ -27,8 +29,10 @@ async def test_a_project_is_inspected_with_its_tools_pages_and_config(tmp_path: 
 
 
 async def test_a_directory_without_a_pyproject_is_not_a_project(tmp_path: Path) -> None:
-    async with studio(tmp_path / "studio") as tools:
-        inspected = await tools.invoke("inspect_app", {"project": str(tmp_path / "nowhere")})
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
+        inspected = await tools.invoke(
+            "inspect_app", {"project": str(tmp_path / "nowhere")}, principal=AGENT
+        )
     assert isinstance(inspected, AppInspection)
     assert inspected.apps == []
     assert inspected.diagnostic is not None
@@ -46,8 +50,8 @@ async def test_a_project_whose_environment_lacks_the_framework_fails_as_an_envir
         '[project]\nname = "plain"\nversion = "0.0.0"\nrequires-python = ">=3.12"\n',
         encoding="utf-8",
     )
-    async with studio(tmp_path / "studio") as tools:
-        inspected = await tools.invoke("inspect_app", {"project": str(project)})
+    async with studio(tmp_path / "studio", channel=Channel.AGENT) as tools:
+        inspected = await tools.invoke("inspect_app", {"project": str(project)}, principal=AGENT)
     assert isinstance(inspected, AppInspection)
     assert inspected.diagnostic is not None
     assert inspected.diagnostic.code == "authoring.environment_failed"

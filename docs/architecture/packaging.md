@@ -74,8 +74,11 @@ Results are ordered by `(app_name, distribution)`, so a reader gets the same lis
 the App's environment and not in a Host's.
 
 `AppDescription` is what crosses a process boundary: `app_id`, `name`, `version`,
-`config_schema`, and a `ToolDescription` and `PageDescription` per declaration. It carries no
-type parameter and every schema is typed as the JSON it becomes there.
+`config_schema`, `config_fields`, and a `ToolDescription` and `PageDescription` per declaration.
+It carries no type parameter and every schema is typed as the JSON it becomes there. A
+`ToolDescription` carries the declaration's `read_only`, `channels` and `required_roles` beside
+its schemas, so a reader outside the process learns what the Tool declares rather than a
+projection of part of it.
 
 ## The self-description command
 
@@ -87,9 +90,10 @@ Run with an App environment's own interpreter, it writes a JSON array to standar
 object per App declared in that environment. A failure writes the framework's code and message
 to standard error and exits 1.
 
-Each object carries the `app_name`, `distribution` and `distribution_version` of the declaration
-it describes, beside the description itself. A host that also enumerates the environment joins
-the two answers on identity rather than on position.
+Each object is one `DescribedApp`: the `app_name`, `distribution` and `distribution_version` of
+the declaration it describes, beside the description itself. A host that also enumerates the
+environment joins the two answers on identity rather than on position. The command writes that
+type and a reader validates it, so neither side restates its fields.
 
 This is how a Host reads an App it must not import. The Host runs the command with the App
 environment's interpreter and parses the result; the import happens on the far side of a process
@@ -118,7 +122,10 @@ A parent that starts a framework process renders the values it holds into those 
 `environment_for`, the inverse of that reading: a string verbatim, anything else as JSON.
 
 `config_schema`, which `describe` projects from the declaration, is therefore the list of
-variables a host sets.
+variables a host sets. Beside it, `config_fields` names each declared field with what it holds
+— `string`, `path`, `integer`, `secret` or `other` — derived from the declared type, an optional
+field holding what its one non-`None` member holds, so a host tells a secret from an ordinary
+string without reading JSON Schema.
 
 The environment is the only configuration channel. No command reads configuration from standard
 input.
@@ -129,7 +136,8 @@ input.
 python -m vibepy_core.serve <app-name> --port <n>
 ```
 
-Run with an App environment's own interpreter, it opens that App's Web channel: the App's window
+Run with an App environment's own interpreter, it invokes as the principal `operator`, with no
+roles, and opens that App's Web channel: the App's window
 is the served application's own lifespan. Its configuration is its environment's, as Configuration
 above owns; it reads nothing from standard input.
 
@@ -151,13 +159,21 @@ boundary.
 ## Invoking one Tool
 
 ```text
-python -m vibepy_core.invoke <app-name> <tool-name>
+python -m vibepy_core.invoke <app-name> <tool-name> --channel <web|agent> --principal <id> [--role <r>]…
 ```
 
-Run with an App environment's own interpreter, it opens the channel-neutral invocation window
-once, invokes one Tool through `ToolRuntime`, and closes the window. Standard input carries one
-JSON object whose `input` is the Tool's input, and nothing else; any other key is
-`invoke.request_invalid`. Standard output receives the Tool's output as one JSON
+Run with an App environment's own interpreter, it opens the invocation window once, invokes one
+Tool through `ToolRuntime`, and closes the window.
+
+This command stands in for a host, so it is told what a host decides: `--channel` and
+`--principal` are required and `--role` is repeatable. Nothing is defaulted, because a default
+would make this command a caller of its own rather than a stand-in. Its trust model is stdio's:
+whoever can run it already holds the App's environment, so naming a principal here is no
+escalation, and the Tool is authorized against that channel and principal exactly as it would be
+through the channel itself.
+
+Standard input carries one JSON object whose `input` is the Tool's input, and nothing else; any
+other key is `invoke.request_invalid`. Standard output receives the Tool's output as one JSON
 object. This is how a host verifies that a Tool behaves without importing the App, and why the
 verification runs the same path both channels run. The request written to the child's stdin and
 everything the child writes back are `json.dumps` with its default `ensure_ascii=True`, so a
@@ -170,8 +186,8 @@ commands rely on.
 python -m vibepy_core.mcp <app-name>
 ```
 
-Run with an App environment's own interpreter, it opens that App's Agent channel over stdio and
-keeps it open for as long as the client keeps the process alive. The adapter builds the SDK
+Run with an App environment's own interpreter, it invokes as the principal `agent`, with no
+roles, and opens that App's Agent channel over stdio and keeps it open for as long as the client keeps the process alive. The adapter builds the SDK
 server and this command runs it, which is the division
 `docs/architecture/adapters.md` states.
 

@@ -11,7 +11,7 @@ from mcp.client.stdio import StdioServerParameters
 from mcp.types import TextContent
 
 from test_serve_command import child_environment, reported_failure
-from vibepy_core import environment_for
+from vibepy_core import ErrorCategory, environment_for
 
 
 def todo_server(tmp_path: Path) -> StdioServerParameters:
@@ -59,7 +59,7 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
 
     assert finished.returncode == 1
     assert finished.stdout == b""
-    assert reported_failure(finished.stderr)["code"] == "package.app_not_declared"
+    assert reported_failure(finished.stderr).code == "package.app_not_declared"
 
 
 @pytest.mark.integration
@@ -78,5 +78,5 @@ def test_a_window_that_will_not_open_ends_the_process() -> None:
     assert finished.returncode == 1
     assert finished.stdout == b""
     reported = reported_failure(finished.stderr)
-    assert reported["code"] == "config.invalid"
-    assert reported["category"] == "caller"
+    assert reported.code == "config.invalid"
+    assert reported.category is ErrorCategory.CALLER

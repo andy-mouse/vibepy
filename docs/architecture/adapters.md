@@ -30,12 +30,22 @@ Framework ToolDefinition -> MCP projection
 
 Never make MCP decorators or MCP SDK types the source of truth for framework Tools.
 
-`build_mcp_server(definition, lifespan)` enumerates the declaration for discovery, and reads the
-server's name and version from it. It builds no registry of its own, so a running App holds the
+`build_mcp_server(definition, lifespan, *, config=…, principal=…)` enumerates the declaration for
+discovery, and reads the server's name and version from it. Discovery is a filter over that same
+declaration: `list_tools` projects the Tools whose `channels` contains the Agent channel, and a
+Tool declaring `read_only` is projected with `annotations.readOnlyHint`, which is the only
+annotation this adapter sets. A Tool the list omits is refused by name too — ToolRuntime decides
+that, and the adapter reports the refusal as it reports every Tool failure, an `isError` result
+carrying the `tool.forbidden` payload. It builds no registry of its own, so a running App holds the
 one its window created and the list an agent is shown cannot be a different object from the map
 its call resolves in. The ToolRuntime a call goes through is read from the SDK's
 request context, which carries whatever the lifespan yielded, so the adapter holds no running
 state of its own.
+
+The principal every call is invoked as is the host's, given once at build time and carried into
+every `invoke`. The process serves whoever launched it, so the principal is fixed for the
+server's life rather than read off a request; the adapter decides nothing about it.
+`docs/architecture/runtime.md` says why.
 
 The adapter builds an SDK server object; it does not run one. `vibepy_core.mcp` is the command
 that runs it over stdio, and `docs/architecture/packaging.md` owns it. Over stdio the agent
@@ -54,8 +64,9 @@ Responsibilities:
 3. execute PageHandlers in the NiceGUI lifecycle
 4. connect Page interaction to ToolRuntime through ToolInvoker, which ToolRuntime satisfies
 
-`register_pages(definition, pages)` projects every PageDefinition the declaration carries onto a
-NiceGUI route whose builder awaits `PageRuntime.render(name)`. A Page is addressed by name, so a
+`register_pages(definition, pages, *, principal=…)` projects every PageDefinition the declaration
+carries onto a NiceGUI route whose builder awaits `PageRuntime.render(name, principal=…)`, so
+every render is for the principal the host named. A Page is addressed by name, so a
 route change never reaches PageRuntime, and the adapter constructs no PageContext: PageRuntime
 owns that.
 
@@ -74,9 +85,10 @@ which renders it. The MCP adapter wraps failures in a result because the MCP pro
 demands an answer to every call; the Web channel makes no such demand.
 `docs/architecture/errors.md` describes what the MCP adapter sends.
 
-`build_web_app(definition, lifespan, config=…)` returns the ASGI application those routes are
-served through, with the running window as that application's own lifespan: a window that refuses
-to open fails the application's startup rather than leaving a server answering for nothing. What
+`build_web_app(definition, lifespan, *, config=…, principal=…)` returns the ASGI application
+those routes are served through, with the running window as that application's own lifespan: a
+window that refuses to open fails the application's startup rather than leaving a server
+answering for nothing. What
 the window bounds is the PageRuntime each builder closes over, not the routes themselves — those
 are registered on the Web technology's process-global table and stay there, which is why one
 process serves one App's Pages. See
@@ -86,7 +98,8 @@ The adapter registers routes and starts no server; building the application it h
 running one. `vibepy_core.serve` owns the process and runs it. See
 `docs/decisions/ADR-012-nicegui-adapter-registers-routes.md`.
 
-The app owns the actual Page UI implementation. The framework owns the integration/runtime mechanism.
+The app owns the actual Page UI implementation. The framework owns the integration/runtime
+mechanism.
 
 ## Future adapters
 

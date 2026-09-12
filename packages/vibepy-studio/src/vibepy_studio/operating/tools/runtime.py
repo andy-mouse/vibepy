@@ -2,10 +2,11 @@
 
 from collections.abc import Sequence
 
-from vibepy_core.errors import ErrorCategory
+from vibepy_core.channel import Channel
+from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.internals import AlreadyStarted, StartFailed, StudioDeps
-from vibepy_studio.models import Diagnostic, diagnostic_of
+from vibepy_studio.models import diagnostic_of
 from vibepy_studio.operating.internals import (
     address,
     environment,
@@ -35,7 +36,7 @@ def _refusal(
         app_name=app_name,
         state="installed",
         url=url,
-        diagnostic=Diagnostic(
+        diagnostic=ErrorInfo(
             code=code, category=category, message=message, details={"app_name": app_name}
         ),
     )
@@ -80,7 +81,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
     where = address(payload.app_name, deps.proxy_port)
     try:
         await deps.processes.start(
-            app_name=facts.declared_name,
+            app_name=facts.described.app_name,
             interpreter=interpreter(environment(deps.root, payload.app_name)),
             config={**held, **payload.secrets},
             known_as=payload.app_name,
@@ -139,6 +140,8 @@ RUNTIME_TOOLS: Sequence[Tool[StudioDeps]] = [
             description="Open an installed App's Web channel",
             input_model=StartRequest,
             output_model=RunningApp,
+            read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=start_app,
     ),
@@ -148,6 +151,8 @@ RUNTIME_TOOLS: Sequence[Tool[StudioDeps]] = [
             description="Stop an App this Hub started",
             input_model=AppName,
             output_model=RunningApp,
+            read_only=False,
+            channels=frozenset({Channel.WEB}),
         ),
         handler=stop_app,
     ),
