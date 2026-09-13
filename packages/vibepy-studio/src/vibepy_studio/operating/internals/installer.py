@@ -129,7 +129,10 @@ async def install(*, wheel: PurePath, source: PurePath, env: PurePath) -> None:
     (<https://github.com/astral-sh/uv/issues/18577>). Hardlinks reuse the
     cache's inodes, so the scan happens once for a dependency rather than once
     per App that holds it. The operating role never writes inside an environment it
-    installed, which is what makes sharing an inode with the cache safe.
+    installed, which is what makes sharing an inode with the cache safe. The other
+    half of that premise is the App's: an App does not modify its installed files
+    in place, as pnpm's and Nix's stores assume of what they link.
+    `docs/architecture/packaging.md` states it as a row of the isolation invariant.
     """
     await asyncio.to_thread(Path(env).parent.mkdir, parents=True, exist_ok=True)
     await _run(["uv", "venv", str(env)])

@@ -79,9 +79,15 @@ what commands exist for it.
 Operations such as install, remove, upgrade, and version migration belong to the package/operating
 control plane. The operating role also opens the Web channel's window, which it does by running
 `python -m vibepy_core.serve` with the App environment's interpreter, handing that process the
-App's configuration through its environment (`docs/architecture/packaging.md`); starting and
-stopping an App is starting and stopping that process, and no window is reached from outside
-itself. See
+App's configuration through its environment (`docs/architecture/packaging.md`), in the App's own
+folder, `<root>/<app>/`, whose `env/` is the App's virtual environment. The folder is the unit
+`remove_app` deletes and `update_app` remakes `env/` inside; the child's standard error goes to
+`<root>/vibepy-studio/logs/<app>.log`, which is the operating role's record and survives removal.
+The operating role holds the child's standard input, and the child leaves when that closes — with
+the window, or with a Studio that died
+(`docs/decisions/ADR-039-a-channel-process-lives-while-its-host-holds-its-standard-input.md`).
+Starting and stopping an App is starting and stopping that process, and no window is reached
+from outside itself. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` and
 `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
 
@@ -95,12 +101,13 @@ the operating role declares them.
 | --- | --- |
 | `register_package_source`, `remove_package_source` | the one folder of wheels the operating role installs from |
 | `list_apps` | what is offered, what is installed, what is running, and what is newer |
-| `install_app`, `update_app`, `remove_app` | an environment of its own per App: created, remade at a newer version, destroyed |
+| `install_app`, `update_app`, `remove_app` | a folder of its own per App, holding an environment: created, the environment remade at a newer version, the folder destroyed |
 | `describe_config`, `configure_app` | the values an App runs with, read and written |
 | `start_app`, `stop_app` | the Web channel window of an installed App |
 
-An update keeps what the operating role holds for an App — its configuration values, its port, its route —
-and remakes only the environment. A running App is refused rather than restarted.
+An update keeps what the operating role holds for an App — its configuration values, its port, its
+route — and what the App wrote beside its environment — and remakes only the environment. A
+running App is refused rather than restarted.
 
 The operating role's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
 `list_apps` and redraws on a timer, so what it shows is the operating role's core state rather than the last thing
