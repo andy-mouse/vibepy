@@ -22,7 +22,7 @@ from collections.abc import Sequence
 
 from pydantic import BaseModel, ValidationError
 
-from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core.app._composition import tool_runtime_for
 from vibepy_core.app.config import AppConfig
 from vibepy_core.app.entrypoint import AppEntrypoint
 from vibepy_core.app.package import load_app
@@ -37,6 +37,9 @@ from vibepy_core.errors import (
 from vibepy_core.logs import configure_logging
 from vibepy_core.principal import Principal
 from vibepy_core.tool import InvocationRequest
+
+__all__ = ["main"]
+
 
 logger = logging.getLogger(__name__)
 

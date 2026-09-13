@@ -14,9 +14,8 @@ from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from pathlib import Path
 from urllib.request import Request, urlopen
 
-from vibepy_core import Channel, Principal
+from vibepy_core import Channel, Principal, tool_runtime_for
 from vibepy_core.app import AppDescription, DescribedApp
-from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP
 from vibepy_studio.operating.internals import StudioDeps

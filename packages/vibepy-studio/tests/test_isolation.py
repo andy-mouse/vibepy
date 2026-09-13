@@ -13,8 +13,7 @@ from pathlib import Path
 import pytest
 
 from tests_support import AGENT, body, studio
-from vibepy_core import Channel
-from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core import Channel, tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP, StudioConfig
 from vibepy_studio.operating.internals import StudioDeps

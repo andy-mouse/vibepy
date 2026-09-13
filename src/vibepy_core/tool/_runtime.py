@@ -25,12 +25,12 @@ from vibepy_core.errors import (
     to_error_info,
 )
 from vibepy_core.principal import Principal
-from vibepy_core.tool.model import ToolContext, ToolDefinition, ToolHandler
-from vibepy_core.tool.policy import AuthorizationRequest, ToolPolicy, default_policy
-from vibepy_core.tool.record import InvocationRecord
+from vibepy_core.tool._model import ToolContext, ToolDefinition, ToolHandler
+from vibepy_core.tool._policy import AuthorizationRequest, ToolPolicy, default_policy
+from vibepy_core.tool._record import InvocationRecord
 
 if TYPE_CHECKING:
-    from vibepy_core.tool.registry import ToolRegistry
+    from vibepy_core.tool._registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 

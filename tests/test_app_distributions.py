@@ -30,8 +30,7 @@ from todo_app.entry import (
     TodoStoreUnreadable,
     todo_lifespan,
 )
-from vibepy_core import Channel, ErrorCategory, Principal
-from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core import Channel, ErrorCategory, Principal, tool_runtime_for
 from vibepy_core.app.package import AppRef, describe_app, discover_apps
 
 DECLARED = sorted(discover_apps(), key=lambda ref: ref.app_name)

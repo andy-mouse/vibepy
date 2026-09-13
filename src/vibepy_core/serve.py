@@ -29,6 +29,9 @@ from vibepy_core.errors import (
 from vibepy_core.logs import LOG_CONFIG
 from vibepy_core.principal import Principal
 
+__all__ = ["main"]
+
+
 OPERATOR = Principal(id="operator")
 """The party that runs this process."""
 

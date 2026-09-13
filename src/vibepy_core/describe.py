@@ -14,6 +14,9 @@ from vibepy_core.app.entrypoint import DescribedApp
 from vibepy_core.app.package import described, discover_apps
 from vibepy_core.errors import VibepyError, report
 
+__all__ = ["main"]
+
+
 logger = logging.getLogger(__name__)
 
 _DESCRIBED = TypeAdapter(list[DescribedApp])

@@ -17,6 +17,37 @@ from typing import ClassVar
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+__all__ = [
+    "CANCELLED_CODE",
+    "ERROR_CATALOG",
+    "UNHANDLED_CODE",
+    "AppConfigInvalidError",
+    "AppDefinitionInvalidError",
+    "AppEntrypointInvalidError",
+    "AppEntrypointUnloadableError",
+    "AppNotDeclaredError",
+    "ErrorCategory",
+    "ErrorInfo",
+    "InvokeRequestInvalidError",
+    "PageNameConflictError",
+    "PageNotFoundError",
+    "PageRouteConflictError",
+    "PageRouteInvalidError",
+    "PageToolUndeclaredError",
+    "PageToolUnresolvedError",
+    "ToolChannelsEmptyError",
+    "ToolForbiddenError",
+    "ToolInputValidationError",
+    "ToolNameConflictError",
+    "ToolNotFoundError",
+    "ToolOutputValidationError",
+    "VibepyError",
+    "read_report_line",
+    "report",
+    "report_line",
+    "to_error_info",
+]
+
 UNHANDLED_CODE = "app.unhandled"
 """The code for a failure the framework did not define. It belongs to no exception."""
 

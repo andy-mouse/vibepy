@@ -15,15 +15,15 @@ from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
+from vibepy_core.app._model import AppDefinition
+from vibepy_core.app._record import WindowRecord
 from vibepy_core.app.config import AppConfig
-from vibepy_core.app.model import AppDefinition
-from vibepy_core.app.record import WindowRecord
 from vibepy_core.channel import Channel
 from vibepy_core.errors import AppConfigInvalidError
-from vibepy_core.page.registry import PageRegistry
-from vibepy_core.page.runtime import PageRuntime
-from vibepy_core.tool.registry import ToolRegistry
-from vibepy_core.tool.runtime import ToolRuntime
+from vibepy_core.page._registry import PageRegistry
+from vibepy_core.page._runtime import PageRuntime
+from vibepy_core.tool._registry import ToolRegistry
+from vibepy_core.tool._runtime import ToolRuntime
 
 logger = logging.getLogger(__name__)
 

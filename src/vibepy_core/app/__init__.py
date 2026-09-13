@@ -5,13 +5,15 @@ operations that read or import a distribution. `docs/architecture/app-model.md`,
 "The import surface", says where those are reached; ADR-035 says why.
 """
 
-from vibepy_core.app.composition import (
+from vibepy_core.app._composition import (
     Lifespan,
     page_registry_for,
     page_runtime_for,
     tool_registry_for,
     tool_runtime_for,
 )
+from vibepy_core.app._model import AppDefinition
+from vibepy_core.app._record import WindowRecord, read_window_record
 from vibepy_core.app.config import (
     AppConfig,
     ConfigFieldDescription,
@@ -25,8 +27,6 @@ from vibepy_core.app.entrypoint import (
     PageDescription,
     ToolDescription,
 )
-from vibepy_core.app.model import AppDefinition
-from vibepy_core.app.record import WindowRecord, read_window_record
 
 __all__ = [
     "AppConfig",

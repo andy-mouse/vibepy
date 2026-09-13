@@ -12,7 +12,7 @@ from pathlib import PurePath
 
 from pydantic import TypeAdapter, ValidationError
 
-from vibepy_core.app.entrypoint import DescribedApp
+from vibepy_core.app import DescribedApp
 from vibepy_core.errors import ErrorInfo
 from vibepy_studio.internals.processes import python_command, reports, run
 

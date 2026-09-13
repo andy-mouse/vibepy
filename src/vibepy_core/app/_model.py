@@ -20,9 +20,9 @@ from vibepy_core.errors import (
     ToolNameConflictError,
     VibepyError,
 )
-from vibepy_core.page.model import Page
-from vibepy_core.tool.policy import ToolPolicy
-from vibepy_core.tool.runtime import Tool
+from vibepy_core.page._model import Page
+from vibepy_core.tool._policy import ToolPolicy
+from vibepy_core.tool._runtime import Tool
 
 __all__ = ["AppConfig", "AppDefinition", "NoConfig"]
 

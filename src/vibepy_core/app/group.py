@@ -6,6 +6,8 @@ without an environment at all. `package` imports `importlib.metadata` and
 blocks; a reader that needs only the name must not have to.
 """
 
+__all__ = ["APP_GROUP"]
+
 APP_GROUP = "vibepy.apps"
 """The entry point group an App declares itself in.
 

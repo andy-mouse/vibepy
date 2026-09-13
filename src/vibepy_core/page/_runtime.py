@@ -14,8 +14,8 @@ from collections.abc import Awaitable, Mapping
 from pydantic import BaseModel
 
 from vibepy_core.errors import PageToolUndeclaredError
-from vibepy_core.page.model import PageContext, PrincipalToolInvoker, ToolInvoker
-from vibepy_core.page.registry import PageRegistry
+from vibepy_core.page._model import PageContext, PrincipalToolInvoker, ToolInvoker
+from vibepy_core.page._registry import PageRegistry
 from vibepy_core.principal import Principal
 
 

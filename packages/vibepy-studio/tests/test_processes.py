@@ -23,12 +23,7 @@ from vibepy_studio.internals.processes import (
     run,
 )
 from vibepy_studio.operating.internals import interpreter
-from vibepy_studio.operating.internals.processes import (
-    AlreadyStarted,
-    Processes,
-    StartFailed,
-    _reported,  # pyright: ignore[reportPrivateUsage]
-)
+from vibepy_studio.operating.internals.processes import AlreadyStarted, Processes, StartFailed
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -196,19 +191,17 @@ async def test_a_spawn_that_fails_leaves_the_name_free(tmp_path: Path) -> None:
     await processes.aclose()
 
 
-def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None:
+def test_a_report_followed_by_more_output_is_still_found() -> None:
     """A traceback the framework writes after its own report must not hide it.
 
-    A real child writes its report near the top of the log and a traceback
+    A real child writes its report near the top of its log and a traceback
     after it, long enough that a fixed-size tail would push the report out.
     """
-    log = tmp_path / "child.log"
     report = '{"code": "config.invalid", "category": "caller", "message": "bad"}'
     trailer = "\n".join(f"line {n} of a long traceback" for n in range(400))
-    log.write_text(f"{report}\n{trailer}\n", encoding="utf-8")
     assert len(trailer) > 4000
 
-    failure = _reported(log)
+    failure = reported(f"{report}\n{trailer}\n")
 
     assert failure is not None
     assert failure.code == "config.invalid"

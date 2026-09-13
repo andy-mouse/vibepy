@@ -19,10 +19,10 @@ from contextlib import AsyncExitStack, asynccontextmanager
 from fastapi import FastAPI
 from nicegui import ui
 
-from vibepy_core.adapters.nicegui.web import register_pages
-from vibepy_core.app.composition import Lifespan, page_runtime_for
+from vibepy_core.adapters.nicegui._web import register_pages
+from vibepy_core.app._composition import Lifespan, page_runtime_for
+from vibepy_core.app._model import AppDefinition
 from vibepy_core.app.config import AppConfig
-from vibepy_core.app.model import AppDefinition
 from vibepy_core.errors import to_error_info
 from vibepy_core.principal import Principal
 

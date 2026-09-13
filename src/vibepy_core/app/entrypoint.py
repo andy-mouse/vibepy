@@ -4,10 +4,18 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel, JsonValue
 
-from vibepy_core.app.composition import Lifespan
+from vibepy_core.app._composition import Lifespan
+from vibepy_core.app._model import AppDefinition
 from vibepy_core.app.config import AppConfig, ConfigFieldDescription, config_fields_of
-from vibepy_core.app.model import AppDefinition
 from vibepy_core.channel import Channel
+
+__all__ = [
+    "AppDescription",
+    "AppEntrypoint",
+    "DescribedApp",
+    "PageDescription",
+    "ToolDescription",
+]
 
 
 class ToolDescription(BaseModel):

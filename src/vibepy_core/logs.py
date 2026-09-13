@@ -12,6 +12,9 @@ gives them.
 
 import logging.config
 
+__all__ = ["LOG_CONFIG", "configure_logging"]
+
+
 LOG_CONFIG: dict[str, object] = {
     "version": 1,
     "disable_existing_loggers": False,
