@@ -10,7 +10,7 @@ that contract and what the operating role did: the child interpreter ran without
 user's site-packages and stray `PYTHON*` variables reached an App; the child inherited Studio's
 current directory, so every App writing a relative path wrote into one folder; an App's folder
 *was* its environment, so it had no place that survived an update; and Studio's death left its
-children running. `docs/milestones/M17/spec.md` records them.
+children running.
 
 Closing them needs an answer to a question the invariant never asked: what is the isolation
 *for*? The two readings lead to different products, and only one of them is reachable from where
@@ -24,8 +24,10 @@ separate local applications from one another take one of two routes, and both ch
 host is: a principal per application — Android's per-app uid, systemd's `DynamicUser=` — or a
 sandbox with a filesystem and network view of its own. The hosts of Studio's own kind — pipx,
 conda, Homebrew services — run trusted code in per-application environments under one user and
-draw the line where this record draws it. `docs/milestones/M17/spec.md`, Sources, cites the
-process models and both classes of host.
+draw the line where this record draws it. The sources are the two process models -- POSIX
+(same uid: `ptrace`, `/proc/<pid>/environ`, `ps -E`) and Windows (same logon session:
+`OpenProcess`) -- Android's per-app uid and systemd's `DynamicUser=` for the one class of host,
+and pipx, conda and Homebrew services for the other.
 
 Studio installs what an operator chose to install, from a wheelhouse that operator registered.
 
