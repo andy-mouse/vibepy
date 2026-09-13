@@ -1,9 +1,15 @@
-"""The desktop dialogs Studio's own process opens on the machine it runs on.
+"""The operating role's host operations: what it does with the machine it runs on.
 
-A browser page cannot answer with a filesystem path, and Studio runs on the
-operator's machine, so the process that serves the page is the one that shows
-the dialog. ADR-042, in `docs/decisions/`, says why that is where this belongs
-rather than in the NiceGUI adapter or the Page model.
+Not `internals/`, which is the operating role's core -- the state its Tools act
+on, reached by a Tool handler through its ToolContext and by nothing else. A
+host operation changes none of that state and is not a Tool, because it is not
+channel-neutral: a modal window on the server's desktop means nothing over MCP.
+So it is the one thing the board reaches directly, and it lives where a Page may
+import it. ADR-042, in `docs/decisions/`, says why.
+
+Today that is one operation. A browser page cannot answer with a filesystem
+path, and Studio runs on the operator's machine, so the process that serves the
+page is the one that shows the folder dialog.
 
 macOS asks Standard Additions, whose `choose folder` returns an alias and whose
 `POSIX path of` yields the path

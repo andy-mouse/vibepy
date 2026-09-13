@@ -43,9 +43,12 @@ Both platforms Studio targets publish the dialog and publish which call is the c
 The board's package folder is chosen with the operating system's own folder dialog, opened by
 Studio's own process, and Studio stays a browser-served Web channel.
 
-Choosing a folder is an operation of the operating role's internals, beside the ones that start
-children and read the wheelhouse. It answers with a path or with nothing, because cancelling is
-an answer and not a failure.
+Choosing a folder is a *host operation* of the operating role: what it does with the machine it
+runs on, as against its core, which is the state its Tools act on. The two are separate because
+they have different callers — a Tool handler reaches the core through its ToolContext, and
+nothing may reach the core any other way (ADR-024), while a host operation is reached by the Web
+implementation directly. It answers with a path or with nothing, because cancelling is an answer
+and not a failure.
 
 A host operation is not a Tool, and the operating role's Web implementation calls it directly.
 A Tool is channel-neutral (ADR-001), and this is not: a Tool that opens a modal window on the

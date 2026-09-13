@@ -10,11 +10,11 @@ import sys
 
 import pytest
 
-from vibepy_studio.operating.internals import (
+from vibepy_studio.operating import host
+from vibepy_studio.operating.host import (
     FolderDialogFailed,
     PlatformUnsupported,
     choose_folder,
-    dialogs,
 )
 
 macos_only = pytest.mark.skipif(sys.platform != "darwin", reason="Standard Additions is macOS's")
@@ -113,7 +113,7 @@ async def test_the_windows_dialogs_path_is_the_answer(monkeypatch: pytest.Monkey
     def chosen(title: str) -> str | None:
         return "C:\\wheels"
 
-    monkeypatch.setattr(dialogs, "_show_folder_dialog", chosen)
+    monkeypatch.setattr(host, "_show_folder_dialog", chosen)
 
     assert str(await choose_folder(title="Pick")) == "C:\\wheels"
 
@@ -125,7 +125,7 @@ async def test_a_cancelled_windows_dialog_answers_with_nothing(
     def cancelled(title: str) -> str | None:
         return None
 
-    monkeypatch.setattr(dialogs, "_show_folder_dialog", cancelled)
+    monkeypatch.setattr(host, "_show_folder_dialog", cancelled)
 
     assert await choose_folder(title="Pick") is None
 
@@ -135,7 +135,7 @@ async def test_a_windows_dialog_that_failed_is_a_failure(monkeypatch: pytest.Mon
     def refuse(title: str) -> str | None:
         raise FolderDialogFailed("IFileDialog::Show failed with HRESULT 0x80004005.")
 
-    monkeypatch.setattr(dialogs, "_show_folder_dialog", refuse)
+    monkeypatch.setattr(host, "_show_folder_dialog", refuse)
 
     with pytest.raises(FolderDialogFailed):
         await choose_folder(title="Pick")
