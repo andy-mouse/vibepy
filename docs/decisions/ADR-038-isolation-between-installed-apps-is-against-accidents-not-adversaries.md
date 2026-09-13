@@ -24,9 +24,9 @@ separate local applications from one another take one of two routes, and both ch
 host is: a principal per application — Android's per-app uid, systemd's `DynamicUser=` — or a
 sandbox with a filesystem and network view of its own. The hosts of Studio's own kind — pipx,
 conda, Homebrew services — run trusted code in per-application environments under one user and
-draw the line where this record draws it. The sources are the two process models -- POSIX
+draw the line where this record draws it. The sources are the two process models — POSIX
 (same uid: `ptrace`, `/proc/<pid>/environ`, `ps -E`) and Windows (same logon session:
-`OpenProcess`) -- Android's per-app uid and systemd's `DynamicUser=` for the one class of host,
+`OpenProcess`) — Android's per-app uid and systemd's `DynamicUser=` for the one class of host,
 and pipx, conda and Homebrew services for the other.
 
 Studio installs what an operator chose to install, from a wheelhouse that operator registered.
