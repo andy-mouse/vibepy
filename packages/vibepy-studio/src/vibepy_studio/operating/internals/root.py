@@ -75,8 +75,14 @@ class StudioRoot:
         return tuple(env.parent.name for env in await environments(self._path))
 
     async def is_installed(self, app_name: str, /) -> bool:
-        """Whether this App has an environment here."""
-        return environment(self._path, app_name) in await environments(self._path)
+        """Whether this name already has a folder here, which installing must not write into.
+
+        The folder is the gate, not the environment inside it: one rule for the
+        root is that a direct child of it is one distribution's folder, and
+        Studio's own folder holds no `env/`. Installing over any of them --
+        Studio's, or an App's half-made one -- is refused.
+        """
+        return await asyncio.to_thread(Path(app_folder(self._path, app_name)).is_dir)
 
     async def installed_facts(self, app_name: str, /) -> AppFacts | None:
         """Return what one installed App declared, or nothing when it is not installed."""

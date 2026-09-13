@@ -16,7 +16,6 @@ from vibepy_studio.operating.internals import (
     InstallFailed,
     read_facts,
     read_state,
-    remove_environment,
 )
 from vibepy_studio.operating.internals import app_folder as root_app_folder
 from vibepy_studio.operating.internals import environment as root_environment
@@ -468,11 +467,12 @@ async def test_installing_again_after_a_removal_that_kept_the_port_reuses_it(
 ) -> None:
     """A held port is the App's until `remove_app` forgets it; an install finding one reuses it.
 
-    Reached by `update_app`, whose remove step keeps the port. Driven here through
-    the state directly because no Tool removes an environment without its port.
+    `update_app` is what keeps a port while remaking what holds it. Driven here
+    through the folder directly because no Tool leaves a held port with no folder,
+    and installing over a folder that is there is refused.
     """
     before = (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"]
-    await remove_environment(environment(installed, "vibepy-todo"))
+    shutil.rmtree(installed / "vibepy-todo")
 
     async with studio(installed) as tools:
         again = await tools.invoke("install_app", {"app_name": "vibepy-todo"}, principal=AGENT)
@@ -502,11 +502,26 @@ def test_app_folder_is_the_environments_parent(tmp_path: Path) -> None:
 
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
-async def test_studios_own_folder_is_not_an_installed_app(installed: Path) -> None:
+async def test_studios_own_folder_is_not_an_installed_app(installed: Path, tmp_path: Path) -> None:
     """One rule for the root, and Studio is not an exception to it: its folder has no
-    `env/`, so it is not one of the Apps the board lists."""
+    `env/`, so it is not one of the Apps the board lists -- and because the folder is
+    there, installing a distribution by that name is refused as already installed."""
+    source = tmp_path / "offers-studio"
+    write_wheel(source, name="vibepy-studio", version="1.0.0", declares=True)
+
     assert (installed / "vibepy-studio" / "state.json").is_file()
     async with studio(installed) as tools:
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
         assert isinstance(listed, AppListing)
         assert "vibepy-studio" not in {row.app_name for row in listed.apps}
+
+        await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
+        again = await tools.invoke("install_app", {"app_name": "vibepy-studio"}, principal=AGENT)
+
+    assert isinstance(again, Installation)
+    assert again.diagnostic is not None
+    assert again.diagnostic.code == "operating.already_installed"
+    # The refusal left Studio's own folder as it was: nothing made an
+    # environment inside it, and the files it holds are still there.
+    assert not (installed / "vibepy-studio" / "env").exists()
+    assert (installed / "vibepy-studio" / "state.json").is_file()
