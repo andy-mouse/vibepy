@@ -375,7 +375,7 @@ async def board(ctx: PageContext) -> None:
         """
         with ui.element("section").classes("operating-registry"):
             with ui.element("div"):
-                _text("span", "Local packages", "operating-registry-label")
+                _text("span", "Package folder", "operating-registry-label")
                 value = _text("span", "", "operating-registry-value")
                 shown.text(value, lambda view: view.source)
             with ui.element("div").classes("operating-registry-actions"):
