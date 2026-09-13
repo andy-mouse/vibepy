@@ -15,7 +15,6 @@ from pathlib import Path
 
 import pytest
 from nicegui.testing import Screen
-from selenium.webdriver.common.keys import Keys
 
 from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
@@ -92,43 +91,42 @@ async def test_the_board_arrives_dressed_in_its_own_stylesheet(
 
 
 @pytest.mark.browser
-async def test_the_clock_does_not_redraw_over_what_is_being_typed(
+async def test_the_clock_leaves_the_screen_where_the_reader_left_it(
     screen: Screen, tmp_path: Path
 ) -> None:
-    # A redraw rebuilds every element the refreshable holds, so the empty
-    # state's DOM node is replaced by one each time the clock ticks. Holding on
-    # to the node is therefore how a test sees a tick arrive, or not arrive.
-    watched = (
-        "const kept = window.__watched; window.__watched = "
-        "document.querySelector('.operating-empty');"
-    )
+    """What only a real clock in a real browser says: a tick moves nothing.
+
+    The board binds its elements to the listing it holds, so a tick assigns a
+    value and rebuilds nothing. A simulated client can say the elements are the
+    same objects; only a browser can say the reader's scroll position is where
+    the reader left it. Deleting a wheel is the proof that the clock is running:
+    the row it offered leaves the board without anyone touching the screen.
+    """
+    source = tmp_path / "wheels"
+    await crowded(tmp_path / "root", source)
     async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
+        screen.selenium.set_window_size(1280, 600)  # pyright: ignore[reportUnknownMemberType]
         screen.open("/")
-        screen.should_contain("No folder registered")
-        asked(screen, watched)
-        entry = screen.find_by_css(".operating-registry-entry input")
-        typed = str(tmp_path / "wheels")
-        entry.send_keys(typed)
-        screen.wait(2 * REFRESH_SECONDS + 0.5)
-        typing_survived: object = screen.find_by_css(
-            ".operating-registry-entry input"
-        ).get_attribute(  # pyright: ignore[reportUnknownMemberType]
-            "value"
+        screen.should_contain("demo-app-9")
+        scrolled: object = asked(
+            screen,
+            "const b = document.querySelector('.operating-board');"
+            " b.scrollTop += 200;"
+            " window.__row = document.querySelector('.operating-app-row');"
+            " return b.scrollTop",
         )
-        held_off: object = asked(
-            screen, f"{watched} return document.querySelector('.operating-empty') === kept"
+        screen.wait(2 * REFRESH_SECONDS + 0.5)
+        still_there: object = asked(
+            screen,
+            "const b = document.querySelector('.operating-board');"
+            " return [b.scrollTop, document.querySelector('.operating-app-row') === window.__row]",
         )
 
-        # Nothing is being typed any more, so the clock is owed a redraw.
-        # Erased key by key: `clear()` empties the field without the event
-        # Quasar reports a change through, so the page would never hear of it.
-        screen.find_by_css(".operating-registry-entry input").send_keys(Keys.BACKSPACE * len(typed))
+        # The source no longer offers this wheel, and nothing has told the
+        # board so. What reads it again is the clock.
+        next(source.glob("demo_app_9-*.whl")).unlink()
         screen.wait(2 * REFRESH_SECONDS + 0.5)
-        resumed: object = asked(
-            screen, f"{watched} return document.querySelector('.operating-empty') !== kept"
-        )
+        screen.should_not_contain("demo-app-9")
 
-    assert typing_survived == typed
-    assert held_off is True
-    assert resumed is True
+    assert still_there == [scrolled, True]

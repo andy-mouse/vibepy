@@ -120,8 +120,9 @@ route — and what the App wrote beside its environment — and remakes only the
 running App is refused rather than restarted.
 
 The operating role's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
-`list_apps` and redraws on a timer, so what it shows is the operating role's core state rather than the last thing
-that tab did.
+`list_apps` on a timer and binds what it draws to the answer, so what it shows is the operating role's core
+state rather than the last thing that tab did, and a reading that says nothing new moves nothing on the
+screen.
 
 ### How an installed App is described
 

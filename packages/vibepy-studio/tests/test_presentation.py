@@ -1,9 +1,18 @@
 """The board's rules, with no screen involved."""
 
+from pathlib import PurePath
+
 from vibepy_core.app import ConfigFieldDescription, ConfigFieldType
 from vibepy_core.errors import ErrorCategory, ErrorInfo
-from vibepy_studio.operating.models import AppRow
-from vibepy_studio.operating.pages.presentation import row_view, save_request, sort_rows, summary
+from vibepy_studio.operating.models import AppListing, AppRow
+from vibepy_studio.operating.pages.presentation import (
+    NO_SOURCE,
+    board_view,
+    row_view,
+    save_request,
+    sort_rows,
+    summary,
+)
 
 
 def available(name: str = "demo") -> AppRow:
@@ -171,3 +180,30 @@ def test_a_held_secret_satisfies_its_requirement() -> None:
     assert save_request(FIELDS, {"api_base_url": "https://x", "api_token": ""}, ["api_token"]) == {
         "api_base_url": "https://x"
     }
+
+
+def test_a_board_says_what_every_part_of_the_screen_shows() -> None:
+    view = board_view(
+        AppListing(apps=[available("one"), running("two")], source=PurePath("/wheels"))
+    )
+
+    assert view.names == ("two", "one")
+    assert view.counts == (1, 0, 1)
+    assert view.source == "/wheels"
+    assert view.registered is True
+    assert view.row("one") is not None
+    assert view.row("gone") is None
+
+
+def test_two_boards_saying_the_same_thing_are_equal() -> None:
+    """What lets an unchanged listing move nothing on the screen."""
+    listed = AppListing(apps=[installed("one")], source=PurePath("/wheels"))
+
+    assert board_view(listed) == board_view(listed.model_copy(deep=True))
+
+
+def test_an_unregistered_board_says_so_in_the_line_the_card_shows() -> None:
+    view = board_view(AppListing(apps=[]))
+
+    assert view.registered is False
+    assert view.source == NO_SOURCE
