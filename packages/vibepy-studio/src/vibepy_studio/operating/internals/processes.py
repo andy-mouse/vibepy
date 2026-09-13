@@ -220,6 +220,8 @@ class Processes:
         told `--until-stdin-closes`: its life is this window's. The child's
         working directory is `cwd`, the App's own folder, so a file it names
         without a folder lands there and nowhere Studio or another App stands.
+        `-I` still applies with `-m` and this `cwd`: it keeps the App's own
+        folder off `sys.path`, the same guarantee it gives the launcher's.
         """
         if self.taken(known_as):
             raise AlreadyStarted(f"{known_as!r} is already started here")
@@ -227,21 +229,25 @@ class Processes:
         path = await asyncio.to_thread(_log_path, self._logs, known_as)
         handle = await asyncio.to_thread(path.open, "wb")
         try:
-            process = await asyncio.create_subprocess_exec(
-                *python_command(
-                    [str(interpreter)],
-                    "-m",
-                    "vibepy_core.serve",
-                    app_name,
-                    "--port",
-                    str(port),
-                    "--until-stdin-closes",
-                ),
-                stdin=asyncio.subprocess.PIPE,
-                stderr=handle,
-                env={**child_environment(), **environment_for(config)},
-                cwd=str(cwd),
-            )
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *python_command(
+                        [str(interpreter)],
+                        "-m",
+                        "vibepy_core.serve",
+                        app_name,
+                        "--port",
+                        str(port),
+                        "--until-stdin-closes",
+                    ),
+                    stdin=asyncio.subprocess.PIPE,
+                    stderr=handle,
+                    env={**child_environment(), **environment_for(config)},
+                    cwd=str(cwd),
+                )
+            except BaseException:
+                self._running.pop(known_as, None)
+                raise
         finally:
             await asyncio.to_thread(handle.close)
         assert process.stdin is not None
@@ -261,7 +267,7 @@ class Processes:
         logger.info("started %s on port %d", known_as, port)
 
     async def stop(self, app_name: str, /) -> bool:
-        """Close the child's standard input and terminate it, then kill it if it does not leave."""
+        """Terminate the child, killing it if it does not leave, releasing its pipe with it."""
         child = self._running.pop(app_name, None)
         if child is None:
             return False

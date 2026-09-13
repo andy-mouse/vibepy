@@ -174,6 +174,34 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
     await processes.aclose()
 
 
+@pytest.mark.integration
+async def test_a_spawn_that_fails_leaves_the_name_free(tmp_path: Path) -> None:
+    """A `cwd` that does not exist fails the spawn itself, before a child ever
+    exists to release; the claim made ahead of it must not outlive the failure."""
+    processes = Processes(logs=tmp_path / "logs")
+    config: dict[str, JsonValue] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    with pytest.raises(OSError):
+        await processes.start(
+            app_name="todo-app",
+            interpreter=Path(sys.executable),
+            config=config,
+            known_as="todo-app",
+            port=free_port(),
+            cwd=tmp_path / "does-not-exist",
+        )
+
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config=config,
+        known_as="todo-app",
+        port=free_port(),
+        cwd=tmp_path,
+    )
+    assert processes.running("todo-app") is True
+    await processes.aclose()
+
+
 def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None:
     """A traceback the framework writes after its own report must not hide it.
 
