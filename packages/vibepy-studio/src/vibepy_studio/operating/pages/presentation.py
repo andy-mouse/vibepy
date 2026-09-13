@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from vibepy_core.app import ConfigFieldDescription
 from vibepy_core.errors import ErrorInfo
-from vibepy_studio.operating.models import AppRow
+from vibepy_studio.operating.models import AppListing, AppRow
 
 STAGES: tuple[str, str, str, str] = ("Available", "Installed", "Configured", "Running")
 _ORDER = {"running": 0, "installed": 1, "available": 2}
@@ -46,6 +46,55 @@ class RowView:
     marks: tuple[Mark, Mark, Mark, Mark]
     actions: tuple[Action, ...]
     diagnostic: ErrorInfo | None
+
+
+@dataclass(frozen=True)
+class BoardView:
+    """The whole board as one value: what every element on it shows.
+
+    The board holds one of these and binds its elements to it, so a new listing
+    reaches the screen by being assigned rather than by being redrawn. It is a
+    value, so two listings that say the same thing are equal and nothing on the
+    screen moves.
+    """
+
+    rows: tuple[RowView, ...]
+    counts: tuple[int, int, int]
+    source: str
+    """The line the source card shows: the registered folder, or that there is none."""
+    registered: bool
+    diagnostic: ErrorInfo | None
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """The Apps this board draws, in the order it draws them.
+
+        What the board's structure is a function of: while this is unchanged,
+        every row keeps the elements it was drawn with.
+        """
+        return tuple(row.app_name for row in self.rows)
+
+    def row(self, app_name: str, /) -> RowView | None:
+        """Find the row for `app_name`, or nothing if this board no longer has one."""
+        return next((row for row in self.rows if row.app_name == app_name), None)
+
+
+NO_SOURCE = "No folder registered"
+"""What the source card says when no package folder is registered."""
+
+
+def board_view(listed: AppListing, /) -> BoardView:
+    """Describe the whole board from one `list_apps` answer."""
+    return BoardView(
+        rows=tuple(
+            row_view(row, declares_fields=row.state != "available")
+            for row in sort_rows(listed.apps)
+        ),
+        counts=summary(listed.apps),
+        source=NO_SOURCE if listed.source is None else str(listed.source),
+        registered=listed.source is not None,
+        diagnostic=listed.diagnostic,
+    )
 
 
 def _stage(row: AppRow, /, *, configured: bool) -> int:
