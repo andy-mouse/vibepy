@@ -196,9 +196,9 @@ Acceptance:
 - isolation does not change the App / Tool / Page programming contract
 
 
-## M18 - Channels are protocols
+## M18 - Channels are media
 
-Name a channel by the protocol it speaks, not by who is on it, and split a Page into one channel-neutral declaration and one implementation per channel that renders it. `Channel` becomes `web` and `mcp`, with the extras, the records and `describe` carrying the same names; `route` moves from `PageDefinition` into the Web implementation. ADR-041 decides this.
+Name a channel by the medium it serves through, not by who is on it, and split a Page into one channel-neutral declaration and one implementation per channel that renders it. `Channel` becomes `web` and `mcp`, with the extras, the records and `describe` carrying the same names; `route` moves from `PageDefinition` into the Web implementation. ADR-041 decides this.
 
 Acceptance:
 - a Page is declared once as name, title and tools, and carries one implementation per channel that renders it; a Page with no implementation is refused as the AppDefinition is constructed
