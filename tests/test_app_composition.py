@@ -4,6 +4,7 @@ There is no object for a app that is not running. These tests address the
 window itself, which is why every one of them is an ``async with``.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
@@ -16,6 +17,7 @@ from vibepy_core.app import (
     Lifespan,
     NoConfig,
     page_runtime_for,
+    read_window_record,
     tool_runtime_for,
 )
 from vibepy_core.page import Page, PageContext, PageDefinition
@@ -202,3 +204,42 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]
+
+
+async def test_a_closing_window_records_that_it_closed(caplog: pytest.LogCaptureFixture) -> None:
+    """The lifespan's exit crosses the process boundary as one `WindowRecord`.
+
+    The record is written after the resource is released, so a reader of a
+    framework process's standard error learns the window is gone and not merely
+    that the runtime was handed back.
+    """
+    log: list[str] = []
+    with caplog.at_level(logging.INFO, logger="vibepy_core"):
+        async with tool_runtime_for(
+            journal_definition(log), journal_lifespan(log), config={}, channel=Channel.AGENT
+        ):
+            assert [line for line in caplog.messages if read_window_record(line)] == []
+
+    closed = [read_window_record(line) for line in caplog.messages]
+    written = [record for record in closed if record is not None]
+    assert len(written) == 1
+    assert written[0].app_id == "journal"
+    assert written[0].channel is Channel.AGENT
+    assert log == ["acquired", "released"]
+
+
+async def test_a_window_that_fails_to_close_records_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A window that ends by raising is one report, not a report and a record."""
+    log: list[str] = []
+    with caplog.at_level(logging.INFO, logger="vibepy_core"), pytest.raises(Boom):
+        async with tool_runtime_for(
+            journal_definition(log),
+            lambda _config: FailingAcquire(log),
+            config={},
+            channel=Channel.AGENT,
+        ):
+            pass  # pragma: no cover - the block is never entered
+
+    assert [record for line in caplog.messages if (record := read_window_record(line))] == []

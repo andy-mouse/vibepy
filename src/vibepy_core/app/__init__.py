@@ -26,6 +26,7 @@ from vibepy_core.app.entrypoint import (
     ToolDescription,
 )
 from vibepy_core.app.model import AppDefinition
+from vibepy_core.app.record import WindowRecord, read_window_record
 
 __all__ = [
     "AppConfig",
@@ -39,8 +40,10 @@ __all__ = [
     "NoConfig",
     "PageDescription",
     "ToolDescription",
+    "WindowRecord",
     "page_registry_for",
     "page_runtime_for",
+    "read_window_record",
     "tool_registry_for",
     "tool_runtime_for",
 ]

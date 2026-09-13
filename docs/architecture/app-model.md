@@ -121,6 +121,14 @@ instantiates the declaration with it, so the declaration's own reading of the en
 in the rest and a window that cannot run acquires nothing. The lifespan receives the instance. Two windows over one definition are
 isolated by default: each enters its own lifespan.
 
+Closing the window writes one `WindowRecord` — the App id, the channel and `closed_at`, one
+pydantic model owned by `vibepy_core.app`, read back by `read_window_record` beside it. It is
+written by `tool_runtime_for` once the lifespan has exited, so it witnesses the resource being
+released, and it is written on a clean exit only: a window that ends by raising crosses as one
+report instead (`docs/architecture/errors.md`). Both channels open this window, so both are
+observed by the one writer, as `docs/architecture/packaging.md`, "What a command writes to
+standard error", records for the stream it lands on.
+
 The resource itself is never exposed. A Tool handler receives it through its ToolContext, and
 nothing else needs it. `docs/architecture/lifecycle.md` owns the boundaries of the window, and
 `docs/decisions/ADR-020-the-channel-host-owns-the-runtime-lifecycle.md` records why the framework

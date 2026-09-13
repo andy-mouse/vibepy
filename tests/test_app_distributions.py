@@ -77,18 +77,12 @@ def test_an_app_with_pages_has_tools_for_them_to_reach(ref: AppRef) -> None:
         assert described.tools
 
 
-async def test_the_timer_app_answers_from_what_its_window_acquired(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_the_timer_app_answers_from_what_its_window_acquired() -> None:
     """Timer's own domain: the Tool reads the window's resource, not a clock.
 
     It is the only App here whose lifespan yields a value, so it is the only
     place that shows a handler receiving what the window acquired.
-
-    Timer's lifespan exit writes where the process stands, so the test lends it
-    a place to stand rather than leaving that trace wherever pytest was run.
     """
-    monkeypatch.chdir(tmp_path)
     async with tool_runtime_for(
         TIMER_APP, timer_lifespan, config={}, channel=Channel.AGENT
     ) as tools:

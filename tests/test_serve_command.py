@@ -12,7 +12,13 @@ from urllib.request import urlopen
 
 import pytest
 
-from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord
+from vibepy_core import (
+    Channel,
+    ErrorCategory,
+    ErrorInfo,
+    InvocationRecord,
+    read_window_record,
+)
 from vibepy_core.app.config import ENV_PREFIX, environment_for
 from vibepy_core.errors import read_report_line
 from vibepy_core.tool import read_invocation_record
@@ -209,14 +215,15 @@ def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -> None:
+def test_closing_standard_input_ends_the_command_when_asked_to() -> None:
     """Studio holds the pipe; the OS closes it when Studio is gone for any
     reason. The App sees end-of-file and leaves of its own accord: the exit code
-    is a clean one, the App's lifespan exit ran, and the port it served is no
-    longer answering.
+    is a clean one, the window's closing record is on standard error, and the
+    port it served is no longer answering.
 
-    Timer is the App served because its lifespan leaves `closed.txt` behind when
-    it exits, which is how the exit is observed from outside the process.
+    Timer is the App served because it requires nothing of its host. The exit is
+    observed the way the framework observes anything crossing this boundary: the
+    window writes one `WindowRecord` as it closes, and the test validates it.
 
     `communicate` closes the pipe itself, which is the EOF."""
     port = free_port()
@@ -233,14 +240,17 @@ def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=child_environment(),
-        cwd=tmp_path,
     )
     assert process.stdin is not None
     wait_for(f"http://127.0.0.1:{port}/home", process)
 
     _, stderr = process.communicate(timeout=30)
 
-    assert process.returncode == 0, stderr.decode(errors="replace")
-    assert (tmp_path / "closed.txt").is_file()
+    written = stderr.decode(errors="replace")
+    assert process.returncode == 0, written
+    read = [read_window_record(line) for line in written.splitlines()]
+    assert [record for record in read if record is not None and record.app_id == "timer-app"], (
+        written
+    )
     with pytest.raises(URLError):
         urlopen(f"http://127.0.0.1:{port}/home", timeout=5)
