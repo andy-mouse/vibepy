@@ -204,19 +204,27 @@ async def _payload(reader: asyncio.StreamReader, /) -> bytes:
 async def served_body(port: int, *, host: str, path: str) -> str:
     """What the App behind this hostname answers with.
 
-    A body rather than a status, because a status cannot tell two Apps apart:
-    two requests answered by one App are also two 200s.
-
     The `Host` header is sent and never resolved, which is what the proxy routes
     on and what keeps this independent of whether the platform's resolver knows
     `.localhost` -- RFC 6761 makes that a SHOULD, and browsers rather than
     system resolvers are what implement it.
     """
-    return await asyncio.to_thread(_body, f"http://127.0.0.1:{port}{path}", host)
+    return await asyncio.to_thread(body, f"http://127.0.0.1:{port}{path}", host=host)
 
 
-def _body(url: str, host: str, /) -> str:
-    with urlopen(Request(url, headers={"Host": host}), timeout=30) as answer:
+def body(url: str, /, *, host: str | None = None) -> str:
+    """What the server at `url` answers with, as text.
+
+    A body rather than a status, because a status cannot tell two Apps apart:
+    two requests answered by one App are also two 200s. Every Studio test that
+    asks an App which App it is asks it this way, so there is one of these.
+
+    `host` is sent as a header for the callers whose subject is what the proxy
+    routes on; without it the request is the plain one a test makes straight at
+    a port. Blocking, so an async caller hands it to a thread.
+    """
+    request = Request(url, headers={"Host": host}) if host is not None else Request(url)
+    with urlopen(request, timeout=30) as answer:
         return answer.read().decode(errors="replace")
 
 

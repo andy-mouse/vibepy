@@ -9,11 +9,10 @@ import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from urllib.request import urlopen
 
 import pytest
 
-from tests_support import AGENT, studio
+from tests_support import AGENT, body, studio
 from vibepy_core import Channel
 from vibepy_core.app.composition import tool_runtime_for
 from vibepy_core.tool import ToolRuntime
@@ -53,11 +52,6 @@ async def _start(tools: ToolRuntime[StudioDeps], app_name: str, /) -> RunningApp
     assert isinstance(started, RunningApp)
     assert started.diagnostic is None, started.diagnostic
     return started
-
-
-def _body(url: str, /) -> str:
-    with urlopen(url, timeout=WAIT) as answer:
-        return answer.read().decode(errors="replace")
 
 
 async def _states(tools: ToolRuntime[StudioDeps]) -> dict[str, str]:
@@ -100,8 +94,8 @@ async def test_one_apps_death_leaves_the_other_and_studio_standing(
         todo.kill()
         await todo.wait()
 
-        body = await asyncio.to_thread(_body, f"http://127.0.0.1:{ports['vibepy-timer']}/home")
-        assert "open for" in body
+        answered = await asyncio.to_thread(body, f"http://127.0.0.1:{ports['vibepy-timer']}/home")
+        assert "open for" in answered
         states = await _states(tools)
         assert states["vibepy-todo"] == "installed"
         assert states["vibepy-timer"] == "running"
@@ -126,11 +120,11 @@ async def test_an_app_sees_neither_studios_python_path_nor_its_directory(
     async with studio(installed) as tools:
         await _start(tools, "vibepy-timer")
         port = (await read_state(installed / "vibepy-studio")).ports["vibepy-timer"]
-        body = await asyncio.to_thread(_body, f"http://127.0.0.1:{port}/home")
+        answered = await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
 
-    assert "importable=False" in body
-    assert f"path={planted}" not in body
-    assert f"cwd={installed / 'vibepy-timer'}" in body
+    assert "importable=False" in answered
+    assert f"path={planted}" not in answered
+    assert f"cwd={installed / 'vibepy-timer'}" in answered
 
 
 @pytest.mark.apps("vibepy-todo", "vibepy-timer")
@@ -144,7 +138,7 @@ async def test_what_an_app_writes_beside_itself_is_its_own(tmp_path: Path, insta
     async with studio(installed) as tools:
         await _start(tools, "vibepy-timer")
         port = (await read_state(installed / "vibepy-studio")).ports["vibepy-timer"]
-        await asyncio.to_thread(_body, f"http://127.0.0.1:{port}/home")
+        await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
         await tools.invoke("stop_app", {"app_name": "vibepy-timer"}, principal=AGENT)
 
         assert (timer / "probe.txt").is_file()

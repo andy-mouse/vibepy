@@ -8,12 +8,11 @@ which is the defect itself.
 import asyncio
 import sys
 from pathlib import Path
-from urllib.request import urlopen
 
 import pytest
 from pydantic import JsonValue
 
-from tests_support import free_port
+from tests_support import body, free_port
 from vibepy_core import ErrorCategory
 from vibepy_studio.internals.processes import (
     NotRunnable,
@@ -33,12 +32,6 @@ from vibepy_studio.operating.internals.processes import (
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
-
-
-def _body(url: str, /) -> str:
-    """What the child answers at `url`, as text."""
-    with urlopen(url, timeout=30) as answer:
-        return answer.read().decode(errors="replace")
 
 
 async def _owned_once_it_exists(
@@ -397,9 +390,9 @@ async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> No
         cwd=stand,
     )
     try:
-        body = await asyncio.to_thread(_body, f"http://127.0.0.1:{port}/home")
+        answered = await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
     finally:
         await processes.aclose()
 
-    assert f"cwd={stand.resolve()}" in body
+    assert f"cwd={stand.resolve()}" in answered
     assert (stand / "probe.txt").is_file()
