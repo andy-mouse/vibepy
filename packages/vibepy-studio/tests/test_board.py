@@ -12,7 +12,12 @@ from pydantic import BaseModel
 
 from tests_support import AGENT, studio, write_wheel
 from vibepy_core.adapters.nicegui import register_pages
-from vibepy_core.app import page_registry_for, page_runtime_for
+from vibepy_core.app import (
+    ConfigFieldDescription,
+    ConfigFieldType,
+    page_registry_for,
+    page_runtime_for,
+)
 from vibepy_core.page import PageRuntime
 from vibepy_core.principal import Principal
 from vibepy_studio.entry import APP, STUDIO_APP
@@ -169,6 +174,13 @@ async def test_unregistering_is_confirmed_in_a_dialog(user: User, installed: Pat
         await user.should_see("Notes")
 
 
+FIELDS = [
+    ConfigFieldDescription(name="api_base_url", type=ConfigFieldType.STRING, required=True),
+    ConfigFieldDescription(name="api_token", type=ConfigFieldType.SECRET, required=True),
+]
+"""What a scripted App declares, for the panel a test opens."""
+
+
 class Listings:
     """A PrincipalToolInvoker answering `list_apps` with whatever it is set to.
 
@@ -184,9 +196,11 @@ class Listings:
     def invoke(
         self, name: str, raw_input: Mapping[str, object], /, *, principal: Principal
     ) -> Awaitable[BaseModel]:
-        """Answer `list_apps`; the board reads nothing else on the clock."""
+        """Answer `list_apps`, and what a row's configuration panel opens over."""
 
         async def answered() -> BaseModel:
+            if name == "describe_config":
+                return ConfigDescription(app_name=str(raw_input["app_name"]), fields=FIELDS)
             assert name == "list_apps", name
             return self.listed
 
@@ -265,13 +279,41 @@ async def test_an_app_added_and_one_removed_reach_the_board_on_a_tick(
     await user.should_not_see("demo-app")
 
 
-async def test_a_tick_does_not_take_what_is_being_typed(user: User, fast_clock: None) -> None:
-    board_over(Listings(listing(source=None)))
-    await user.open("/")
-    await user.should_see("No package folder selected")
-    user.find(marker="package-folder").type("/wheels")
+async def test_a_row_rebuilt_under_an_open_panel_keeps_what_was_typed(
+    user: User, fast_clock: None
+) -> None:
+    """A tick that reorders the rows must not take the form one of them is holding.
 
+    `sort_rows` puts a running App first, so another App starting rebuilds every
+    row -- including the one whose configuration panel is open. What was typed
+    is the board's state, not the box's, so it survives the rebuild.
+    """
+    listed = Listings(listing(app_row("demo-app", "installed"), app_row("other-app", "installed")))
+    board_over(listed)
+    await user.open("/")
+    user.find(marker="configure-demo-app").click()
+    await user.should_see("api_base_url")
+    user.find(marker="field-demo-app-api_base_url").type("https://notes.internal")
+
+    listed.listed = listing(app_row("demo-app", "installed"), app_row("other-app", "running"))
     await ticked()
 
-    entry = user.find(kind=ui.input, marker="package-folder").elements.pop()
-    assert entry.value == "/wheels"
+    await user.should_see("Stop")
+    entry = user.find(kind=ui.input, marker="field-demo-app-api_base_url").elements.pop()
+    assert entry.value == "https://notes.internal"
+
+
+async def test_an_empty_board_says_why_it_is_empty_after_a_tick(
+    user: User, fast_clock: None
+) -> None:
+    """Why a board is empty is a value the clock can change without any row changing."""
+    listed = Listings(listing())
+    board_over(listed)
+    await user.open("/")
+    await user.should_see("No apps found")
+
+    listed.listed = listing(source=None)
+    await ticked()
+
+    await user.should_see("No package folder selected")
+    await user.should_not_see("No apps found")

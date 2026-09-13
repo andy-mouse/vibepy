@@ -14,15 +14,15 @@ The rules of what to draw are `presentation.py`'s, and what it looks like is
 """
 
 import logging
-from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Sequence
 from html import escape
 from pathlib import Path
+from typing import Protocol
 
 from nicegui import binding, ui
 
 from vibepy_core import ConfigFieldType, Page, PageContext, PageDefinition
-from vibepy_core.errors import ErrorCategory, ErrorInfo
+from vibepy_core.errors import ErrorInfo
 from vibepy_studio.operating.models import (
     AppListing,
     ConfigDescription,
@@ -63,6 +63,26 @@ SUMMARY_LABELS = ("Available", "Installed", "Running")
 COLUMN_LABELS = ("App", "Lifecycle", "Action")
 
 
+class Binder[ShownT](Protocol):
+    """What a holder of shown state offers the elements that show it.
+
+    Each holder binds its own one field, so what a transform is handed is that
+    field's type and pyright checks every one of them.
+    """
+
+    def text(self, element: ui.html, read: Callable[[ShownT], str], /) -> None:
+        """Keep `element`'s text a function of what is shown."""
+        ...
+
+    def visibility(self, element: ui.element, read: Callable[[ShownT], bool], /) -> None:
+        """Keep whether `element` is on the screen a function of what is shown."""
+        ...
+
+    def into(self, target: object, name: str, read: Callable[[ShownT], object], /) -> None:
+        """Keep `target`'s `name` a function of what is shown, for what is not an element."""
+        ...
+
+
 @binding.bindable_dataclass
 class Shown:
     """The board the screen is currently showing.
@@ -73,6 +93,18 @@ class Shown:
     """
 
     board: BoardView
+
+    def text(self, element: ui.html, read: Callable[[BoardView], str], /) -> None:
+        """Keep `element`'s text a function of the board, escaped as it is written."""
+        element.bind_content_from(self, "board", backward=lambda view: escape(read(view)))
+
+    def visibility(self, element: ui.element, read: Callable[[BoardView], bool], /) -> None:
+        """Keep whether `element` is on the screen a function of the board."""
+        element.bind_visibility_from(self, "board", backward=read)
+
+    def into(self, target: object, name: str, read: Callable[[BoardView], object], /) -> None:
+        """Keep `target`'s `name` a function of the board, for what is not an element."""
+        binding.bind_from(target, name, self, "board", read)
 
 
 @binding.bindable_dataclass
@@ -85,14 +117,53 @@ class RowShown:
 
     view: RowView
 
+    def text(self, element: ui.html, read: Callable[[RowView], str], /) -> None:
+        """Keep `element`'s text a function of the row, escaped as it is written."""
+        element.bind_content_from(self, "view", backward=lambda view: escape(read(view)))
+
+    def visibility(self, element: ui.element, read: Callable[[RowView], bool], /) -> None:
+        """Keep whether `element` is on the screen a function of the row."""
+        element.bind_visibility_from(self, "view", backward=read)
+
+    def into(self, target: object, name: str, read: Callable[[RowView], object], /) -> None:
+        """Keep `target`'s `name` a function of the row, for what is not an element."""
+        binding.bind_from(target, name, self, "view", read)
+
+
+@binding.bindable_dataclass
+class PanelShown:
+    """One row's open configuration panel, and the draft being typed into it.
+
+    The draft is state rather than what the inputs happen to hold, so a row the
+    board rebuilds draws the panel back with the typing still in it, and a save
+    reads what was typed rather than elements that may no longer exist.
+    """
+
+    described: ConfigDescription
+    draft: dict[str, str]
+    lacking: tuple[str, ...] = ()
+
+    def text(self, element: ui.html, read: Callable[[tuple[str, ...]], str], /) -> None:
+        """Keep `element`'s text a function of what the panel still lacks."""
+        element.bind_content_from(self, "lacking", backward=lambda lacking: escape(read(lacking)))
+
+    def visibility(self, element: ui.element, read: Callable[[tuple[str, ...]], bool], /) -> None:
+        """Keep whether `element` is on the screen a function of what the panel still lacks."""
+        element.bind_visibility_from(self, "lacking", backward=read)
+
+    def into(self, target: object, name: str, read: Callable[[tuple[str, ...]], object], /) -> None:
+        """Keep `target`'s `name` a function of what the panel still lacks."""
+        binding.bind_from(target, name, self, "lacking", read)
+
 
 class Shape:
     """Rebuild one refreshable when the shape it drew changes.
 
     A binding target rather than something the clock calls: the clock assigns a
     board and nothing else, and rebuilding the part whose *structure* changed is
-    one consequence of that assignment like every other. Assigning the shape it
-    already has rebuilds nothing.
+    one consequence of that assignment like every other. A binding assigns only
+    what differs from what the target holds, so this is only ever handed a shape
+    the part on the screen was not drawn with.
     """
 
     def __init__(self, refresh: Callable[[], object], drawn: object) -> None:
@@ -107,8 +178,6 @@ class Shape:
 
     @shape.setter
     def shape(self, value: object) -> None:
-        if value == self._drawn:
-            return
         self._drawn = value
         self._refresh()
 
@@ -132,42 +201,37 @@ class Tone:
 
     @tone.setter
     def tone(self, value: str) -> None:
-        if value == self._tone:
-            return
         self._tone = value
         self._stage.classes(replace=f"operating-stage {TONE_CLASSES[value]}".strip())
+
+
+class Invalid:
+    """Mark one configuration field while the panel says a value is missing.
+
+    Like `Tone`: a class list is what NiceGUI publishes no bindable property
+    for, so this holds the setter and is bound like any other value.
+    """
+
+    def __init__(self, field: ui.element, invalid: bool) -> None:
+        """Hold the field to mark, and whether it is marked."""
+        self._field = field
+        self._invalid = invalid
+
+    @property
+    def invalid(self) -> bool:
+        """Whether the field is marked as missing a value."""
+        return self._invalid
+
+    @invalid.setter
+    def invalid(self, value: bool) -> None:
+        self._invalid = value
+        self._field.classes(add="is-invalid" if value else "", remove="" if value else "is-invalid")
 
 
 def _text(tag: str, value: str, classes: str = "") -> ui.html:
     """Write one piece of text into the tag the stylesheet dresses it as."""
     element = ui.html(escape(value), tag=tag)
     return element.classes(classes) if classes else element
-
-
-@dataclass(frozen=True)
-class _Bound[ShownT]:
-    """One thing the screen reads from: the object that holds it, and under which name.
-
-    Every element that shows a value is bound through one of these, so what the
-    element shows stays a function of the state and never of a redraw.
-    """
-
-    source: object
-    name: str
-
-    def text(self, element: ui.html, read: Callable[[ShownT], str]) -> None:
-        """Keep `element`'s text a function of what is shown, escaped as it is written."""
-        element.bind_content_from(
-            self.source, self.name, backward=lambda shown: escape(read(shown))
-        )
-
-    def visibility(self, element: ui.element, read: Callable[[ShownT], bool]) -> None:
-        """Keep whether `element` is on the screen a function of what is shown."""
-        element.bind_visibility_from(self.source, self.name, backward=read)
-
-    def into(self, target: object, name: str, read: Callable[[ShownT], object]) -> None:
-        """Keep `target`'s `name` a function of what is shown, for what is not an element."""
-        binding.bind_from(target, name, self.source, self.name, read)
 
 
 def _button(
@@ -196,9 +260,12 @@ def _button(
 async def board(ctx: PageContext) -> None:
     """Draw the board and keep it current."""
     ui.add_css(STYLESHEET)
-    open_config: dict[str, ConfigDescription] = {}
-    """The one row whose configuration panel is open, keyed by app name."""
-    missing: dict[str, list[str]] = {}
+    open_panel: dict[str, PanelShown] = {}
+    """The one row whose configuration panel is open, keyed by app name.
+
+    What is typed into the panel lives here rather than in the inputs, so a row
+    the board rebuilds draws the panel back with the typing still in it.
+    """
     panels: dict[str, Callable[[], object]] = {}
     """What reopens or closes one row's configuration panel, keyed by app name."""
     bound: list[object] = []
@@ -211,8 +278,6 @@ async def board(ctx: PageContext) -> None:
         return board_view(AppListing.model_validate(await ctx.tools.invoke("list_apps", {})))
 
     shown = Shown(board=await listed())
-    on_board = _Bound[BoardView](source=shown, name="board")
-    """What the parts that show the whole board read from."""
 
     async def reread() -> None:
         """Put what `list_apps` says now on the screen."""
@@ -254,10 +319,8 @@ async def board(ctx: PageContext) -> None:
             with ui.element("div").classes("operating-summary"):
                 for index, label in enumerate(SUMMARY_LABELS):
                     with ui.element("div").classes("operating-summary-item"):
-                        count = _text(
-                            "span", str(shown.board.counts[index]), "operating-summary-value"
-                        )
-                        on_board.text(count, lambda view, at=index: str(view.counts[at]))
+                        count = _text("span", "", "operating-summary-value")
+                        shown.text(count, lambda view, at=index: str(view.counts[at]))
                         _text("span", label, "operating-summary-label")
 
     async def register(path: str | None) -> None:
@@ -286,16 +349,16 @@ async def board(ctx: PageContext) -> None:
         await reread()
 
     def draw_diagnostic[ShownT](
-        bound: _Bound[ShownT], read: Callable[[ShownT], ErrorInfo | None]
+        binder: Binder[ShownT], read: Callable[[ShownT], ErrorInfo | None]
     ) -> None:
         """Draw the line a diagnostic is written on, shown only while there is one."""
         panel = ui.element("div").classes("operating-diagnostic")
-        bound.visibility(panel, lambda shown: read(shown) is not None)
+        binder.visibility(panel, lambda state: read(state) is not None)
         with panel:
             code = _text("span", "", "operating-code")
-            bound.text(code, lambda shown: _diagnostic(read(shown)).code)
+            binder.text(code, lambda state: _said_by(read(state), lambda info: info.code))
             message = _text("span", "")
-            bound.text(message, lambda shown: _diagnostic(read(shown)).message)
+            binder.text(message, lambda state: _said_by(read(state), lambda info: info.message))
 
     def draw_registry() -> None:
         """Draw the source card: a path and Unregister, or a box and Register folder.
@@ -306,8 +369,8 @@ async def board(ctx: PageContext) -> None:
         with ui.element("section").classes("operating-registry"):
             with ui.element("div"):
                 _text("span", "Local packages", "operating-registry-label")
-                value = _text("span", shown.board.source, "operating-registry-value")
-                on_board.text(value, lambda view: view.source)
+                value = _text("span", "", "operating-registry-value")
+                shown.text(value, lambda view: view.source)
             with ui.element("div").classes("operating-registry-actions"):
 
                 @ui.refreshable
@@ -328,8 +391,8 @@ async def board(ctx: PageContext) -> None:
 
                 controls()
                 shaped = Shape(controls.refresh, shown.board.registered)
-                on_board.into(shaped, "shape", lambda view: view.registered)
-        draw_diagnostic(on_board, lambda view: view.diagnostic)
+                shown.into(shaped, "shape", lambda view: view.registered)
+        draw_diagnostic(shown, lambda view: view.diagnostic)
 
     async def act(action: Action, view: RowView) -> None:
         """Run one row's action, say what happened, and read the listing again."""
@@ -351,45 +414,30 @@ async def board(ctx: PageContext) -> None:
 
     def close_config(app_name: str, /) -> None:
         """Close one row's configuration panel, wherever it was closed from."""
-        open_config.pop(app_name, None)
-        missing.pop(app_name, None)
+        open_panel.pop(app_name, None)
         if app_name in panels:
             panels[app_name]()
 
     async def toggle_config(view: RowView) -> None:
         """Open this row's configuration panel, or close the open one."""
-        if open_config.pop(view.app_name, None) is None:
+        if open_panel.pop(view.app_name, None) is None:
             described = await call("describe_config", {"app_name": view.app_name})
             if isinstance(described, ConfigDescription):
-                for other in list(open_config):
+                for other in list(open_panel):
                     close_config(other)
-                open_config[view.app_name] = described
-        missing.pop(view.app_name, None)
+                open_panel[view.app_name] = PanelShown(described=described, draft=_draft(described))
         panels[view.app_name]()
 
-    async def save(
-        view: RowView,
-        described: ConfigDescription,
-        inputs: dict[str, ui.input],
-        rows: dict[str, ui.element],
-        lacking: ui.element,
-        message: ui.html,
-    ) -> None:
-        """Send what the form holds to `configure_app`, or name what it lacks.
+    async def save(view: RowView, panel: PanelShown) -> None:
+        """Send what the draft holds to `configure_app`, or name what it lacks.
 
-        Naming what it lacks writes into the panel's own line rather than
-        rebuilding the panel: a rebuild reseeds every input from what the
-        operating role holds, which never includes a secret and never includes
-        what was just typed.
+        Both the draft and what it lacks are state, so a save reads what was
+        typed rather than elements a rebuild may have taken, and naming what is
+        missing reaches the panel's own line through the binding on it.
         """
-        entered = {name: str(entry.value) for name, entry in inputs.items()}
-        request = save_request(described.fields, entered, described.secrets_set)
+        request = save_request(panel.described.fields, panel.draft, panel.described.secrets_set)
         if isinstance(request, list):
-            missing[view.app_name] = request
-            message.content = escape(_lacking_line(request))
-            lacking.set_visibility(True)
-            for name, row in rows.items():
-                row.classes(add="is-invalid" if name in request else "", remove="is-invalid")
+            panel.lacking = tuple(request)
             return
         answer = await call("configure_app", {"app_name": view.app_name, "values": request})
         if getattr(answer, "diagnostic", None) is None:
@@ -397,10 +445,9 @@ async def board(ctx: PageContext) -> None:
         close_config(view.app_name)
         await reread()
 
-    def draw_config(view: RowView) -> None:
-        """Draw the open row's configuration form."""
-        described = open_config[view.app_name]
-        lacking = missing.get(view.app_name, [])
+    def draw_config(view: RowView, panel: PanelShown) -> None:
+        """Draw the open row's configuration form over the draft it holds."""
+        described = panel.described
         with ui.element("div").classes("operating-config"):
             _text("p", f"What {view.title} requires", "operating-config-head")
             if not described.fields:
@@ -410,15 +457,14 @@ async def board(ctx: PageContext) -> None:
                     _button("Cancel", "operating-quiet", on_click=lambda: toggle_config(view))
                 return
             _text("p", CONFIG_NOTE, "operating-config-note")
-            inputs: dict[str, ui.input] = {}
-            rows: dict[str, ui.element] = {}
             for field in described.fields:
                 secret = field.type is ConfigFieldType.SECRET
                 held = secret and field.name in described.secrets_set
                 row = ui.element("div").classes("operating-field")
-                if field.name in lacking:
-                    row.classes("is-invalid")
-                rows[field.name] = row
+                marked = Invalid(row, field.name in panel.lacking)
+                marked.invalid = field.name in panel.lacking
+                panel.into(marked, "invalid", lambda lacking, of=field.name: of in lacking)
+                bound.append(marked)
                 with row:
                     with ui.element("label"):
                         _text("span", field.name, "operating-field-name")
@@ -427,25 +473,24 @@ async def board(ctx: PageContext) -> None:
                     entry = ui.input(
                         password=secret,
                         placeholder="•••••••• (set)" if held else "",
-                        value="" if secret else str(described.values.get(field.name, "")),
+                        value=panel.draft.get(field.name, ""),
                     ).props("dense borderless")
+                    # What is typed is the draft's, so the box writes into it
+                    # and a box drawn again reads it back.
+                    entry.bind_value(panel.draft, field.name)
                     # Several rows can declare the same field name, so a test
                     # reaches one row's box by a marker rather than by its label:
                     # the name beside it is a `<span>`, which cannot be typed into.
                     entry.mark(f"field-{view.app_name}-{field.name}")
-                    inputs[field.name] = entry
             error = ui.element("div").classes("operating-config-error")
+            panel.visibility(error, bool)
             with error:
                 _text("span", "config.invalid", "operating-code")
-                message = _text("span", _lacking_line(lacking))
-            error.set_visibility(bool(lacking))
+                message = _text("span", "")
+                panel.text(message, _lacking_line)
             with ui.element("div").classes("operating-config-actions"):
                 _button("Cancel", "operating-quiet", on_click=lambda: toggle_config(view))
-                _button(
-                    "Save",
-                    "operating-primary",
-                    on_click=lambda: save(view, described, inputs, rows, error, message),
-                )
+                _button("Save", "operating-primary", on_click=lambda: save(view, panel))
 
     def _on_click(action: Action, row: RowShown) -> Callable[[], Awaitable[None]]:
         """Bind one button to one row's action, so a loop's variable cannot leak.
@@ -470,20 +515,20 @@ async def board(ctx: PageContext) -> None:
                 on_click=_on_click(action, row) if action.enabled else None,
             )
 
-    def draw_rail(row: RowShown, on_row: _Bound[RowView]) -> None:
+    def draw_rail(row: RowShown) -> None:
         """Draw the row's rail: four steps, each bound to the mark it shows."""
         with ui.element("div").classes("operating-rail"):
             for index, mark in enumerate(row.view.marks):
                 stage = ui.element("div").classes("operating-stage")
                 stage.classes(TONE_CLASSES[mark.tone])
                 painted = Tone(stage, mark.tone)
-                on_row.into(painted, "tone", lambda view, at=index: view.marks[at].tone)
+                row.into(painted, "tone", lambda view, at=index: view.marks[at].tone)
                 bound.append(painted)
                 with stage:
                     symbol = _text("span", mark.symbol, "operating-stage-node")
-                    on_row.text(symbol, lambda view, at=index: view.marks[at].symbol)
+                    row.text(symbol, lambda view, at=index: view.marks[at].symbol)
                     label = _text("span", mark.label)
-                    on_row.text(label, lambda view, at=index: view.marks[at].label)
+                    row.text(label, lambda view, at=index: view.marks[at].label)
 
     def draw_app(view: RowView) -> None:
         """Draw one row: its name, its rail, its buttons, its diagnostic, its form."""
@@ -492,21 +537,20 @@ async def board(ctx: PageContext) -> None:
         # A row that a listing no longer carries keeps what it last showed: the
         # set of rows is a shape, and the rebuild it asks for is the one that
         # takes this row off the screen.
-        on_row = _Bound[RowView](source=row, name="view")
-        on_board.into(
-            row, "view", lambda board, held=row: board.row(held.view.app_name) or held.view
-        )
+        shown.into(row, "view", lambda board, held=row: board.row(held.view.app_name) or held.view)
         container = ui.element("article").classes("operating-app-row")
         # A row is reached whole -- by a test asking whether the clock replaced it.
         container.mark(f"row-{view.app_name}")
         with container:
             with ui.element("div"):
                 name = _text("h2", view.title, "operating-app-name")
-                on_row.text(name, lambda view: view.title)
+                row.text(name, lambda view: view.title)
                 with ui.element("div").classes("operating-app-meta"):
-                    version = _text("span", f"v{view.version}" if view.version else "")
-                    on_row.text(version, lambda view: f"v{view.version}")
-                    on_row.visibility(version, lambda view: view.version is not None)
+                    version = _text("span", "")
+                    row.text(
+                        version, lambda view: "" if view.version is None else f"v{view.version}"
+                    )
+                    row.visibility(version, lambda view: view.version is not None)
             # The buttons are built before the rail: a rail label and a button
             # can carry the same word ("Configured", "Configure"), and what a
             # reader -- or a test -- reaches for by that word is the button. The
@@ -519,30 +563,32 @@ async def board(ctx: PageContext) -> None:
 
                 buttons()
                 shaped = Shape(buttons.refresh, view.actions)
-                on_row.into(shaped, "shape", lambda view: view.actions)
+                row.into(shaped, "shape", lambda view: view.actions)
                 bound.append(shaped)
-            draw_rail(row, on_row)
-            draw_diagnostic(on_row, lambda view: view.diagnostic)
+            draw_rail(row)
+            draw_diagnostic(row, lambda view: view.diagnostic)
 
             @ui.refreshable
             def panel() -> None:
-                if row.view.app_name in open_config:
-                    draw_config(row.view)
+                open_here = open_panel.get(row.view.app_name)
+                if open_here is not None:
+                    draw_config(row.view, open_here)
 
             panel()
             panels[view.app_name] = panel.refresh
 
     def draw_empty() -> None:
-        """Say why the board is empty: no folder, or a folder with nothing in it."""
-        registered = shown.board.registered
+        """Say why the board is empty: no folder, or a folder with nothing in it.
+
+        Why it is empty is a value, not a shape, so it is bound: unregistering
+        the folder under an empty board changes these two lines and rebuilds
+        nothing.
+        """
         with ui.element("div").classes("operating-empty"), ui.element("div"):
-            _text("h2", "No apps found" if registered else "No package folder selected")
-            _text(
-                "p",
-                "This package folder does not contain any compatible VibePy Apps."
-                if registered
-                else "Choose a package folder above to see available apps.",
-            )
+            head = _text("h2", "")
+            shown.text(head, _empty_head)
+            line = _text("p", "")
+            shown.text(line, _empty_line)
 
     @ui.refreshable
     def rows() -> None:
@@ -575,24 +621,44 @@ async def board(ctx: PageContext) -> None:
             with ui.element("section").classes("operating-board"):
                 rows()
                 listing_shape = Shape(rows.refresh, shown.board.names)
-                on_board.into(listing_shape, "shape", lambda view: view.names)
+                shown.into(listing_shape, "shape", lambda view: view.names)
     ui.timer(REFRESH_SECONDS, reread)
 
 
-_NO_DIAGNOSTIC = ErrorInfo(code="", message="", category=ErrorCategory.EXECUTION)
-"""What a diagnostic's bound line reads while there is no diagnostic to read."""
+def _said_by(info: ErrorInfo | None, read: Callable[[ErrorInfo], str], /) -> str:
+    """Read one part of a diagnostic, or nothing where there is no diagnostic.
 
-
-def _diagnostic(info: ErrorInfo | None, /) -> ErrorInfo:
-    """Give a diagnostic to write, whether or not there is one.
-
-    A hidden line is still bound, and what a binding reads is read before the
-    visibility that hides it is.
+    A hidden line is still bound, and what a binding reads is read whether or
+    not the visibility beside it hides the line.
     """
-    return _NO_DIAGNOSTIC if info is None else info
+    return "" if info is None else read(info)
 
 
-def _lacking_line(lacking: list[str]) -> str:
+def _draft(described: ConfigDescription, /) -> dict[str, str]:
+    """Seed a panel's draft: what the operating role holds, and nothing for a secret."""
+    return {
+        field.name: ""
+        if field.type is ConfigFieldType.SECRET
+        else str(described.values.get(field.name, ""))
+        for field in described.fields
+    }
+
+
+def _empty_head(view: BoardView, /) -> str:
+    """Head the empty board with what is missing: a folder, or Apps in one."""
+    return "No apps found" if view.registered else "No package folder selected"
+
+
+def _empty_line(view: BoardView, /) -> str:
+    """Say what to do about an empty board."""
+    return (
+        "This package folder does not contain any compatible VibePy Apps."
+        if view.registered
+        else "Choose a package folder above to see available apps."
+    )
+
+
+def _lacking_line(lacking: Sequence[str], /) -> str:
     """Name the required fields a save left empty, or say nothing."""
     if not lacking:
         return ""
