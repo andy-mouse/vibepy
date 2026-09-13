@@ -9,6 +9,10 @@ A Python type cannot cross a channel boundary. Every framework exception therefo
 carries a code, which is that type projected into something an agent can read, and a
 message, which is for a human and is not a contract.
 
+An App's own failure that never reaches a channel — a child process that would not start, a
+dialog the platform would not show — is not a framework exception: it derives from `Exception`
+in the module that raises it and carries no code, because there is no adapter to read one.
+
 ## Codes
 
 A code is stable. The same code always means the same failure, two different failures never
