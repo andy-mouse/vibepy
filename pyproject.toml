@@ -75,8 +75,8 @@ src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src", "
 # package and nowhere else, so another distribution cannot bind itself to an
 # internal. That invariant is the linter's to hold rather than a test's --
 # `PLC2701` flags a private import from outside the package. It is a preview
-# rule, so preview is on and `explicit-preview-rules` keeps it the only one:
-# every other selected rule stays the stable one.
+# rule, so preview is on and `explicit-preview-rules` keeps it the only preview
+# rule selected.
 # <https://docs.astral.sh/ruff/rules/import-private-name/>
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID", "D", "PLC2701"]

@@ -80,16 +80,17 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
 
 
 def reported_failure(stderr: bytes, /) -> ErrorInfo:
-    """The last failure the child described, out of everything it wrote.
+    """The one failure the child described, out of everything it wrote.
 
     Read with the framework's own reader, so what a window logs is held to the
-    shape core writes rather than to a second reading of it.
+    shape core writes rather than to a second reading of it. Each of these
+    failures is a single one, so one report is what the stream must carry and
+    the count is asserted rather than assumed.
     """
-    for line in reversed(stderr.decode(errors="replace").splitlines()):
-        found = read_report_line(line)
-        if found is not None:
-            return found
-    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+    written = stderr.decode(errors="replace")
+    found = [info for line in written.splitlines() if (info := read_report_line(line))]
+    assert len(found) == 1, written
+    return found[0]
 
 
 @pytest.mark.integration
