@@ -57,6 +57,7 @@ def test_public_api_is_exported_from_the_package_root() -> None:
         "ToolRegistry",
         "ToolRuntime",
         "VibepyError",
+        "WindowRecord",
         "page_runtime_for",
         "tool_runtime_for",
     ]
@@ -75,8 +76,10 @@ def test_the_app_subpackage_exports_declarations_and_descriptions() -> None:
         "NoConfig",
         "PageDescription",
         "ToolDescription",
+        "WindowRecord",
         "page_registry_for",
         "page_runtime_for",
+        "read_window_record",
         "tool_registry_for",
         "tool_runtime_for",
     ]

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 class Candidate:
     """One installable wheel inside a registered source.
 
-    `name` is the canonical distribution name, which is what a Hub Tool addresses
+    `name` is the canonical distribution name, which is what an operating Tool addresses
     this App by.
     """
 

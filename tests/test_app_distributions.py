@@ -1,9 +1,9 @@
 """What every App in this repository guarantees, asked of every App there is.
 
-These Apps are what the Hub's tests install, and the same hands write both.
+These Apps are what Studio's tests install, and the same hands write both.
 That is a trap: a gate assembled from fixtures shaped to pass it proves only
 that they were shaped that way. So each App is also held here to what the
-framework asks of any App, with no Hub in the picture. One that an author
+framework asks of any App, with no Studio in the picture. One that an author
 could not copy is not worth installing.
 
 Nothing below names an App. The subjects come from `discover_apps()` and the
@@ -30,8 +30,7 @@ from todo_app.entry import (
     TodoStoreUnreadable,
     todo_lifespan,
 )
-from vibepy_core import Channel, ErrorCategory, Principal
-from vibepy_core.app.composition import tool_runtime_for
+from vibepy_core import Channel, ErrorCategory, Principal, tool_runtime_for
 from vibepy_core.app.package import AppRef, describe_app, discover_apps
 
 DECLARED = sorted(discover_apps(), key=lambda ref: ref.app_name)

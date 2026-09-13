@@ -27,6 +27,9 @@ from vibepy_core.errors import (
 from vibepy_core.logs import configure_logging
 from vibepy_core.principal import Principal
 
+__all__ = ["main"]
+
+
 AGENT = Principal(id="agent")
 """The party that launched this process."""
 

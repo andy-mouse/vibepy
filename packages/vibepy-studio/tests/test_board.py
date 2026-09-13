@@ -1,4 +1,5 @@
-"""The board shows Hub Core's state and acts on it through the Hub's Tools."""
+"""The board shows the operating role's core state and acts on it through the operating
+role's Tools."""
 
 from pathlib import Path
 
@@ -14,7 +15,7 @@ from vibepy_studio.entry import APP, STUDIO_APP
 from vibepy_studio.operating.models import ConfigDescription
 
 
-def hub_pages(root: Path):
+def operating_pages(root: Path):
     return page_runtime_for(
         STUDIO_APP, APP.lifespan, config={"root": str(root), "proxy_port": 8080}
     )
@@ -24,7 +25,7 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
     source = tmp_path / "wheels"
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
 
-    async with hub_pages(tmp_path / "hub") as pages:
+    async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("No folder registered")
@@ -42,7 +43,7 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
 async def test_configuring_an_installed_app_names_what_it_lacks(
     user: User, installed: Path
 ) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")
@@ -57,7 +58,7 @@ async def test_configuring_an_installed_app_names_what_it_lacks(
 @pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find("Configure").click()
@@ -73,7 +74,7 @@ async def test_a_failed_save_keeps_what_was_typed(user: User, installed: Path) -
 @pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_a_saved_configuration_reaches_the_hub(user: User, installed: Path) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find("Configure").click()
@@ -104,15 +105,15 @@ async def test_install_invokes_the_tool_and_shows_its_answer(user: User, tmp_pat
     # distribution installs is `test_installation.py`'s subject.
     source = tmp_path / "wheels"
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
     async with studio(root) as tools:
         await tools.invoke("register_package_source", {"path": str(source)}, principal=AGENT)
 
-    async with hub_pages(root) as pages:
+    async with operating_pages(root) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         user.find(marker="install-demo-app").click()
-        await user.should_see("hub.install_failed", retries=600)
+        await user.should_see("operating.install_failed", retries=600)
 
 
 @pytest.mark.apps("vibepy-timer")
@@ -120,7 +121,7 @@ async def test_install_invokes_the_tool_and_shows_its_answer(user: User, tmp_pat
 async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
     user: User, installed: Path
 ) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Timer")
@@ -132,7 +133,7 @@ async def test_an_app_declaring_no_fields_says_so_and_offers_no_save(
 @pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_configure_opens_a_panel_and_cancel_closes_it(user: User, installed: Path) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")
@@ -146,7 +147,7 @@ async def test_configure_opens_a_panel_and_cancel_closes_it(user: User, installe
 @pytest.mark.apps("vibepy-notes")
 @pytest.mark.integration
 async def test_unregistering_is_confirmed_in_a_dialog(user: User, installed: Path) -> None:
-    async with hub_pages(installed) as pages:
+    async with operating_pages(installed) as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
         await user.open("/")
         await user.should_see("Notes")

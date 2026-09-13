@@ -1,7 +1,7 @@
 """A child is this window's resource from the moment it exists.
 
 `Processes` is an internal, and this file is the departure from testing public
-contracts that the spec names: an orphaned child is invisible to every Hub Tool,
+contracts that the spec names: an orphaned child is invisible to every operating Tool,
 which is the defect itself.
 """
 
@@ -12,22 +12,18 @@ from pathlib import Path
 import pytest
 from pydantic import JsonValue
 
-from tests_support import free_port
+from tests_support import body, free_port
 from vibepy_core import ErrorCategory
 from vibepy_studio.internals.processes import (
     NotRunnable,
     child_environment,
+    python_command,
     reported,
     reports,
     run,
 )
 from vibepy_studio.operating.internals import interpreter
-from vibepy_studio.operating.internals.processes import (
-    AlreadyStarted,
-    Processes,
-    StartFailed,
-    _reported,  # pyright: ignore[reportPrivateUsage]
-)
+from vibepy_studio.operating.internals.processes import AlreadyStarted, Processes, StartFailed
 
 OWNED_TIMEOUT = 30.0
 """How long a child may take to exist before the test calls it a failure."""
@@ -62,6 +58,7 @@ async def test_a_cancelled_start_leaves_no_live_child(tmp_path: Path) -> None:
             config={"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
             known_as="todo-app",
             port=free_port(),
+            cwd=tmp_path,
         )
     )
     owned = await _owned_once_it_exists(processes, "todo-app")
@@ -95,6 +92,7 @@ async def test_a_child_that_cannot_run_the_command_is_a_start_failure(
             config={"db_path": "x", "db_key": "k"},
             known_as="gone",
             port=free_port(),
+            cwd=tmp_path,
         )
 
     assert processes.running("gone") is False
@@ -105,7 +103,7 @@ async def test_a_child_that_cannot_run_the_command_is_a_start_failure(
 async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
     """`aclose` is what `entry.py` promises: a window leaves no child behind.
 
-    Asserted here rather than through a Hub Tool, because it is a fact about
+    Asserted here rather than through an operating Tool, because it is a fact about
     `Processes` that no Tool can see -- which is what this file is for.
     """
     processes = Processes(logs=tmp_path / "logs")
@@ -116,6 +114,7 @@ async def test_closing_a_window_releases_every_child(tmp_path: Path) -> None:
         config={"db_path": str(tmp_path / "todo.json"), "db_key": "k"},
         known_as="todo-app",
         port=port,
+        cwd=tmp_path,
     )
     assert processes.running("todo-app") is True
 
@@ -147,6 +146,7 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
         config=config,
         known_as="todo-app",
         port=first,
+        cwd=tmp_path,
     )
     with pytest.raises(AlreadyStarted):
         await processes.start(
@@ -155,6 +155,7 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
             config=config,
             known_as="todo-app",
             port=second,
+            cwd=tmp_path,
         )
 
     with pytest.raises(OSError):
@@ -162,19 +163,45 @@ async def test_a_second_start_under_one_name_leaves_no_second_child(tmp_path: Pa
     await processes.aclose()
 
 
-def test_a_report_followed_by_more_output_is_still_found(tmp_path: Path) -> None:
+@pytest.mark.integration
+async def test_a_spawn_that_fails_leaves_the_name_free(tmp_path: Path) -> None:
+    """A `cwd` that does not exist fails the spawn itself, before a child ever
+    exists to release; the claim made ahead of it must not outlive the failure."""
+    processes = Processes(logs=tmp_path / "logs")
+    config: dict[str, JsonValue] = {"db_path": str(tmp_path / "todo.json"), "db_key": "k"}
+    with pytest.raises(OSError):
+        await processes.start(
+            app_name="todo-app",
+            interpreter=Path(sys.executable),
+            config=config,
+            known_as="todo-app",
+            port=free_port(),
+            cwd=tmp_path / "does-not-exist",
+        )
+
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config=config,
+        known_as="todo-app",
+        port=free_port(),
+        cwd=tmp_path,
+    )
+    assert processes.running("todo-app") is True
+    await processes.aclose()
+
+
+def test_a_report_followed_by_more_output_is_still_found() -> None:
     """A traceback the framework writes after its own report must not hide it.
 
-    A real child writes its report near the top of the log and a traceback
+    A real child writes its report near the top of its log and a traceback
     after it, long enough that a fixed-size tail would push the report out.
     """
-    log = tmp_path / "child.log"
     report = '{"code": "config.invalid", "category": "caller", "message": "bad"}'
     trailer = "\n".join(f"line {n} of a long traceback" for n in range(400))
-    log.write_text(f"{report}\n{trailer}\n", encoding="utf-8")
     assert len(trailer) > 4000
 
-    failure = _reported(log)
+    failure = reported(f"{report}\n{trailer}\n")
 
     assert failure is not None
     assert failure.code == "config.invalid"
@@ -229,6 +256,47 @@ def test_reported_reads_the_report_among_other_lines() -> None:
     assert reported("nothing here") is None
 
 
+@pytest.mark.integration
+async def test_a_child_does_not_see_what_pythonpath_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The outcome, not the list: `-I` is Python's guarantee that `PYTHON*`
+    is ignored, and this is what that guarantee buys the App."""
+    planted = tmp_path / "planted"
+    planted.mkdir()
+    (planted / "planted_module.py").write_text("", encoding="utf-8")
+    monkeypatch.setenv("PYTHONPATH", str(planted))
+
+    completed = await run(python_command([sys.executable], "-c", "import planted_module"))
+
+    assert completed.returncode != 0
+    assert "planted_module" in completed.stderr
+
+
+@pytest.mark.integration
+async def test_a_child_does_not_see_the_launchers_current_directory(tmp_path: Path) -> None:
+    """`python -m` and `python -c` put the current directory on `sys.path`;
+    `-I` does not, so a module beside Studio is not the App's."""
+    (tmp_path / "beside_studio.py").write_text("", encoding="utf-8")
+
+    completed = await run(
+        python_command([sys.executable], "-c", "import beside_studio"), cwd=tmp_path
+    )
+
+    assert completed.returncode != 0
+
+
+def test_python_command_puts_isolated_mode_before_the_program() -> None:
+    assert python_command(["uv", "run", "python"], "-m", "vibepy_core.describe") == [
+        "uv",
+        "run",
+        "python",
+        "-I",
+        "-m",
+        "vibepy_core.describe",
+    ]
+
+
 def test_reports_reads_every_report_line_in_order() -> None:
     text = (
         '{"code": "app.declaration_invalid", "category": "declaration", "message": "m",'
@@ -241,3 +309,82 @@ def test_reports_reads_every_report_line_in_order() -> None:
     first = reported(text)
     assert first is not None and first.code == "app.declaration_invalid"
     assert reports("nothing here") == ()
+
+
+DRIVER = """
+import asyncio, sys
+from pathlib import Path
+from vibepy_studio.operating.internals.processes import Processes
+
+async def main() -> None:
+    port = int(sys.argv[1])
+    root = Path(sys.argv[2])
+    processes = Processes(logs=root / "logs")
+    await processes.start(
+        app_name="todo-app",
+        interpreter=Path(sys.executable),
+        config={"db_path": str(root / "todo.json"), "db_key": "k"},
+        known_as="todo-app",
+        port=port,
+        cwd=root,
+    )
+    print("started", flush=True)
+    await asyncio.sleep(3600)
+
+asyncio.run(main())
+"""
+
+
+@pytest.mark.integration
+async def test_a_killed_launcher_leaves_no_live_child(tmp_path: Path) -> None:
+    """The half of process isolation `aclose` cannot cover: the Studio that is
+    killed runs no cleanup. The child holds the read end of a pipe whose write
+    end died with the Studio, sees end-of-file, and leaves on its own."""
+    port = free_port()
+    driver = await asyncio.create_subprocess_exec(
+        sys.executable,
+        "-c",
+        DRIVER,
+        str(port),
+        str(tmp_path),
+        stdout=asyncio.subprocess.PIPE,
+        env=child_environment(),
+    )
+    assert driver.stdout is not None
+    async with asyncio.timeout(OWNED_TIMEOUT):
+        assert (await driver.stdout.readline()).strip() == b"started"
+
+    driver.kill()
+    await driver.wait()
+
+    async with asyncio.timeout(OWNED_TIMEOUT):
+        while True:
+            try:
+                _, writer = await asyncio.open_connection("127.0.0.1", port)
+            except OSError:
+                break
+            writer.transport.abort()
+            await asyncio.sleep(0.05)
+
+
+@pytest.mark.integration
+async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> None:
+    """Timer reports its own working directory, and it is the one it was given."""
+    stand = tmp_path / "stand"
+    stand.mkdir()
+    processes = Processes(logs=tmp_path / "logs")
+    port = free_port()
+    await processes.start(
+        app_name="timer-app",
+        interpreter=Path(sys.executable),
+        config={},
+        known_as="timer-app",
+        port=port,
+        cwd=stand,
+    )
+    try:
+        answered = await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
+    finally:
+        await processes.aclose()
+
+    assert f"cwd={stand.resolve()}" in answered

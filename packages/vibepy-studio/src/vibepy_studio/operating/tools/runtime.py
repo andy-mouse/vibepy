@@ -47,14 +47,14 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
     if facts is None:
         return _refusal(
             payload.app_name,
-            "hub.not_installed",
+            "operating.not_installed",
             f"{payload.app_name!r} is not installed",
             category=ErrorCategory.CALLER,
         )
     if not facts.has_pages:
         return _refusal(
             payload.app_name,
-            "hub.no_web_channel",
+            "operating.no_web_channel",
             f"{payload.app_name!r} declares no Pages, so it has no Web channel to start",
             category=ErrorCategory.CALLER,
         )
@@ -67,11 +67,11 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
         # closes between the two leaves this behind; so does a state file
         # written before an App had an address at all. Which of the two it was
         # is not knowable here and does not change the remedy, and it is not
-        # `hub.not_installed`: the App is there, and installing is refused
+        # `operating.not_installed`: the App is there, and installing is refused
         # until it is removed.
         return _refusal(
             payload.app_name,
-            "hub.no_address",
+            "operating.no_address",
             f"{payload.app_name!r} is installed but holds no address; "
             "remove it and install it again",
             category=ErrorCategory.CALLER,
@@ -84,6 +84,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
             config={**held, **payload.secrets},
             known_as=payload.app_name,
             port=port,
+            cwd=deps.root.app_folder(payload.app_name),
         )
     except AlreadyStarted:
         # One name holds one child, and `Processes` is the one place that
@@ -91,7 +92,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
         # awaits, and two places deciding one fact is how they come to disagree.
         return _refusal(
             payload.app_name,
-            "hub.already_running",
+            "operating.already_running",
             f"{payload.app_name!r} is already running",
             category=ErrorCategory.CALLER,
             url=where,
@@ -101,7 +102,7 @@ async def start_app(ctx: ToolContext[StudioDeps], payload: StartRequest) -> Runn
         if reported is None:
             return _refusal(
                 payload.app_name,
-                "hub.start_failed",
+                "operating.start_failed",
                 str(failure),
                 category=ErrorCategory.EXECUTION,
                 url=where,
@@ -123,7 +124,7 @@ async def stop_app(ctx: ToolContext[StudioDeps], payload: AppName) -> RunningApp
     if not await deps.processes.stop(payload.app_name):
         return _refusal(
             payload.app_name,
-            "hub.not_running",
+            "operating.not_running",
             f"{payload.app_name!r} is not running here",
             category=ErrorCategory.CALLER,
             url=where,
@@ -146,7 +147,7 @@ RUNTIME_TOOLS: Sequence[Tool[StudioDeps]] = [
     Tool(
         definition=ToolDefinition(
             name="stop_app",
-            description="Stop an App this Hub started",
+            description="Stop an App this operating role started",
             input_model=AppName,
             output_model=RunningApp,
             read_only=False,

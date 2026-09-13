@@ -7,14 +7,22 @@ Apps with a Web channel. Notes declares no Pages on purpose, so it cannot be
 the second one.
 
 It requires nothing of its host, which is the other half of its job: a test
-that installs it is asserting about the Hub, not about what this App happens
+that installs it is asserting about Studio, not about what this App happens
 to need. Its lifespan holds the one thing it knows -- when it opened -- so the
 resource an App may hold is exercised here rather than only described.
+
+Its `probe` Tool is the witness M17's isolation tests read: what Studio let
+this process see, reported from inside it. Its lifespan's exit is observed from
+outside by the `WindowRecord` the framework writes as the window closes, so
+this App leaves nothing behind of its own to be seen closing.
 """
 
+import importlib.util
+import sys
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 
 from nicegui import ui
 from pydantic import BaseModel
@@ -55,10 +63,43 @@ async def elapsed(ctx: ToolContext[datetime], _payload: Opened) -> Elapsed:
     return Elapsed(seconds=(datetime.now(UTC) - ctx.dependencies).total_seconds())
 
 
+class Probe(BaseModel):
+    """The module the probe is asked to look for; a name only Studio could have planted."""
+
+    module: str
+
+
+class Probed(BaseModel):
+    """What this process can see of its host: where it stands, what it imports."""
+
+    cwd: str
+    sys_path: list[str]
+    importable: bool
+
+
+async def probe(_ctx: ToolContext[datetime], payload: Probe) -> Probed:
+    """Report the process's working directory and import path, changing nothing.
+
+    Exists so that a test of Studio can read, from inside the running App, what
+    Studio let it see. `Path.cwd()` is the concrete path this Tool reports, which
+    is the one thing `PurePath` cannot say.
+    """
+    return Probed(
+        cwd=str(Path.cwd()),
+        sys_path=list(sys.path),
+        importable=importlib.util.find_spec(payload.module) is not None,
+    )
+
+
 async def home(ctx: PageContext) -> None:
     """The Page reaches its domain through a Tool, like any other."""
     since = Elapsed.model_validate(await ctx.tools.invoke("elapsed", {}))
     ui.label(f"open for {since.seconds:.0f}s")
+    probed = Probed.model_validate(await ctx.tools.invoke("probe", {"module": "planted_module"}))
+    ui.label(f"cwd={probed.cwd}")
+    ui.label(f"importable={probed.importable}")
+    for entry in probed.sys_path:
+        ui.label(f"path={entry}")
 
 
 TIMER_APP: AppDefinition[datetime, TimerConfig] = AppDefinition(
@@ -76,12 +117,22 @@ TIMER_APP: AppDefinition[datetime, TimerConfig] = AppDefinition(
                 read_only=True,
             ),
             handler=elapsed,
-        )
+        ),
+        Tool(
+            definition=ToolDefinition(
+                name="probe",
+                description="Where this process stands and what it can import",
+                input_model=Probe,
+                output_model=Probed,
+                read_only=True,
+            ),
+            handler=probe,
+        ),
     ],
     pages=[
         Page(
             definition=PageDefinition(
-                name="home", route="/home", title="Timer", tools=frozenset({"elapsed"})
+                name="home", route="/home", title="Timer", tools=frozenset({"elapsed", "probe"})
             ),
             handler=home,
         )

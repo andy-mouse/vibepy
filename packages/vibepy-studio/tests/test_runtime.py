@@ -50,14 +50,14 @@ async def test_an_installed_app_starts_and_stops(tmp_path: Path, installed: Path
 
 async def test_starting_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
     """And it says a different call could succeed, which is what a category is for."""
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke(
             "start_app", {"app_name": "vibepy-todo", "secrets": {}}, principal=AGENT
         )
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.not_installed"
+    assert answered.diagnostic.code == "operating.not_installed"
     assert answered.diagnostic.category == ErrorCategory.CALLER
 
 
@@ -78,16 +78,16 @@ async def test_an_app_without_pages_reports_that_there_is_nothing_to_start(
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.no_web_channel"
+    assert answered.diagnostic.code == "operating.no_web_channel"
 
 
 async def test_stopping_an_app_that_is_not_running_is_a_diagnostic(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke("stop_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, RunningApp)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.not_running"
+    assert answered.diagnostic.code == "operating.not_running"
 
 
 @pytest.mark.apps("vibepy-todo")
@@ -98,7 +98,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
     """Starting means answering, and a window that will not open never answers.
 
     Todo declares `db_path`, so an empty configuration is refused as the window
-    opens. The Hub must report that rather than hand over a url.
+    opens. The operating role must report that rather than hand over a url.
     """
     async with studio(installed) as tools:
         started = await tools.invoke(
@@ -116,7 +116,7 @@ async def test_an_app_whose_window_rejects_its_configuration_does_not_start(
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_a_secret_supplied_at_start_reaches_the_app(tmp_path: Path, installed: Path) -> None:
-    """`start_app`'s `secrets` is merged over what the Hub holds, and the App's
+    """`start_app`'s `secrets` is merged over what the operating role holds, and the App's
     window validates the result: without the secret it refuses to open."""
     async with studio(installed) as tools:
         await tools.invoke(
@@ -163,13 +163,13 @@ async def test_starting_a_running_app_says_it_is_already_running(
 
     assert isinstance(again, RunningApp)
     assert again.diagnostic is not None
-    assert again.diagnostic.code == "hub.already_running"
+    assert again.diagnostic.code == "operating.already_running"
 
 
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_two_overlapping_starts_answer_once(tmp_path: Path, installed: Path) -> None:
-    """`hub.already_running` covers a child that is still starting.
+    """`operating.already_running` covers a child that is still starting.
 
     Two callers reaching `start_app` at once is what Studio is built for:
     ToolRuntime permits concurrent invocations and does not serialize them. The
@@ -198,7 +198,7 @@ async def test_two_overlapping_starts_answer_once(tmp_path: Path, installed: Pat
     assert [one.diagnostic is None for one in answered].count(True) == 1
     refused = next(one for one in answered if one.diagnostic is not None)
     assert refused.diagnostic is not None
-    assert refused.diagnostic.code == "hub.already_running"
+    assert refused.diagnostic.code == "operating.already_running"
 
     # That the refused start left no second child behind is a fact about
     # `Processes` and is asserted where `Processes` is the subject.

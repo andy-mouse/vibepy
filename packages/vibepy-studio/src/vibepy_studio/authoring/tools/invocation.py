@@ -18,6 +18,7 @@ from vibepy_studio.authoring.models import (
     uv_unavailable,
 )
 from vibepy_studio.internals import NotRunnable, reports, run
+from vibepy_studio.internals.processes import python_command
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +34,8 @@ async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invoc
     request = InvocationRequest(input=payload.input).model_dump_json()
     try:
         completed = await run(
-            [
-                *python(project),
+            python_command(
+                python(project),
                 "-m",
                 "vibepy_core.invoke",
                 payload.app,
@@ -44,7 +45,7 @@ async def invoke_tool(ctx: ToolContext[object], payload: InvokeRequest) -> Invoc
                 "--principal",
                 ctx.principal.id,
                 *[arg for role in sorted(ctx.principal.roles) for arg in ("--role", role)],
-            ],
+            ),
             stdin=request,
             env=environment_for(payload.config),
         )

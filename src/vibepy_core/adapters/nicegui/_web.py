@@ -17,9 +17,9 @@ from collections.abc import Awaitable, Callable
 
 from nicegui import ui
 
+from vibepy_core.app._model import AppDefinition
 from vibepy_core.app.config import AppConfig
-from vibepy_core.app.model import AppDefinition
-from vibepy_core.page.runtime import PageRuntime
+from vibepy_core.page._runtime import PageRuntime
 from vibepy_core.principal import Principal
 
 

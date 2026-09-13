@@ -12,6 +12,7 @@ first answer can leave one this window cannot release.
 import asyncio
 import logging
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
@@ -19,7 +20,7 @@ from pydantic import JsonValue
 
 from vibepy_core.app.config import environment_for
 from vibepy_core.errors import ErrorInfo
-from vibepy_studio.internals.processes import child_environment, reported
+from vibepy_studio.internals.processes import child_environment, python_command, reported
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,19 @@ class AlreadyStarted(StartFailed):
     """
 
 
+async def _release_stdin(stdin: asyncio.StreamWriter, /) -> None:
+    """Close the write end of a child's standard input and let its transport finish.
+
+    Closing alone only asks; the transport closes on a later loop iteration, and
+    a caller that returns before then leaves an unclosed transport to be
+    reported at collection. `OSError` is suppressed because the pipe being gone
+    already -- the child died and took its end with it -- is the outcome wanted.
+    """
+    stdin.close()
+    with suppress(OSError):
+        await stdin.wait_closed()
+
+
 def _log_path(logs: Path, known_as: str, /) -> Path:
     logs.mkdir(parents=True, exist_ok=True)
     return logs / f"{known_as}.log"
@@ -63,13 +77,19 @@ def _reported(path: Path, /) -> ErrorInfo | None:
 
 @dataclass(kw_only=True)
 class _Child:
-    """One started App: the process, and whether it has answered.
+    """One started App: the process, the pipe that is its lease on life, and whether it answered.
 
-    The port is not here. It belongs to the installation and the Hub holds it;
+    The port is not here. It belongs to the installation and Studio holds it;
     this window is told which port to serve on and needs no memory of it.
+
+    `stdin` is the write end of the child's standard input. The child was told
+    to leave when it reaches end-of-file, so this window ends the child by
+    closing it, and a window that dies without closing anything ends the child
+    all the same: the operating system closes what a dead process held.
     """
 
     process: asyncio.subprocess.Process
+    stdin: asyncio.StreamWriter
     answering: bool = False
 
 
@@ -100,7 +120,7 @@ class Processes:
     def running(self, app_name: str, /) -> bool:
         """Whether an App is serving.
 
-        The port it serves on is the Hub's fact, held in its state and published
+        The port it serves on is the operating role's fact, held in its state and published
         as an address; this window only knows whether the child has answered.
         """
         child = self._held(app_name)
@@ -132,6 +152,7 @@ class Processes:
         child = self._running.pop(known_as, None)
         if child is None:
             return
+        await _release_stdin(child.stdin)
         if child.process.returncode is None:
             child.process.kill()
         await child.process.wait()
@@ -145,7 +166,7 @@ class Processes:
         opens the App's window, so an accepted connection proves only that the
         port is held. An answer proves the window opened, which is what makes a
         configuration the window refuses a failed start rather than a url that
-        never works. Any status counts — the Hub asks for a path no App has to
+        never works. Any status counts — the operating role asks for a path no App has to
         declare.
         """
         loop = asyncio.get_running_loop()
@@ -187,11 +208,12 @@ class Processes:
         config: Mapping[str, JsonValue],
         known_as: str,
         port: int,
+        cwd: PurePath,
     ) -> None:
-        """Serve one App on the port it was given, in an environment of its own.
+        """Serve one App on the port it was given, in an environment of its own, standing in `cwd`.
 
         `app_name` is the name the App declares itself under, which is what its
-        environment answers to; `known_as` is what this Hub filed it under. The
+        environment answers to; `known_as` is what this operating role filed it under. The
         two need not match, because a folder's name is not a declaration.
 
         One name holds one child. The name is claimed with nothing awaited
@@ -207,6 +229,13 @@ class Processes:
         process supervisor does (<http://supervisord.org/configuration.html>). A
         pipe would have to be drained for as long as the child lives, because a
         child that fills the buffer blocks.
+
+        The child's standard input is a pipe this window holds, and the child is
+        told `--until-stdin-closes`: its life is this window's. The child's
+        working directory is `cwd`, the App's own folder, so a file it names
+        without a folder lands there and nowhere Studio or another App stands.
+        `-I` still applies with `-m` and this `cwd`: it keeps the App's own
+        folder off `sys.path`, the same guarantee it gives the launcher's.
         """
         if self.taken(known_as):
             raise AlreadyStarted(f"{known_as!r} is already started here")
@@ -214,20 +243,29 @@ class Processes:
         path = await asyncio.to_thread(_log_path, self._logs, known_as)
         handle = await asyncio.to_thread(path.open, "wb")
         try:
-            process = await asyncio.create_subprocess_exec(
-                str(interpreter),
-                "-m",
-                "vibepy_core.serve",
-                app_name,
-                "--port",
-                str(port),
-                stdin=asyncio.subprocess.DEVNULL,
-                stderr=handle,
-                env={**child_environment(), **environment_for(config)},
-            )
+            try:
+                process = await asyncio.create_subprocess_exec(
+                    *python_command(
+                        [str(interpreter)],
+                        "-m",
+                        "vibepy_core.serve",
+                        app_name,
+                        "--port",
+                        str(port),
+                        "--until-stdin-closes",
+                    ),
+                    stdin=asyncio.subprocess.PIPE,
+                    stderr=handle,
+                    env={**child_environment(), **environment_for(config)},
+                    cwd=str(cwd),
+                )
+            except BaseException:
+                self._running.pop(known_as, None)
+                raise
         finally:
             await asyncio.to_thread(handle.close)
-        child = _Child(process=process)
+        assert process.stdin is not None
+        child = _Child(process=process, stdin=process.stdin)
         self._running[known_as] = child
         try:
             await self._wait_until_answering(process, port)
@@ -243,10 +281,11 @@ class Processes:
         logger.info("started %s on port %d", known_as, port)
 
     async def stop(self, app_name: str, /) -> bool:
-        """Terminate one App, then kill it if it does not leave."""
+        """Terminate the child, killing it if it does not leave, releasing its pipe with it."""
         child = self._running.pop(app_name, None)
         if child is None:
             return False
+        await _release_stdin(child.stdin)
         process = child.process
         if process.returncode is not None:
             return True

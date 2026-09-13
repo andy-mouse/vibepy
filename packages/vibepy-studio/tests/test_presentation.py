@@ -110,13 +110,15 @@ def test_a_row_with_a_diagnostic_offers_uninstall_only() -> None:
     broken = installed().model_copy(
         update={
             "diagnostic": ErrorInfo(
-                code="hub.facts_unreadable", category=ErrorCategory.EXECUTION, message="no record"
+                code="operating.facts_unreadable",
+                category=ErrorCategory.EXECUTION,
+                message="no record",
             )
         }
     )
     view = row_view(broken, declares_fields=False)
     assert [a.label for a in view.actions] == ["Uninstall"]
-    assert view.diagnostic is not None and view.diagnostic.code == "hub.facts_unreadable"
+    assert view.diagnostic is not None and view.diagnostic.code == "operating.facts_unreadable"
 
 
 def test_a_row_shows_the_wheels_version_not_the_apps_declared_one() -> None:

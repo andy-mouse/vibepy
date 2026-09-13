@@ -1,7 +1,7 @@
 """Storage of Tools under their names."""
 
 from vibepy_core.errors import ToolNotFoundError
-from vibepy_core.tool.runtime import Tool
+from vibepy_core.tool._runtime import Tool
 
 
 class ToolRegistry[DepsT]:

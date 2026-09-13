@@ -1,7 +1,7 @@
 """An App with Tools and no Pages, which is a whole App.
 
 ADR-017 states that an App declaring no Pages has no Web channel and therefore no
-runtime for the Hub to start, and is complete for an agent. This is that App, and
+runtime for Studio to start, and is complete for an agent. This is that App, and
 ADR-025 cites it as the evidence that such an App installs no Web technology --
 which is also what makes it the lightest thing the suite can install.
 

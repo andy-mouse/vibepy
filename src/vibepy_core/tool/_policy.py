@@ -8,7 +8,7 @@ from pydantic import BaseModel
 from vibepy_core.channel import Channel
 from vibepy_core.errors import ToolForbiddenError
 from vibepy_core.principal import Principal
-from vibepy_core.tool.model import ToolDefinition
+from vibepy_core.tool._model import ToolDefinition
 
 
 @dataclass(frozen=True, kw_only=True)

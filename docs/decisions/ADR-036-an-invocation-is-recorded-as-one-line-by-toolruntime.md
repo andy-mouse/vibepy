@@ -2,6 +2,11 @@
 
 Status: Accepted
 
+### Amendment, 2026-09-13: the logger moved with its module
+
+The module is now `vibepy_core.tool._runtime`, and so is the logger named below; ADR-035's
+amendment of the same date says why.
+
 ## Context
 
 Every invocation carried an id, a principal and a channel in its ToolContext, and `read_only`

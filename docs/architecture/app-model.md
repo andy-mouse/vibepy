@@ -2,7 +2,7 @@
 
 ## Definition
 
-An App is the unit of packaging and declaration. It is what a Hub installs, removes and
+An App is the unit of packaging and declaration. It is what the operating role installs, removes and
 updates, and what a channel is opened over. It is not a unit of execution: ADR-017 puts each
 channel of an installed App in its own operating-system process, so what runs is a channel.
 
@@ -29,6 +29,14 @@ model lives with the vocabulary it is made of, never with the command that trans
 Together these mean importing the root, or any aggregating subpackage, never brings a blocking
 loader with it, so a module whose handlers must never reach a blocking call
 (`docs/architecture/runtime.md` says why) cannot reach one by accident. ADR-035 says why.
+
+A public module declares its surface in `__all__`, and every other module is implementation named
+`_x.py`, reachable only from within `vibepy_core`. The public modules are the root,
+`vibepy_core.app`, `.tool`, `.page`, `app.config`, `app.package`, `app.group`, `app.entrypoint`,
+`errors`, `channel`, `principal`, `logs`, the two adapter packages `adapters.mcp` and
+`adapters.nicegui`, and the four command modules `describe`, `invoke`, `serve` and `mcp`. `ruff`'s
+`PLC2701` refuses a private import from outside the package, so the boundary is held where an
+import is written rather than by a test after the fact (ADR-035, the 2026-09-13 amendment).
 
 ## AppDefinition
 
@@ -120,6 +128,14 @@ from declarations alone, so they are made before the resource is acquired. `conf
 instantiates the declaration with it, so the declaration's own reading of the environment fills
 in the rest and a window that cannot run acquires nothing. The lifespan receives the instance. Two windows over one definition are
 isolated by default: each enters its own lifespan.
+
+Closing the window writes one `WindowRecord` — the App id, the channel and `closed_at`, one
+pydantic model owned by `vibepy_core.app`, read back by `read_window_record` beside it. It is
+written by `tool_runtime_for` once the lifespan has exited, so it witnesses the resource being
+released, and it is written on a clean exit only: a window that ends by raising crosses as one
+report instead (`docs/architecture/errors.md`). Both channels open this window, so both are
+observed by the one writer, as `docs/architecture/packaging.md`, "What a command writes to
+standard error", records for the stream it lands on.
 
 The resource itself is never exposed. A Tool handler receives it through its ToolContext, and
 nothing else needs it. `docs/architecture/lifecycle.md` owns the boundaries of the window, and

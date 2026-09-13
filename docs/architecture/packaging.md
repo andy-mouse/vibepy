@@ -87,7 +87,8 @@ python -m vibepy_core.describe
 ```
 
 Run with an App environment's own interpreter, it writes a JSON array to standard output — one
-object per App declared in that environment. A failure writes the framework's code and message
+object per App declared in that environment. Studio runs this isolated (`-I`); see Running a
+channel. A failure writes the framework's code and message
 to standard error and exits 1.
 
 Each object is one `DescribedApp`: the `app_name`, `distribution` and `distribution_version` of
@@ -134,9 +135,9 @@ input.
 
 `serve`, `mcp` and `invoke` share one logging configuration, `vibepy_core.logs`, so the three
 processes that run an App write the framework's lines the same way: the `vibepy_core` loggers
-at INFO, each record as its message alone, to standard error. Two kinds of line come from the
+at INFO, each record as its message alone, to standard error. Three kinds of line come from the
 framework — a report (`ErrorInfo`, one per failure of the process or of opening its window; an
-invalid declaration is several, as `docs/architecture/errors.md` says) and an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`)
+invalid declaration is several, as `docs/architecture/errors.md` says), an invocation record (`InvocationRecord`, one per Tool invocation, `docs/architecture/runtime.md`) and a window record (`WindowRecord`, one per window that closes cleanly, written as the App's lifespan exits, `docs/architecture/app-model.md`)
 — and each is one JSON object on one line, followed by a traceback when the record's failure is
 an `execution` one. Everything else on the stream — the Web technology's own lines — is neither,
 and a reader takes what validates and skips the rest, as Studio's reader of a child's log does.
@@ -149,10 +150,21 @@ An App's own loggers are not configured here. `describe` runs nothing and writes
 python -m vibepy_core.serve <app-name> --port <n>
 ```
 
+Studio runs it as `python -I -m vibepy_core.serve <app-name> --port <n> --until-stdin-closes`,
+with the App environment's interpreter, from the App's own folder. `-I` is what keeps the App's
+`sys.path` its own: in isolated mode "sys.path contains neither the script's directory nor the
+user's site-packages directory. All PYTHON\* environment variables are ignored, too" (Python
+docs, Command line and environment). The virtual environment still applies, because a venv is
+recognised by the `pyvenv.cfg` beside the interpreter and not by anything `-I` ignores.
+`--until-stdin-closes` is ADR-039's flag: with it the command reads standard input until
+end-of-file and then shuts the server down, so the process lives exactly as long as the host
+holding the other end of that pipe. Without it the command never touches standard input. See
+`docs/decisions/ADR-039-a-channel-process-lives-while-its-host-holds-its-standard-input.md`.
+
 Run with an App environment's own interpreter, it invokes as the principal `operator`, with no
 roles, and opens that App's Web channel: the App's window
 is the served application's own lifespan. Its configuration is its environment's, as Configuration
-above owns; it reads nothing from standard input.
+above owns; nothing about its configuration arrives on standard input.
 
 The window is the lifespan and not a startup hook because ASGI already decides what a window
 that cannot open means: a server that sees `lifespan.startup.failed` logs the message and exits
@@ -175,7 +187,8 @@ python -m vibepy_core.invoke <app-name> <tool-name> --channel <web|agent> --prin
 ```
 
 Run with an App environment's own interpreter, it opens the invocation window once, invokes one
-Tool through `ToolRuntime`, and closes the window.
+Tool through `ToolRuntime`, and closes the window. Studio runs this isolated (`-I`); see Running a
+channel.
 
 This command stands in for a host, so it is told what a host decides: `--channel` and
 `--principal` are required and `--role` is repeatable. Nothing is defaulted, because a default
@@ -260,19 +273,19 @@ the App, not a guarantee about its imports.
 
 ## The isolation invariant
 
-Three statements, and they are not guaranteed in the same place.
+Four statements, and they are not guaranteed in the same place.
 
 | Statement | Enforced by |
 | --- | --- |
 | the Host never imports an App | the framework: no published operation imports an App into its caller, and `tests/test_app_isolation.py` proves discovery leaves `sys.modules` untouched |
 | loading happens in the App's own interpreter | the framework: `describe_app` is reached across a process boundary through `python -m vibepy_core.describe` |
-| an App is installed into an environment of its own | the installation model. The Hub creates one environment per App and installs into it; Python packaging cannot enforce it |
+| an App is installed into an environment of its own | the installation model, kept by construction: the operating role creates `<app>/env` per App with `uv venv`, runs the App's interpreter with `-I`, and `packages/vibepy-studio/tests/test_isolation.py` proves a module planted on Studio does not reach an App. Python packaging cannot enforce it; nothing stops two Apps being installed into one environment by hand |
+| installed files are immutable | a contract of the App and the operating role: the operating role never writes inside an environment, and an App does not modify its installed files in place. `uv pip install --link-mode hardlink` shares the cache's inodes with every environment for the measured reason in `installer.install`, and sharing is correct exactly as long as this holds. Not enforceable by packaging |
 
-The third is a contract, not a guarantee, and the difference is stated rather than blurred:
-nothing in packaging stops two Apps being installed into one environment by hand. The Hub keeps
-the contract by construction — `uv venv` then `uv pip install` per App — and M17 owns hardening
-it. This is the division ADR-017 already made: the framework states the contract, the host
-implements it.
+This is the division ADR-017 already made: the framework states the contract, the host implements
+it. What this isolation is against — accidents between Apps an operator chose to install — and
+what it is not, is
+`docs/decisions/ADR-038-isolation-between-installed-apps-is-against-accidents-not-adversaries.md`'s.
 
 What the invariant buys is that no App's dependencies constrain another's, and that no top-level
 import name can collide between two Apps or between an App and the framework. That is why
@@ -284,3 +297,5 @@ removes the class of failure, and environment isolation does.
 - an App declares itself in metadata. The framework defines no manifest format
 - reading what an environment offers imports nothing
 - the framework publishes no operation that imports an App into its caller's process
+- a channel process Studio starts ends when Studio's window closes or Studio dies
+  (`docs/decisions/ADR-039-a-channel-process-lives-while-its-host-holds-its-standard-input.md`)

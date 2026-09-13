@@ -60,11 +60,11 @@ def wheelhouse(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def template_root(tmp_path_factory: pytest.TempPathFactory, wheelhouse: Path) -> Path:
     """Build a Studio root with every fixture App installed, once for the session.
 
-    Built through the Hub's own Tools rather than the installer's functions, so
+    Built through the operating role's own Tools rather than the installer's functions, so
     the root holds exactly what a user's install leaves: environments, facts,
     state with a port per App, and a route per App declaring Pages.
     """
-    root = tmp_path_factory.mktemp("template") / "hub"
+    root = tmp_path_factory.mktemp("template") / "root"
 
     async def build() -> None:
         async with studio(root) as tools:
@@ -91,7 +91,7 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
     those Apps' environments are linked -- a copy has the same unit of cost as
     an install, entries created, and a test that needs one App must not pay for
     three. The Apps left out are then removed through `remove_app`, so the
-    copy's state, ports and routes agree with its `envs/` directory. A test
+    copy's state, ports and routes agree with the folders it holds. A test
     that names nothing gets nothing: a copy whose contents nobody chose is
     what the spec measured at 3.5s.
 
@@ -112,13 +112,13 @@ def installed(request: pytest.FixtureRequest, tmp_path: Path, template_root: Pat
     assert not unknown, f"not fixture Apps: {sorted(unknown)}"
 
     def leave_out(directory: str, names: list[str]) -> list[str]:
-        if Path(directory) != template_root / "envs":
+        if Path(directory) != template_root:
             return []
-        return [name for name in names if name not in named]
+        return [name for name in names if name in APPS and name not in named]
 
-    root = tmp_path / "hub"
+    root = tmp_path / "root"
     shutil.copytree(template_root, root, copy_function=os.link, ignore=leave_out)
-    for recorded in root.glob(f"envs/*/{FACTS_FILE}"):
+    for recorded in root.glob(f"*/env/{FACTS_FILE}"):
         facts = json.loads(recorded.read_text(encoding="utf-8"))
         facts["purelib"] = str(root / Path(facts["purelib"]).relative_to(template_root))
         # Unlinked first: every file here is a hardlink to the template's, and

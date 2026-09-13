@@ -1,4 +1,4 @@
-"""Updating an installed App keeps what the Hub holds for it."""
+"""Updating an installed App keeps what the operating role holds for it."""
 
 import shutil
 from pathlib import Path
@@ -49,7 +49,7 @@ async def test_an_older_wheel_is_not_offered_as_an_update(
     assert row.available_version is None
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.up_to_date"
+    assert answered.diagnostic.code == "operating.up_to_date"
 
 
 @pytest.mark.apps("vibepy-todo")
@@ -70,8 +70,12 @@ async def test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_an
             },
             principal=AGENT,
         )
-        port_before = (await read_state(installed)).ports["vibepy-todo"]
-        route_before = (installed / ROUTES / "vibepy-todo.yml").read_text(encoding="utf-8")
+        beside = installed / "vibepy-todo" / "kept.txt"
+        beside.write_text("kept", encoding="utf-8")
+        port_before = (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"]
+        route_before = (installed / "vibepy-studio" / ROUTES / "vibepy-todo.yml").read_text(
+            encoding="utf-8"
+        )
 
         updated = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
         listed = await tools.invoke("list_apps", {}, principal=AGENT)
@@ -96,8 +100,11 @@ async def test_a_newer_wheel_is_offered_and_updating_keeps_configuration_port_an
     # version then runs is `test_runtime.py`'s subject, and starting it here
     # would pay for a child process to learn nothing this test is about.
     assert row.configured is True
-    assert (await read_state(installed)).ports["vibepy-todo"] == port_before
-    assert (installed / ROUTES / "vibepy-todo.yml").read_text(encoding="utf-8") == route_before
+    assert (await read_state(installed / "vibepy-studio")).ports["vibepy-todo"] == port_before
+    assert (installed / "vibepy-studio" / ROUTES / "vibepy-todo.yml").read_text(
+        encoding="utf-8"
+    ) == route_before
+    assert beside.read_text(encoding="utf-8") == "kept"
 
 
 @pytest.mark.apps("vibepy-todo")
@@ -124,7 +131,7 @@ async def test_updating_a_running_app_is_refused(
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.already_running"
+    assert answered.diagnostic.code == "operating.already_running"
     assert isinstance(listed, AppListing)
     assert [row.distribution_version for row in listed.apps if row.app_name == "vibepy-todo"] == [
         "0.1.0"
@@ -132,12 +139,12 @@ async def test_updating_a_running_app_is_refused(
 
 
 async def test_updating_an_app_that_is_not_installed_is_a_diagnostic(tmp_path: Path) -> None:
-    async with studio(tmp_path / "hub") as tools:
+    async with studio(tmp_path / "root") as tools:
         answered = await tools.invoke("update_app", {"app_name": "vibepy-todo"}, principal=AGENT)
 
     assert isinstance(answered, Installation)
     assert answered.diagnostic is not None
-    assert answered.diagnostic.code == "hub.not_installed"
+    assert answered.diagnostic.code == "operating.not_installed"
 
 
 @pytest.mark.apps("vibepy-todo")
@@ -157,8 +164,8 @@ async def test_updating_to_nothing_better_is_a_diagnostic(tmp_path: Path, instal
 
     assert isinstance(at_the_offered_version, Installation)
     assert at_the_offered_version.diagnostic is not None
-    assert at_the_offered_version.diagnostic.code == "hub.up_to_date"
+    assert at_the_offered_version.diagnostic.code == "operating.up_to_date"
     assert at_the_offered_version.app.state == "installed"
     assert isinstance(no_longer_offered, Installation)
     assert no_longer_offered.diagnostic is not None
-    assert no_longer_offered.diagnostic.code == "hub.candidate_absent"
+    assert no_longer_offered.diagnostic.code == "operating.candidate_absent"

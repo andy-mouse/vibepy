@@ -6,7 +6,7 @@ from vibepy_core.channel import Channel
 from vibepy_core.errors import ErrorCategory, ErrorInfo
 from vibepy_core.tool import Tool, ToolContext, ToolDefinition
 from vibepy_studio.operating.internals import (
-    HubState,
+    OperatingState,
     StudioDeps,
     held_secrets,
     secret_fields,
@@ -23,7 +23,7 @@ from vibepy_studio.operating.models import (
 async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest) -> HeldConfig:
     """Hold the values one App runs with, its secrets included.
 
-    The Hub does not validate them: the App's own window validates configuration
+    The operating role does not validate them: the App's own window validates configuration
     as it opens and raises `config.invalid`. What it does do is keep a secret's
     value out of every answer it gives, so a value written once is not read back
     out through a channel.
@@ -41,7 +41,7 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
             secret_fields=[],
             secrets_set=[],
             diagnostic=ErrorInfo(
-                code="hub.not_installed",
+                code="operating.not_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is not installed",
                 details={"app_name": payload.app_name},
@@ -49,7 +49,7 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
         )
     secrets = secret_fields(facts)
 
-    def hold(state: HubState) -> HubState:
+    def hold(state: OperatingState) -> OperatingState:
         return state.model_copy(
             update={
                 "config": {
@@ -70,14 +70,14 @@ async def configure_app(ctx: ToolContext[StudioDeps], payload: ConfigureRequest)
 
 
 async def describe_config(ctx: ToolContext[StudioDeps], payload: AppName) -> ConfigDescription:
-    """Return what one App declares it needs, and what the Hub holds for it so far."""
+    """Return what one App declares it needs, and what the operating role holds for it so far."""
     deps = ctx.dependencies
     facts = await deps.root.installed_facts(payload.app_name)
     if facts is None:
         return ConfigDescription(
             app_name=payload.app_name,
             diagnostic=ErrorInfo(
-                code="hub.not_installed",
+                code="operating.not_installed",
                 category=ErrorCategory.CALLER,
                 message=f"{payload.app_name!r} is not installed",
                 details={"app_name": payload.app_name},

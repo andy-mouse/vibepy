@@ -1,4 +1,4 @@
-"""The board: every App the Hub knows of, and what can be done to each.
+"""The board: every App the operating role knows of, and what can be done to each.
 
 A Page over Tools. It reads `list_apps` and draws; every button invokes one Tool
 and redraws; a timer redraws on its own so a child that died or an action taken
@@ -127,15 +127,15 @@ async def board(ctx: PageContext) -> None:
 
     async def confirm(question: str, label: str) -> bool:
         """Ask one yes-or-no question in the board's own clothes."""
-        with dialogs, ui.dialog() as dialog, ui.element("div").classes("hub-dialog"):
+        with dialogs, ui.dialog() as dialog, ui.element("div").classes("operating-dialog"):
             _text("p", question).style("margin: 0")
-            with ui.element("div").classes("hub-dialog-actions"):
-                _button("Cancel", "hub-quiet", on_click=lambda: dialog.submit(False))
+            with ui.element("div").classes("operating-dialog-actions"):
+                _button("Cancel", "operating-quiet", on_click=lambda: dialog.submit(False))
                 # The dialog repeats the word on the button that raised it, so
                 # a test reaches the dialog's own answer by a marker.
                 _button(
                     label,
-                    "hub-primary",
+                    "operating-primary",
                     marker="dialog-confirm",
                     on_click=lambda: dialog.submit(True),
                 )
@@ -145,16 +145,16 @@ async def board(ctx: PageContext) -> None:
 
     def draw_heading(listed: AppListing) -> None:
         """Say what the board is, and how many Apps are in each state."""
-        with ui.element("div").classes("hub-heading-row"):
+        with ui.element("div").classes("operating-heading-row"):
             with ui.element("div"):
-                _text("p", EYEBROW, "hub-eyebrow")
+                _text("p", EYEBROW, "operating-eyebrow")
                 _text("h1", TITLE)
-                _text("p", SUBTITLE, "hub-subtitle")
-            with ui.element("div").classes("hub-summary"):
+                _text("p", SUBTITLE, "operating-subtitle")
+            with ui.element("div").classes("operating-summary"):
                 for count, label in zip(summary(listed.apps), SUMMARY_LABELS, strict=True):
-                    with ui.element("div").classes("hub-summary-item"):
-                        _text("span", str(count), "hub-summary-value")
-                        _text("span", label, "hub-summary-label")
+                    with ui.element("div").classes("operating-summary-item"):
+                        _text("span", str(count), "operating-summary-value")
+                        _text("span", label, "operating-summary-label")
 
     async def register(path: str | None) -> None:
         """Register one folder of wheels as the package source.
@@ -185,30 +185,32 @@ async def board(ctx: PageContext) -> None:
 
     def draw_registry(listed: AppListing) -> None:
         """Draw the source card: a path and Unregister, or a box and Register folder."""
-        with ui.element("section").classes("hub-registry"):
+        with ui.element("section").classes("operating-registry"):
             with ui.element("div"):
-                _text("span", "Local packages", "hub-registry-label")
+                _text("span", "Local packages", "operating-registry-label")
                 _text(
                     "span",
                     "No folder registered" if listed.source is None else str(listed.source),
-                    "hub-registry-value",
+                    "operating-registry-value",
                 )
-            with ui.element("div").classes("hub-registry-actions"):
+            with ui.element("div").classes("operating-registry-actions"):
                 if listed.source is None:
                     entry = ui.input(placeholder="package folder")
-                    entry.classes("hub-registry-entry").props("dense borderless")
+                    entry.classes("operating-registry-entry").props("dense borderless")
                     # The empty state names a package folder too, so the box is
                     # reached by a marker rather than by its placeholder.
                     entry.mark("package-folder")
                     editing.append((entry, ""))
                     _button(
-                        "Register folder", "hub-primary", on_click=lambda: register(entry.value)
+                        "Register folder",
+                        "operating-primary",
+                        on_click=lambda: register(entry.value),
                     )
                 else:
-                    _button("Unregister", "hub-secondary", on_click=unregister)
+                    _button("Unregister", "operating-secondary", on_click=unregister)
         if listed.diagnostic is not None:
-            with ui.element("div").classes("hub-diagnostic"):
-                _text("span", listed.diagnostic.code, "hub-code")
+            with ui.element("div").classes("operating-diagnostic"):
+                _text("span", listed.diagnostic.code, "operating-code")
                 _text("span", listed.diagnostic.message)
 
     async def act(action: Action, view: RowView) -> None:
@@ -253,7 +255,7 @@ async def board(ctx: PageContext) -> None:
         """Send what the form holds to `configure_app`, or name what it lacks.
 
         Naming what it lacks writes into the panel's own line rather than
-        redrawing: a redraw reseeds every input from what the Hub holds, which
+        redrawing: a redraw reseeds every input from what the operating role holds, which
         never includes a secret and never includes what was just typed.
         """
         entered = {name: str(entry.value) for name, entry in inputs.items()}
@@ -277,29 +279,29 @@ async def board(ctx: PageContext) -> None:
         """Draw the open row's configuration form."""
         described = open_config[view.app_name]
         lacking = missing.get(view.app_name, [])
-        with ui.element("div").classes("hub-config"):
-            _text("p", f"What {view.title} requires", "hub-config-head")
+        with ui.element("div").classes("operating-config"):
+            _text("p", f"What {view.title} requires", "operating-config-head")
             if not described.fields:
                 # No fields means nothing a Save could send, so only Cancel is offered.
-                _text("p", "Nothing to configure", "hub-config-note")
-                with ui.element("div").classes("hub-config-actions"):
-                    _button("Cancel", "hub-quiet", on_click=lambda: toggle_config(view))
+                _text("p", "Nothing to configure", "operating-config-note")
+                with ui.element("div").classes("operating-config-actions"):
+                    _button("Cancel", "operating-quiet", on_click=lambda: toggle_config(view))
                 return
-            _text("p", CONFIG_NOTE, "hub-config-note")
+            _text("p", CONFIG_NOTE, "operating-config-note")
             inputs: dict[str, ui.input] = {}
             rows: dict[str, ui.element] = {}
             for field in described.fields:
                 secret = field.type is ConfigFieldType.SECRET
                 held = secret and field.name in described.secrets_set
-                row = ui.element("div").classes("hub-field")
+                row = ui.element("div").classes("operating-field")
                 if field.name in lacking:
                     row.classes("is-invalid")
                 rows[field.name] = row
                 with row:
                     with ui.element("label"):
-                        _text("span", field.name, "hub-field-name")
+                        _text("span", field.name, "operating-field-name")
                         need = "required" if field.required else "optional"
-                        _text("span", f"{field.type.value} · {need}", "hub-field-type")
+                        _text("span", f"{field.type.value} · {need}", "operating-field-type")
                     entry = ui.input(
                         password=secret,
                         placeholder="•••••••• (set)" if held else "",
@@ -311,16 +313,16 @@ async def board(ctx: PageContext) -> None:
                     entry.mark(f"field-{view.app_name}-{field.name}")
                     editing.append((entry, str(entry.value)))
                     inputs[field.name] = entry
-            error = ui.element("div").classes("hub-config-error")
+            error = ui.element("div").classes("operating-config-error")
             with error:
-                _text("span", "config.invalid", "hub-code")
+                _text("span", "config.invalid", "operating-code")
                 message = _text("span", _lacking_line(lacking))
             error.set_visibility(bool(lacking))
-            with ui.element("div").classes("hub-config-actions"):
-                _button("Cancel", "hub-quiet", on_click=lambda: toggle_config(view))
+            with ui.element("div").classes("operating-config-actions"):
+                _button("Cancel", "operating-quiet", on_click=lambda: toggle_config(view))
                 _button(
                     "Save",
-                    "hub-primary",
+                    "operating-primary",
                     on_click=lambda: save(view, described, inputs, rows, error, message),
                 )
 
@@ -330,21 +332,21 @@ async def board(ctx: PageContext) -> None:
 
     def draw_app(view: RowView) -> None:
         """Draw one row: its name, its rail, its buttons, its diagnostic, its form."""
-        with ui.element("article").classes("hub-app-row"):
+        with ui.element("article").classes("operating-app-row"):
             with ui.element("div"):
-                _text("h2", view.title, "hub-app-name")
-                with ui.element("div").classes("hub-app-meta"):
+                _text("h2", view.title, "operating-app-name")
+                with ui.element("div").classes("operating-app-meta"):
                     if view.version is not None:
                         _text("span", f"v{view.version}")
             # The buttons are built before the rail: a rail label and a button
             # can carry the same word ("Configured", "Configure"), and what a
             # reader -- or a test -- reaches for by that word is the button. The
             # stylesheet puts them back in the order the board shows them.
-            with ui.element("div").classes("hub-actions"):
+            with ui.element("div").classes("operating-actions"):
                 for action in view.actions:
-                    style = "hub-primary" if action.primary else "hub-secondary"
+                    style = "operating-primary" if action.primary else "operating-secondary"
                     if action.tool == "remove_app":
-                        style = "hub-danger"
+                        style = "operating-danger"
                     _button(
                         action.label,
                         style,
@@ -353,16 +355,16 @@ async def board(ctx: PageContext) -> None:
                         marker=f"{action.label.lower()}-{view.app_name}",
                         on_click=_on_click(action, view) if action.enabled else None,
                     )
-            with ui.element("div").classes("hub-rail"):
+            with ui.element("div").classes("operating-rail"):
                 for mark in view.marks:
-                    stage = ui.element("div").classes("hub-stage")
+                    stage = ui.element("div").classes("operating-stage")
                     stage.classes(TONE_CLASSES[mark.tone])
                     with stage:
-                        _text("span", mark.symbol, "hub-stage-node")
+                        _text("span", mark.symbol, "operating-stage-node")
                         _text("span", mark.label)
             if view.diagnostic is not None:
-                with ui.element("div").classes("hub-diagnostic"):
-                    _text("span", view.diagnostic.code, "hub-code")
+                with ui.element("div").classes("operating-diagnostic"):
+                    _text("span", view.diagnostic.code, "operating-code")
                     _text("span", view.diagnostic.message)
             if view.app_name in open_config:
                 draw_config(view)
@@ -370,7 +372,7 @@ async def board(ctx: PageContext) -> None:
     def draw_empty(listed: AppListing) -> None:
         """Say why the board is empty: no folder, or a folder with nothing in it."""
         registered = listed.source is not None
-        with ui.element("div").classes("hub-empty"), ui.element("div"):
+        with ui.element("div").classes("operating-empty"), ui.element("div"):
             _text("h2", "No apps found" if registered else "No package folder selected")
             _text(
                 "p",
@@ -386,11 +388,11 @@ async def board(ctx: PageContext) -> None:
         draw_heading(listed)
         draw_registry(listed)
         rows = sort_rows(listed.apps)
-        with ui.element("section").classes("hub-board"):
+        with ui.element("section").classes("operating-board"):
             if not rows:
                 draw_empty(listed)
                 return
-            with ui.element("div").classes("hub-board-head"):
+            with ui.element("div").classes("operating-board-head"):
                 for label in COLUMN_LABELS:
                     _text("span", label)
             for row in rows:
@@ -407,11 +409,17 @@ async def board(ctx: PageContext) -> None:
             return
         content.refresh()
 
-    with ui.element("div").classes("vibepy-hub"), ui.element("section").classes("hub-shell"):
-        with ui.element("header").classes("hub-topbar"), ui.element("div").classes("hub-brand"):
-            _text("span", "V\u203a", "hub-brand-mark")
-            _text("span", "VibePy Hub")
-        with ui.element("main").classes("hub-main"):
+    with (
+        ui.element("div").classes("vibepy-operating"),
+        ui.element("section").classes("operating-shell"),
+    ):
+        with (
+            ui.element("header").classes("operating-topbar"),
+            ui.element("div").classes("operating-brand"),
+        ):
+            _text("span", "V\u203a", "operating-brand-mark")
+            _text("span", "VibePy Studio")
+        with ui.element("main").classes("operating-main"):
             await content()
     ui.timer(REFRESH_SECONDS, unattended)
 
@@ -442,7 +450,7 @@ BOARD = Page(
     definition=PageDefinition(
         name="board",
         route="/",
-        title="Hub",
+        title="Studio",
         tools=frozenset(
             {
                 "list_apps",

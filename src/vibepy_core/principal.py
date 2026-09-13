@@ -2,6 +2,8 @@
 
 from dataclasses import dataclass
 
+__all__ = ["Principal"]
+
 
 @dataclass(frozen=True, kw_only=True)
 class Principal:

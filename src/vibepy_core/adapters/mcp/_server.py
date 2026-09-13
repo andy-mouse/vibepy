@@ -19,10 +19,10 @@ from mcp import types
 from mcp.server import Server, ServerRequestContext
 from mcp.shared.exceptions import MCPError
 
-from vibepy_core.adapters.mcp.projection import to_mcp_tool
-from vibepy_core.app.composition import Lifespan, tool_runtime_for
+from vibepy_core.adapters.mcp._projection import to_mcp_tool
+from vibepy_core.app._composition import Lifespan, tool_runtime_for
+from vibepy_core.app._model import AppDefinition
 from vibepy_core.app.config import AppConfig
-from vibepy_core.app.model import AppDefinition
 from vibepy_core.channel import Channel
 from vibepy_core.errors import (
     ToolForbiddenError,
@@ -32,7 +32,7 @@ from vibepy_core.errors import (
     to_error_info,
 )
 from vibepy_core.principal import Principal
-from vibepy_core.tool.runtime import ToolRuntime
+from vibepy_core.tool._runtime import ToolRuntime
 
 
 def _payload(error: Exception) -> dict[str, object]:

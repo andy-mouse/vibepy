@@ -104,7 +104,7 @@ def test_a_record_is_frozen() -> None:
         a_record().tool = "other"
 
 
-RUNTIME_LOGGER = "vibepy_core.tool.runtime"
+RUNTIME_LOGGER = "vibepy_core.tool._runtime"
 """The logger `docs/architecture/runtime.md` documents. A host attaches its handler here."""
 
 
@@ -313,7 +313,7 @@ async def test_a_cancelled_invocation_is_recorded_as_interrupted_and_propagates(
     assert log.exc_info is None
 
 
-ADAPTER_LOGGER = "vibepy_core.adapters.mcp.server"
+ADAPTER_LOGGER = "vibepy_core.adapters.mcp._server"
 
 
 async def fail_for_none(_ctx: ToolContext[None], _payload: Empty) -> Empty:

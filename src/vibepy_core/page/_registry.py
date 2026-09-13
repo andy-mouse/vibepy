@@ -1,7 +1,7 @@
 """Storage of Pages under their names."""
 
 from vibepy_core.errors import PageNotFoundError
-from vibepy_core.page.model import Page
+from vibepy_core.page._model import Page
 
 
 class PageRegistry:

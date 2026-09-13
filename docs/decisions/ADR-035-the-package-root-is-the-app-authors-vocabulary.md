@@ -2,6 +2,19 @@
 
 Status: Accepted
 
+### Amendment, 2026-09-13: the surface is declared, and the rest is private by name
+
+A public module declares what it offers in its own `__all__`; every other module of `vibepy_core`
+is implementation and says so in its name, `_x.py`, reachable from within `vibepy_core` and nowhere
+else. Which modules are which is current truth and `docs/architecture/app-model.md`, "The import
+surface", holds it.
+
+The reason is the one this record gives for the root: a name another distribution imports is a
+contract, and an import of `vibepy_core.tool.runtime` bound Studio to a module the framework never
+promised. It is refused at the import site rather than found by a test afterwards — within this
+tree by `ruff`'s `PLC2701`, and across a distribution boundary by the `_` name together with
+`__all__` under `py.typed`, which is what a type checker reads to decide a name is not re-exported.
+
 ## Context
 
 `vibepy_core`'s root `__init__` re-exported sixty-three names. Among them, next to

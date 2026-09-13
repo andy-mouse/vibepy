@@ -17,6 +17,7 @@ from vibepy_core.app import (
     NoConfig,
     PageDescription,
     ToolDescription,
+    WindowRecord,
     page_runtime_for,
     tool_runtime_for,
 )
@@ -123,6 +124,7 @@ __all__ = [
     "ToolRegistry",
     "ToolRuntime",
     "VibepyError",
+    "WindowRecord",
     "page_runtime_for",
     "tool_runtime_for",
 ]

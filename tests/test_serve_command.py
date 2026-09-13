@@ -1,6 +1,5 @@
 """The command that opens an App's Web channel, run as a real process."""
 
-import json
 import os
 import socket
 import subprocess
@@ -13,6 +12,7 @@ from urllib.request import urlopen
 import pytest
 
 from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord
+from vibepy_core.app import read_window_record
 from vibepy_core.app.config import ENV_PREFIX, environment_for
 from vibepy_core.errors import read_report_line
 from vibepy_core.tool import read_invocation_record
@@ -79,6 +79,20 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     assert "<html" in body.lower()
 
 
+def reported_failure(stderr: bytes, /) -> ErrorInfo:
+    """The one failure the child described, out of everything it wrote.
+
+    Read with the framework's own reader, so what a window logs is held to the
+    shape core writes rather than to a second reading of it. Each of these
+    failures is a single one, so one report is what the stream must carry and
+    the count is asserted rather than assumed.
+    """
+    written = stderr.decode(errors="replace")
+    found = [info for line in written.splitlines() if (info := read_report_line(line))]
+    assert len(found) == 1, written
+    return found[0]
+
+
 @pytest.mark.integration
 def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     """`packaging.md`: a failure writes the framework's code and message."""
@@ -91,22 +105,9 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     )
 
     assert finished.returncode == 1
-    written = json.loads(finished.stderr.decode())
-    assert written["code"] == "package.app_not_declared"
-    assert "absent" in written["message"]
-
-
-def reported_failure(stderr: bytes, /) -> ErrorInfo:
-    """The last failure the child described, out of everything it wrote.
-
-    Read with the framework's own reader, so what a window logs is held to the
-    shape core writes rather than to a second reading of it.
-    """
-    for line in reversed(stderr.decode(errors="replace").splitlines()):
-        found = read_report_line(line)
-        if found is not None:
-            return found
-    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+    written = reported_failure(finished.stderr)
+    assert written.code == "package.app_not_declared"
+    assert "absent" in written.message
 
 
 @pytest.mark.integration
@@ -137,7 +138,7 @@ def test_a_window_that_will_not_open_stops_the_server() -> None:
 @pytest.mark.integration
 def test_a_window_that_raises_for_its_own_reason_reports_that(tmp_path: Path) -> None:
     """The general case, not one code: any failure of opening crosses with a
-    code. The Hub App requires a root it can create, and a path under a file is
+    code. Studio requires a root it can create, and a path under a file is
     not one, so its lifespan raises where its configuration was valid.
     """
     blocking = tmp_path / "afile"
@@ -206,3 +207,45 @@ def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
         process.terminate()
         process.wait(timeout=10)
     assert "<html" in body.lower()
+
+
+@pytest.mark.integration
+def test_closing_standard_input_ends_the_command_when_asked_to() -> None:
+    """Studio holds the pipe; the OS closes it when Studio is gone for any
+    reason. The App sees end-of-file and leaves of its own accord: the exit code
+    is a clean one, the window's closing record is on standard error, and the
+    port it served is no longer answering.
+
+    Timer is the App served because it requires nothing of its host. The exit is
+    observed the way the framework observes anything crossing this boundary: the
+    window writes one `WindowRecord` as it closes, and the test validates it.
+
+    `communicate` closes the pipe itself, which is the EOF."""
+    port = free_port()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "vibepy_core.serve",
+            "timer-app",
+            "--port",
+            str(port),
+            "--until-stdin-closes",
+        ],
+        stdin=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=child_environment(),
+    )
+    assert process.stdin is not None
+    wait_for(f"http://127.0.0.1:{port}/home", process)
+
+    _, stderr = process.communicate(timeout=30)
+
+    written = stderr.decode(errors="replace")
+    assert process.returncode == 0, written
+    read = [read_window_record(line) for line in written.splitlines()]
+    assert [record for record in read if record is not None and record.app_id == "timer-app"], (
+        written
+    )
+    with pytest.raises(URLError):
+        urlopen(f"http://127.0.0.1:{port}/home", timeout=5)

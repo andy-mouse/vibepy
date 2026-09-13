@@ -12,6 +12,9 @@ gives them.
 
 import logging.config
 
+__all__ = ["LOG_CONFIG", "configure_logging"]
+
+
 LOG_CONFIG: dict[str, object] = {
     "version": 1,
     "disable_existing_loggers": False,
@@ -40,10 +43,10 @@ LOG_CONFIG: dict[str, object] = {
 }
 """A `dictConfig` dictionary, which `uvicorn.run` also takes as `log_config`.
 
-A framework record is written as its message alone: a report is one JSON object
-and an invocation record is one JSON object, and a reader of this process's
-standard error parses each line as such. `vibepy_core` is at INFO because the
-invocation record is INFO; the framework has no other INFO line.
+A framework record is written as its message alone: a report, an invocation
+record and a window record are each one JSON object, and a reader of this
+process's standard error parses each line as such. `vibepy_core` is at INFO
+because those records are INFO; the framework writes no other INFO line.
 (<https://github.com/kludex/uvicorn/blob/main/docs/concepts/logging.md>)
 """
 

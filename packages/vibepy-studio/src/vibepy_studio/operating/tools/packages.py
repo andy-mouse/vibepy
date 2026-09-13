@@ -41,9 +41,9 @@ async def _listing(deps: StudioDeps, /) -> SourceListing:
 
 
 def _unreadable(path: PurePath, /) -> ErrorInfo:
-    """Describe a source this Hub could not read, named so a caller can replace it."""
+    """Describe a source this operating role could not read, named so a caller can replace it."""
     return ErrorInfo(
-        code="hub.source_unreadable",
+        code="operating.source_unreadable",
         category=ErrorCategory.CALLER,
         message=f"{path} is not a folder",
         details={"path": str(path)},

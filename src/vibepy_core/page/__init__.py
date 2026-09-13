@@ -1,6 +1,6 @@
 """The channel-neutral Page model."""
 
-from vibepy_core.page.model import (
+from vibepy_core.page._model import (
     Page,
     PageContext,
     PageDefinition,
@@ -8,8 +8,8 @@ from vibepy_core.page.model import (
     PrincipalToolInvoker,
     ToolInvoker,
 )
-from vibepy_core.page.registry import PageRegistry
-from vibepy_core.page.runtime import PageRuntime
+from vibepy_core.page._registry import PageRegistry
+from vibepy_core.page._runtime import PageRuntime
 
 __all__ = [
     "Page",

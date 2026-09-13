@@ -15,8 +15,8 @@ import time
 from pathlib import Path
 
 from fetch_traefik import TOOLS, VERSION
-
-from vibepy_core import environment_for
+from vibepy_core.app.config import environment_for
+from vibepy_studio.entry import APP_ID
 
 REPO = Path(__file__).resolve().parents[1]
 TRAEFIK = TOOLS / (f"traefik-{VERSION}.exe" if sys.platform == "win32" else f"traefik-{VERSION}")
@@ -40,7 +40,7 @@ def main() -> int:
         env={**os.environ, **environment_for({"root": str(root), "proxy_port": args.proxy_port})},
     )
 
-    install_config = root / "traefik.yml"
+    install_config = root / APP_ID / "traefik.yml"
     proxy: subprocess.Popen[bytes] | None = None
     try:
         while studio.poll() is None and not install_config.exists():

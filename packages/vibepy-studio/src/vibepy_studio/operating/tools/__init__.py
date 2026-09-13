@@ -1,4 +1,4 @@
-"""The Hub's public operations, one module per lifecycle it manages.
+"""The operating role's public operations, one module per lifecycle it manages.
 
 Each Tool is one affordance of the control plane. The work they call — reading a
 folder, running `uv`, holding a child process, reading and writing the state
@@ -31,7 +31,7 @@ from vibepy_studio.operating.tools.packages import (
 )
 from vibepy_studio.operating.tools.runtime import RUNTIME_TOOLS, start_app, stop_app
 
-HUB_TOOLS: Sequence[Tool[StudioDeps]] = [
+OPERATING_TOOLS: Sequence[Tool[StudioDeps]] = [
     *PACKAGE_SOURCE_TOOLS,
     *INSTALLATION_TOOLS,
     *CONFIGURATION_TOOLS,
@@ -39,7 +39,7 @@ HUB_TOOLS: Sequence[Tool[StudioDeps]] = [
 ]
 
 __all__ = [
-    "HUB_TOOLS",
+    "OPERATING_TOOLS",
     "configure_app",
     "describe_config",
     "install_app",

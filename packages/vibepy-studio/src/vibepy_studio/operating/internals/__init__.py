@@ -13,8 +13,10 @@ from vibepy_studio.operating.internals.configuration import (
 )
 from vibepy_studio.operating.internals.deps import StudioDeps
 from vibepy_studio.operating.internals.installer import (
+    ENV_DIR,
     AppNameInvalid,
     InstallFailed,
+    app_folder,
     declarations,
     describe,
     environment,
@@ -24,6 +26,7 @@ from vibepy_studio.operating.internals.installer import (
     interpreter,
     purelib,
     read_facts,
+    remove_app_folder,
     remove_environment,
     write_facts,
 )
@@ -39,21 +42,23 @@ from vibepy_studio.operating.internals.routing import (
     remove_route,
     write_route,
 )
-from vibepy_studio.operating.internals.state import HubState, read_state, write_state
+from vibepy_studio.operating.internals.state import OperatingState, read_state, write_state
 from vibepy_studio.operating.internals.wheels import Candidate, candidates, readable
 
 __all__ = [
+    "ENV_DIR",
     "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
-    "HubState",
     "InstallFailed",
+    "OperatingState",
     "Processes",
     "StartFailed",
     "StudioDeps",
     "StudioRoot",
     "address",
     "allocate",
+    "app_folder",
     "candidates",
     "declarations",
     "describe",
@@ -68,6 +73,7 @@ __all__ = [
     "read_facts",
     "read_state",
     "readable",
+    "remove_app_folder",
     "remove_environment",
     "remove_route",
     "secret_fields",

@@ -4,6 +4,7 @@ There is no object for a app that is not running. These tests address the
 window itself, which is why every one of them is an ``async with``.
 """
 
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 
@@ -16,6 +17,7 @@ from vibepy_core.app import (
     Lifespan,
     NoConfig,
     page_runtime_for,
+    read_window_record,
     tool_runtime_for,
 )
 from vibepy_core.page import Page, PageContext, PageDefinition
@@ -71,6 +73,23 @@ def journal_definition(log: list[str]) -> AppDefinition[Journal, NoConfig]:
             )
         ],
     )
+
+
+def announced_lifespan(log: list[str]) -> Lifespan[Journal, NoConfig]:
+    """A lifespan whose release is announced on the framework's own logger.
+
+    The window's record lands on that logger too, so a reader of the captured
+    lines sees the order the two happened in.
+    """
+
+    @asynccontextmanager
+    async def lifespan(_config: NoConfig) -> AsyncGenerator[Journal]:
+        try:
+            yield Journal(log)
+        finally:
+            logging.getLogger("vibepy_core.tests").info("released")
+
+    return lifespan
 
 
 def journal_lifespan(log: list[str]) -> Lifespan[Journal, NoConfig]:
@@ -202,3 +221,64 @@ async def test_an_earlier_resource_is_released_when_a_later_one_fails() -> None:
             pass  # pragma: no cover - the block is never entered
 
     assert log == ["earlier acquired", "attempted", "earlier released"]
+
+
+async def test_a_closing_window_records_that_it_closed(caplog: pytest.LogCaptureFixture) -> None:
+    """The lifespan's exit crosses the process boundary as one `WindowRecord`.
+
+    The lifespan says on the same logger that it has released, so the two lines
+    are one sequence and the record's place in it is the assertion: a record
+    written before the resource was released would witness the runtime being
+    handed back rather than the window being gone.
+    """
+    log: list[str] = []
+    with caplog.at_level(logging.INFO, logger="vibepy_core"):
+        async with tool_runtime_for(
+            journal_definition(log), announced_lifespan(log), config={}, channel=Channel.AGENT
+        ):
+            assert [line for line in caplog.messages if read_window_record(line)] == []
+
+    written = [record for line in caplog.messages if (record := read_window_record(line))]
+    assert len(written) == 1
+    assert written[0].app_id == "journal"
+    assert written[0].channel is Channel.AGENT
+
+    sequence = [
+        "released" if line == "released" else "record"
+        for line in caplog.messages
+        if line == "released" or read_window_record(line)
+    ]
+    assert sequence == ["released", "record"]
+
+
+async def test_a_window_that_never_opened_records_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A failed acquisition is one report and no record: there was no window to close."""
+    log: list[str] = []
+    with caplog.at_level(logging.INFO, logger="vibepy_core"), pytest.raises(Boom):
+        async with tool_runtime_for(
+            journal_definition(log),
+            lambda _config: FailingAcquire(log),
+            config={},
+            channel=Channel.AGENT,
+        ):
+            pass  # pragma: no cover - the block is never entered
+
+    assert [record for line in caplog.messages if (record := read_window_record(line))] == []
+
+
+async def test_a_window_that_ends_by_raising_records_nothing(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The window opened and the body raised: the ending crosses as the report
+    that failure makes, and the same fact is not stated twice."""
+    log: list[str] = []
+    with caplog.at_level(logging.INFO, logger="vibepy_core"), pytest.raises(Boom):
+        async with tool_runtime_for(
+            journal_definition(log), journal_lifespan(log), config={}, channel=Channel.AGENT
+        ):
+            raise Boom
+
+    assert log == ["acquired", "released"]
+    assert [record for line in caplog.messages if (record := read_window_record(line))] == []

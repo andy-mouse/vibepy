@@ -8,19 +8,24 @@ and it is that window with a PageRegistry over it. Registries are built from
 declarations alone, so they are made once, before the resource is acquired.
 """
 
+import logging
 from collections.abc import AsyncGenerator, Callable, Mapping
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from datetime import UTC, datetime
 
 from pydantic import ValidationError
 
+from vibepy_core.app._model import AppDefinition
+from vibepy_core.app._record import WindowRecord
 from vibepy_core.app.config import AppConfig
-from vibepy_core.app.model import AppDefinition
 from vibepy_core.channel import Channel
 from vibepy_core.errors import AppConfigInvalidError
-from vibepy_core.page.registry import PageRegistry
-from vibepy_core.page.runtime import PageRuntime
-from vibepy_core.tool.registry import ToolRegistry
-from vibepy_core.tool.runtime import ToolRuntime
+from vibepy_core.page._registry import PageRegistry
+from vibepy_core.page._runtime import PageRuntime
+from vibepy_core.tool._registry import ToolRegistry
+from vibepy_core.tool._runtime import ToolRuntime
+
+logger = logging.getLogger(__name__)
 
 type Lifespan[DepsT, ConfigT] = Callable[[ConfigT], AbstractAsyncContextManager[DepsT]]
 """A factory returning the app's resource for the life of one window.
@@ -88,6 +93,13 @@ async def tool_runtime_for[DepsT, ConfigT: AppConfig](
     channel's name, and then the other channel reaches Tools by borrowing from
     a peer -- which is how it read before, and which left the framework no
     neutral place to put what both channels need.
+
+    Closing writes one `WindowRecord`, after the lifespan has exited, so the line
+    witnesses the resource being released rather than the runtime being done
+    with. It is written on a clean exit only: a window that ends by raising
+    already crosses as one report, and stating the ending twice would give a
+    reader two shapes for one fact. Both channels open this window, so both are
+    observed by the one writer.
     """
     registry = tool_registry_for(definition)
     validated = _validated(definition, config)
@@ -99,6 +111,8 @@ async def tool_runtime_for[DepsT, ConfigT: AppConfig](
             channel=channel,
             policy=definition.policy,
         )
+    closed = WindowRecord(app_id=definition.app_id, channel=channel, closed_at=datetime.now(UTC))
+    logger.info(closed.model_dump_json())
 
 
 @asynccontextmanager
