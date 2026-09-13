@@ -36,6 +36,7 @@ OWNED_TIMEOUT = 30.0
 
 
 def _body(url: str, /) -> str:
+    """What the child answers at `url`, as text."""
     with urlopen(url, timeout=30) as answer:
         return answer.read().decode(errors="replace")
 

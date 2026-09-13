@@ -503,8 +503,8 @@ def test_app_folder_is_the_environments_parent(tmp_path: Path) -> None:
 @pytest.mark.apps("vibepy-todo")
 @pytest.mark.integration
 async def test_studios_own_folder_is_not_an_installed_app(installed: Path) -> None:
-    """One rule for the root, and Studio is not an exception to it: its folder has no `env/`,
-    so it is neither listed nor startable, and installing it is refused as already there."""
+    """One rule for the root, and Studio is not an exception to it: its folder has no
+    `env/`, so it is not one of the Apps the board lists."""
     assert (installed / "vibepy-studio" / "state.json").is_file()
     async with studio(installed) as tools:
         listed = await tools.invoke("list_apps", {}, principal=AGENT)

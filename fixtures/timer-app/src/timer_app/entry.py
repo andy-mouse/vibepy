@@ -63,6 +63,8 @@ async def elapsed(ctx: ToolContext[datetime], _payload: Opened) -> Elapsed:
 
 
 class Probe(BaseModel):
+    """The module the probe is asked to look for; a name only Studio could have planted."""
+
     module: str
 
 
