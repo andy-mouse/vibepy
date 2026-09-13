@@ -183,13 +183,12 @@ def test_a_held_secret_satisfies_its_requirement() -> None:
 
 
 def test_a_board_says_what_every_part_of_the_screen_shows() -> None:
-    view = board_view(
-        AppListing(apps=[available("one"), running("two")], source=PurePath("/wheels"))
-    )
+    source = PurePath("/wheels")
+    view = board_view(AppListing(apps=[available("one"), running("two")], source=source))
 
     assert view.names == ("two", "one")
     assert view.counts == (1, 0, 1)
-    assert view.source == "/wheels"
+    assert view.source == str(source)
     assert view.registered is True
     assert view.row("one") is not None
     assert view.row("gone") is None
