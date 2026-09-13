@@ -420,8 +420,8 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Test: `tests/test_app_distributions.py` (check whether it asserts Timer's Tool list; adjust the expected list if so)
 
 **Interfaces:**
-- Produces: Tool `probe`, input `Probe(module: str)`, output `Probed(cwd: str, sys_path: list[str], importable: bool, wrote: str)`. Invoking it writes the relative file `probe.txt` in the process's working directory and reports where that landed.
-- Produces: Page `/home` renders one `ui.label` per field: `cwd=<…>`, `importable=<True|False>`, `wrote=<…>`, and one label per `sys.path` entry prefixed `path=`. The Page probes module `planted_module`.
+- Produces: Tool `probe`, input `Probe(module: str)`, output `Probed(cwd: str, sys_path: list[str], importable: bool)`. It writes nothing: a `read_only` Tool that wrote a file would not be the contract this fixture is here to project, and the reported `cwd` says what a file beside it would.
+- Produces: Page `/home` renders one `ui.label` per field: `cwd=<…>`, `importable=<True|False>`, and one label per `sys.path` entry prefixed `path=`. The Page probes module `planted_module`.
 
 - [ ] **Step 1: Know what the suites assert about Timer**
 
@@ -445,23 +445,19 @@ class Probed(BaseModel):
     cwd: str
     sys_path: list[str]
     importable: bool
-    wrote: str
 
 
 async def probe(_ctx: ToolContext[datetime], payload: Probe) -> Probed:
-    """Report the process's working directory and import path, and write one relative file.
+    """Report the process's working directory and import path, changing nothing.
 
     Exists so that a test of the Hub can read, from inside the running App, what
-    the Hub let it see. The file is what an App writes when it names a file and
-    no folder.
+    the Hub let it see. `Path.cwd()` is the concrete path this Tool reports,
+    which is the one thing `PurePath` cannot say.
     """
-    wrote = Path("probe.txt")
-    wrote.write_text("probed", encoding="utf-8")
     return Probed(
         cwd=str(Path.cwd()),
         sys_path=list(sys.path),
         importable=importlib.util.find_spec(payload.module) is not None,
-        wrote=str(wrote.resolve()),
     )
 ```
 
@@ -475,7 +471,6 @@ async def home(ctx: PageContext) -> None:
     probed = Probed.model_validate(await ctx.tools.invoke("probe", {"module": "planted_module"}))
     ui.label(f"cwd={probed.cwd}")
     ui.label(f"importable={probed.importable}")
-    ui.label(f"wrote={probed.wrote}")
     for entry in probed.sys_path:
         ui.label(f"path={entry}")
 ```
@@ -836,7 +831,7 @@ async def test_a_killed_launcher_leaves_no_live_child(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> None:
-    """`probe.txt` is what Timer writes when it names a file and no folder."""
+    """Timer reports its own working directory, and it is the one it was given."""
     stand = tmp_path / "stand"
     stand.mkdir()
     processes = Processes(logs=tmp_path / "logs")
@@ -855,7 +850,6 @@ async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> No
         await processes.aclose()
 
     assert f"cwd={stand.resolve()}" in body
-    assert (stand / "probe.txt").is_file()
 ```
 
 Add at the top:
@@ -1140,30 +1134,12 @@ async def test_an_app_sees_neither_the_hubs_python_path_nor_its_directory(
     assert "importable=False" in body
     assert f"path={planted}" not in body
     assert f"cwd={installed / 'vibepy-timer'}" in body
-
-
-@pytest.mark.apps("vibepy-todo", "vibepy-timer")
-@pytest.mark.integration
-async def test_what_an_app_writes_beside_itself_is_its_own(tmp_path: Path, installed: Path) -> None:
-    """Timer writes `probe.txt` where it stands; it lands in Timer's folder, not
-    the Hub's directory and not Todo's folder, and leaves with Timer."""
-    timer = installed / "vibepy-timer"
-    todo = installed / "vibepy-todo"
-
-    async with studio(installed) as tools:
-        await _start(tools, "vibepy-timer")
-        port = (await read_state(installed)).ports["vibepy-timer"]
-        await asyncio.to_thread(_body, f"http://127.0.0.1:{port}/home")
-        await tools.invoke("stop_app", {"app_name": "vibepy-timer"}, principal=AGENT)
-
-        assert (timer / "probe.txt").is_file()
-        assert not (todo / "probe.txt").exists()
-        assert not (Path.cwd() / "probe.txt").exists()
-
-        await tools.invoke("remove_app", {"app_name": "vibepy-timer"}, principal=AGENT)
-
-    assert not timer.exists()
 ```
+
+No test of what an App writes beside itself: `probe` writes nothing, the App's own folder is
+already read from inside the process by the planted-module test's `cwd=` label, and what lies
+beside `env/` is covered where it belongs — surviving `update_app` in `test_update.py`, going
+with the folder on `remove_app` in `test_installation.py`.
 
 `StudioConfig` is exported from `vibepy_studio.entry` beside `APP` and `STUDIO_APP` (check with `grep -n "^class StudioConfig" packages/vibepy-studio/src/vibepy_studio/entry.py`; it is defined there).
 
