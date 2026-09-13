@@ -294,13 +294,35 @@ async def test_a_row_rebuilt_under_an_open_panel_keeps_what_was_typed(
     user.find(marker="configure-demo-app").click()
     await user.should_see("api_base_url")
     user.find(marker="field-demo-app-api_base_url").type("https://notes.internal")
+    drawn = user.find(marker="row-demo-app").elements.pop()
 
     listed.listed = listing(app_row("demo-app", "installed"), app_row("other-app", "running"))
     await ticked()
 
     await user.should_see("Stop")
+    # The reordering is what makes this test's subject happen: without a rebuilt
+    # row, the typing would survive whatever the draft is kept in.
+    assert user.find(marker="row-demo-app").elements.pop() is not drawn
     entry = user.find(kind=ui.input, marker="field-demo-app-api_base_url").elements.pop()
     assert entry.value == "https://notes.internal"
+
+
+async def test_a_rebuilt_row_still_names_what_its_panel_lacks(user: User, fast_clock: None) -> None:
+    """What a save named as missing is state too, so a rebuilt row says it again."""
+    listed = Listings(listing(app_row("demo-app", "installed"), app_row("other-app", "installed")))
+    board_over(listed)
+    await user.open("/")
+    user.find(marker="configure-demo-app").click()
+    await user.should_see("api_base_url")
+    user.find("Save").click()
+    await user.should_see("Missing required fields: api_base_url, api_token")
+    drawn = user.find(marker="row-demo-app").elements.pop()
+
+    listed.listed = listing(app_row("demo-app", "installed"), app_row("other-app", "running"))
+    await ticked()
+
+    assert user.find(marker="row-demo-app").elements.pop() is not drawn
+    await user.should_see("Missing required fields: api_base_url, api_token")
 
 
 async def test_an_empty_board_says_why_it_is_empty_after_a_tick(

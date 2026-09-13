@@ -268,6 +268,13 @@ async def board(ctx: PageContext) -> None:
     """
     panels: dict[str, Callable[[], object]] = {}
     """What reopens or closes one row's configuration panel, keyed by app name."""
+    panel_bound: dict[str, list[object]] = {}
+    """The binding targets one row's open panel made, dropped when it is drawn again.
+
+    A panel is drawn again whenever it opens, closes, or the row around it is
+    rebuilt; each of those leaves the last draw's targets bound to a panel
+    nothing shows any more, and a binding holds what it binds. So the panel
+    clears its own, keyed by the row it belongs to, as `rows` clears the set's."""
     bound: list[object] = []
     """The binding targets of the rows now on the screen, dropped when they are."""
     dialogs = ui.column()
@@ -461,10 +468,9 @@ async def board(ctx: PageContext) -> None:
                 secret = field.type is ConfigFieldType.SECRET
                 held = secret and field.name in described.secrets_set
                 row = ui.element("div").classes("operating-field")
-                marked = Invalid(row, field.name in panel.lacking)
-                marked.invalid = field.name in panel.lacking
+                marked = Invalid(row, False)
                 panel.into(marked, "invalid", lambda lacking, of=field.name: of in lacking)
-                bound.append(marked)
+                panel_bound[view.app_name].append(marked)
                 with row:
                     with ui.element("label"):
                         _text("span", field.name, "operating-field-name")
@@ -476,8 +482,9 @@ async def board(ctx: PageContext) -> None:
                         value=panel.draft.get(field.name, ""),
                     ).props("dense borderless")
                     # What is typed is the draft's, so the box writes into it
-                    # and a box drawn again reads it back.
-                    entry.bind_value(panel.draft, field.name)
+                    # and a box drawn again reads it back. A box with nothing in
+                    # it holds `None`, and the draft holds that as empty text.
+                    entry.bind_value(panel.draft, field.name, forward=_typed)
                     # Several rows can declare the same field name, so a test
                     # reaches one row's box by a marker rather than by its label:
                     # the name beside it is a `<span>`, which cannot be typed into.
@@ -570,6 +577,9 @@ async def board(ctx: PageContext) -> None:
 
             @ui.refreshable
             def panel() -> None:
+                held = panel_bound.setdefault(row.view.app_name, [])
+                binding.remove(held)
+                held.clear()
                 open_here = open_panel.get(row.view.app_name)
                 if open_here is not None:
                     draw_config(row.view, open_here)
@@ -595,6 +605,9 @@ async def board(ctx: PageContext) -> None:
         """Draw the Apps the board holds; rebuilt only when that set changes."""
         binding.remove(bound)
         bound.clear()
+        for held in panel_bound.values():
+            binding.remove(held)
+        panel_bound.clear()
         panels.clear()
         if not shown.board.rows:
             draw_empty()
@@ -632,6 +645,11 @@ def _said_by(info: ErrorInfo | None, read: Callable[[ErrorInfo], str], /) -> str
     not the visibility beside it hides the line.
     """
     return "" if info is None else read(info)
+
+
+def _typed(value: str | None, /) -> str:
+    """Read what a box holds as the draft holds it: nothing in it is empty text."""
+    return "" if value is None else value
 
 
 def _draft(described: ConfigDescription, /) -> dict[str, str]:
