@@ -24,8 +24,9 @@ from vibepy_core.principal import Principal
 from vibepy_studio.entry import APP, STUDIO_APP
 from vibepy_studio.operating.pages.board import REFRESH_SECONDS
 
-GROUND = "rgb(234, 241, 241)"
-"""What `board.css` paints behind the shell in light mode."""
+GROUND_LIGHT = "rgb(234, 241, 241)"
+GROUND_DARK = "rgb(11, 21, 24)"
+"""`board.css`'s `light-dark(#eaf1f1, #0b1518)` pair for the body background."""
 
 CROWD = 10
 """Rows enough to overflow the list at the window size these tests ask for."""
@@ -63,6 +64,9 @@ async def test_the_board_arrives_dressed_in_its_own_stylesheet(
         screen.find_by_css(".vibepy-operating .operating-shell")
         screen.should_contain("demo-app-9")
         painted: object = asked(screen, "return getComputedStyle(document.body).backgroundColor")
+        prefers_dark: object = asked(
+            screen, "return window.matchMedia('(prefers-color-scheme: dark)').matches"
+        )
         whole_page_still: object = asked(
             screen,
             "const p = document.scrollingElement; return p.scrollHeight <= p.clientHeight + 1",
@@ -81,7 +85,7 @@ async def test_the_board_arrives_dressed_in_its_own_stylesheet(
             " return b.scrollTop > 0 && bar.getBoundingClientRect().top === before",
         )
 
-    assert painted == GROUND
+    assert painted == (GROUND_DARK if prefers_dark else GROUND_LIGHT)
     assert whole_page_still is True
     assert list_scrolls is True
     assert head_stays is True
