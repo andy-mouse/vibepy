@@ -77,5 +77,9 @@ problem.
   between Studio and the platform is what the suite tests, and the dialog itself is verified by
   hand once per platform. A gate that stays green is therefore not evidence that the dialog
   opens.
+- No start folder is set on either platform: the dialog opens where the operating system opens
+  it, which is the folder the operator last used there. That is the file dialog's own convention,
+  and setting a folder — the home folder was considered — would add a call that can fail before
+  the dialog is shown, for a start the operator would leave on the first click.
 - Linux is out of scope until Studio targets it, and asking for it there fails by name rather
   than by a missing binary or an empty result.
