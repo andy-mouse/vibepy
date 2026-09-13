@@ -211,8 +211,8 @@ def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
 @pytest.mark.integration
 def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -> None:
     """Studio holds the pipe; the OS closes it when Studio is gone for any
-    reason. The App sees end-of-file and leaves through its own shutdown: the
-    lifespan's exit runs, and the exit code is a clean one.
+    reason. The App sees end-of-file and leaves of its own accord: the exit code
+    is a clean one and the port it served is no longer answering.
 
     `communicate` closes the pipe itself, which is the EOF."""
     port = free_port()
