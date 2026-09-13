@@ -165,7 +165,8 @@ is why the flag is the launcher's to ask for. See
 Run with an App environment's own interpreter, it invokes as the principal `operator`, with no
 roles, and opens that App's Web channel: the App's window
 is the served application's own lifespan. Its configuration is its environment's, as Configuration
-above owns; it reads nothing from standard input.
+above owns; it reads no configuration from standard input, whatever the paragraph above has it
+do with that stream.
 
 The window is the lifespan and not a startup hook because ASGI already decides what a window
 that cannot open means: a server that sees `lifespan.startup.failed` logs the message and exits

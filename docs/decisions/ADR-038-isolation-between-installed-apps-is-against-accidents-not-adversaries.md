@@ -21,10 +21,11 @@ other through `ptrace`, `/proc/<pid>/environ` and `ps -E`; on Windows, a process
 session opens another with `OpenProcess`. Nothing a launcher does with paths, working directories
 or interpreter flags changes that, because none of it is a privilege boundary. The hosts that do
 separate local applications from one another take one of two routes, and both change what the
-host is: a principal per application (Android's per-app uid, systemd's `DynamicUser=`) or a
-sandbox with its own filesystem and network view (snap, flatpak). The hosts of Studio's own kind —
-pipx, conda, Homebrew services — run trusted code in per-application environments under one user
-and draw the line where this record draws it. `docs/milestones/M17/spec.md`, Sources, cites each.
+host is: a principal per application — Android's per-app uid, systemd's `DynamicUser=` — or a
+sandbox with a filesystem and network view of its own. The hosts of Studio's own kind — pipx,
+conda, Homebrew services — run trusted code in per-application environments under one user and
+draw the line where this record draws it. `docs/milestones/M17/spec.md`, Sources, cites the
+process models and both classes of host.
 
 Studio installs what an operator chose to install, from a wheelhouse that operator registered.
 
