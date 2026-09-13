@@ -1,4 +1,4 @@
-# ADR-041: A channel is a protocol, and a Page is declared once and implemented per channel
+# ADR-041: A channel is named by its medium, and a Page is declared once and implemented per channel
 
 Status: Proposed
 
@@ -40,8 +40,8 @@ ADR-009 already refused for the reason it gives.
 
 So a human now reaches an App's Tools through MCP, and a Tool can exist for that human and be
 hidden from the agent. Neither fits a line labelled "Agent". The two-line drawing was never a
-statement about protocols; it was a statement about audiences that happened to be true while
-each protocol had one.
+statement about media; it was a statement about audiences that happened to be true while
+each medium had one.
 
 Three of the framework's own sentences already say the other thing. `docs/architecture.md`:
 "Page != NiceGUI Page primitive. NiceGUI is the rendering/entry technology for framework Pages"
@@ -82,8 +82,12 @@ Alternatives considered and not taken:
 
 ## Decision
 
-A channel is a protocol. `Channel` names the two the framework speaks, `WEB` and `MCP`, and
-says nothing about who is on the other end; the same protocol may carry a human and an agent.
+A channel is the medium an App is served through, and is named by that medium and not by who
+is on it. `Channel` names the two the framework serves, `WEB` and `MCP`, and says nothing about
+who is on the other end; one medium may carry a human and an agent. "Protocol" is not the
+word: `web` is a medium reached over HTTP, and the future adapters `docs/architecture/adapters.md`
+lists — REST, CLI, webhook, scheduler — are media too, of which only two are protocols. The word
+"channel" is kept, and this record fixes what it means.
 The optional-dependency extras, the records a process writes and what `describe` publishes
 carry the same two names.
 
@@ -108,7 +112,7 @@ implementation is written against its channel's technology and against nothing e
 
 - `docs/architecture.md` is rewritten from the core outward: Tools and Pages declared once,
   ToolRuntime as the one execution path, each adapter supplying a Tool exposure and a Page
-  implementation in its protocol's terms. The audience lines are removed
+  implementation in its medium's terms. The audience lines are removed
 - `Channel.AGENT` becomes `Channel.MCP` with value `mcp`; `vibepy-core[agent]` becomes
   `vibepy-core[mcp]`; `InvocationRecord`, `WindowRecord` and `ToolDescription` change value
   with it. Nothing outside this repository reads them yet, which is why the value changes now
