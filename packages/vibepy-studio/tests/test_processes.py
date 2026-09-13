@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 from pydantic import JsonValue
 
-from tests_support import body, free_port
+from tests_support import body, free_port, rendered_texts
 from vibepy_core import ErrorCategory
 from vibepy_studio.internals.processes import (
     NotRunnable,
@@ -387,4 +387,4 @@ async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> No
     finally:
         await processes.aclose()
 
-    assert f"cwd={stand.resolve()}" in answered
+    assert f"cwd={stand.resolve()}" in rendered_texts(answered)

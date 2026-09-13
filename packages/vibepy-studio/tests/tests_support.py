@@ -2,7 +2,9 @@
 
 import asyncio
 import base64
+import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -225,6 +227,21 @@ def body(url: str, /, *, host: str | None = None) -> str:
     request = Request(url, headers={"Host": host}) if host is not None else Request(url)
     with urlopen(request, timeout=30) as answer:
         return answer.read().decode(errors="replace")
+
+
+_TEXT_PROP = re.compile(r'"text":("(?:[^"\\]|\\.)*")')
+
+
+def rendered_texts(html: str, /) -> list[str]:
+    """Every element label an initial page carries, decoded.
+
+    NiceGUI serialises element props as JSON into the initial page, so a
+    Windows path's backslashes reach the document as `\\\\`. A plain substring
+    search for the path never matches there; a value read from the page must
+    be decoded the way it was encoded, so a path reads back as itself on every
+    platform.
+    """
+    return [json.loads(match.group(1)) for match in _TEXT_PROP.finditer(html)]
 
 
 FIXTURE_PACKAGES = ("vibepy-notes", "vibepy-todo", "vibepy-timer")

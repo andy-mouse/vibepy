@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from tests_support import AGENT, body, studio
+from tests_support import AGENT, body, rendered_texts, studio
 from vibepy_core import Channel, tool_runtime_for
 from vibepy_core.tool import ToolRuntime
 from vibepy_studio.entry import APP, STUDIO_APP, StudioConfig
@@ -94,7 +94,7 @@ async def test_one_apps_death_leaves_the_other_and_studio_standing(
         await todo.wait()
 
         answered = await asyncio.to_thread(body, f"http://127.0.0.1:{ports['vibepy-timer']}/home")
-        assert "open for" in answered
+        assert any("open for" in text for text in rendered_texts(answered))
         states = await _states(tools)
         assert states["vibepy-todo"] == "installed"
         assert states["vibepy-timer"] == "running"
@@ -121,6 +121,7 @@ async def test_an_app_sees_neither_studios_python_path_nor_its_directory(
         port = (await read_state(installed / "vibepy-studio")).ports["vibepy-timer"]
         answered = await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
 
-    assert "importable=False" in answered
-    assert f"path={planted}" not in answered
-    assert f"cwd={installed / 'vibepy-timer'}" in answered
+    texts = rendered_texts(answered)
+    assert "importable=False" in texts
+    assert f"path={planted}" not in texts
+    assert f"cwd={installed / 'vibepy-timer'}" in texts
