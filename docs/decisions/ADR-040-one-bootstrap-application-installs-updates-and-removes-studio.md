@@ -80,7 +80,7 @@ platform later and running the bootstrap again registers it, because every step 
 — running the bootstrap again *is* the repair.
 
 Studio holds no code for its own lifecycle. Its `gui_scripts` entry point does what
-`scripts/run_studio.py` did and retires it: prepare the root — `~/vibepy-apps` by default, from
+`scripts/run_studio.py` did and retires it: prepare the root — `~/VibePy` by default, from
 `Path.home()`, or `VIBEPY_ROOT` — start Traefik and Studio's Web window as children it holds
 (ADR-039), write Studio's own route so the Hub is reached at
 `http://vibepy-studio.localhost:<proxy port>` like every App, open the browser there with the
