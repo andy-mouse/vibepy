@@ -12,7 +12,9 @@ to need. Its lifespan holds the one thing it knows -- when it opened -- so the
 resource an App may hold is exercised here rather than only described.
 
 Its `probe` Tool is the witness M17's isolation tests read: what Studio let
-this process see, reported from inside it.
+this process see, reported from inside it. Its lifespan's exit is the other
+thing M17's tests read from inside: the file it leaves behind is how a test
+outside the process sees that the exit ran.
 """
 
 import asyncio
@@ -53,8 +55,20 @@ class Elapsed(BaseModel):
 
 @asynccontextmanager
 async def timer_lifespan(_config: TimerConfig) -> AsyncGenerator[datetime]:
-    """The window's own start, held for as long as the window is open."""
-    yield datetime.now(UTC)
+    """The window's own start, held for as long as the window is open.
+
+    The exit writes `closed.txt` in the process's working directory so that a
+    test outside the process can see the lifespan exit ran at all. A lifespan
+    that only yields leaves nothing behind, and an exit nothing observes cannot
+    be asserted; the file carries the time the window opened, so it also says
+    which window closed. Like `probe.txt`, it is what an App writes when it
+    names a file and no folder.
+    """
+    opened = datetime.now(UTC)
+    try:
+        yield opened
+    finally:
+        await asyncio.to_thread(Path("closed.txt").write_text, opened.isoformat(), encoding="utf-8")
 
 
 async def elapsed(ctx: ToolContext[datetime], _payload: Opened) -> Elapsed:
