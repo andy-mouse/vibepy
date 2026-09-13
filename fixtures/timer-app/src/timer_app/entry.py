@@ -17,7 +17,6 @@ outside by the `WindowRecord` the framework writes as the window closes, so
 this App leaves nothing behind of its own to be seen closing.
 """
 
-import asyncio
 import importlib.util
 import sys
 from collections.abc import AsyncGenerator
@@ -76,32 +75,19 @@ class Probed(BaseModel):
     cwd: str
     sys_path: list[str]
     importable: bool
-    wrote: str
 
 
 async def probe(_ctx: ToolContext[datetime], payload: Probe) -> Probed:
-    """Report the process's working directory and import path, and write one relative file.
+    """Report the process's working directory and import path, changing nothing.
 
     Exists so that a test of Studio can read, from inside the running App, what
-    Studio let it see. The file is what an App writes when it names a file and
-    no folder.
-
-    The concrete `Path` here is deliberate and is not a pattern to copy: this
-    handler's subject is its own working directory and the relative write that
-    resolves against it, which `PurePath` cannot express.
+    Studio let it see. `Path.cwd()` is the concrete path this Tool reports, which
+    is the one thing `PurePath` cannot say.
     """
-    wrote = Path("probe.txt")
-
-    def _write() -> str:
-        wrote.write_text("probed", encoding="utf-8")
-        return str(wrote.resolve())
-
-    resolved = await asyncio.to_thread(_write)
     return Probed(
         cwd=str(Path.cwd()),
         sys_path=list(sys.path),
         importable=importlib.util.find_spec(payload.module) is not None,
-        wrote=resolved,
     )
 
 
@@ -112,7 +98,6 @@ async def home(ctx: PageContext) -> None:
     probed = Probed.model_validate(await ctx.tools.invoke("probe", {"module": "planted_module"}))
     ui.label(f"cwd={probed.cwd}")
     ui.label(f"importable={probed.importable}")
-    ui.label(f"wrote={probed.wrote}")
     for entry in probed.sys_path:
         ui.label(f"path={entry}")
 

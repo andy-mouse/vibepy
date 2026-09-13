@@ -215,7 +215,7 @@ def test_the_command_does_not_wait_on_standard_input(tmp_path: Path) -> None:
 
 
 @pytest.mark.integration
-def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -> None:
+def test_closing_standard_input_ends_the_command_when_asked_to() -> None:
     """Studio holds the pipe; the OS closes it when Studio is gone for any
     reason. The App sees end-of-file and leaves of its own accord: the exit code
     is a clean one, the window's closing record is on standard error, and the
@@ -224,10 +224,6 @@ def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -
     Timer is the App served because it requires nothing of its host. The exit is
     observed the way the framework observes anything crossing this boundary: the
     window writes one `WindowRecord` as it closes, and the test validates it.
-
-    Rendering its page invokes `probe`, which writes a file it names without a
-    folder, so the child is given a directory to stand in rather than leaving
-    that trace wherever pytest was run.
 
     `communicate` closes the pipe itself, which is the EOF."""
     port = free_port()
@@ -244,7 +240,6 @@ def test_closing_standard_input_ends_the_command_when_asked_to(tmp_path: Path) -
         stdin=subprocess.PIPE,
         stderr=subprocess.PIPE,
         env=child_environment(),
-        cwd=tmp_path,
     )
     assert process.stdin is not None
     wait_for(f"http://127.0.0.1:{port}/home", process)

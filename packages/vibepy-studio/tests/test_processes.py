@@ -376,7 +376,7 @@ async def test_a_killed_launcher_leaves_no_live_child(tmp_path: Path) -> None:
 
 @pytest.mark.integration
 async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> None:
-    """`probe.txt` is what Timer writes when it names a file and no folder."""
+    """Timer reports its own working directory, and it is the one it was given."""
     stand = tmp_path / "stand"
     stand.mkdir()
     processes = Processes(logs=tmp_path / "logs")
@@ -395,4 +395,3 @@ async def test_a_child_stands_in_the_directory_it_is_given(tmp_path: Path) -> No
         await processes.aclose()
 
     assert f"cwd={stand.resolve()}" in answered
-    assert (stand / "probe.txt").is_file()

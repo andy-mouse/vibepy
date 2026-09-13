@@ -125,26 +125,3 @@ async def test_an_app_sees_neither_studios_python_path_nor_its_directory(
     assert "importable=False" in answered
     assert f"path={planted}" not in answered
     assert f"cwd={installed / 'vibepy-timer'}" in answered
-
-
-@pytest.mark.apps("vibepy-todo", "vibepy-timer")
-@pytest.mark.integration
-async def test_what_an_app_writes_beside_itself_is_its_own(tmp_path: Path, installed: Path) -> None:
-    """Timer writes `probe.txt` where it stands; it lands in Timer's folder, not
-    Studio's directory and not Todo's folder, and leaves with Timer."""
-    timer = installed / "vibepy-timer"
-    todo = installed / "vibepy-todo"
-
-    async with studio(installed) as tools:
-        await _start(tools, "vibepy-timer")
-        port = (await read_state(installed / "vibepy-studio")).ports["vibepy-timer"]
-        await asyncio.to_thread(body, f"http://127.0.0.1:{port}/home")
-        await tools.invoke("stop_app", {"app_name": "vibepy-timer"}, principal=AGENT)
-
-        assert (timer / "probe.txt").is_file()
-        assert not (todo / "probe.txt").exists()
-        assert not (Path.cwd() / "probe.txt").exists()
-
-        await tools.invoke("remove_app", {"app_name": "vibepy-timer"}, principal=AGENT)
-
-    assert not timer.exists()

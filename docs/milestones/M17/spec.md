@@ -211,9 +211,12 @@ kept by convention, not enforceable by packaging.
 | `vibepy_studio/operating/internals/processes.py` | `cwd`, `stdin=PIPE` held per child, closed on release |
 | `vibepy_studio/operating/tools/installation.py` | remove deletes the folder; update remakes the environment |
 | `vibepy_core/serve.py` | `--until-stdin-closes`; a thread reads stdin to EOF and sets `should_exit` on the running `uvicorn.Server`; `uvicorn.run` becomes `Server(Config(...)).run()` so the server object is reachable |
-| `fixtures/timer-app` | one read-only Tool, `probe`: writes a relative file, returns `cwd`, `sys.path` and whether a named module imports; the `home` Page declares and renders it, so the running process is what a test reads |
+| `fixtures/timer-app` | one read-only Tool, `probe`: returns `cwd`, `sys.path` and whether a named module imports; the `home` Page declares and renders it, so the running process is what a test reads |
 
-No new module. No new public type in `vibepy_core`.
+No new module. One new public type in `vibepy_core`: `WindowRecord` and `read_window_record`
+(`vibepy_core.app.record`). The lifespan's exit has to be visible from outside the process, and the
+framework already has the contract for that — a JSON record per line on standard error — so closing
+a window writes one, instead of an App leaving a file behind for a test to find.
 
 ## Data flow
 
@@ -243,8 +246,9 @@ can and cannot reach of another and of its host):
 - a module planted in a fake user site-packages and in a `PYTHONPATH` directory set on the Hub is
   not importable from a started App, and the Hub's current directory is not on the App's
   `sys.path` — read from Timer's served `/home` Page, which renders `probe` in the running process
-- the relative file each of two Apps writes lands in its own `<app>/`, survives
-  `update_app`, and is gone after `remove_app`
+- a started App stands in its own `<app>/`, read from inside the running process; what lies
+  beside `env/` survives `update_app` (`test_update.py`) and goes with the folder on `remove_app`
+  (`test_installation.py`)
 
 `test_processes.py`: a driver process that starts a child through `Processes` and then blocks is
 killed with no chance to clean up; within a bound the child has ended and its port no longer
