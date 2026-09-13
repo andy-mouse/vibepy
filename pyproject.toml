@@ -71,8 +71,17 @@ extend-exclude = ["docs/**"]
 # Globs are supported, so a member added later needs no edit here.
 src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src", "scripts"]
 
+# A module named `_x` is implementation: reachable within its own top-level
+# package and nowhere else, so another distribution cannot bind itself to an
+# internal. That invariant is the linter's to hold rather than a test's --
+# `PLC2701` flags a private import from outside the package. It is a preview
+# rule, so preview is on and `explicit-preview-rules` keeps it the only one:
+# every other selected rule stays the stable one.
+# <https://docs.astral.sh/ruff/rules/import-private-name/>
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID", "D"]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID", "D", "PLC2701"]
+preview = true
+explicit-preview-rules = true
 
 # PEP 257 is a standard, so it is enforced by the linter rather than restated as
 # a rule of our own. ruff implements it as the `D` rules and `convention`
@@ -104,8 +113,13 @@ convention = "pep257"
 "packages/*/tests/**" = ["D"]
 "fixtures/**" = ["D"]
 
+# The whole repository, as ruff checks it: a folder added later is typechecked
+# because it is here, not because someone remembered to list it. pyright's
+# default exclude already drops `**/node_modules`, `**/__pycache__` and every
+# dotted directory, which is `.venv` and the tooling folders.
+# <https://microsoft.github.io/pyright/#/configuration?id=main-configuration-options>
 [tool.pyright]
-include = ["src", "tests", "packages", "fixtures", "scripts"]
+include = ["."]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 
