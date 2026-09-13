@@ -1,6 +1,5 @@
 """The command that opens an App's Web channel, run as a real process."""
 
-import json
 import os
 import socket
 import subprocess
@@ -80,6 +79,19 @@ def test_a_declared_page_is_served(tmp_path: Path) -> None:
     assert "<html" in body.lower()
 
 
+def reported_failure(stderr: bytes, /) -> ErrorInfo:
+    """The last failure the child described, out of everything it wrote.
+
+    Read with the framework's own reader, so what a window logs is held to the
+    shape core writes rather than to a second reading of it.
+    """
+    for line in reversed(stderr.decode(errors="replace").splitlines()):
+        found = read_report_line(line)
+        if found is not None:
+            return found
+    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+
+
 @pytest.mark.integration
 def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     """`packaging.md`: a failure writes the framework's code and message."""
@@ -92,22 +104,9 @@ def test_an_unknown_app_name_fails_with_the_framework_code() -> None:
     )
 
     assert finished.returncode == 1
-    written = json.loads(finished.stderr.decode())
-    assert written["code"] == "package.app_not_declared"
-    assert "absent" in written["message"]
-
-
-def reported_failure(stderr: bytes, /) -> ErrorInfo:
-    """The last failure the child described, out of everything it wrote.
-
-    Read with the framework's own reader, so what a window logs is held to the
-    shape core writes rather than to a second reading of it.
-    """
-    for line in reversed(stderr.decode(errors="replace").splitlines()):
-        found = read_report_line(line)
-        if found is not None:
-            return found
-    raise AssertionError(f"nothing was reported: {stderr.decode(errors='replace')!r}")
+    written = reported_failure(finished.stderr)
+    assert written.code == "package.app_not_declared"
+    assert "absent" in written.message
 
 
 @pytest.mark.integration

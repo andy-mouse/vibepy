@@ -12,6 +12,7 @@ from notes_app.entry import Note
 from test_serve_command import child_environment, records_in
 from vibepy_core import Channel, ErrorCategory, ErrorInfo
 from vibepy_core.app.config import environment_for
+from vibepy_core.errors import read_report_line
 
 
 def run_invoke(
@@ -52,10 +53,16 @@ def todo_config(tmp_path: Path) -> dict[str, str]:
 
 
 def reported(result: subprocess.CompletedProcess[str]) -> ErrorInfo:
+    """The one failure the command reported, read with the framework's own reader.
+
+    Standard error carries reports, invocation records and window records on one
+    stream, so the report is found by parsing each line rather than by where it
+    sits. One failure is one report, and that is asserted rather than assumed.
+    """
     assert result.returncode == 1, result.stderr
-    lines = [line for line in result.stderr.splitlines() if line.startswith("{")]
-    assert lines, result.stderr
-    return ErrorInfo.model_validate(json.loads(lines[-1]))
+    found = [info for line in result.stderr.splitlines() if (info := read_report_line(line))]
+    assert len(found) == 1, result.stderr
+    return found[0]
 
 
 @pytest.mark.integration
