@@ -91,6 +91,16 @@ from outside itself. See
 `docs/decisions/ADR-017-each-channel-runs-in-its-own-process.md` and
 `docs/decisions/ADR-024-the-hub-is-a-platform-tier-app.md`.
 
+One rule shapes the root: every direct child of it is one distribution's folder, named by that
+distribution's canonical name
+(`docs/decisions/ADR-028-an-app-is-addressed-by-its-distribution-name.md`), and Studio is not an
+exception — its own folder holds `logs/`, `routes/`, `traefik.yml` and `state.json`, and no
+`env/`, because Studio's environment is placed by whatever installs Studio
+(`docs/decisions/ADR-040-one-bootstrap-application-installs-updates-and-removes-studio.md`). A
+distribution named `vibepy-studio` is therefore refused as already installed, which it is. The
+folder is not announced to the App: it is the child process's working directory and nothing more,
+and an App that needs a path it knows about declares a configuration field for it.
+
 ### This layer's capabilities
 
 Because the layer is an App rather than a capability inside the framework, its capabilities are

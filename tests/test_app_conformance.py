@@ -2,7 +2,7 @@
 
 An invalid declaration cannot exist. Every violation is collected and raised once,
 so an author learns them all from one construction, and nothing downstream checks
-again. `docs/milestones/M16/spec.md`; ADR-037.
+again. `docs/architecture/app-model.md`; ADR-037.
 """
 
 import subprocess
