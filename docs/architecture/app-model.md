@@ -30,6 +30,11 @@ Together these mean importing the root, or any aggregating subpackage, never bri
 loader with it, so a module whose handlers must never reach a blocking call
 (`docs/architecture/runtime.md` says why) cannot reach one by accident. ADR-035 says why.
 
+A public module declares its surface in `__all__`, and every other module is implementation named
+`_x.py`, reachable only from within `vibepy_core`; `ruff`'s `PLC2701` refuses a private import from
+outside the package, so the boundary is held where an import is written rather than by a test after
+the fact (ADR-035, the 2026-09-13 amendment).
+
 ## AppDefinition
 
 `AppDefinition` is static and declarative. A frozen dataclass, generic in the app's own

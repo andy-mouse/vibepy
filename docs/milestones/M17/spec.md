@@ -214,7 +214,7 @@ kept by convention, not enforceable by packaging.
 | `fixtures/timer-app` | one read-only Tool, `probe`: returns `cwd`, `sys.path` and whether a named module imports; the `home` Page declares and renders it, so the running process is what a test reads |
 
 No new module. One new public type in `vibepy_core`: `WindowRecord` and `read_window_record`
-(`vibepy_core.app.record`). The lifespan's exit has to be visible from outside the process, and the
+(`vibepy_core.app._record`, reached as `vibepy_core.app`). The lifespan's exit has to be visible from outside the process, and the
 framework already has the contract for that — a JSON record per line on standard error — so closing
 a window writes one, instead of an App leaving a file behind for a test to find.
 

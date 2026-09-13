@@ -39,7 +39,7 @@ is recorded as `tool.cancelled` and re-raised; `KeyboardInterrupt` and `SystemEx
 recorded, because they end the process and the process reports its own ending (ADR-030).
 
 It is written as `logger.info(record.model_dump_json())` on the logger
-`vibepy_core.tool.runtime`, with the traceback appended when `error.category` is `execution`
+`vibepy_core.tool._runtime`, with the traceback appended when `error.category` is `execution`
 and only then. The framework configures no handler on it; a process that runs the framework does
 (`docs/architecture/packaging.md`, What a command writes to standard error), and a host that
 wants the records elsewhere attaches a handler of its own. `read_invocation_record` reads a line
