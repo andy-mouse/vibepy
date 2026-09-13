@@ -419,11 +419,24 @@ async def board(ctx: PageContext) -> None:
         close_config(view.app_name)
         await reread()
 
+    def redraw_panel(app_name: str, /) -> None:
+        """Draw one row's configuration panel again, or forget it if the row has left.
+
+        Every handler that changes a panel ends here, and a handler runs across
+        an await: the clock can rebuild the rows while one is in flight, and a
+        row the listing no longer carries has no panel to draw and no draft to
+        keep.
+        """
+        redraw = panels.get(app_name)
+        if redraw is None:
+            open_panel.pop(app_name, None)
+            return
+        redraw()
+
     def close_config(app_name: str, /) -> None:
         """Close one row's configuration panel, wherever it was closed from."""
         open_panel.pop(app_name, None)
-        if app_name in panels:
-            panels[app_name]()
+        redraw_panel(app_name)
 
     async def toggle_config(view: RowView) -> None:
         """Open this row's configuration panel, or close the open one."""
@@ -433,7 +446,7 @@ async def board(ctx: PageContext) -> None:
                 for other in list(open_panel):
                     close_config(other)
                 open_panel[view.app_name] = PanelShown(described=described, draft=_draft(described))
-        panels[view.app_name]()
+        redraw_panel(view.app_name)
 
     async def save(view: RowView, panel: PanelShown) -> None:
         """Send what the draft holds to `configure_app`, or name what it lacks.
@@ -490,7 +503,7 @@ async def board(ctx: PageContext) -> None:
                     # the name beside it is a `<span>`, which cannot be typed into.
                     entry.mark(f"field-{view.app_name}-{field.name}")
             error = ui.element("div").classes("operating-config-error")
-            panel.visibility(error, bool)
+            panel.visibility(error, _lacks_anything)
             with error:
                 _text("span", "config.invalid", "operating-code")
                 message = _text("span", "")
@@ -609,6 +622,11 @@ async def board(ctx: PageContext) -> None:
             binding.remove(held)
         panel_bound.clear()
         panels.clear()
+        # An App can leave the listing by a path that is nobody's button -- a
+        # wheel removed, the folder unregistered, an uninstall in another
+        # window. What it was holding in its panel goes with it.
+        for gone in set(open_panel) - set(shown.board.names):
+            open_panel.pop(gone)
         if not shown.board.rows:
             draw_empty()
             return
@@ -674,6 +692,11 @@ def _empty_line(view: BoardView, /) -> str:
         if view.registered
         else "Choose a package folder above to see available apps."
     )
+
+
+def _lacks_anything(lacking: Sequence[str], /) -> bool:
+    """Say whether a panel has anything to name as missing."""
+    return bool(lacking)
 
 
 def _lacking_line(lacking: Sequence[str], /) -> str:

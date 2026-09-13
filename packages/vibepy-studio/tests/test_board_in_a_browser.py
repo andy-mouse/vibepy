@@ -129,4 +129,6 @@ async def test_the_clock_leaves_the_screen_where_the_reader_left_it(
         screen.wait(2 * REFRESH_SECONDS + 0.5)
         screen.should_not_contain("demo-app-9")
 
+    # Without a list long enough to scroll, the half above would say nothing.
+    assert scrolled
     assert still_there == [scrolled, True]

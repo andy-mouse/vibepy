@@ -2,6 +2,7 @@
 role's Tools."""
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Mapping
 from pathlib import Path, PurePath
 
@@ -192,6 +193,9 @@ class Listings:
     def __init__(self, listed: AppListing) -> None:
         """Answer with `listed` until something else is put in its place."""
         self.listed = listed
+        self.described = asyncio.Event()
+        """Held closed to keep a `describe_config` in flight while the clock ticks."""
+        self.described.set()
 
     def invoke(
         self, name: str, raw_input: Mapping[str, object], /, *, principal: Principal
@@ -200,6 +204,7 @@ class Listings:
 
         async def answered() -> BaseModel:
             if name == "describe_config":
+                await self.described.wait()
                 return ConfigDescription(app_name=str(raw_input["app_name"]), fields=FIELDS)
             assert name == "list_apps", name
             return self.listed
@@ -339,3 +344,50 @@ async def test_an_empty_board_says_why_it_is_empty_after_a_tick(
 
     await user.should_see("No package folder selected")
     await user.should_not_see("No apps found")
+
+
+async def test_an_app_that_leaves_the_board_takes_its_open_panel_with_it(
+    user: User, fast_clock: None
+) -> None:
+    """A draft belongs to a row; a row the listing drops keeps nothing.
+
+    An App leaves by paths that are nobody's button -- its wheel removed, the
+    folder unregistered, an uninstall in another window -- and what was typed
+    into its panel must not be waiting, filled in, if it comes back.
+    """
+    listed = Listings(listing(app_row("demo-app", "installed"), app_row("other-app", "installed")))
+    board_over(listed)
+    await user.open("/")
+    user.find(marker="configure-demo-app").click()
+    await user.should_see("api_base_url")
+    user.find(marker="field-demo-app-api_base_url").type("https://notes.internal")
+
+    listed.listed = listing(app_row("other-app", "installed"))
+    await ticked()
+    await user.should_not_see("api_base_url")
+
+    listed.listed = listing(app_row("demo-app", "installed"), app_row("other-app", "installed"))
+    await ticked()
+
+    await user.should_see("demo-app")
+    await user.should_not_see("api_base_url")
+
+
+async def test_a_row_leaving_while_its_panel_opens_is_not_an_error(
+    user: User, fast_clock: None, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Opening a panel runs across an await, and the clock runs during it."""
+    listed = Listings(listing(app_row("demo-app", "installed"), app_row("other-app", "installed")))
+    listed.described.clear()
+    board_over(listed)
+    await user.open("/")
+    user.find(marker="configure-demo-app").click()
+
+    # The App is gone and its row rebuilt before `describe_config` answers.
+    listed.listed = listing(app_row("other-app", "installed"))
+    await ticked()
+    listed.described.set()
+    await ticked()
+
+    assert [record.message for record in caplog.records if record.levelno >= logging.ERROR] == []
+    await user.should_see("other-app")
