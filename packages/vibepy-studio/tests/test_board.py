@@ -22,6 +22,7 @@ from vibepy_core.app import (
 from vibepy_core.page import PageRuntime
 from vibepy_core.principal import Principal
 from vibepy_studio.entry import APP, STUDIO_APP
+from vibepy_studio.operating.host import PlatformUnsupported
 from vibepy_studio.operating.models import AppListing, AppRow, ConfigDescription
 from vibepy_studio.operating.pages import board
 
@@ -35,9 +36,40 @@ def operating_pages(root: Path):
     )
 
 
-async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path) -> None:
+def dialog_answers(
+    monkeypatch: pytest.MonkeyPatch, answer: PurePath | Exception | None, /
+) -> list[str]:
+    """Replace the board's one host-operation seam, and collect the titles it was given.
+
+    `choose_folder` opens a window on the machine Studio runs on, so no test
+    calls the real one. The board reaches it through its own module name, which
+    is the seam its docstring names.
+    """
+    titles: list[str] = []
+
+    async def chosen(*, title: str) -> PurePath | None:
+        titles.append(title)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(board, "choose_folder", chosen)
+    return titles
+
+
+def register_button(user: User) -> ui.html:
+    """The Register folder button, whatever it currently says."""
+    found = user.find(marker="register-folder").elements.pop()
+    assert isinstance(found, ui.html)
+    return found
+
+
+async def test_the_board_registers_the_folder_the_dialog_answered(
+    user: User, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     source = tmp_path / "wheels"
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
+    titles = dialog_answers(monkeypatch, PurePath(source))
 
     async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
@@ -45,11 +77,72 @@ async def test_the_board_shows_what_list_apps_answers(user: User, tmp_path: Path
         await user.should_see("No folder registered")
         await user.should_see("No package folder selected")
 
-        user.find(marker="package-folder").type(str(source))
-        user.find("Register").click()
+        user.find(marker="register-folder").click()
         await user.should_see("demo-app")
         await user.should_see("v1.2.3")
         await user.should_see("Install")
+
+    assert titles == [board.CHOOSE_TITLE]
+
+
+async def test_cancelling_the_dialog_registers_nothing(
+    user: User, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cancelling is an answer, so the board is left exactly as it was."""
+    write_wheel(tmp_path / "wheels", name="demo-app", version="1.2.3", declares=True)
+    dialog_answers(monkeypatch, None)
+
+    async with operating_pages(tmp_path / "root") as pages:
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
+        await user.open("/")
+        await user.should_see("No folder registered")
+
+        user.find(marker="register-folder").click()
+        await user.should_not_see("demo-app")
+        await user.should_see("No folder registered")
+        await user.should_see("No package folder selected")
+
+
+async def test_the_button_says_it_is_working_while_the_dialog_is_open(
+    user: User, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The dialog is a window on the desktop, so the control that opened it waits visibly."""
+    opened = asyncio.Event()
+    holding = asyncio.Event()
+
+    async def chosen(*, title: str) -> PurePath | None:
+        opened.set()
+        await holding.wait()
+        return None
+
+    monkeypatch.setattr(board, "choose_folder", chosen)
+
+    async with operating_pages(tmp_path / "root") as pages:
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
+        await user.open("/")
+        user.find(marker="register-folder").click()
+        await asyncio.wait_for(opened.wait(), timeout=5)
+
+        assert register_button(user).content == board.CHOOSING_LABEL
+
+        holding.set()
+        await user.should_see(board.REGISTER_LABEL)
+
+
+async def test_a_dialog_that_cannot_be_shown_is_said_and_the_button_comes_back(
+    user: User, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A host failure is not a Tool's diagnostic, so it is said rather than bound."""
+    dialog_answers(monkeypatch, PlatformUnsupported("linux"))
+
+    async with operating_pages(tmp_path / "root") as pages:
+        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
+        await user.open("/")
+
+        user.find(marker="register-folder").click()
+        await user.should_see("Could not open the folder dialog")
+        await user.should_see("No folder registered")
+        assert register_button(user).content == board.REGISTER_LABEL
 
 
 @pytest.mark.apps("vibepy-notes")
