@@ -198,25 +198,25 @@ Acceptance:
 
 ## M18 - Channels are media
 
-Name a channel by the medium it serves through, not by who is on it, and split a Page into one channel-neutral declaration and one implementation per channel that renders it. `Channel` becomes `web` and `mcp`, with the extras, the records and `describe` carrying the same names; `route` moves from `PageDefinition` into the Web implementation. ADR-041 decides this.
+Name a channel by the medium it serves through, not by who is on it, and make the human-facing surface a View: one channel-neutral declaration and one implementation per channel that renders it, of which the Web channel's is the Page. `Channel` becomes `web` and `mcp`, with the extras, the records and `describe` carrying the same names; `route` moves from the declaration into the Web implementation. ADR-041 decides this.
 
 Acceptance:
-- a Page is declared once as name, title and tools, and carries one implementation per channel that renders it; a Page with no implementation is refused as the AppDefinition is constructed
+- a View is declared once as name, title and tools, and carries one implementation per channel that renders it; a View with no implementation is refused as the AppDefinition is constructed
 - the route belongs to the Web implementation, and a duplicate or malformed route is still refused at construction under its existing error code
-- a Page's declared Tools exist and are exposed on every channel the Page is implemented for
+- a View's declared Tools exist and are exposed on every channel the View is implemented for
 - `Channel` names `web` and `mcp`; the optional-dependency extras, InvocationRecord, WindowRecord and `describe` carry those names and no other
-- the App / Tool / Page programming contract is otherwise unchanged, and every shipped App passes the gate with its route moved and nothing else
+- the App / Tool / View programming contract is otherwise unchanged, and every shipped App passes the gate with its View renamed, its route moved and nothing else
 
 
 ## M19 - MCP Apps
 
-Implement a Page for the MCP channel: an HTML asset beside the declaring module and the Tools that open it, projected by the MCP adapter as a `ui://` resource and `_meta.ui` on those Tools per SEP-1865, emitted only to a client that advertised `io.modelcontextprotocol/ui`. Rendering is the host's; the framework declares and projects.
+Implement a View for the MCP channel: an HTML asset beside the declaring module and the Tools that open it, projected by the MCP adapter as a `ui://` resource and `_meta.ui` on those Tools per SEP-1865, emitted only to a client that advertised `io.modelcontextprotocol/ui`. Rendering is the host's; the framework declares and projects.
 
 Acceptance:
-- an App with Tools and no Web channel declares a Page implemented for MCP, and its dependency tree carries no Web technology
-- a client advertising the extension sees `_meta.ui.resourceUri` on each Tool that opens the Page and reads the `ui://` resource as `text/html;profile=mcp-app`; a client not advertising it sees neither, and every Tool answers with text as before
-- the Tools a Page declares are projected as `visibility`; a Tool that opens two Pages is refused as the AppDefinition is constructed
-- ordinary MCP Tool operation is unchanged for every App that declares no such Page
+- an App with Tools and no Web channel declares a View implemented for MCP, and its dependency tree carries no Web technology
+- a client advertising the extension sees `_meta.ui.resourceUri` on each Tool that opens the View and reads the `ui://` resource as `text/html;profile=mcp-app`; a client not advertising it sees neither, and every Tool answers with text as before
+- the Tools a View declares are projected as `visibility`; a Tool that opens two Views is refused as the AppDefinition is constructed
+- ordinary MCP Tool operation is unchanged for every App that declares no such View
 - no channel-neutral rendering or UI abstraction is introduced; the HTML is the App author's
 
 
@@ -226,7 +226,7 @@ A fresh Agent session builds an Issue Tracker app using docs + Authoring MCP, va
 
 Acceptance:
 - a fresh coding agent can complete the intended App authoring loop using Vibepy guidance and Authoring MCP
-- the resulting App follows App / Tool / Page architectural invariants
+- the resulting App follows App / Tool / View architectural invariants
 - the App can be validated, run, tested, packaged, and installed through the supported framework flow
 
 
