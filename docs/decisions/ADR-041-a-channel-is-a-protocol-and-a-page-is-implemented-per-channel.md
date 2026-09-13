@@ -68,6 +68,13 @@ Alternatives considered and not taken:
   false by making Page the NiceGUI one.
 - A field on `ToolDefinition` naming a presentation asset. One consumer, and the relation runs
   the other way: a surface names the Tools that open it, as a Page names the Tools it calls.
+- Naming the channels by who runs their process, `app` for the one Studio starts and `mcp` for
+  the one an agent platform starts (owner, 2026-09-14). The distinction is real and is already
+  owned: ADR-020 gives the channel's host the runtime lifecycle and ADR-010 gives the agent
+  platform the stdio MCP process. It is a deployment fact, not what the adapter is written
+  against, and the two axes coincide only while MCP is stdio; over streamable HTTP Studio could
+  host an MCP process. `App` is also the framework's word for the unit of packaging and the
+  specification's word for the embedded UI. The host stays the lifecycle document's axis.
 - Renaming Page. The specification does not use the word, and calls its own embedded UI an
   "embedded page". Every candidate with no collision in this repository collides with an
   authority (`nicegui.testing.Screen`, `ui.scene`, `ui.tab_panel`) or with the repository's own
