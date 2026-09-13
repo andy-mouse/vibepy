@@ -43,5 +43,5 @@ ADR-010 already places an entrypoint in package metadata rather than in runtime 
   inspecting a package still means reading declarations, and running one was always going to mean
   executing something the package names
 - what a app may declare *about* its host — configuration schema, secret names, required
-  capabilities — is a different kind of statement and a real declaration. It is M8 and M19
+  capabilities — is a different kind of statement and a real declaration. It is M8 and M21
   territory, and this decision leaves room for it by keeping the definition free of assembly

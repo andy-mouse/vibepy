@@ -63,7 +63,7 @@ environment's interpreter and reading JSON from its standard output.
 - the group name is metadata read as a string. It imports nothing and claims no distribution
   name on any index, so an App built on this framework acquires no dependency on any name being
   available on PyPI
-- one group is defined. M19's Skill and MCP-server payloads declare further groups the same way,
+- one group is defined. M21's Skill and MCP-server payloads declare further groups the same way,
   and this decision fixes how
 - an entrypoint that cannot be resolved and an entrypoint that resolves to the wrong kind of
   object are different failures with different codes, so a Host can tell a broken installation

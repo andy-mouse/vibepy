@@ -30,7 +30,7 @@ created. `vibepy-hub` is renamed, not kept beside it.
 - the Hub's Tools, state and vocabulary are Studio's consumption role and keep the name Hub where
   a human sees it; the Studio's package is organised by role, `consumption` and `authoring`
 - until per-channel exposure exists (`docs/roadmap.md` M14), every Studio Tool appears on both
-  channels; M14 decides exposure with the authoring loop of M18 as its measure
+  channels; M14 decides exposure with the authoring loop of M20 as its measure
 - an installed App's environment holds the framework and that App, and never Studio — as ADR-024
   already required of the Hub
 - the mechanisms both roles share — a child-process runner, a describer, a failure reader — are

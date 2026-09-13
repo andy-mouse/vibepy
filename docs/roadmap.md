@@ -196,7 +196,31 @@ Acceptance:
 - isolation does not change the App / Tool / Page programming contract
 
 
-## M18 - Agent dogfooding
+## M18 - Channels are protocols
+
+Name a channel by the protocol it speaks, not by who is on it, and split a Page into one channel-neutral declaration and one implementation per channel that renders it. `Channel` becomes `web` and `mcp`, with the extras, the records and `describe` carrying the same names; `route` moves from `PageDefinition` into the Web implementation. ADR-041 decides this.
+
+Acceptance:
+- a Page is declared once as name, title and tools, and carries one implementation per channel that renders it; a Page with no implementation is refused as the AppDefinition is constructed
+- the route belongs to the Web implementation, and a duplicate or malformed route is still refused at construction under its existing error code
+- a Page's declared Tools exist and are exposed on every channel the Page is implemented for
+- `Channel` names `web` and `mcp`; the optional-dependency extras, InvocationRecord, WindowRecord and `describe` carry those names and no other
+- the App / Tool / Page programming contract is otherwise unchanged, and every shipped App passes the gate with its route moved and nothing else
+
+
+## M19 - MCP Apps
+
+Implement a Page for the MCP channel: an HTML asset beside the declaring module and the Tools that open it, projected by the MCP adapter as a `ui://` resource and `_meta.ui` on those Tools per SEP-1865, emitted only to a client that advertised `io.modelcontextprotocol/ui`. Rendering is the host's; the framework declares and projects.
+
+Acceptance:
+- an App with Tools and no Web channel declares a Page implemented for MCP, and its dependency tree carries no Web technology
+- a client advertising the extension sees `_meta.ui.resourceUri` on each Tool that opens the Page and reads the `ui://` resource as `text/html;profile=mcp-app`; a client not advertising it sees neither, and every Tool answers with text as before
+- the Tools a Page declares are projected as `visibility`; a Tool that opens two Pages is refused as the AppDefinition is constructed
+- ordinary MCP Tool operation is unchanged for every App that declares no such Page
+- no channel-neutral rendering or UI abstraction is introduced; the HTML is the App author's
+
+
+## M20 - Agent dogfooding
 
 A fresh Agent session builds an Issue Tracker app using docs + Authoring MCP, validates, runs, tests, packages, and installs it.
 
@@ -206,7 +230,7 @@ Acceptance:
 - the App can be validated, run, tested, packaged, and installed through the supported framework flow
 
 
-## M19 - Connector dependencies and optional Skills
+## M21 - Connector dependencies and optional Skills
 
 Add portable external capability metadata such as email.search/calendar.search/document.search and generate Agent/MCP guidance. Skills remain optional and outside MVP core unless proven necessary. An App's wheel may also carry an MCP server registration and Skills for agent platforms (Claude Code, Codex) whose configuration the platform owns; the Hub installs, removes and updates them with the App and observes the platform rather than keeping a record.
 
@@ -218,7 +242,7 @@ Acceptance:
 - an installable removed on its platform outside the Hub is a diagnostic on the App's row, restored only by an explicit repair; an absent platform makes it not applicable, not a diagnostic
 
 
-## M20 - Production hardening
+## M22 - Production hardening
 
 Add timeouts, idempotency, rate limits, retries where appropriate, graceful shutdown, health checks, migrations/compatibility, signed packages/security scanning, and operational hardening.
 
