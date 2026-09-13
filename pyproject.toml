@@ -105,7 +105,7 @@ convention = "pep257"
 "fixtures/**" = ["D"]
 
 [tool.pyright]
-include = ["src", "tests", "packages", "fixtures"]
+include = ["src", "tests", "packages", "fixtures", "scripts"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 

@@ -16,7 +16,7 @@ from pathlib import Path
 
 from fetch_traefik import TOOLS, VERSION
 
-from vibepy_core import environment_for
+from vibepy_core.app.config import environment_for
 from vibepy_studio.entry import APP_ID
 
 REPO = Path(__file__).resolve().parents[1]
