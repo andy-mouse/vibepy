@@ -12,6 +12,11 @@ from vibepy_studio.operating.internals.configuration import (
     without_secrets,
 )
 from vibepy_studio.operating.internals.deps import StudioDeps
+from vibepy_studio.operating.internals.dialogs import (
+    FolderDialogFailed,
+    PlatformUnsupported,
+    choose_folder,
+)
 from vibepy_studio.operating.internals.installer import (
     ENV_DIR,
     AppNameInvalid,
@@ -50,8 +55,10 @@ __all__ = [
     "AlreadyStarted",
     "AppNameInvalid",
     "Candidate",
+    "FolderDialogFailed",
     "InstallFailed",
     "OperatingState",
+    "PlatformUnsupported",
     "Processes",
     "StartFailed",
     "StudioDeps",
@@ -60,6 +67,7 @@ __all__ = [
     "allocate",
     "app_folder",
     "candidates",
+    "choose_folder",
     "declarations",
     "describe",
     "environment",
