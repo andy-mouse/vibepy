@@ -47,6 +47,15 @@ Choosing a folder is an operation of the operating role's internals, beside the 
 children and read the wheelhouse. It answers with a path or with nothing, because cancelling is
 an answer and not a failure.
 
+A host operation is not a Tool, and the operating role's Web implementation calls it directly.
+A Tool is channel-neutral (ADR-001), and this is not: a Tool that opens a modal window on the
+server's desktop means nothing to an agent on the other end of an MCP connection, and the only
+way to make it mean something would be to have it behave differently per channel, which is the
+one thing a Tool must not do. Nor is it business state: nothing about an App changes because a
+dialog was shown, so ADR-002's rule that a Page does not bypass a Tool for a state change is not
+in play. What the operator picked becomes an argument to the Tool that registers the wheelhouse,
+and that Tool is channel-neutral as it was — an agent passes the path it already knows.
+
 Rejected: **NiceGUI's native mode**, which changes how Studio's window opens and couples the way
 the operator sees Studio to a decision ADR-040 has taken but not yet built; **a folder browser
 rendered in the page**, which is not the operating system's dialog — it would be a second file

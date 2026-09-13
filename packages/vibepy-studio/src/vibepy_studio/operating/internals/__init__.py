@@ -1,7 +1,11 @@
 """The operating role's own internals: its window's resource, and its domain work.
 
-A Tool handler reaches them through its ToolContext and nothing else does, and
-`entry.py` reaches `StudioDeps` to build the window. Every operation exported
+A Tool handler reaches its domain work through its ToolContext, and `entry.py`
+reaches `StudioDeps` to build the window. The exception is a host operation --
+something Studio's process does with the machine it is installed on, such as
+opening a folder dialog on its desktop. That is not channel-neutral and so is
+not a Tool (ADR-042), and the operating role's Web implementation calls it
+directly. Every operation exported
 here is `async` or pure (`docs/architecture/runtime.md`).
 """
 

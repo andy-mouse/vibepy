@@ -63,8 +63,11 @@ class PlatformUnsupported(FolderDialogFailed):
         self.platform = platform
 
 
-CANCELLED = "-128"
-"""AppleScript's user-canceled error number, as `osascript` writes it to standard error."""
+CANCELLED = "(-128)"
+"""AppleScript's user-canceled error, as `osascript` writes it to standard error.
+
+Parenthesised, because the number is tested for as a substring and a bare
+`-128` also sits inside `-1283`."""
 
 
 def _applescript_string(text: str, /) -> str:
@@ -78,14 +81,21 @@ def _applescript_string(text: str, /) -> str:
 
 
 def _choose_folder_on_macos(title: str, /) -> PurePath | None:
-    """Show `choose folder` through `osascript` and return what it printed."""
+    """Show `choose folder` through `osascript` and return what it printed.
+
+    `title` is the dialog's `with prompt`, which Standard Additions shows as the
+    message above the list; it has no window-title parameter.
+    """
     script = f"POSIX path of (choose folder with prompt {_applescript_string(title)})"
-    done = subprocess.run(
-        ["osascript", "-e", script],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        done = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise FolderDialogFailed(f"osascript could not be run: {error}") from error
     if done.returncode != 0:
         if CANCELLED in done.stderr:
             return None
@@ -147,9 +157,8 @@ if sys.platform == "win32":
         """
         table: Any = ctypes.cast(interface, ctypes.POINTER(ctypes.c_void_p))
         methods: Any = ctypes.cast(ctypes.c_void_p(table[0]), ctypes.POINTER(ctypes.c_void_p))
-        prototype: Any = ctypes.WINFUNCTYPE(
-            ctypes.c_long, ctypes.c_void_p, *(type(argument) for argument in arguments)
-        )
+        argtypes: list[Any] = [type(argument) for argument in arguments]
+        prototype: Any = ctypes.WINFUNCTYPE(ctypes.c_long, ctypes.c_void_p, *argtypes)
         return int(prototype(methods[slot])(interface, *arguments))
 
     def _checked(result: int, call: str, /) -> None:
@@ -159,6 +168,10 @@ if sys.platform == "win32":
 
     def _show_folder_dialog(title: str, /) -> str | None:
         """Show the Common Item Dialog in folder-picking mode on this thread.
+
+        `title` is `IFileDialog::SetTitle`, which is the window's title bar --
+        not the same place macOS puts it, which is why `choose_folder` promises
+        only that the dialog is named.
 
         The seam a test replaces: everything below it is the platform, and
         everything above it is ours.
@@ -230,7 +243,10 @@ if sys.platform == "win32":
     def _guid(ole32: Any, text: str, /) -> "ctypes.Structure":
         """Parse a registry-format GUID into the 16 bytes COM takes."""
         parsed = _Guid()
-        _checked(ole32.CLSIDFromString(ctypes.c_wchar_p(text), ctypes.byref(parsed)), text)
+        _checked(
+            ole32.CLSIDFromString(ctypes.c_wchar_p(text), ctypes.byref(parsed)),
+            f"CLSIDFromString({text})",
+        )
         return parsed
 
     def _choose_folder_on_windows(title: str, /) -> PurePath | None:
@@ -242,10 +258,13 @@ if sys.platform == "win32":
 async def choose_folder(*, title: str) -> PurePath | None:
     """Ask the operator for a folder with this platform's own dialog.
 
-    `title` names the dialog. The answer is the chosen folder, or `None` when the
-    operator cancelled — which is an answer, not a failure. Raises
-    `PlatformUnsupported` where Studio has no dialog, and `FolderDialogFailed`
-    when the platform's own dialog did not work.
+    `title` names the dialog, in the place each platform has for naming one:
+    Windows puts it in the title bar and macOS shows it as the message above the
+    list, so it reads as a sentence to the operator either way. The answer is
+    the chosen folder, or `None` when the operator cancelled — which is an
+    answer, not a failure. Raises `PlatformUnsupported` where Studio has no
+    dialog, and `FolderDialogFailed` when the platform's own dialog did not
+    work, including when it could not be shown at all.
 
     The dialog is modal and holds its thread until the operator is done, so it
     runs in one of `asyncio`'s.

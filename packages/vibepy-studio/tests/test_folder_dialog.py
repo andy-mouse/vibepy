@@ -39,7 +39,7 @@ def _osascript(
 
 @macos_only
 async def test_the_chosen_folder_is_the_answer(monkeypatch: pytest.MonkeyPatch) -> None:
-    _osascript(monkeypatch, returncode=0, stdout="/Users/op/wheels\n")
+    _osascript(monkeypatch, returncode=0, stdout="/Users/op/wheels/\n")
 
     assert str(await choose_folder(title="Pick")) == "/Users/op/wheels"
 
@@ -54,6 +54,32 @@ async def test_cancelling_is_an_answer_and_not_a_failure(monkeypatch: pytest.Mon
 @macos_only
 async def test_a_dialog_that_failed_is_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
     _osascript(monkeypatch, returncode=1, stderr="execution error: Not authorised. (-1743)")
+
+    with pytest.raises(FolderDialogFailed):
+        await choose_folder(title="Pick")
+
+
+@macos_only
+async def test_an_error_number_that_merely_contains_the_cancel_one_is_a_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`-128` sits inside `-1283`, so the cancel test is for the whole number."""
+    _osascript(monkeypatch, returncode=1, stderr="execution error: Something else. (-1283)")
+
+    with pytest.raises(FolderDialogFailed):
+        await choose_folder(title="Pick")
+
+
+@macos_only
+async def test_an_osascript_that_cannot_be_run_is_a_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An absent or unexecutable `osascript` is the platform failing, not a new exception type."""
+
+    def missing(command: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError(2, "No such file or directory", "osascript")
+
+    monkeypatch.setattr(subprocess, "run", missing)
 
     with pytest.raises(FolderDialogFailed):
         await choose_folder(title="Pick")
