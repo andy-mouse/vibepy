@@ -119,7 +119,12 @@ An update keeps what the operating role holds for an App — its configuration v
 route — and what the App wrote beside its environment — and remakes only the environment. A
 running App is refused rather than restarted.
 
-The operating role's Web channel is one Page, `board` at `/`, over these Tools and nothing else: it reads
+The operating role also acts on the machine it runs on — asking the operator for a folder with
+that machine's own dialog — and those are not Tools, because they are not channel-neutral
+(`docs/decisions/ADR-042-the-package-folder-is-chosen-with-the-operating-systems-folder-dialog.md`).
+
+The operating role's Web channel is one Page, `board` at `/`, over these Tools and the host
+operations above: it reads
 `list_apps` on a timer and binds what it draws to the answer, so what it shows is the operating role's core
 state rather than the last thing that tab did, and a reading that says nothing new moves nothing on the
 screen.

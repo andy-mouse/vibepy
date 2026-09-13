@@ -11,6 +11,13 @@ controls, an open configuration panel -- is behind a `@ui.refreshable`.
 
 The rules of what to draw are `presentation.py`'s, and what it looks like is
 `board.css`.
+
+Everything the board does to the operating role's state goes through a Tool, and
+a test scripts those by handing the Page runtime its own invoker. One thing does
+not: choosing the package folder opens a dialog on the machine Studio runs on,
+which is a host operation and not a Tool (ADR-042), so it comes from
+`operating/host.py` rather than through `ctx.tools`. `choose_folder`, bound as
+this module's own name, is the one seam a test replaces for it.
 """
 
 import logging
@@ -23,6 +30,7 @@ from nicegui import binding, ui
 
 from vibepy_core import ConfigFieldType, Page, PageContext, PageDefinition
 from vibepy_core.errors import ErrorInfo
+from vibepy_studio.operating.host import FolderDialogFailed, choose_folder
 from vibepy_studio.operating.models import (
     AppListing,
     ConfigDescription,
@@ -58,6 +66,10 @@ TONE_CLASSES = {
     "plain": "",
 }
 """What each rail tone looks like. `presentation.py` decides the tone; this only paints it."""
+
+REGISTER_LABEL = "Register folder"
+CHOOSING_LABEL = "Choosing…"
+CHOOSE_TITLE = "Choose the package folder"
 
 SUMMARY_LABELS = ("Available", "Installed", "Running")
 COLUMN_LABELS = ("App", "Lifecycle", "Action")
@@ -156,6 +168,23 @@ class PanelShown:
         binding.bind_from(target, name, self, "lacking", read)
 
 
+@binding.bindable_dataclass
+class RegistryShown:
+    """What the registry card shows that no listing says.
+
+    Whether the operator is being asked for a folder is this tab's own fact: it
+    is not the operating role's state, no listing carries it, and a second
+    window must not show this one's dialog. It is state all the same, so the
+    control that waits on it is bound to it rather than reached into.
+    """
+
+    choosing: bool = False
+
+    def into(self, target: object, name: str, read: Callable[[bool], object], /) -> None:
+        """Keep `target`'s `name` a function of whether a folder is being chosen."""
+        binding.bind_from(target, name, self, "choosing", read)
+
+
 class Shape:
     """Rebuild one refreshable when the shape it drew changes.
 
@@ -228,6 +257,36 @@ class Invalid:
         self._field.classes(add="is-invalid" if value else "", remove="" if value else "is-invalid")
 
 
+class Busy:
+    """Put one button in its working state while what it started is in flight.
+
+    Like `Tone` and `Invalid`: what a plain `<button>` says and whether it is
+    disabled are not bindable properties, so this holds the setter and is bound
+    like any other value.
+    """
+
+    def __init__(self, button: ui.html, label: str, working: str) -> None:
+        """Hold the button, what it says at rest, and what it says while working."""
+        self._button = button
+        self._label = label
+        self._working = working
+        self._busy = False
+
+    @property
+    def busy(self) -> bool:
+        """Whether the button is in its working state."""
+        return self._busy
+
+    @busy.setter
+    def busy(self, value: bool) -> None:
+        self._busy = value
+        self._button.set_content(escape(self._working if value else self._label))
+        if value:
+            self._button.props(add="disabled")
+        else:
+            self._button.props(remove="disabled")
+
+
 def _text(tag: str, value: str, classes: str = "") -> ui.html:
     """Write one piece of text into the tag the stylesheet dresses it as."""
     element = ui.html(escape(value), tag=tag)
@@ -277,6 +336,10 @@ async def board(ctx: PageContext) -> None:
     clears its own, keyed by the row it belongs to, as `rows` clears the set's."""
     bound: list[object] = []
     """The binding targets of the rows now on the screen, dropped when they are."""
+    registry_bound: list[object] = []
+    """The binding targets of the registry's controls, dropped when they are redrawn."""
+    registry = RegistryShown()
+    """What the registry card shows that no listing says."""
     dialogs = ui.column()
     """Where a confirmation lives: outside every part a refresh rebuilds."""
 
@@ -330,17 +393,32 @@ async def board(ctx: PageContext) -> None:
                         shown.text(count, lambda view, at=index: str(view.counts[at]))
                         _text("span", label, "operating-summary-label")
 
-    async def register(path: str | None) -> None:
-        """Register one folder of wheels as the package source.
+    async def register() -> None:
+        """Ask the operator for a folder with this machine's own dialog, and register it.
 
-        An empty box is answered here rather than sent: what the Tool would
-        raise is `tool.input_invalid`, and an empty input is a presentation
-        check, not a business rule.
+        What the dialog answers is a plain argument to the Tool, which is the
+        same Tool an agent calls with a path it already knows (ADR-042).
+        Cancelling is an answer: nothing is registered and nothing moves.
+
+        A dialog that could not be shown is this machine failing, not a Tool. It
+        carries no `ErrorInfo` -- there is no code for it, and inventing one
+        would claim a framework contract that does not exist -- so it is said on
+        the board's transient line, where `call` already says what a Tool
+        answered badly, rather than on the diagnostic line that shows what the
+        listing carries.
         """
-        if not (path or "").strip():
-            ui.notify("Enter a folder path")
+        registry.choosing = True
+        try:
+            chosen = await choose_folder(title=CHOOSE_TITLE)
+        except FolderDialogFailed as error:
+            logger.warning("The folder dialog could not be shown.", exc_info=error)
+            ui.notify(f"Could not open the folder dialog: {error}", type="warning")
             return
-        answer = await call("register_package_source", {"path": path})
+        finally:
+            registry.choosing = False
+        if chosen is None:
+            return
+        answer = await call("register_package_source", {"path": str(chosen)})
         if isinstance(answer, SourceListing) and answer.diagnostic is None:
             ui.notify(f"{len(answer.candidates)} apps available from {answer.source}.")
         await reread()
@@ -368,10 +446,11 @@ async def board(ctx: PageContext) -> None:
             binder.text(message, lambda state: _said_by(read(state), lambda info: info.message))
 
     def draw_registry() -> None:
-        """Draw the source card: a path and Unregister, or a box and Register folder.
+        """Draw the source card: a path and Unregister, or Register folder.
 
         Which of the two the card offers is its shape, so that much is
-        refreshable; the folder it names is a value, and is bound.
+        refreshable; the folder it names is a value, and is bound, as is whether
+        the button is waiting on a dialog.
         """
         with ui.element("section").classes("operating-registry"):
             with ui.element("div"):
@@ -382,19 +461,22 @@ async def board(ctx: PageContext) -> None:
 
                 @ui.refreshable
                 def controls() -> None:
+                    binding.remove(registry_bound)
+                    registry_bound.clear()
                     if shown.board.registered:
                         _button("Unregister", "operating-secondary", on_click=unregister)
                         return
-                    entry = ui.input(placeholder="package folder")
-                    entry.classes("operating-registry-entry").props("dense borderless")
-                    # The empty state names a package folder too, so the box is
-                    # reached by a marker rather than by its placeholder.
-                    entry.mark("package-folder")
-                    _button(
-                        "Register folder",
+                    # The empty state names a package folder too, so the button
+                    # is reached by a marker rather than by what it says.
+                    button = _button(
+                        REGISTER_LABEL,
                         "operating-primary",
-                        on_click=lambda: register(entry.value),
+                        marker="register-folder",
+                        on_click=register,
                     )
+                    working = Busy(button, REGISTER_LABEL, CHOOSING_LABEL)
+                    registry.into(working, "busy", lambda choosing: choosing)
+                    registry_bound.append(working)
 
                 controls()
                 shaped = Shape(controls.refresh, shown.board.registered)

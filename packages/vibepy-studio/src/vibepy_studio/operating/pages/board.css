@@ -499,11 +499,14 @@
   margin-top: 16px;
 }
 
-.vibepy-operating .operating-actions button[disabled] {
+/* Every button on the board is the same `_button`, so a disabled one looks
+   disabled wherever it was drawn -- a row's action, or the registry's Register
+   folder while it waits on the dialog. */
+.vibepy-operating button[disabled] {
   opacity: .45;
   cursor: not-allowed;
 }
-.vibepy-operating .operating-actions button[disabled]:hover { transform: none; }
+.vibepy-operating button[disabled]:hover { transform: none; }
 
 .vibepy-operating .operating-actions {
   display: flex;
@@ -601,14 +604,7 @@ body, body.body--light, body.body--dark {
 .vibepy-operating .operating-app-row > .operating-diagnostic { order: 4; }
 .vibepy-operating .operating-app-row > .operating-config { order: 5; }
 
-/* The package folder is typed into the registry card. Its input wears the same
-   clothes as a configuration field's input. */
-.vibepy-operating .operating-registry-entry {
-  min-width: 260px;
-  padding: 0;
-}
-
-.vibepy-operating .operating-registry-entry .q-field__control,
+/* A configuration field's input, dressed as the board dresses everything else. */
 .vibepy-operating .operating-field .q-field__control {
   min-height: 36px;
   height: 36px;
@@ -618,14 +614,11 @@ body, body.body--light, body.body--dark {
   background: light-dark(#ffffff, #1b2a2f);
 }
 
-.vibepy-operating .operating-registry-entry .q-field__control::before,
-.vibepy-operating .operating-registry-entry .q-field__control::after,
 .vibepy-operating .operating-field .q-field__control::before,
 .vibepy-operating .operating-field .q-field__control::after {
   display: none;
 }
 
-.vibepy-operating .operating-registry-entry .q-field__native,
 .vibepy-operating .operating-field .q-field__native {
   padding: 0;
   color: light-dark(#20363d, #d9e6e8);
@@ -633,13 +626,11 @@ body, body.body--light, body.body--dark {
   font-size: 13px;
 }
 
-.vibepy-operating .operating-registry-entry .q-field__marginal,
 .vibepy-operating .operating-field .q-field__marginal {
   height: 36px;
 }
 
-.vibepy-operating .operating-field .q-field,
-.vibepy-operating .operating-registry-entry .q-field {
+.vibepy-operating .operating-field .q-field {
   width: 100%;
 }
 
