@@ -4,6 +4,7 @@ role's Tools."""
 import asyncio
 import logging
 from collections.abc import Awaitable, Mapping
+from dataclasses import dataclass
 from pathlib import Path, PurePath
 
 import pytest
@@ -36,25 +37,47 @@ def operating_pages(root: Path):
     )
 
 
+@dataclass
+class Dialog:
+    """The folder dialog as a test scripts it: what it was asked, and that it was."""
+
+    titles: list[str]
+    """The title the board gave each time it opened the dialog."""
+    opened: asyncio.Event
+    """Set the first time the board opens it.
+
+    A click hands the handler to the event loop, and cancelling changes nothing
+    on the screen, so reaching the seam is what a test waits for. The fake
+    answers without awaiting, so a handler that has reached it has also run to
+    the end of its step.
+    """
+
+    async def asked(self) -> None:
+        """Wait until the board has opened the dialog."""
+        async with asyncio.timeout(5):
+            await self.opened.wait()
+
+
 def dialog_answers(
     monkeypatch: pytest.MonkeyPatch, answer: PurePath | Exception | None, /
-) -> list[str]:
-    """Replace the board's one host-operation seam, and collect the titles it was given.
+) -> Dialog:
+    """Replace the board's one host-operation seam with one answering `answer`.
 
     `choose_folder` opens a window on the machine Studio runs on, so no test
     calls the real one. The board reaches it through its own module name, which
     is the seam its docstring names.
     """
-    titles: list[str] = []
+    dialog = Dialog(titles=[], opened=asyncio.Event())
 
     async def chosen(*, title: str) -> PurePath | None:
-        titles.append(title)
+        dialog.titles.append(title)
+        dialog.opened.set()
         if isinstance(answer, Exception):
             raise answer
         return answer
 
     monkeypatch.setattr(board, "choose_folder", chosen)
-    return titles
+    return dialog
 
 
 def register_button(user: User) -> ui.html:
@@ -69,7 +92,7 @@ async def test_the_board_registers_the_folder_the_dialog_answered(
 ) -> None:
     source = tmp_path / "wheels"
     write_wheel(source, name="demo-app", version="1.2.3", declares=True)
-    titles = dialog_answers(monkeypatch, PurePath(source))
+    dialog = dialog_answers(monkeypatch, PurePath(source))
 
     async with operating_pages(tmp_path / "root") as pages:
         register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
@@ -82,25 +105,29 @@ async def test_the_board_registers_the_folder_the_dialog_answered(
         await user.should_see("v1.2.3")
         await user.should_see("Install")
 
-    assert titles == [board.CHOOSE_TITLE]
+    assert dialog.titles == [board.CHOOSE_TITLE]
 
 
 async def test_cancelling_the_dialog_registers_nothing(
-    user: User, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    user: User, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Cancelling is an answer, so the board is left exactly as it was."""
-    write_wheel(tmp_path / "wheels", name="demo-app", version="1.2.3", declares=True)
-    dialog_answers(monkeypatch, None)
+    """Cancelling is an answer: no Tool is called at all, and the card is left as it was."""
+    dialog = dialog_answers(monkeypatch, None)
+    listed = Listings(listing(source=None))
+    board_over(listed)
+    await user.open("/")
+    await user.should_see("No folder registered")
 
-    async with operating_pages(tmp_path / "root") as pages:
-        register_pages(STUDIO_APP, pages, principal=Principal(id="operator"))
-        await user.open("/")
-        await user.should_see("No folder registered")
+    user.find(marker="register-folder").click()
+    await dialog.asked()
+    await user.should_see("No folder registered")
+    await user.should_see("No package folder selected")
 
-        user.find(marker="register-folder").click()
-        await user.should_not_see("demo-app")
-        await user.should_see("No folder registered")
-        await user.should_see("No package folder selected")
+    # The dialog was opened, so the handler ran past the seam -- and stopped
+    # there. Without the `chosen is None` guard, `str(None)` would have reached
+    # the Tool, which would answer with a diagnostic and leave the card looking
+    # exactly like this.
+    assert "register_package_source" not in listed.called
 
 
 async def test_the_button_says_it_is_working_while_the_dialog_is_open(
@@ -123,10 +150,13 @@ async def test_the_button_says_it_is_working_while_the_dialog_is_open(
         user.find(marker="register-folder").click()
         await asyncio.wait_for(opened.wait(), timeout=5)
 
-        assert register_button(user).content == board.CHOOSING_LABEL
+        waiting = register_button(user)
+        assert waiting.content == board.CHOOSING_LABEL
+        assert "disabled" in waiting.props
 
         holding.set()
         await user.should_see(board.REGISTER_LABEL)
+        assert "disabled" not in register_button(user).props
 
 
 async def test_a_dialog_that_cannot_be_shown_is_said_and_the_button_comes_back(
@@ -286,6 +316,8 @@ class Listings:
     def __init__(self, listed: AppListing) -> None:
         """Answer with `listed` until something else is put in its place."""
         self.listed = listed
+        self.called: list[str] = []
+        """Every Tool this invoker was asked for, so a test can assert one was not."""
         self.described = asyncio.Event()
         """Held closed to keep a `describe_config` in flight while the clock ticks."""
         self.described.set()
@@ -294,6 +326,7 @@ class Listings:
         self, name: str, raw_input: Mapping[str, object], /, *, principal: Principal
     ) -> Awaitable[BaseModel]:
         """Answer `list_apps`, and what a row's configuration panel opens over."""
+        self.called.append(name)
 
         async def answered() -> BaseModel:
             if name == "describe_config":

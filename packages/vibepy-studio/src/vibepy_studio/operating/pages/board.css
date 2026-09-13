@@ -499,11 +499,14 @@
   margin-top: 16px;
 }
 
-.vibepy-operating .operating-actions button[disabled] {
+/* Every button on the board is the same `_button`, so a disabled one looks
+   disabled wherever it was drawn -- a row's action, or the registry's Register
+   folder while it waits on the dialog. */
+.vibepy-operating button[disabled] {
   opacity: .45;
   cursor: not-allowed;
 }
-.vibepy-operating .operating-actions button[disabled]:hover { transform: none; }
+.vibepy-operating button[disabled]:hover { transform: none; }
 
 .vibepy-operating .operating-actions {
   display: flex;
