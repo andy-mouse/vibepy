@@ -54,6 +54,15 @@ class StudioRoot:
         await asyncio.to_thread(self._own.mkdir, parents=True, exist_ok=True)
         await write_install_config(self._own, proxy_port=proxy_port)
 
+    @property
+    def logs(self) -> PurePath:
+        """Where a child's output is kept, inside Studio's own folder. Reads nothing.
+
+        Offered so that the one join of Studio's folder has one owner: whoever
+        writes there is given the path rather than rebuilding it from the root.
+        """
+        return self._own / "logs"
+
     async def state(self) -> OperatingState:
         """Return the stored state, or an empty one when nothing readable has been stored."""
         return await read_state(self._own)

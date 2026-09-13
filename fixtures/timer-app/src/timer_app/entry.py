@@ -83,6 +83,10 @@ async def probe(_ctx: ToolContext[datetime], payload: Probe) -> Probed:
     Exists so that a test of Studio can read, from inside the running App, what
     Studio let it see. The file is what an App writes when it names a file and
     no folder.
+
+    The concrete `Path` here is deliberate and is not a pattern to copy: this
+    handler's subject is its own working directory and the relative write that
+    resolves against it, which `PurePath` cannot express.
     """
     wrote = Path("probe.txt")
 

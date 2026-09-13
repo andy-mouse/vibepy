@@ -12,6 +12,7 @@ first answer can leave one this window cannot release.
 import asyncio
 import logging
 from collections.abc import Mapping
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path, PurePath
 
@@ -45,6 +46,19 @@ class AlreadyStarted(StartFailed):
     because a caller answers it differently: nothing is wrong with the App, and
     the App it names is the one already there.
     """
+
+
+async def _release_stdin(stdin: asyncio.StreamWriter, /) -> None:
+    """Close the write end of a child's standard input and let its transport finish.
+
+    Closing alone only asks; the transport closes on a later loop iteration, and
+    a caller that returns before then leaves an unclosed transport to be
+    reported at collection. `OSError` is suppressed because the pipe being gone
+    already -- the child died and took its end with it -- is the outcome wanted.
+    """
+    stdin.close()
+    with suppress(OSError):
+        await stdin.wait_closed()
 
 
 def _log_path(logs: Path, known_as: str, /) -> Path:
@@ -138,7 +152,7 @@ class Processes:
         child = self._running.pop(known_as, None)
         if child is None:
             return
-        child.stdin.close()
+        await _release_stdin(child.stdin)
         if child.process.returncode is None:
             child.process.kill()
         await child.process.wait()
@@ -271,7 +285,7 @@ class Processes:
         child = self._running.pop(app_name, None)
         if child is None:
             return False
-        child.stdin.close()
+        await _release_stdin(child.stdin)
         process = child.process
         if process.returncode is not None:
             return True

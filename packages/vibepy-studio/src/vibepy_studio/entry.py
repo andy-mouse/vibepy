@@ -45,7 +45,7 @@ async def studio_lifespan(config: StudioConfig) -> AsyncGenerator[StudioDeps]:
     """Acquire Studio's resource for the life of one window."""
     root = StudioRoot(path=config.root, own=APP_ID)
     await root.prepare(proxy_port=config.proxy_port)
-    processes = Processes(logs=config.root / APP_ID / "logs")
+    processes = Processes(logs=Path(root.logs))
     try:
         yield StudioDeps(root=root, processes=processes, proxy_port=config.proxy_port)
     finally:

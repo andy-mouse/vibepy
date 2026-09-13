@@ -158,8 +158,7 @@ docs, Command line and environment). The virtual environment still applies, beca
 recognised by the `pyvenv.cfg` beside the interpreter and not by anything `-I` ignores.
 `--until-stdin-closes` is ADR-039's flag: with it the command reads standard input until
 end-of-file and then shuts the server down, so the process lives exactly as long as the host
-holding the other end of that pipe. Without it the command never touches standard input, which
-is why the flag is the launcher's to ask for. See
+holding the other end of that pipe. Without it the command never touches standard input. See
 `docs/decisions/ADR-039-a-channel-process-lives-while-its-host-holds-its-standard-input.md`.
 
 Run with an App environment's own interpreter, it invokes as the principal `operator`, with no
