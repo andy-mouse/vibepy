@@ -12,13 +12,8 @@ from urllib.request import urlopen
 
 import pytest
 
-from vibepy_core import (
-    Channel,
-    ErrorCategory,
-    ErrorInfo,
-    InvocationRecord,
-    read_window_record,
-)
+from vibepy_core import Channel, ErrorCategory, ErrorInfo, InvocationRecord
+from vibepy_core.app import read_window_record
 from vibepy_core.app.config import ENV_PREFIX, environment_for
 from vibepy_core.errors import read_report_line
 from vibepy_core.tool import read_invocation_record

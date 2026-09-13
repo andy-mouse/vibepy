@@ -69,7 +69,7 @@ extend-exclude = ["docs/**"]
 # Where a first-party import resolves from, which is not the same list as what
 # ruff checks: the scope is the whole tree less what `extend-exclude` names.
 # Globs are supported, so a member added later needs no edit here.
-src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src"]
+src = ["src", "tests", "packages/*/src", "packages/*/tests", "fixtures/*/src", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF", "TID", "D"]

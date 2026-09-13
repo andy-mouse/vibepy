@@ -19,7 +19,6 @@ from vibepy_core.app import (
     ToolDescription,
     WindowRecord,
     page_runtime_for,
-    read_window_record,
     tool_runtime_for,
 )
 from vibepy_core.channel import Channel
@@ -127,6 +126,5 @@ __all__ = [
     "VibepyError",
     "WindowRecord",
     "page_runtime_for",
-    "read_window_record",
     "tool_runtime_for",
 ]
